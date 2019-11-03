@@ -36,6 +36,11 @@ Swapchain::Swapchain(Vk &vk) :
 	format = getSurfaceFormat();
 	presentMode = getPresentMode();
 	swapchain = createSwapchain();
+
+	uint32_t count;
+	vkGetSwapchainImagesKHR(vk.device.device, swapchain, &count, nullptr);
+	images.resize(count);
+	vkGetSwapchainImagesKHR(vk.device.device, swapchain, &count, images.data());
 }
 
 Swapchain::~Swapchain(void)
