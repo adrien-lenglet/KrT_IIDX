@@ -17,10 +17,10 @@ static std::vector<VkPhysicalDevice> getDevices(VkInstance instance)
 	return res;
 }
 
-static int areExtensionsSupported(VkPhysicalDevice device)
+static bool areExtensionsSupported(VkPhysicalDevice device)
 {
 	std::vector<const char*> desiredExt = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-	std::vector<int> extAvailable(desiredExt.size(), 0);
+	std::vector<bool> extAvailable(desiredExt.size(), 0);
 
 	uint32_t count = 0;
 	vkAssert(vkEnumerateDeviceExtensionProperties(device, nullptr, &count, nullptr));
@@ -37,7 +37,7 @@ static int areExtensionsSupported(VkPhysicalDevice device)
 	return 1;
 }
 
-static int isPhysicalDeviceCapable(VkPhysicalDevice device)
+static bool isPhysicalDeviceCapable(VkPhysicalDevice device)
 {
 	if (!areExtensionsSupported(device))
 		return 0;

@@ -13,30 +13,6 @@ class Vk;
 void vkAssert_real(VkResult res, const char *file, int line, const char *fun);
 #define vkAssert(res) vkAssert_real(res, __FILE__, __LINE__, __func__)
 
-class VkInstanceCreateInfo_data
-{
-public:
-	VkInstanceCreateInfo_data(void);
-	~VkInstanceCreateInfo_data(void);
-
-	std::vector<const char*> layers;
-	std::vector<const char*> extensions;
-	VkApplicationInfo applicationInfo;
-	VkInstanceCreateInfo createInfo;
-
-private:
-};
-
-class vec_VkDeviceQueueCreateInfo : public std::vector<VkDeviceQueueCreateInfo>
-{
-public:
-	vec_VkDeviceQueueCreateInfo(Vk &vk);
-	~vec_VkDeviceQueueCreateInfo(void);
-	std::vector<std::vector<float>> priorities;
-
-private:
-};
-
 class Vk
 {
 public:

@@ -69,9 +69,9 @@ static VkApplicationInfo getApplicationInfo(void)
 
 	res.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	res.pNext = nullptr;
-	res.pApplicationName = "SUNREN";
+	res.pApplicationName = "KrT_IIDX";
 	res.applicationVersion = VK_MAKE_VERSION(0, 1, 0);
-	res.pEngineName = "Subtile";
+	res.pEngineName = "SUBtire";
 	res.engineVersion = VK_MAKE_VERSION(0, 1, 0);
 	res.apiVersion = VK_API_VERSION_1_1;
 	return res;
@@ -92,6 +92,20 @@ static VkInstanceCreateInfo getInstanceCreateInfo(const VkApplicationInfo *appli
 
 	return res;
 }
+
+class VkInstanceCreateInfo_data
+{
+public:
+	VkInstanceCreateInfo_data(void);
+	~VkInstanceCreateInfo_data(void);
+
+	std::vector<const char*> layers;
+	std::vector<const char*> extensions;
+	VkApplicationInfo applicationInfo;
+	VkInstanceCreateInfo createInfo;
+
+private:
+};
 
 VkInstanceCreateInfo_data::VkInstanceCreateInfo_data(void) :
 	layers(getLayers()),

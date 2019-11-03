@@ -5,6 +5,16 @@
 
 #include "vk.hpp"
 
+class vec_VkDeviceQueueCreateInfo : public std::vector<VkDeviceQueueCreateInfo>
+{
+public:
+	vec_VkDeviceQueueCreateInfo(Vk &vk);
+	~vec_VkDeviceQueueCreateInfo(void);
+	std::vector<std::vector<float>> priorities;
+
+private:
+};
+
 vec_VkDeviceQueueCreateInfo::vec_VkDeviceQueueCreateInfo(Vk &vk)
 {
 	std::set<uint32_t> queueFamilies = {vk.queueFamilies.getIndex(VK_QUEUE_GRAPHICS_BIT), vk.queueFamilies.getIndexPresent()};
