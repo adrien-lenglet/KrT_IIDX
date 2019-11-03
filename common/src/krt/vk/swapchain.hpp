@@ -2,6 +2,20 @@
 class Swapchain
 {
 public:
+	class Image
+	{
+	public:
+		Image(Swapchain &swapchain, VkImage image);
+		~Image(void);
+
+		Swapchain &swapchain;
+
+		VkImage image;
+		VkImageView view;
+
+	private:
+	};
+
 	Swapchain(Vk &vk, VkPhysicalDevice physicalDevice);
 	Swapchain(Vk &vk);
 	~Swapchain(void);
@@ -16,7 +30,7 @@ public:
 	VkExtent2D extent;
 	VkSurfaceFormatKHR format;
 	VkPresentModeKHR presentMode;
-	std::vector<VkImage> images;
+	std::vector<Image> images;
 
 	bool isValid(void);
 
@@ -31,4 +45,5 @@ private:
 	VkPresentModeKHR getPresentMode(void);
 	uint32_t getMinImageCount(void);
 	VkSwapchainKHR createSwapchain(void);
+	std::vector<Image> fetchImages(void);
 };

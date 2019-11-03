@@ -26,6 +26,22 @@ Swapchain::Swapchain(Vk &vk, VkPhysicalDevice physicalDevice) :
 	updateCapabilities();
 }
 
+std::vector<Swapchain::Image> Swapchain::fetchImages(void)
+{
+	std::vector<Swapchain::Image> res;
+	std::vector<VkImage> vkImages;
+
+	uint32_t count;
+	vkGetSwapchainImagesKHR(vk.device.device, swapchain, &count, nullptr);
+	vkImages.resize(count);
+	vkGetSwapchainImagesKHR(vk.device.device, swapchain, &count, vkImages.data());
+
+	res.reserve(vkImages.size());
+	for (auto vkImage : vkImages)
+		res.emplace_back(*this, vkImage);
+	return res;
+}
+
 Swapchain::Swapchain(Vk &vk) :
 	vk(vk),
 	physicalDevice(vk.device.physicalDevice),
@@ -36,11 +52,7 @@ Swapchain::Swapchain(Vk &vk) :
 	format = getSurfaceFormat();
 	presentMode = getPresentMode();
 	swapchain = createSwapchain();
-
-	uint32_t count;
-	vkGetSwapchainImagesKHR(vk.device.device, swapchain, &count, nullptr);
-	images.resize(count);
-	vkGetSwapchainImagesKHR(vk.device.device, swapchain, &count, images.data());
+	images = fetchImages();
 }
 
 Swapchain::~Swapchain(void)
@@ -124,4 +136,34 @@ VkSwapchainKHR Swapchain::createSwapchain(void)
 
 	vkAssert(vkCreateSwapchainKHR(vk.device.device, &createInfo, nullptr, &res));
 	return res;
+}
+
+Swapchain::Image::Image(Swapchain &swapchain, VkImage image) :
+	swapchain(swapchain),
+	image(image)
+{
+	VkImageViewCreateInfo createInfo;
+
+	createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	createInfo.pNext = nullptr;
+	createInfo.flags = 0;
+	createInfo.image = image;
+	createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	createInfo.format = swapchain.format.format;
+	createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+	createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+	createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+	createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+	createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	createInfo.subresourceRange.baseMipLevel = 0;
+	createInfo.subresourceRange.levelCount = 1;
+	createInfo.subresourceRange.baseArrayLayer = 0;
+	createInfo.subresourceRange.layerCount = 1;
+
+	vkAssert(vkCreateImageView(swapchain.vk.device.device, &createInfo, nullptr, &view));
+}
+
+Swapchain::Image::~Image(void)
+{
+	vkDestroyImageView(swapchain.vk.device.device, view, nullptr);
 }
