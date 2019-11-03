@@ -1,4 +1,6 @@
 KrT_IIDX
 KrT_IIDX.exe
 build_run.sh
+
 *.cbp
+*.o

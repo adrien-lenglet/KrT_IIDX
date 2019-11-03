@@ -1,0 +1,54 @@
+
+.DEFAULT_GOAL := all
+
+ifndef VULKAN_SDK
+$(error VULKAN_SDK is not set. Make sure the LunarG Vulkan SDK is installed on your system and that this variable is properly set in your environment)
+endif
+
+DEFINE =
+EXTRA =
+INCLUDE = -I../common/src -I../common/libs/include
+CXXFLAGS = -m64 -Wall -Wextra -std=c++17 $(EXTRA) $(DEFINE) $(INCLUDE)
+
+SRC_FOLDER = ../common/src
+
+SRC = $(wildcard $(SRC_FOLDER)/*.cpp) $(wildcard $(SRC_FOLDER)/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*.cpp)
+OBJ = $(SRC:.cpp=.o)
+
+TARGET = ../KrT_IIDX.exe
+LIBS_SO = $(wildcard ../*.dll)
+LDLIB = $(LIBS_SO) \
+"$(shell cygpath.exe --unix $(VULKAN_SDK))/Lib/vulkan-1.lib"
+
+DARG = all
+
+libs:
+	$(MAKE) -C libs $(DARG)
+
+libs_clean: DARG = clean
+libs_clean: libs
+
+shaders:
+	$(MAKE) -C ../common/shaders $(DARG)
+
+shaders_clean: DARG = clean
+shaders_clean: shaders
+
+$(TARGET): libs shaders $(OBJ) $(SHADER_BIN)
+	g++ $(OBJ) -o $(TARGET) $(LDLIB)
+
+all: $(TARGET)
+
+debug: EXTRA = -g
+debug: DEFINE = -DDEBUG
+debug: all
+
+release: EXTRA = -O3
+release: all
+
+clean: shaders_clean
+	rm -f $(TARGET) $(OBJ)
+
+clean_all: libs_clean shaders_clean clean
+
+.PHONY: all debug release clean libs libs_clean shaders shaders_clean clean_all
