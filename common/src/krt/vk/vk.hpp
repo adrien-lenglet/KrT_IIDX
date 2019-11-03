@@ -6,6 +6,7 @@
 #include <vulkan/vulkan.h>
 
 class Vk;
+class Krt;
 
 #include "glfw.hpp"
 #include "queue.hpp"
@@ -16,8 +17,10 @@ void vkAssert_real(VkResult res, const char *file, int line, const char *fun);
 class Vk
 {
 public:
-	Vk(void);
+	Vk(Krt &krt);
 	~Vk(void);
+
+	Krt &krt;
 
 	Glfw glfw;
 

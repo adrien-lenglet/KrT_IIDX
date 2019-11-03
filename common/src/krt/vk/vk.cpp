@@ -17,7 +17,7 @@ void Vk::initSurface(void)
 	vkAssert(glfwCreateWindowSurface(this->instance, this->glfw.window, nullptr, &this->surface));
 }
 
-Vk::Vk(void) : glfw(Glfw(1600, 900))
+Vk::Vk(Krt &krt) : krt(krt), glfw(Glfw(1600, 900))
 {
 	initInstance();
 	initValidationLayers();

@@ -2,7 +2,7 @@
 #include <iostream>
 #include <exception>
 
-#include "vk.hpp"
+#include "krt/krt.hpp"
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -25,7 +25,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	return VK_FALSE;
 }
 
-static std::vector<const char*> getLayers(void)
+static std::vector<const char*> getLayers(bool isProfile)
 {
 	std::vector<const char*> res;
 
@@ -35,15 +35,11 @@ static std::vector<const char*> getLayers(void)
 	std::vector<VkLayerProperties> layers(layerCount);
 	vkAssert(vkEnumerateInstanceLayerProperties(&layerCount, layers.data()));
 
-	for (auto layer : layers) {
-		printf("%s\n", layer.layerName);
-	}
-
 	res.push_back("VK_LAYER_KHRONOS_validation");
 	res.push_back("VK_LAYER_LUNARG_monitor");
 	#endif // DEBUG
-	//if (sb.config.profile)
-	//	res.push_back("VK_LAYER_RENDERDOC_Capture");
+	if (isProfile)
+		res.push_back("VK_LAYER_RENDERDOC_Capture");
 	return res;
 }
 
@@ -96,9 +92,10 @@ static VkInstanceCreateInfo getInstanceCreateInfo(const VkApplicationInfo *appli
 class VkInstanceCreateInfo_data
 {
 public:
-	VkInstanceCreateInfo_data(void);
+	VkInstanceCreateInfo_data(bool isProfile);
 	~VkInstanceCreateInfo_data(void);
 
+	bool isProfile;
 	std::vector<const char*> layers;
 	std::vector<const char*> extensions;
 	VkApplicationInfo applicationInfo;
@@ -107,8 +104,9 @@ public:
 private:
 };
 
-VkInstanceCreateInfo_data::VkInstanceCreateInfo_data(void) :
-	layers(getLayers()),
+VkInstanceCreateInfo_data::VkInstanceCreateInfo_data(bool isProfile) :
+	isProfile(isProfile),
+	layers(getLayers(isProfile)),
 	extensions(getExtensions()),
 	applicationInfo(getApplicationInfo()),
 	createInfo(getInstanceCreateInfo(&this->applicationInfo, this->layers, this->extensions))
@@ -121,8 +119,11 @@ VkInstanceCreateInfo_data::~VkInstanceCreateInfo_data(void)
 
 void Vk::initInstance(void)
 {
-	VkInstanceCreateInfo_data data;
+	VkInstanceCreateInfo_data data(krt.config.isProfile);
 
+	printf("Used layers:\n");
+	for (auto layer : data.layers)
+		printf("	%s\n", layer);
 	vkAssert(vkCreateInstance(&data.createInfo, nullptr, &this->instance));
 }
 
