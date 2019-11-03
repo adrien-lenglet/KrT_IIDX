@@ -22,7 +22,9 @@ QueueFamilies::QueueFamilies(VkPhysicalDevice physicalDevice, VkSurfaceKHR surfa
 	updateFamilies();
 }
 
-QueueFamilies::QueueFamilies(Vk &vk) : physicalDevice(vk.physicalDevice), surface(vk.surface)
+QueueFamilies::QueueFamilies(Vk &vk) :
+	physicalDevice(vk.device.physicalDevice),
+	surface(vk.context.surface)
 {
 	updateFamilies();
 }
@@ -54,7 +56,9 @@ int QueueFamilies::isPresentationSupported(void)
 
 int QueueFamilies::areQueuesSupported(void)
 {
-	return (this->getSupportedFlags() & VK_QUEUE_GRAPHICS_BIT) && this->isPresentationSupported();
+	VkQueueFlags supported = getSupportedFlags();
+
+	return (supported & VK_QUEUE_GRAPHICS_BIT) && (supported & VK_QUEUE_TRANSFER_BIT) && isPresentationSupported();
 }
 
 #include <optional>
@@ -94,9 +98,9 @@ uint32_t QueueFamilies::getIndexPresent(void)
 
 Queues::Queues(Vk &vk)
 {
-	present = vk.getDeviceQueue(vk.queueFamilies.getIndexPresent(), 0);
-	graphics = vk.getDeviceQueue(vk.queueFamilies.getIndex(VK_QUEUE_GRAPHICS_BIT), 0);
-	transfer = vk.getDeviceQueue(vk.queueFamilies.getIndex(VK_QUEUE_TRANSFER_BIT), 0);
+	present = vk.device.getQueue(vk.device.queueFamilies.getIndexPresent(), 0);
+	graphics = vk.device.getQueue(vk.device.queueFamilies.getIndex(VK_QUEUE_GRAPHICS_BIT), 0);
+	transfer = vk.device.getQueue(vk.device.queueFamilies.getIndex(VK_QUEUE_TRANSFER_BIT), 0);
 }
 
 Queues::~Queues(void)

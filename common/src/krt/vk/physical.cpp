@@ -20,7 +20,7 @@ static std::vector<VkPhysicalDevice> getDevices(VkInstance instance)
 static bool areExtensionsSupported(VkPhysicalDevice device)
 {
 	std::vector<const char*> desiredExt = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-	std::vector<bool> extAvailable(desiredExt.size(), 0);
+	std::vector<bool> extAvailable(desiredExt.size(), false);
 
 	uint32_t count = 0;
 	vkAssert(vkEnumerateDeviceExtensionProperties(device, nullptr, &count, nullptr));
@@ -30,18 +30,11 @@ static bool areExtensionsSupported(VkPhysicalDevice device)
 	for (size_t i = 0; i < desiredExt.size(); i++)
 		for (uint32_t j = 0; j < count; j++)
 			if (strcmp(desiredExt[i], ext[j].extensionName) == 0)
-				extAvailable[i] = 1;
+				extAvailable[i] = true;
 	for (auto avail : extAvailable)
 		if (!avail)
-			return 0;
-	return 1;
-}
-
-static bool isPhysicalDeviceCapable(VkPhysicalDevice device)
-{
-	if (!areExtensionsSupported(device))
-		return 0;
-	return 1;
+			return false;
+	return true;
 }
 
 static VkPhysicalDevice findBestPhysicalDevice(VkSurfaceKHR surface, VkInstance instance)
@@ -56,7 +49,7 @@ static VkPhysicalDevice findBestPhysicalDevice(VkSurfaceKHR surface, VkInstance 
 		vkGetPhysicalDeviceProperties(device, &properties);
 		vkGetPhysicalDeviceFeatures(device, &features);
 		queueFamilies = QueueFamilies(device, surface);
-		if (isPhysicalDeviceCapable(device) && queueFamilies.areQueuesSupported()) {
+		if (areExtensionsSupported(device) && queueFamilies.areQueuesSupported() && Swapchain(device, surface).isValid()) {
 			res = device;
 			if (properties.deviceType & VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
 				return res;
@@ -67,12 +60,12 @@ static VkPhysicalDevice findBestPhysicalDevice(VkSurfaceKHR surface, VkInstance 
 	return res;
 }
 
-VkPhysicalDevice Vk::createPhysicalDevice(void)
+VkPhysicalDevice Device::createPhysicalDevice(Context &context)
 {
-	return findBestPhysicalDevice(surface, instance);
+	return findBestPhysicalDevice(context.surface, context.instance);
 }
 
-VkPhysicalDeviceProperties Vk::getPhysicalDeviceProperties(void)
+VkPhysicalDeviceProperties Device::getPhysicalDeviceProperties(void)
 {
 	VkPhysicalDeviceProperties res;
 
@@ -80,7 +73,7 @@ VkPhysicalDeviceProperties Vk::getPhysicalDeviceProperties(void)
 	return res;
 }
 
-VkPhysicalDeviceFeatures Vk::getPhysicalDeviceFeatures(void)
+VkPhysicalDeviceFeatures Device::getPhysicalDeviceFeatures(void)
 {
 	VkPhysicalDeviceFeatures res;
 

@@ -8,8 +8,10 @@
 class Vk;
 class Krt;
 
-#include "glfw.hpp"
+#include "context.hpp"
 #include "queue.hpp"
+#include "device.hpp"
+#include "swapchain.hpp"
 
 void vkAssert_real(VkResult res, const char *file, int line, const char *fun);
 #define vkAssert(res) vkAssert_real(res, __FILE__, __LINE__, __func__)
@@ -22,27 +24,10 @@ public:
 
 	Krt &krt;
 
-	Glfw glfw;
-
-	VkInstance instance;
-	VkDebugUtilsMessengerEXT debugMessenger;
-	VkSurfaceKHR surface;
-	VkPhysicalDevice physicalDevice;
-	VkPhysicalDeviceProperties properties;
-	VkPhysicalDeviceFeatures features;
-	QueueFamilies queueFamilies;
-	VkDevice device;
+	Context context;
+	Device device;
 	Queues queues;
-
-	VkQueue getDeviceQueue(uint32_t familyIndex, uint32_t index);
+	Swapchain swapchain;
 
 private:
-	void init(void);
-	VkInstance createInstance(void);
-	VkDebugUtilsMessengerEXT createDebugMessenger(void);
-	VkSurfaceKHR createSurface(void);
-	VkPhysicalDevice createPhysicalDevice(void);
-	VkPhysicalDeviceProperties getPhysicalDeviceProperties(void);
-	VkPhysicalDeviceFeatures getPhysicalDeviceFeatures(void);
-	VkDevice createDevice(void);
 };

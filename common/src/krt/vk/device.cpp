@@ -8,16 +8,16 @@
 class vec_VkDeviceQueueCreateInfo : public std::vector<VkDeviceQueueCreateInfo>
 {
 public:
-	vec_VkDeviceQueueCreateInfo(Vk &vk);
+	vec_VkDeviceQueueCreateInfo(Device &device);
 	~vec_VkDeviceQueueCreateInfo(void);
 	std::vector<std::vector<float>> priorities;
 
 private:
 };
 
-vec_VkDeviceQueueCreateInfo::vec_VkDeviceQueueCreateInfo(Vk &vk)
+vec_VkDeviceQueueCreateInfo::vec_VkDeviceQueueCreateInfo(Device &device)
 {
-	for (size_t i = 0; i < vk.queueFamilies.families.size(); i++) {
+	for (size_t i = 0; i < device.queueFamilies.families.size(); i++) {
 		VkDeviceQueueCreateInfo to_push;
 
 		to_push.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -35,7 +35,21 @@ vec_VkDeviceQueueCreateInfo::~vec_VkDeviceQueueCreateInfo(void)
 {
 }
 
-VkDevice Vk::createDevice(void)
+Device::Device(Vk &vk) :
+	physicalDevice(createPhysicalDevice(vk.context)),
+	properties(getPhysicalDeviceProperties()),
+	features(getPhysicalDeviceFeatures()),
+	queueFamilies(QueueFamilies(vk)),
+	device(createDevice())
+{
+}
+
+Device::~Device(void)
+{
+	vkDestroyDevice(device, nullptr);
+}
+
+VkDevice Device::createDevice(void)
 {
 	VkDevice res;
 	VkDeviceCreateInfo createInfo;
@@ -51,8 +65,16 @@ VkDevice Vk::createDevice(void)
 	createInfo.ppEnabledLayerNames = nullptr;
 	createInfo.enabledExtensionCount = extensions.size();
 	createInfo.ppEnabledExtensionNames = extensions.data();
-	createInfo.pEnabledFeatures = &this->features;
+	createInfo.pEnabledFeatures = &features;
 
-	vkAssert(vkCreateDevice(this->physicalDevice, &createInfo, nullptr, &res));
+	vkAssert(vkCreateDevice(physicalDevice, &createInfo, nullptr, &res));
+	return res;
+}
+
+VkQueue Device::getQueue(uint32_t familyIndex, uint32_t index)
+{
+	VkQueue res;
+
+	vkGetDeviceQueue(device, familyIndex, index, &res);
 	return res;
 }

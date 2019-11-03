@@ -117,10 +117,10 @@ VkInstanceCreateInfo_data::~VkInstanceCreateInfo_data(void)
 {
 }
 
-VkInstance Vk::createInstance(void)
+VkInstance Context::createInstance(void)
 {
 	VkInstance res;
-	VkInstanceCreateInfo_data data(krt.config.isProfile);
+	VkInstanceCreateInfo_data data(vk.krt.config.isProfile);
 
 	printf("Used layers:\n");
 	for (auto layer : data.layers)
@@ -148,7 +148,7 @@ void vkDestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerE
 		func(instance, debugMessenger, pAllocator);
 }
 
-VkDebugUtilsMessengerEXT Vk::createDebugMessenger(void)
+VkDebugUtilsMessengerEXT Context::createDebugMessenger(void)
 {
 	VkDebugUtilsMessengerEXT res;
 	#ifndef DEBUG

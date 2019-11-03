@@ -12,45 +12,16 @@ void vkAssert_real(VkResult res, const char *file, int line, const char *fun)
 		throw std::runtime_error(std::string(file) + "("+ std::to_string(line) + ") in " + std::string(fun) + "() got VkResult: " + std::to_string(res));
 }
 
-VkSurfaceKHR Vk::createSurface(void)
-{
-	VkSurfaceKHR res;
-
-	vkAssert(glfwCreateWindowSurface(instance, glfw.window, nullptr, &res));
-	return res;
-}
-
 Vk::Vk(Krt &krt) :
 	krt(krt),
-	glfw(Glfw(1600, 900)),
-	instance(createInstance()),
-	debugMessenger(createDebugMessenger()),
-	surface(createSurface()),
-	physicalDevice(createPhysicalDevice()),
-	properties(getPhysicalDeviceProperties()),
-	features(getPhysicalDeviceFeatures()),
-	queueFamilies(QueueFamilies(*this)),
-	device(createDevice()),
-	queues(Queues(*this))
+	context(Context(*this, 1600, 900)),
+	device(Device(*this)),
+	queues(Queues(*this)),
+	swapchain(Swapchain(*this))
 {
 	printf("Vk init done.\n");
 }
 
 Vk::~Vk(void)
 {
-	vkDestroyDevice(device, nullptr);
-	#ifdef DEBUG
-	vkDestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
-	#endif
-	vkDestroySurfaceKHR(instance, surface, nullptr);
-	vkDestroyInstance(instance, nullptr);
-	printf("Vk destr done.\n");
-}
-
-VkQueue Vk::getDeviceQueue(uint32_t familyIndex, uint32_t index)
-{
-	VkQueue res;
-
-	vkGetDeviceQueue(device, familyIndex, index, &res);
-	return res;
 }

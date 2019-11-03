@@ -12,8 +12,6 @@ static std::vector<std::string> getArgs(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
-	Krt krt(getArgs(argc, argv));
-
-	krt.run();
+	Krt(getArgs(argc, argv)).run();
 	return 0;
 }
