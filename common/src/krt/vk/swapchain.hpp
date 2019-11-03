@@ -2,9 +2,11 @@
 class Swapchain
 {
 public:
-	Swapchain(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);
+	Swapchain(Vk &vk, VkPhysicalDevice physicalDevice);
 	Swapchain(Vk &vk);
 	~Swapchain(void);
+
+	Vk &vk;
 
 	VkSurfaceCapabilitiesKHR capabilities;
 	std::vector<VkSurfaceFormatKHR> formats;
@@ -21,7 +23,6 @@ public:
 private:
 	VkPhysicalDevice physicalDevice;
 	VkSurfaceKHR surface;
-	Vk *vk;
 
 	void updateCapabilities(void);
 

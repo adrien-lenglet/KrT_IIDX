@@ -17,18 +17,19 @@ void Swapchain::updateCapabilities(void)
 	vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &count, presentModes.data());
 }
 
-Swapchain::Swapchain(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface) :
+Swapchain::Swapchain(Vk &vk, VkPhysicalDevice physicalDevice) :
+	vk(vk),
 	swapchain(VK_NULL_HANDLE),
 	physicalDevice(physicalDevice),
-	surface(surface)
+	surface(vk.context.surface)
 {
 	updateCapabilities();
 }
 
 Swapchain::Swapchain(Vk &vk) :
+	vk(vk),
 	physicalDevice(vk.device.physicalDevice),
-	surface(vk.context.surface),
-	vk(&vk)
+	surface(vk.context.surface)
 {
 	updateCapabilities();
 	extent = getExtent2D();
@@ -40,7 +41,7 @@ Swapchain::Swapchain(Vk &vk) :
 Swapchain::~Swapchain(void)
 {
 	if (swapchain != VK_NULL_HANDLE)
-		vkDestroySwapchainKHR(vk->device.device, swapchain, nullptr);
+		vkDestroySwapchainKHR(vk.device.device, swapchain, nullptr);
 }
 
 bool Swapchain::isValid(void)
@@ -106,7 +107,7 @@ VkSwapchainKHR Swapchain::createSwapchain(void)
 	createInfo.imageExtent = extent;
 	createInfo.imageArrayLayers = 1;
 	createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	std::set<uint32_t> familyIndices = {vk->device.queueFamilies.getIndex(VK_QUEUE_GRAPHICS_BIT), vk->device.queueFamilies.getIndexPresent()};
+	std::set<uint32_t> familyIndices = {vk.device.queueFamilies.getIndex(VK_QUEUE_GRAPHICS_BIT), vk.device.queueFamilies.getIndexPresent()};
 	createInfo.imageSharingMode = familyIndices.size() > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
 	createInfo.queueFamilyIndexCount = familyIndices.size();
 	createInfo.pQueueFamilyIndices = std::vector<uint32_t>(familyIndices.begin(), familyIndices.end()).data();
@@ -116,6 +117,6 @@ VkSwapchainKHR Swapchain::createSwapchain(void)
 	createInfo.clipped = VK_TRUE;
 	createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-	vkAssert(vkCreateSwapchainKHR(vk->device.device, &createInfo, nullptr, &res));
+	vkAssert(vkCreateSwapchainKHR(vk.device.device, &createInfo, nullptr, &res));
 	return res;
 }

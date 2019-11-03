@@ -37,9 +37,9 @@ static bool areExtensionsSupported(VkPhysicalDevice device)
 	return true;
 }
 
-static VkPhysicalDevice findBestPhysicalDevice(VkSurfaceKHR surface, VkInstance instance)
+static VkPhysicalDevice findBestPhysicalDevice(Vk &vk)
 {
-	std::vector<VkPhysicalDevice> devices = getDevices(instance);
+	std::vector<VkPhysicalDevice> devices = getDevices(vk.context.instance);
 	VkPhysicalDevice res = VK_NULL_HANDLE;
 	VkPhysicalDeviceProperties properties;
 	VkPhysicalDeviceFeatures features;
@@ -48,8 +48,8 @@ static VkPhysicalDevice findBestPhysicalDevice(VkSurfaceKHR surface, VkInstance 
 	for (auto device : devices) {
 		vkGetPhysicalDeviceProperties(device, &properties);
 		vkGetPhysicalDeviceFeatures(device, &features);
-		queueFamilies = QueueFamilies(device, surface);
-		if (areExtensionsSupported(device) && queueFamilies.areQueuesSupported() && Swapchain(device, surface).isValid()) {
+		queueFamilies = QueueFamilies(device, vk.context.surface);
+		if (areExtensionsSupported(device) && queueFamilies.areQueuesSupported() && Swapchain(vk, device).isValid()) {
 			res = device;
 			if (properties.deviceType & VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
 				return res;
@@ -60,9 +60,9 @@ static VkPhysicalDevice findBestPhysicalDevice(VkSurfaceKHR surface, VkInstance 
 	return res;
 }
 
-VkPhysicalDevice Device::createPhysicalDevice(Context &context)
+VkPhysicalDevice Device::createPhysicalDevice(Vk &vk)
 {
-	return findBestPhysicalDevice(context.surface, context.instance);
+	return findBestPhysicalDevice(vk);
 }
 
 VkPhysicalDeviceProperties Device::getPhysicalDeviceProperties(void)
