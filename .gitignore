@@ -4,3 +4,4 @@ build_run.sh
 
 *.cbp
 *.o
+*.spv
