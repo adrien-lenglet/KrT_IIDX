@@ -44,7 +44,7 @@ static bool isPhysicalDeviceCapable(VkPhysicalDevice device)
 	return 1;
 }
 
-static std::tuple<VkPhysicalDevice, VkPhysicalDeviceProperties, VkPhysicalDeviceFeatures, QueueFamilies> findBestPhysicalDevice(VkSurfaceKHR surface, VkInstance instance)
+static VkPhysicalDevice findBestPhysicalDevice(VkSurfaceKHR surface, VkInstance instance)
 {
 	std::vector<VkPhysicalDevice> devices = getDevices(instance);
 	VkPhysicalDevice res = VK_NULL_HANDLE;
@@ -59,15 +59,31 @@ static std::tuple<VkPhysicalDevice, VkPhysicalDeviceProperties, VkPhysicalDevice
 		if (isPhysicalDeviceCapable(device) && queueFamilies.areQueuesSupported()) {
 			res = device;
 			if (properties.deviceType & VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
-				return std::make_tuple(device, properties, features, queueFamilies);
+				return res;
 		}
 	}
 	if (res == VK_NULL_HANDLE)
 		throw std::runtime_error("Cannot find any compatible GPU on this system");
-	return std::make_tuple(res, properties, features, queueFamilies);
+	return res;
 }
 
-void Vk::initPhysicalDevice(void)
+VkPhysicalDevice Vk::createPhysicalDevice(void)
 {
-	std::tie(this->physicalDevice, this->properties, this->features, this->queueFamilies) = findBestPhysicalDevice(surface, instance);
+	return findBestPhysicalDevice(surface, instance);
+}
+
+VkPhysicalDeviceProperties Vk::getPhysicalDeviceProperties(void)
+{
+	VkPhysicalDeviceProperties res;
+
+	vkGetPhysicalDeviceProperties(physicalDevice, &res);
+	return res;
+}
+
+VkPhysicalDeviceFeatures Vk::getPhysicalDeviceFeatures(void)
+{
+	VkPhysicalDeviceFeatures res;
+
+	vkGetPhysicalDeviceFeatures(physicalDevice, &res);
+	return res;
 }

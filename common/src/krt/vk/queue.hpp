@@ -9,14 +9,27 @@ public:
 	QueueFamilies(Vk &vk);
 	~QueueFamilies(void);
 
+	std::vector<VkQueueFamilyProperties> families;
+
 	VkQueueFlags getSupportedFlags(void);
 	int isPresentationSupported(void);
 	int areQueuesSupported(void);
 	uint32_t getIndex(VkQueueFlags flags);
 	uint32_t getIndexPresent(void);
+
 private:
 	VkPhysicalDevice physicalDevice;
 	VkSurfaceKHR surface;
-	std::vector<VkQueueFamilyProperties> families;
 	void updateFamilies(void);
+};
+
+class Queues
+{
+public:
+	Queues(Vk &vk);
+	~Queues(void);
+
+	VkQueue present;
+	VkQueue graphics;
+	VkQueue transfer;
 };

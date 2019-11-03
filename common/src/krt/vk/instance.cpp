@@ -117,14 +117,16 @@ VkInstanceCreateInfo_data::~VkInstanceCreateInfo_data(void)
 {
 }
 
-void Vk::initInstance(void)
+VkInstance Vk::createInstance(void)
 {
+	VkInstance res;
 	VkInstanceCreateInfo_data data(krt.config.isProfile);
 
 	printf("Used layers:\n");
 	for (auto layer : data.layers)
 		printf("	%s\n", layer);
-	vkAssert(vkCreateInstance(&data.createInfo, nullptr, &this->instance));
+	vkAssert(vkCreateInstance(&data.createInfo, nullptr, &res));
+	return res;
 }
 
 VkResult vkCreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
@@ -146,10 +148,11 @@ void vkDestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerE
 		func(instance, debugMessenger, pAllocator);
 }
 
-void Vk::initValidationLayers(void)
+VkDebugUtilsMessengerEXT Vk::createDebugMessenger(void)
 {
+	VkDebugUtilsMessengerEXT res;
 	#ifndef DEBUG
-	return;
+	return VK_NULL_HANDLE;
 	#endif // DEBUG
 	VkDebugUtilsMessengerCreateInfoEXT createInfo;
 	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -160,5 +163,6 @@ void Vk::initValidationLayers(void)
 	createInfo.pfnUserCallback = debugCallback;
 	createInfo.pUserData = nullptr;
 
-	vkAssert(vkCreateDebugUtilsMessengerEXT(this->instance, &createInfo, nullptr, &this->debugMessenger));
+	vkAssert(vkCreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &res));
+	return res;
 }

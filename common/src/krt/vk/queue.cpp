@@ -57,12 +57,26 @@ int QueueFamilies::areQueuesSupported(void)
 	return (this->getSupportedFlags() & VK_QUEUE_GRAPHICS_BIT) && this->isPresentationSupported();
 }
 
+#include <optional>
+#include <bitset>
+
 uint32_t QueueFamilies::getIndex(VkQueueFlags flags)
 {
-	for (size_t i = 0; i < this->families.size(); i++)
-		if (this->families[i].queueFlags & flags)
-			return i;
-	throw std::runtime_error("Can't find any queue family matching these flags: " + std::to_string(flags));
+	std::optional<uint32_t> res;
+	std::optional<uint32_t> bestCount;
+
+	for (size_t i = 0; i < this->families.size(); i++) {
+		if (this->families[i].queueFlags & flags) {
+			size_t bitCount = std::bitset<32>(this->families[i].queueFlags).count();
+			if (!bestCount.has_value() || (bitCount < bestCount)) {
+				res = i;
+				bestCount = bitCount;
+			}
+		}
+	}
+	if (!res.has_value())
+		throw std::runtime_error("Can't find any queue family matching these flags: " + std::to_string(flags));
+	return *res;
 }
 
 
@@ -76,4 +90,15 @@ uint32_t QueueFamilies::getIndexPresent(void)
 				return i;
 		}
 	throw std::runtime_error("Can't find any queue family for presentation");
+}
+
+Queues::Queues(Vk &vk)
+{
+	present = vk.getDeviceQueue(vk.queueFamilies.getIndexPresent(), 0);
+	graphics = vk.getDeviceQueue(vk.queueFamilies.getIndex(VK_QUEUE_GRAPHICS_BIT), 0);
+	transfer = vk.getDeviceQueue(vk.queueFamilies.getIndex(VK_QUEUE_TRANSFER_BIT), 0);
+}
+
+Queues::~Queues(void)
+{
 }

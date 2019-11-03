@@ -25,19 +25,24 @@ public:
 	Glfw glfw;
 
 	VkInstance instance;
+	VkDebugUtilsMessengerEXT debugMessenger;
 	VkSurfaceKHR surface;
 	VkPhysicalDevice physicalDevice;
 	VkPhysicalDeviceProperties properties;
 	VkPhysicalDeviceFeatures features;
 	QueueFamilies queueFamilies;
 	VkDevice device;
+	Queues queues;
+
+	VkQueue getDeviceQueue(uint32_t familyIndex, uint32_t index);
 
 private:
-	void initInstance(void);
-	void initValidationLayers(void);
-	void initSurface(void);
-	void initPhysicalDevice(void);
-	void initDevice(void);
-
-	VkDebugUtilsMessengerEXT debugMessenger;
+	void init(void);
+	VkInstance createInstance(void);
+	VkDebugUtilsMessengerEXT createDebugMessenger(void);
+	VkSurfaceKHR createSurface(void);
+	VkPhysicalDevice createPhysicalDevice(void);
+	VkPhysicalDeviceProperties getPhysicalDeviceProperties(void);
+	VkPhysicalDeviceFeatures getPhysicalDeviceFeatures(void);
+	VkDevice createDevice(void);
 };
