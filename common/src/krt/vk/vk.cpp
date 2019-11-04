@@ -90,7 +90,8 @@ Vk::Vk(Krt &krt) :
 	context(Context(*this, 1600, 900)),
 	device(Device(*this)),
 	queues(Queues(*this)),
-	swapchain(Swapchain(*this))
+	swapchain(Swapchain(*this)),
+	pipeline(Pipeline(*this))
 {
 	printf("Vk init done.\n");
 }

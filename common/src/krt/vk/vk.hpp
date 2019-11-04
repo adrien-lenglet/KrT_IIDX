@@ -30,6 +30,7 @@ public:
 	Device device;
 	Queues queues;
 	Swapchain swapchain;
+	Pipeline pipeline;
 
 private:
 };
