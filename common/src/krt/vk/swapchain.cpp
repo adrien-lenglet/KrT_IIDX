@@ -133,8 +133,8 @@ Swapchain::Swapchain(Vk &vk) :
 	surfaceFormat(getSurfaceFormat()),
 	presentMode(getPresentMode()),
 	swapchain(createSwapchain()),
-	images(fetchImages()),
-	renderPass(createRenderPass())
+	renderPass(createRenderPass()),
+	images(fetchImages())
 {
 }
 
@@ -223,10 +223,9 @@ VkSwapchainKHR Swapchain::createSwapchain(void)
 	return res;
 }
 
-Swapchain::Image::Image(Swapchain &swapchain, VkImage image) :
-	swapchain(swapchain),
-	image(image)
+VkImageView Swapchain::Image::createImageView(void)
 {
+	VkImageView res;
 	VkImageViewCreateInfo createInfo;
 
 	createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -245,10 +244,42 @@ Swapchain::Image::Image(Swapchain &swapchain, VkImage image) :
 	createInfo.subresourceRange.baseArrayLayer = 0;
 	createInfo.subresourceRange.layerCount = 1;
 
-	vkAssert(vkCreateImageView(swapchain.vk.device.device, &createInfo, nullptr, &view));
+	vkAssert(vkCreateImageView(swapchain.vk.device.device, &createInfo, nullptr, &res));
+
+	return res;
+}
+
+VkFramebuffer Swapchain::Image::createFramebuffer(void)
+{
+	VkFramebuffer res;
+	VkFramebufferCreateInfo createInfo;
+
+	createInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	createInfo.pNext = nullptr;
+	createInfo.flags = 0;
+	createInfo.renderPass = swapchain.renderPass;
+	auto attachments = std::vector<VkImageView>{view};
+	createInfo.attachmentCount = attachments.size();
+	createInfo.pAttachments = attachments.data();
+	createInfo.width = swapchain.extent.width;
+	createInfo.height = swapchain.extent.height;
+	createInfo.layers = 1;
+
+	vkAssert(vkCreateFramebuffer(swapchain.vk.device.device, &createInfo, nullptr, &res));
+
+	return res;
+}
+
+Swapchain::Image::Image(Swapchain &swapchain, VkImage image) :
+	swapchain(swapchain),
+	image(image),
+	view(createImageView()),
+	framebuffer(createFramebuffer())
+{
 }
 
 Swapchain::Image::~Image(void)
 {
+	vkDestroyFramebuffer(swapchain.vk.device.device, framebuffer, nullptr);
 	vkDestroyImageView(swapchain.vk.device.device, view, nullptr);
 }

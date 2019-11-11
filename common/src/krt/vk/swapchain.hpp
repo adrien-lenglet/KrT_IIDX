@@ -12,8 +12,11 @@ public:
 
 		VkImage image;
 		VkImageView view;
+		VkFramebuffer framebuffer;
 
 	private:
+		VkImageView createImageView(void);
+		VkFramebuffer createFramebuffer(void);
 	};
 
 	Swapchain(Vk &vk, VkPhysicalDevice physicalDevice);
@@ -33,8 +36,8 @@ public:
 	VkSurfaceFormatKHR surfaceFormat;
 	VkPresentModeKHR presentMode;
 	VkSwapchainKHR swapchain;
-	std::vector<Image> images;
 	VkRenderPass renderPass;
+	std::vector<Image> images;
 
 	bool isValid(void);
 
@@ -49,6 +52,6 @@ private:
 	VkPresentModeKHR getPresentMode(void);
 	uint32_t getMinImageCount(void);
 	VkSwapchainKHR createSwapchain(void);
-	std::vector<Image> fetchImages(void);
 	VkRenderPass createRenderPass(void);
+	std::vector<Image> fetchImages(void);
 };
