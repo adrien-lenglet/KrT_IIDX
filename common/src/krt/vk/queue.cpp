@@ -96,11 +96,39 @@ uint32_t QueueFamilies::getIndexPresent(void)
 	throw std::runtime_error("Can't find any queue family for presentation");
 }
 
-Queues::Queues(Vk &vk)
+VkCommandPool Queue::createCommandPool(void)
 {
-	present = vk.device.getQueue(vk.device.queueFamilies.getIndexPresent(), 0);
-	graphics = vk.device.getQueue(vk.device.queueFamilies.getIndex(VK_QUEUE_GRAPHICS_BIT), 0);
-	transfer = vk.device.getQueue(vk.device.queueFamilies.getIndex(VK_QUEUE_TRANSFER_BIT), 0);
+	VkCommandPool res;
+	VkCommandPoolCreateInfo createInfo;
+
+	createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	createInfo.pNext = nullptr;
+	createInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+	createInfo.queueFamilyIndex = queueFamilyIndex;
+
+	vkAssert(vkCreateCommandPool(vk.device.device, &createInfo, nullptr, &res));
+
+	return res;
+}
+
+Queue::Queue(Vk &vk, uint32_t queueFamilyIndex) :
+	vk(vk),
+	queueFamilyIndex(queueFamilyIndex),
+	queue(vk.device.getQueue(queueFamilyIndex, 0)),
+	commandPool(createCommandPool())
+{
+	vkDestroyCommandPool(vk.device.device, commandPool, nullptr);
+}
+
+Queue::~Queue(void)
+{
+}
+
+Queues::Queues(Vk &vk) :
+	present(Queue(vk, vk.device.queueFamilies.getIndexPresent())),
+	graphics(Queue(vk, vk.device.queueFamilies.getIndex(VK_QUEUE_GRAPHICS_BIT))),
+	transfer(Queue(vk, vk.device.queueFamilies.getIndex(VK_QUEUE_TRANSFER_BIT)))
+{
 }
 
 Queues::~Queues(void)

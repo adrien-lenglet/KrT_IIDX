@@ -40,16 +40,19 @@ shaders:
 shaders_clean: DARG = clean
 shaders_clean: shaders
 
+$(OBJ): WARNINGS = -Wall -Wextra
+$(LIB_OBJ): WARNINGS =
+
 $(TARGET): libs shaders $(OBJ) $(LIB_OBJ) $(SHADER_BIN)
 	g++ $(OBJ) $(LIB_OBJ) -o $(TARGET) $(LDLIB)
 
 all: $(TARGET)
 
-debug: EXTRA = -g
-debug: DEFINE = -DDEBUG
+debug: EXTRA += -g
+debug: DEFINE += -DDEBUG
 debug: all
 
-release: EXTRA = -O3
+release: EXTRA += -O3
 release: all
 
 clean: shaders_clean
