@@ -10,6 +10,7 @@ public:
 	VkPhysicalDeviceFeatures features;
 	QueueFamilies queueFamilies;
 	VkDevice device;
+	VmaAllocator allocator;
 
 	VkQueue getQueue(uint32_t familyIndex, uint32_t index);
 
@@ -18,4 +19,5 @@ private:
 	VkPhysicalDeviceProperties getPhysicalDeviceProperties(void);
 	VkPhysicalDeviceFeatures getPhysicalDeviceFeatures(void);
 	VkDevice createDevice(void);
+	VmaAllocator createAllocator(void);
 };

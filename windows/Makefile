@@ -6,14 +6,19 @@ $(error VULKAN_SDK is not set. Make sure the LunarG Vulkan SDK is installed on y
 endif
 
 DEFINE =
+WARNINGS =
 EXTRA =
 INCLUDE = -I../common/src -I../common/libs/include
-CXXFLAGS = -m64 -Wall -Wextra -std=c++17 $(EXTRA) $(DEFINE) $(INCLUDE)
+CXXFLAGS = -m64 -std=c++17 $(EXTRA) $(WARNINGS) $(DEFINE) $(INCLUDE)
 
 SRC_FOLDER = ../common/src
+LIB_SRC_FOLDER = ../common/libs/src
 
 SRC = $(wildcard $(SRC_FOLDER)/*.cpp) $(wildcard $(SRC_FOLDER)/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*.cpp)
 OBJ = $(SRC:.cpp=.o)
+
+LIB_SRC = $(wildcard $(LIB_SRC_FOLDER)/*.cpp)
+LIB_OBJ = $(LIB_SRC:.cpp=.o)
 
 TARGET = ../KrT_IIDX.exe
 LIBS_SO = $(wildcard ../*.dll)
@@ -27,6 +32,7 @@ libs:
 
 libs_clean: DARG = clean
 libs_clean: libs
+	rm -f $(LIB_OBJ)
 
 shaders:
 	$(MAKE) -C ../common/shaders $(DARG)
@@ -34,8 +40,8 @@ shaders:
 shaders_clean: DARG = clean
 shaders_clean: shaders
 
-$(TARGET): libs shaders $(OBJ) $(SHADER_BIN)
-	g++ $(OBJ) -o $(TARGET) $(LDLIB)
+$(TARGET): libs shaders $(OBJ) $(LIB_OBJ) $(SHADER_BIN)
+	g++ $(OBJ) $(LIB_OBJ) -o $(TARGET) $(LDLIB)
 
 all: $(TARGET)
 

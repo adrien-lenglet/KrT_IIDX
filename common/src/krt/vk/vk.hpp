@@ -5,6 +5,7 @@
 #include <string>
 
 #include <vulkan/vulkan.h>
+#include "vk_mem_alloc.h"
 
 class Vk;
 class Krt;

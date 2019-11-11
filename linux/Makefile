@@ -2,14 +2,19 @@
 .DEFAULT_GOAL := all
 
 DEFINE =
+WARNINGS =
 EXTRA =
 INCLUDE = -I../common/src -I../common/libs/include
-CXXFLAGS = -m64 -Wall -Wextra -std=c++17 $(EXTRA) $(DEFINE) $(INCLUDE)
+CXXFLAGS = -m64 -std=c++17 $(EXTRA) $(WARNINGS) $(DEFINE) $(INCLUDE)
 
 SRC_FOLDER = ../common/src
+LIB_SRC_FOLDER = ../common/libs/src
 
 SRC = $(wildcard $(SRC_FOLDER)/*.cpp) $(wildcard $(SRC_FOLDER)/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*.cpp)
 OBJ = $(SRC:.cpp=.o)
+
+LIB_SRC = $(wildcard $(LIB_SRC_FOLDER)/*.cpp)
+LIB_OBJ = $(LIB_SRC:.cpp=.o)
 
 TARGET = ../KrT_IIDX
 LIBS_SO = $(wildcard libs/bin/*.so)
@@ -22,6 +27,7 @@ libs:
 
 libs_clean: DARG = clean
 libs_clean: libs
+	rm -f $(LIB_OBJ)
 
 shaders:
 	$(MAKE) -C ../common/shaders $(DARG)
@@ -29,16 +35,19 @@ shaders:
 shaders_clean: DARG = clean
 shaders_clean: shaders
 
-$(TARGET): libs shaders $(OBJ) $(SHADER_BIN)
-	g++ $(OBJ) -Wl,-rpath,linux/libs/bin -o $(TARGET) $(LDLIB)
+$(OBJ): WARNINGS = -Wall -Wextra
+$(LIB_OBJ): WARNINGS =
+
+$(TARGET): libs shaders $(OBJ) $(LIB_OBJ) $(SHADER_BIN)
+	g++ $(OBJ) $(LIB_OBJ) -Wl,-rpath,linux/libs/bin -o $(TARGET) $(LDLIB)
 
 all: $(TARGET)
 
-debug: EXTRA = -g
-debug: DEFINE = -DDEBUG
+debug: EXTRA += -g
+debug: DEFINE += -DDEBUG
 debug: all
 
-release: EXTRA = -O3
+release: EXTRA += -O3
 release: all
 
 clean: shaders_clean

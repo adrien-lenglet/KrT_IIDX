@@ -5,17 +5,17 @@
 
 #include "vk.hpp"
 
-class vec_VkDeviceQueueCreateInfo : public std::vector<VkDeviceQueueCreateInfo>
+class VkDeviceQueueCreateInfos : public std::vector<VkDeviceQueueCreateInfo>
 {
 public:
-	vec_VkDeviceQueueCreateInfo(Device &device);
-	~vec_VkDeviceQueueCreateInfo(void);
+	VkDeviceQueueCreateInfos(Device &device);
+	~VkDeviceQueueCreateInfos(void);
 	std::vector<std::vector<float>> priorities;
 
 private:
 };
 
-vec_VkDeviceQueueCreateInfo::vec_VkDeviceQueueCreateInfo(Device &device)
+VkDeviceQueueCreateInfos::VkDeviceQueueCreateInfos(Device &device)
 {
 	for (size_t i = 0; i < device.queueFamilies.families.size(); i++) {
 		VkDeviceQueueCreateInfo to_push;
@@ -31,7 +31,28 @@ vec_VkDeviceQueueCreateInfo::vec_VkDeviceQueueCreateInfo(Device &device)
 	}
 }
 
-vec_VkDeviceQueueCreateInfo::~vec_VkDeviceQueueCreateInfo(void)
+VmaAllocator Device::createAllocator(void)
+{
+	VmaAllocator res;
+	VmaAllocatorCreateInfo createInfo;
+
+	createInfo.flags = 0;
+	createInfo.physicalDevice = physicalDevice;
+	createInfo.device = device;
+	createInfo.preferredLargeHeapBlockSize = 0;
+	createInfo.pAllocationCallbacks = nullptr;
+	createInfo.pDeviceMemoryCallbacks = nullptr;
+	createInfo.frameInUseCount = 0;
+	createInfo.pHeapSizeLimit = nullptr;
+	createInfo.pVulkanFunctions = nullptr;
+	createInfo.pRecordSettings = nullptr;
+
+	vkAssert(vmaCreateAllocator(&createInfo, &res));
+
+	return res;
+}
+
+VkDeviceQueueCreateInfos::~VkDeviceQueueCreateInfos(void)
 {
 }
 
@@ -40,12 +61,14 @@ Device::Device(Vk &vk) :
 	properties(getPhysicalDeviceProperties()),
 	features(getPhysicalDeviceFeatures()),
 	queueFamilies(QueueFamilies(vk)),
-	device(createDevice())
+	device(createDevice()),
+	allocator(createAllocator())
 {
 }
 
 Device::~Device(void)
 {
+	vmaDestroyAllocator(allocator);
 	vkDestroyDevice(device, nullptr);
 }
 
@@ -53,7 +76,7 @@ VkDevice Device::createDevice(void)
 {
 	VkDevice res;
 	VkDeviceCreateInfo createInfo;
-	vec_VkDeviceQueueCreateInfo queueCreateInfos(*this);
+	VkDeviceQueueCreateInfos queueCreateInfos(*this);
 	std::vector<const char*> extensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
