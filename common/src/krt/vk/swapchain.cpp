@@ -5,25 +5,49 @@
 
 #include "vk.hpp"
 
-void Swapchain::updateCapabilities(void)
+VkSurfaceCapabilitiesKHR Swapchain::getCapabilities(void)
 {
-	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &capabilities);
+	VkSurfaceCapabilitiesKHR res;
+
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &res);
+
+	return res;
+}
+
+std::vector<VkSurfaceFormatKHR> Swapchain::getSurfaceFormats(void)
+{
+	std::vector<VkSurfaceFormatKHR> res;
 	uint32_t count;
+
 	vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &count, nullptr);
-	formats.resize(count);
-	vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &count, formats.data());
+	res.resize(count);
+	vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &count, res.data());
+
+	return res;
+}
+
+std::vector<VkPresentModeKHR> Swapchain::getPresentModes(void)
+{
+	std::vector<VkPresentModeKHR> res;
+	uint32_t count;
+
 	vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &count, nullptr);
-	presentModes.resize(count);
-	vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &count, presentModes.data());
+	res.resize(count);
+	vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &count, res.data());
+
+	return res;
 }
 
 Swapchain::Swapchain(Vk &vk, VkPhysicalDevice physicalDevice) :
 	vk(vk),
-	swapchain(VK_NULL_HANDLE),
 	physicalDevice(physicalDevice),
-	surface(vk.context.surface)
+	surface(vk.context.surface),
+	capabilities(getCapabilities()),
+	surfaceFormats(getSurfaceFormats()),
+	presentModes(getPresentModes()),
+	swapchain(VK_NULL_HANDLE),
+	renderPass(VK_NULL_HANDLE)
 {
-	updateCapabilities();
 }
 
 std::vector<Swapchain::Image> Swapchain::fetchImages(void)
@@ -42,28 +66,89 @@ std::vector<Swapchain::Image> Swapchain::fetchImages(void)
 	return res;
 }
 
+VkRenderPass Swapchain::createRenderPass(void)
+{
+	VkRenderPass res;
+
+	std::vector<VkAttachmentDescription> attachments;
+	std::vector<VkSubpassDescription> subpasses;
+	std::vector<VkSubpassDependency> dependencies;
+
+	VkAttachmentDescription attachment;
+	attachment.flags = 0;
+	attachment.format = surfaceFormat.format;
+	attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	attachments.push_back(attachment);
+
+	std::vector<VkAttachmentReference> colorAttachments;
+	VkAttachmentReference attachmentReference;
+	attachmentReference.attachment = 0;
+	attachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	colorAttachments.push_back(attachmentReference);
+
+	VkSubpassDescription subpass;
+	subpass.flags = 0;
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.inputAttachmentCount = 0;
+	subpass.pInputAttachments = nullptr;
+	subpass.colorAttachmentCount = colorAttachments.size();
+	subpass.pColorAttachments = colorAttachments.data();
+	subpass.pResolveAttachments = nullptr;
+	subpass.pDepthStencilAttachment = nullptr;
+	subpass.preserveAttachmentCount = 0;
+	subpass.pPreserveAttachments = nullptr;
+	subpasses.push_back(subpass);
+
+	VkRenderPassCreateInfo createInfo;
+
+	createInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	createInfo.pNext = nullptr;
+	createInfo.flags = 0;
+	createInfo.attachmentCount = attachments.size();
+	createInfo.pAttachments = attachments.data();
+	createInfo.subpassCount = subpasses.size();
+	createInfo.pSubpasses = subpasses.data();
+	createInfo.dependencyCount = dependencies.size();
+	createInfo.pDependencies = dependencies.data();
+
+	vkAssert(vkCreateRenderPass(vk.device.device, &createInfo, nullptr, &res));
+
+	return res;
+}
+
 Swapchain::Swapchain(Vk &vk) :
 	vk(vk),
 	physicalDevice(vk.device.physicalDevice),
-	surface(vk.context.surface)
+	surface(vk.context.surface),
+	capabilities(getCapabilities()),
+	surfaceFormats(getSurfaceFormats()),
+	presentModes(getPresentModes()),
+	extent(getExtent2D()),
+	surfaceFormat(getSurfaceFormat()),
+	presentMode(getPresentMode()),
+	swapchain(createSwapchain()),
+	images(fetchImages()),
+	renderPass(createRenderPass())
 {
-	updateCapabilities();
-	extent = getExtent2D();
-	format = getSurfaceFormat();
-	presentMode = getPresentMode();
-	swapchain = createSwapchain();
-	images = fetchImages();
 }
 
 Swapchain::~Swapchain(void)
 {
+	if (renderPass != VK_NULL_HANDLE)
+		vkDestroyRenderPass(vk.device.device, renderPass, nullptr);
 	if (swapchain != VK_NULL_HANDLE)
 		vkDestroySwapchainKHR(vk.device.device, swapchain, nullptr);
 }
 
 bool Swapchain::isValid(void)
 {
-	return formats.size() > 0 && presentModes.size() > 0;
+	return surfaceFormats.size() > 0 && presentModes.size() > 0;
 }
 
 VkExtent2D Swapchain::getExtent2D(void)
@@ -82,11 +167,11 @@ VkExtent2D Swapchain::getExtent2D(void)
 
 VkSurfaceFormatKHR Swapchain::getSurfaceFormat(void)
 {
-	for (auto format : formats)
-		if ((format.format == VK_FORMAT_B8G8R8A8_UNORM) &&
-		(format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR))
-			return format;
-	return formats.at(0);
+	for (auto surfaceFormat : surfaceFormats)
+		if ((surfaceFormat.format == VK_FORMAT_B8G8R8A8_UNORM) &&
+		(surfaceFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR))
+			return surfaceFormat;
+	return surfaceFormats.at(0);
 }
 
 VkPresentModeKHR Swapchain::getPresentMode(void)
@@ -119,8 +204,8 @@ VkSwapchainKHR Swapchain::createSwapchain(void)
 	createInfo.flags = 0;
 	createInfo.surface = surface;
 	createInfo.minImageCount = getMinImageCount();
-	createInfo.imageFormat = format.format;
-	createInfo.imageColorSpace = format.colorSpace;
+	createInfo.imageFormat = surfaceFormat.format;
+	createInfo.imageColorSpace = surfaceFormat.colorSpace;
 	createInfo.imageExtent = extent;
 	createInfo.imageArrayLayers = 1;
 	createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
@@ -149,7 +234,7 @@ Swapchain::Image::Image(Swapchain &swapchain, VkImage image) :
 	createInfo.flags = 0;
 	createInfo.image = image;
 	createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	createInfo.format = swapchain.format.format;
+	createInfo.format = swapchain.surfaceFormat.format;
 	createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
 	createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
 	createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;

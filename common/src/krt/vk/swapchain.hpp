@@ -22,23 +22,27 @@ public:
 
 	Vk &vk;
 
+	VkPhysicalDevice physicalDevice;
+	VkSurfaceKHR surface;
+
 	VkSurfaceCapabilitiesKHR capabilities;
-	std::vector<VkSurfaceFormatKHR> formats;
+	std::vector<VkSurfaceFormatKHR> surfaceFormats;
 	std::vector<VkPresentModeKHR> presentModes;
 
-	VkSwapchainKHR swapchain;
 	VkExtent2D extent;
-	VkSurfaceFormatKHR format;
+	VkSurfaceFormatKHR surfaceFormat;
 	VkPresentModeKHR presentMode;
+	VkSwapchainKHR swapchain;
 	std::vector<Image> images;
+	VkRenderPass renderPass;
 
 	bool isValid(void);
 
 private:
-	VkPhysicalDevice physicalDevice;
-	VkSurfaceKHR surface;
 
-	void updateCapabilities(void);
+	VkSurfaceCapabilitiesKHR getCapabilities(void);
+	std::vector<VkSurfaceFormatKHR> getSurfaceFormats(void);
+	std::vector<VkPresentModeKHR> getPresentModes(void);
 
 	VkExtent2D getExtent2D(void);
 	VkSurfaceFormatKHR getSurfaceFormat(void);
@@ -46,4 +50,5 @@ private:
 	uint32_t getMinImageCount(void);
 	VkSwapchainKHR createSwapchain(void);
 	std::vector<Image> fetchImages(void);
+	VkRenderPass createRenderPass(void);
 };
