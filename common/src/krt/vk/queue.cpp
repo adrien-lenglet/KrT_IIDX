@@ -117,11 +117,11 @@ Queue::Queue(Vk &vk, uint32_t queueFamilyIndex) :
 	queue(vk.device.getQueue(queueFamilyIndex, 0)),
 	commandPool(createCommandPool())
 {
-	vkDestroyCommandPool(vk.device.device, commandPool, nullptr);
 }
 
 Queue::~Queue(void)
 {
+	vkDestroyCommandPool(vk.device.device, commandPool, nullptr);
 }
 
 Queues::Queues(Vk &vk) :
