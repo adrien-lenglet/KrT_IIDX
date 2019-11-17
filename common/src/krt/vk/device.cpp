@@ -60,7 +60,7 @@ Device::Device(Vk &vk) :
 	physicalDevice(createPhysicalDevice(vk)),
 	properties(getPhysicalDeviceProperties()),
 	features(getPhysicalDeviceFeatures()),
-	queueFamilies(QueueFamilies(vk)),
+	queueFamilies(vk),
 	device(createDevice()),
 	allocator(createAllocator())
 {

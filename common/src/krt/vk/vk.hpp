@@ -14,7 +14,6 @@ class Krt;
 #include "queue.hpp"
 #include "device.hpp"
 #include "swapchain.hpp"
-#include "pipeline/pipeline.hpp"
 
 void vkAssert_real(VkResult res, const char *file, int line, const char *fun);
 #define vkAssert(res) vkAssert_real(res, __FILE__, __LINE__, __func__)
@@ -31,7 +30,6 @@ public:
 	Device device;
 	Queues queues;
 	Swapchain swapchain;
-	Pipeline pipeline;
 
 private:
 };

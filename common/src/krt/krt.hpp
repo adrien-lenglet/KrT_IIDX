@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "vk/vk.hpp"
+#include "renderer/renderer.hpp"
 
 class Krt
 {
@@ -25,5 +26,6 @@ class Krt
 
 	Config config;
 	Vk vk;
+	Renderer renderer;
 	private:
 };

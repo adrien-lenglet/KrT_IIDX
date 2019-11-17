@@ -6,6 +6,7 @@ public:
 	{
 	public:
 		Image(Swapchain &swapchain, VkImage image);
+		Image(Swapchain::Image &&that);
 		~Image(void);
 
 		Swapchain &swapchain;

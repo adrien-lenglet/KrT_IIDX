@@ -1,7 +1,10 @@
 
 #include "krt/krt.hpp"
 
-Krt::Krt(std::vector<std::string> args) : config(Config(args)), vk(Vk(*this))
+Krt::Krt(std::vector<std::string> args) :
+	config(args),
+	vk(*this),
+	renderer(vk)
 {
 }
 

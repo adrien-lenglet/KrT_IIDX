@@ -60,9 +60,8 @@ std::vector<Swapchain::Image> Swapchain::fetchImages(void)
 	vkImages.resize(count);
 	vkGetSwapchainImagesKHR(vk.device.device, swapchain, &count, vkImages.data());
 
-	res.reserve(vkImages.size());
 	for (auto vkImage : vkImages)
-		res.emplace_back(*this, vkImage);
+		res.push_back(Swapchain::Image(*this, vkImage));
 	return res;
 }
 
@@ -276,6 +275,17 @@ Swapchain::Image::Image(Swapchain &swapchain, VkImage image) :
 	view(createImageView()),
 	framebuffer(createFramebuffer())
 {
+}
+
+Swapchain::Image::Image (Swapchain::Image &&that) :
+	swapchain(that.swapchain),
+	image(that.image),
+	view(that.view),
+	framebuffer(that.framebuffer)
+{
+	that.image = VK_NULL_HANDLE;
+	that.view = VK_NULL_HANDLE;
+	that.framebuffer = VK_NULL_HANDLE;
 }
 
 Swapchain::Image::~Image(void)

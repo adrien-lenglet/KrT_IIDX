@@ -1,5 +1,5 @@
 
-#include "../vk.hpp"
+#include "krt/krt.hpp"
 
 VkPipelineShaderStageCreateInfo Pipeline::ShaderStage::initCreateInfo(void)
 {
@@ -19,7 +19,7 @@ VkPipelineShaderStageCreateInfo Pipeline::ShaderStage::initCreateInfo(void)
 Pipeline::ShaderStage::ShaderStage(Vk &vk, VkShaderStageFlagBits stage, std::string path, std::string entryPoint) :
 	name(entryPoint),
 	stage(stage),
-	module(ShaderModule(vk, path)),
+	module(vk, path),
 	createInfo(initCreateInfo())
 {
 }

@@ -87,16 +87,10 @@ void vkAssert_real(VkResult res, const char *file, int line, const char *fun)
 
 Vk::Vk(Krt &krt) :
 	krt(krt),
-	context(Context(*this, 1600, 900)),
-	device(Device(*this)),
-	queues(Queues(*this)),
-	swapchain(Swapchain(*this)),
-	pipeline(Pipeline(
-		*this,
-		std::vector<Pipeline::ShaderStageCreateInfo>{
-			{VK_SHADER_STAGE_VERTEX_BIT, "common/shaders/vert.spv"},
-			{VK_SHADER_STAGE_FRAGMENT_BIT, "common/shaders/frag.spv"}
-		}))
+	context(*this, 1600, 900),
+	device(*this),
+	queues(*this),
+	swapchain(*this)
 {
 	printf("Vk init done.\n");
 }
