@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include <vector>
@@ -8,7 +7,6 @@
 #include "vk_mem_alloc.h"
 
 class Vk;
-class Krt;
 
 #include "context.hpp"
 #include "queue.hpp"
@@ -22,10 +20,8 @@ void vkAssert_real(VkResult res, const char *file, int line, const char *fun);
 class Vk
 {
 public:
-	Vk(Krt &krt);
+	Vk(bool doProfile);
 	~Vk(void);
-
-	Krt &krt;
 
 	Context context;
 	Device device;

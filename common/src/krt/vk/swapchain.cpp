@@ -1,4 +1,3 @@
-
 #include <limits>
 #include <algorithm>
 #include <set>
@@ -277,7 +276,7 @@ Swapchain::Image::Image(Swapchain &swapchain, VkImage image) :
 {
 }
 
-Swapchain::Image::Image (Swapchain::Image &&that) :
+Swapchain::Image::Image(Swapchain::Image &&that) :
 	swapchain(that.swapchain),
 	image(that.image),
 	view(that.view),

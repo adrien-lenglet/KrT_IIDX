@@ -1,4 +1,3 @@
-
 #include <iostream>
 #include <exception>
 
@@ -117,10 +116,10 @@ VkInstanceCreateInfo_data::~VkInstanceCreateInfo_data(void)
 {
 }
 
-VkInstance Context::createInstance(void)
+VkInstance Context::createInstance(bool doProfile)
 {
 	VkInstance res;
-	VkInstanceCreateInfo_data data(vk.krt.config.isProfile);
+	VkInstanceCreateInfo_data data(doProfile);
 
 	printf("Used layers:\n");
 	for (auto layer : data.layers)

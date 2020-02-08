@@ -85,9 +85,8 @@ void vkAssert_real(VkResult res, const char *file, int line, const char *fun)
 		throw std::runtime_error(std::string(file) + "("+ std::to_string(line) + ") in " + std::string(fun) + "() got VkResult: " + std::to_string(res) + " (" + VkResult_to_string(res) + ")");
 }
 
-Vk::Vk(Krt &krt) :
-	krt(krt),
-	context(*this, 1600, 900),
+Vk::Vk(bool doProfile) :
+	context(*this, 1600, 900, doProfile),
 	device(*this),
 	queues(*this),
 	swapchain(*this)

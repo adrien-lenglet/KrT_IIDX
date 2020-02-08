@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include <GLFW/glfw3.h>
@@ -6,7 +5,7 @@
 class Context
 {
 public:
-	Context(Vk &vk, int32_t w, int32_t h);
+	Context(Vk &vk, int32_t w, int32_t h, bool doProfile);
 	~Context(void);
 
 	Vk &vk;
@@ -23,7 +22,7 @@ public:
 
 private:
 	GLFWwindow* createWindow(void);
-	VkInstance createInstance(void);
+	VkInstance createInstance(bool doProfile);
 	VkDebugUtilsMessengerEXT createDebugMessenger(void);
 	VkSurfaceKHR createSurface(void);
 };
