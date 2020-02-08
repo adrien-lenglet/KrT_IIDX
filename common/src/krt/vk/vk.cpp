@@ -86,7 +86,7 @@ void vkAssert_real(VkResult res, const char *file, int line, const char *fun)
 }
 
 Vk::Vk(bool doProfile) :
-	context(*this, 1600, 900, doProfile),
+	context(1600, 900, doProfile),
 	device(*this),
 	queues(*this),
 	swapchain(*this)

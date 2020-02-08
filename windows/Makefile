@@ -9,7 +9,7 @@ DEFINE =
 WARNINGS =
 EXTRA =
 INCLUDE = -I../common/src -I../common/libs/include
-CXXFLAGS = -m64 -std=c++17 -fdiagnostics-color=always $(EXTRA) $(WARNINGS) $(DEFINE) $(INCLUDE)
+CXXFLAGS = -m64 -std=c++17 $(EXTRA) $(WARNINGS) $(DEFINE) $(INCLUDE)
 
 SRC_FOLDER = ../common/src
 LIB_SRC_FOLDER = ../common/libs/src

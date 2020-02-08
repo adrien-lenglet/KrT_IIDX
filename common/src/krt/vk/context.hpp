@@ -5,10 +5,8 @@
 class Context
 {
 public:
-	Context(Vk &vk, int32_t w, int32_t h, bool doProfile);
+	Context(int32_t w, int32_t h, bool doProfile);
 	~Context(void);
-
-	Vk &vk;
 
 	int32_t w;
 	int32_t h;

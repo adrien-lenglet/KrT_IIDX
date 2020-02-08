@@ -58,12 +58,12 @@ Renderer::Images::~Images(void)
 {
 }
 
-Renderer::Image& Renderer::Images::nextImage(void)
+/*Renderer::Image& Renderer::Images::nextImage(void)
 {
 	uint32_t index;
 
 	//vkAssert(vkAcquireNextImageKHR(swapchain.vk.device.device, swapchain.swapchain, UINT64_MAX, images, VK_NULL_HANDLE, &index));
-}
+}*/
 
 Renderer::Renderer(Vk& vk) :
 	pipeline(vk, std::vector<Pipeline::ShaderStageCreateInfo>{

@@ -22,8 +22,7 @@ GLFWwindow* Context::createWindow(void)
 	return res;
 }
 
-Context::Context(Vk &vk, int32_t w, int32_t h, bool doProfile) :
-	vk(vk),
+Context::Context(int32_t w, int32_t h, bool doProfile) :
 	w(w),
 	h(h),
 	window(createWindow()),
