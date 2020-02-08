@@ -1,9 +1,11 @@
 #pragma once
 
+namespace Vk {
+
 class Device
 {
 public:
-	Device(Vk &vk);
+	Device(Instance &vk);
 	~Device(void);
 
 	VkPhysicalDevice physicalDevice;
@@ -16,9 +18,11 @@ public:
 	VkQueue getQueue(uint32_t familyIndex, uint32_t index);
 
 private:
-	VkPhysicalDevice createPhysicalDevice(Vk &vk);
+	VkPhysicalDevice createPhysicalDevice(Instance &vk);
 	VkPhysicalDeviceProperties getPhysicalDeviceProperties(void);
 	VkPhysicalDeviceFeatures getPhysicalDeviceFeatures(void);
 	VkDevice createDevice(void);
 	VmaAllocator createAllocator(void);
 };
+
+}

@@ -3,8 +3,7 @@
 
 Krt::Krt(std::vector<std::string> args) :
 	config(args),
-	vk(config.isProfile),
-	renderer(vk)
+	vk(config.isProfile)
 {
 }
 

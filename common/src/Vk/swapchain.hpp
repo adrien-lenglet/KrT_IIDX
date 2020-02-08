@@ -1,5 +1,7 @@
 #pragma once
 
+namespace Vk {
+
 class Swapchain
 {
 public:
@@ -21,11 +23,11 @@ public:
 		VkFramebuffer createFramebuffer(void);
 	};
 
-	Swapchain(Vk &vk, VkPhysicalDevice physicalDevice);
-	Swapchain(Vk &vk);
+	Swapchain(Instance &vk, VkPhysicalDevice physicalDevice);
+	Swapchain(Instance &vk);
 	~Swapchain(void);
 
-	Vk &vk;
+	Instance &vk;
 
 	VkPhysicalDevice physicalDevice;
 	VkSurfaceKHR surface;
@@ -57,3 +59,5 @@ private:
 	VkRenderPass createRenderPass(void);
 	std::vector<Image> fetchImages(void);
 };
+
+}

@@ -7,6 +7,8 @@
 
 #include "vk.hpp"
 
+namespace Vk {
+
 static std::vector<VkPhysicalDevice> getDevices(VkInstance instance)
 {
 	uint32_t count = 0;
@@ -37,7 +39,7 @@ static bool areExtensionsSupported(VkPhysicalDevice device)
 	return true;
 }
 
-static VkPhysicalDevice findBestPhysicalDevice(Vk &vk)
+static VkPhysicalDevice findBestPhysicalDevice(Instance &vk)
 {
 	std::vector<VkPhysicalDevice> devices = getDevices(vk.context.instance);
 	VkPhysicalDevice res = VK_NULL_HANDLE;
@@ -60,7 +62,7 @@ static VkPhysicalDevice findBestPhysicalDevice(Vk &vk)
 	return res;
 }
 
-VkPhysicalDevice Device::createPhysicalDevice(Vk &vk)
+VkPhysicalDevice Device::createPhysicalDevice(Instance &vk)
 {
 	return findBestPhysicalDevice(vk);
 }
@@ -79,4 +81,6 @@ VkPhysicalDeviceFeatures Device::getPhysicalDeviceFeatures(void)
 
 	vkGetPhysicalDeviceFeatures(physicalDevice, &res);
 	return res;
+}
+
 }

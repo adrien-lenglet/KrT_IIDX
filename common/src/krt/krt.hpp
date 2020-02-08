@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "vk/vk.hpp"
-#include "renderer/renderer.hpp"
+//#include "renderer/renderer.hpp"
 
 class Krt
 {
@@ -25,7 +25,7 @@ class Krt
 	void run(void);
 
 	Config config;
-	Vk vk;
-	Renderer renderer;
+	Vk::Instance vk;
+	//Renderer renderer;
 	private:
 };

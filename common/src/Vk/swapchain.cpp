@@ -4,6 +4,8 @@
 
 #include "vk.hpp"
 
+namespace Vk {
+
 VkSurfaceCapabilitiesKHR Swapchain::getCapabilities(void)
 {
 	VkSurfaceCapabilitiesKHR res;
@@ -37,7 +39,7 @@ std::vector<VkPresentModeKHR> Swapchain::getPresentModes(void)
 	return res;
 }
 
-Swapchain::Swapchain(Vk &vk, VkPhysicalDevice physicalDevice) :
+Swapchain::Swapchain(Instance &vk, VkPhysicalDevice physicalDevice) :
 	vk(vk),
 	physicalDevice(physicalDevice),
 	surface(vk.context.surface),
@@ -120,7 +122,7 @@ VkRenderPass Swapchain::createRenderPass(void)
 	return res;
 }
 
-Swapchain::Swapchain(Vk &vk) :
+Swapchain::Swapchain(Instance &vk) :
 	vk(vk),
 	physicalDevice(vk.device.physicalDevice),
 	surface(vk.context.surface),
@@ -291,4 +293,6 @@ Swapchain::Image::~Image(void)
 {
 	vkDestroyFramebuffer(swapchain.vk.device.device, framebuffer, nullptr);
 	vkDestroyImageView(swapchain.vk.device.device, view, nullptr);
+}
+
 }

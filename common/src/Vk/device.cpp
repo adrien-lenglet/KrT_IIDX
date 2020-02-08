@@ -5,6 +5,8 @@
 
 #include "vk.hpp"
 
+namespace Vk {
+
 class VkDeviceQueueCreateInfos : public std::vector<VkDeviceQueueCreateInfo>
 {
 public:
@@ -56,7 +58,7 @@ VkDeviceQueueCreateInfos::~VkDeviceQueueCreateInfos(void)
 {
 }
 
-Device::Device(Vk &vk) :
+Device::Device(Instance &vk) :
 	physicalDevice(createPhysicalDevice(vk)),
 	properties(getPhysicalDeviceProperties()),
 	features(getPhysicalDeviceFeatures()),
@@ -100,4 +102,6 @@ VkQueue Device::getQueue(uint32_t familyIndex, uint32_t index)
 
 	vkGetDeviceQueue(device, familyIndex, index, &res);
 	return res;
+}
+
 }

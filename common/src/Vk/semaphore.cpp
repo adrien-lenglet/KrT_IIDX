@@ -1,6 +1,8 @@
 
 #include "vk.hpp"
 
+namespace Vk {
+
 VkSemaphore Semaphore::createSemaphore(void)
 {
 	VkSemaphore res;
@@ -15,7 +17,7 @@ VkSemaphore Semaphore::createSemaphore(void)
 	return res;
 }
 
-Semaphore::Semaphore(Vk &vk) :
+Semaphore::Semaphore(Instance &vk) :
 	vk(vk),
 	semaphore(createSemaphore())
 {
@@ -31,4 +33,6 @@ Semaphore::Semaphore(Semaphore &&that) :
 Semaphore::~Semaphore(void)
 {
 	vkDestroySemaphore(vk.device.device, semaphore, nullptr);
+}
+
 }

@@ -1,9 +1,10 @@
-
-#include "krt/krt.hpp"
-
 #include <fstream>
 
-ShaderModule::ShaderModule(Vk &vk, std::string path) : vk(vk)
+#include "shader_module.hpp"
+
+namespace Vk {
+
+ShaderModule::ShaderModule(Instance &vk, std::string path) : vk(vk)
 {
 	auto file = std::ifstream(path, std::ios::ate | std::ios::binary);
 	file.exceptions(std::ifstream::failbit);
@@ -28,4 +29,6 @@ ShaderModule::ShaderModule(Vk &vk, std::string path) : vk(vk)
 ShaderModule::~ShaderModule(void)
 {
 	vkDestroyShaderModule(vk.device.device, module, nullptr);
+}
+
 }

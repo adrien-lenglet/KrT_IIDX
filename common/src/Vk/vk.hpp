@@ -6,7 +6,11 @@
 #include <vulkan/vulkan.h>
 #include "vk_mem_alloc.h"
 
-class Vk;
+namespace Vk {
+
+class Instance;
+
+}
 
 #include "context.hpp"
 #include "queue.hpp"
@@ -17,11 +21,13 @@ class Vk;
 void vkAssert_real(VkResult res, const char *file, int line, const char *fun);
 #define vkAssert(res) vkAssert_real(res, __FILE__, __LINE__, __func__)
 
-class Vk
+namespace Vk {
+
+class Instance
 {
 public:
-	Vk(bool doProfile);
-	~Vk(void);
+	Instance(bool doProfile);
+	~Instance(void);
 
 	Context context;
 	Device device;
@@ -30,3 +36,5 @@ public:
 
 private:
 };
+
+}

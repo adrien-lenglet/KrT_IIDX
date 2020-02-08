@@ -1,14 +1,18 @@
 
 #pragma once
 
+namespace Vk {
+
 class ShaderModule
 {
 public:
-	ShaderModule(Vk &vk, std::string path);
+	ShaderModule(Instance &vk, std::string path);
 	~ShaderModule(void);
 
 	VkShaderModule module;
 
 private:
-	Vk &vk;
+	Instance &vk;
 };
+
+}

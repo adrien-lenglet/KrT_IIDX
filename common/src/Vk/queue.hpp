@@ -1,11 +1,13 @@
 #pragma once
 
+namespace Vk {
+
 class QueueFamilies
 {
 public:
 	QueueFamilies();
 	QueueFamilies(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);
-	QueueFamilies(Vk &vk);
+	QueueFamilies(Instance &vk);
 	~QueueFamilies(void);
 
 	std::vector<VkQueueFamilyProperties> families;
@@ -25,10 +27,10 @@ private:
 class Queue
 {
 public:
-	Queue(Vk &vk, uint32_t queueFamilyIndex);
+	Queue(Instance &vk, uint32_t queueFamilyIndex);
 	~Queue(void);
 
-	Vk &vk;
+	Instance &vk;
 	uint32_t queueFamilyIndex;
 
 	VkQueue queue;
@@ -41,10 +43,12 @@ private:
 class Queues
 {
 public:
-	Queues(Vk &vk);
+	Queues(Instance &vk);
 	~Queues(void);
 
 	Queue present;
 	Queue graphics;
 	Queue transfer;
 };
+
+}

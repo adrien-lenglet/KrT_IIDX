@@ -1,16 +1,20 @@
 #pragma once
 
+namespace Vk {
+
 class Semaphore
 {
 public:
-	Semaphore(Vk &vk);
+	Semaphore(Instance &vk);
 	Semaphore(Semaphore &&that);	
 	~Semaphore(void);
 
-	Vk &vk;
+	Instance &vk;
 
 	VkSemaphore semaphore;
 
 private:
 	VkSemaphore createSemaphore(void);
 };
+
+}

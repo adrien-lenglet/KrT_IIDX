@@ -2,6 +2,8 @@
 
 #include <GLFW/glfw3.h>
 
+namespace Vk {
+
 class Context
 {
 public:
@@ -24,3 +26,5 @@ private:
 	VkDebugUtilsMessengerEXT createDebugMessenger(void);
 	VkSurfaceKHR createSurface(void);
 };
+
+}

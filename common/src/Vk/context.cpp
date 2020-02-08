@@ -7,6 +7,8 @@
 
 #include "vk.hpp"
 
+namespace Vk {
+
 GLFWwindow* Context::createWindow(void)
 {
 	GLFWwindow* res;
@@ -55,4 +57,6 @@ VkSurfaceKHR Context::createSurface(void)
 
 	vkAssert(glfwCreateWindowSurface(instance, window, nullptr, &res));
 	return res;
+}
+
 }

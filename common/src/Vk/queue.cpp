@@ -1,8 +1,11 @@
-
+#include <optional>
+#include <bitset>
 #include <iostream>
 #include <exception>
 
 #include "vk.hpp"
+
+namespace Vk {
 
 QueueFamilies::QueueFamilies()
 {
@@ -22,7 +25,7 @@ QueueFamilies::QueueFamilies(VkPhysicalDevice physicalDevice, VkSurfaceKHR surfa
 	updateFamilies();
 }
 
-QueueFamilies::QueueFamilies(Vk &vk) :
+QueueFamilies::QueueFamilies(Instance &vk) :
 	physicalDevice(vk.device.physicalDevice),
 	surface(vk.context.surface)
 {
@@ -60,9 +63,6 @@ int QueueFamilies::areQueuesSupported(void)
 
 	return (supported & VK_QUEUE_GRAPHICS_BIT) && (supported & VK_QUEUE_TRANSFER_BIT) && isPresentationSupported();
 }
-
-#include <optional>
-#include <bitset>
 
 uint32_t QueueFamilies::getIndex(VkQueueFlags flags)
 {
@@ -111,7 +111,7 @@ VkCommandPool Queue::createCommandPool(void)
 	return res;
 }
 
-Queue::Queue(Vk &vk, uint32_t queueFamilyIndex) :
+Queue::Queue(Instance &vk, uint32_t queueFamilyIndex) :
 	vk(vk),
 	queueFamilyIndex(queueFamilyIndex),
 	queue(vk.device.getQueue(queueFamilyIndex, 0)),
@@ -124,7 +124,7 @@ Queue::~Queue(void)
 	vkDestroyCommandPool(vk.device.device, commandPool, nullptr);
 }
 
-Queues::Queues(Vk &vk) :
+Queues::Queues(Instance &vk) :
 	present(Queue(vk, vk.device.queueFamilies.getIndexPresent())),
 	graphics(Queue(vk, vk.device.queueFamilies.getIndex(VK_QUEUE_GRAPHICS_BIT))),
 	transfer(Queue(vk, vk.device.queueFamilies.getIndex(VK_QUEUE_TRANSFER_BIT)))
@@ -133,4 +133,6 @@ Queues::Queues(Vk &vk) :
 
 Queues::~Queues(void)
 {
+}
+
 }
