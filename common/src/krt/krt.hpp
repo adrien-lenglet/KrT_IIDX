@@ -4,8 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "vk/vk.hpp"
-//#include "renderer/renderer.hpp"
+#include "Vk/Instance.hpp"
 
 class Krt
 {

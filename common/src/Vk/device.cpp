@@ -3,7 +3,8 @@
 #include <exception>
 #include <set>
 
-#include "vk.hpp"
+#include "Device.hpp"
+#include "Misc.hpp"
 
 namespace Vk {
 
@@ -58,11 +59,11 @@ VkDeviceQueueCreateInfos::~VkDeviceQueueCreateInfos(void)
 {
 }
 
-Device::Device(Instance &vk) :
-	physicalDevice(createPhysicalDevice(vk)),
+Device::Device(VkInstance instance, VkSurfaceKHR surface) :
+	physicalDevice(createPhysicalDevice(instance, surface)),
 	properties(getPhysicalDeviceProperties()),
 	features(getPhysicalDeviceFeatures()),
-	queueFamilies(vk),
+	queueFamilies(surface, physicalDevice),
 	device(createDevice()),
 	allocator(createAllocator())
 {

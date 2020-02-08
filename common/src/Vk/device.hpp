@@ -1,11 +1,15 @@
 #pragma once
 
+#include <vulkan/vulkan.h>
+#include "vk_mem_alloc.h"
+#include "QueueFamilies.hpp"
+
 namespace Vk {
 
 class Device
 {
 public:
-	Device(Instance &vk);
+	Device(VkInstance instance, VkSurfaceKHR surface);
 	~Device(void);
 
 	VkPhysicalDevice physicalDevice;
@@ -18,7 +22,7 @@ public:
 	VkQueue getQueue(uint32_t familyIndex, uint32_t index);
 
 private:
-	VkPhysicalDevice createPhysicalDevice(Instance &vk);
+	VkPhysicalDevice createPhysicalDevice(VkInstance instance, VkSurfaceKHR surface);
 	VkPhysicalDeviceProperties getPhysicalDeviceProperties(void);
 	VkPhysicalDeviceFeatures getPhysicalDeviceFeatures(void);
 	VkDevice createDevice(void);

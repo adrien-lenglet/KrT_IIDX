@@ -1,15 +1,20 @@
 #pragma once
 
+#include <vector>
+#include <vulkan/vulkan.h>
+#include "Device.hpp"
+#include "Dep/Device.hpp"
+
 namespace Vk {
 
-class Swapchain
+class Swapchain : public Dep::Device
 {
 public:
-	class Image
+	class Image : public Dep::Device
 	{
 	public:
 		Image(Swapchain &swapchain, VkImage image);
-		Image(Swapchain::Image &&that);
+		Image(Swapchain::Image &&other);
 		~Image(void);
 
 		Swapchain &swapchain;
@@ -23,11 +28,9 @@ public:
 		VkFramebuffer createFramebuffer(void);
 	};
 
-	Swapchain(Instance &vk, VkPhysicalDevice physicalDevice);
-	Swapchain(Instance &vk);
+	Swapchain(VkSurfaceKHR surface, VkPhysicalDevice physicalDevice);
+	Swapchain(VkSurfaceKHR surface, ::Vk::Device &dev);
 	~Swapchain(void);
-
-	Instance &vk;
 
 	VkPhysicalDevice physicalDevice;
 	VkSurfaceKHR surface;
@@ -55,7 +58,7 @@ private:
 	VkSurfaceFormatKHR getSurfaceFormat(void);
 	VkPresentModeKHR getPresentMode(void);
 	uint32_t getMinImageCount(void);
-	VkSwapchainKHR createSwapchain(void);
+	VkSwapchainKHR createSwapchain(::Vk::Device &device);
 	VkRenderPass createRenderPass(void);
 	std::vector<Image> fetchImages(void);
 };

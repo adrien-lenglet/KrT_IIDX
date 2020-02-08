@@ -2,7 +2,8 @@
 #include <algorithm>
 #include <set>
 
-#include "vk.hpp"
+#include "Swapchain.hpp"
+#include "Misc.hpp"
 
 namespace Vk {
 
@@ -39,15 +40,34 @@ std::vector<VkPresentModeKHR> Swapchain::getPresentModes(void)
 	return res;
 }
 
-Swapchain::Swapchain(Instance &vk, VkPhysicalDevice physicalDevice) :
-	vk(vk),
+Swapchain::Swapchain(VkSurfaceKHR surface, VkPhysicalDevice physicalDevice) :
+	Dep::Device(VK_NULL_HANDLE),
 	physicalDevice(physicalDevice),
-	surface(vk.context.surface),
+	surface(surface),
 	capabilities(getCapabilities()),
 	surfaceFormats(getSurfaceFormats()),
 	presentModes(getPresentModes()),
+	extent(getExtent2D()),
+	surfaceFormat(getSurfaceFormat()),
+	presentMode(getPresentMode()),
 	swapchain(VK_NULL_HANDLE),
 	renderPass(VK_NULL_HANDLE)
+{
+}
+
+Swapchain::Swapchain(VkSurfaceKHR surface, ::Vk::Device &dev) :
+	Dep::Device(dev.device),
+	physicalDevice(dev.physicalDevice),
+	surface(surface),
+	capabilities(getCapabilities()),
+	surfaceFormats(getSurfaceFormats()),
+	presentModes(getPresentModes()),
+	extent(getExtent2D()),
+	surfaceFormat(getSurfaceFormat()),
+	presentMode(getPresentMode()),
+	swapchain(createSwapchain(dev)),
+	renderPass(createRenderPass()),
+	images(fetchImages())
 {
 }
 
@@ -57,9 +77,9 @@ std::vector<Swapchain::Image> Swapchain::fetchImages(void)
 	std::vector<VkImage> vkImages;
 
 	uint32_t count;
-	vkGetSwapchainImagesKHR(vk.device.device, swapchain, &count, nullptr);
+	vkGetSwapchainImagesKHR(getDevice(), swapchain, &count, nullptr);
 	vkImages.resize(count);
-	vkGetSwapchainImagesKHR(vk.device.device, swapchain, &count, vkImages.data());
+	vkGetSwapchainImagesKHR(getDevice(), swapchain, &count, vkImages.data());
 
 	for (auto vkImage : vkImages)
 		res.push_back(Swapchain::Image(*this, vkImage));
@@ -117,33 +137,17 @@ VkRenderPass Swapchain::createRenderPass(void)
 	createInfo.dependencyCount = dependencies.size();
 	createInfo.pDependencies = dependencies.data();
 
-	vkAssert(vkCreateRenderPass(vk.device.device, &createInfo, nullptr, &res));
+	vkAssert(vkCreateRenderPass(getDevice(), &createInfo, nullptr, &res));
 
 	return res;
-}
-
-Swapchain::Swapchain(Instance &vk) :
-	vk(vk),
-	physicalDevice(vk.device.physicalDevice),
-	surface(vk.context.surface),
-	capabilities(getCapabilities()),
-	surfaceFormats(getSurfaceFormats()),
-	presentModes(getPresentModes()),
-	extent(getExtent2D()),
-	surfaceFormat(getSurfaceFormat()),
-	presentMode(getPresentMode()),
-	swapchain(createSwapchain()),
-	renderPass(createRenderPass()),
-	images(fetchImages())
-{
 }
 
 Swapchain::~Swapchain(void)
 {
 	if (renderPass != VK_NULL_HANDLE)
-		vkDestroyRenderPass(vk.device.device, renderPass, nullptr);
+		vkDestroyRenderPass(getDevice(), renderPass, nullptr);
 	if (swapchain != VK_NULL_HANDLE)
-		vkDestroySwapchainKHR(vk.device.device, swapchain, nullptr);
+		vkDestroySwapchainKHR(getDevice(), swapchain, nullptr);
 }
 
 bool Swapchain::isValid(void)
@@ -194,7 +198,7 @@ uint32_t Swapchain::getMinImageCount(void)
 	return res;
 }
 
-VkSwapchainKHR Swapchain::createSwapchain(void)
+VkSwapchainKHR Swapchain::createSwapchain(::Vk::Device &device)
 {
 	VkSwapchainKHR res;
 	VkSwapchainCreateInfoKHR createInfo;
@@ -209,7 +213,7 @@ VkSwapchainKHR Swapchain::createSwapchain(void)
 	createInfo.imageExtent = extent;
 	createInfo.imageArrayLayers = 1;
 	createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	std::set<uint32_t> familyIndices = {vk.device.queueFamilies.getIndex(VK_QUEUE_GRAPHICS_BIT), vk.device.queueFamilies.getIndexPresent()};
+	std::set<uint32_t> familyIndices = {device.queueFamilies.getIndex(VK_QUEUE_GRAPHICS_BIT), device.queueFamilies.getIndexPresent()};
 	createInfo.imageSharingMode = familyIndices.size() > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
 	createInfo.queueFamilyIndexCount = familyIndices.size();
 	createInfo.pQueueFamilyIndices = std::vector<uint32_t>(familyIndices.begin(), familyIndices.end()).data();
@@ -219,7 +223,7 @@ VkSwapchainKHR Swapchain::createSwapchain(void)
 	createInfo.clipped = VK_TRUE;
 	createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-	vkAssert(vkCreateSwapchainKHR(vk.device.device, &createInfo, nullptr, &res));
+	vkAssert(vkCreateSwapchainKHR(getDevice(), &createInfo, nullptr, &res));
 	return res;
 }
 
@@ -244,7 +248,7 @@ VkImageView Swapchain::Image::createImageView(void)
 	createInfo.subresourceRange.baseArrayLayer = 0;
 	createInfo.subresourceRange.layerCount = 1;
 
-	vkAssert(vkCreateImageView(swapchain.vk.device.device, &createInfo, nullptr, &res));
+	vkAssert(vkCreateImageView(getDevice(), &createInfo, nullptr, &res));
 
 	return res;
 }
@@ -265,12 +269,13 @@ VkFramebuffer Swapchain::Image::createFramebuffer(void)
 	createInfo.height = swapchain.extent.height;
 	createInfo.layers = 1;
 
-	vkAssert(vkCreateFramebuffer(swapchain.vk.device.device, &createInfo, nullptr, &res));
+	vkAssert(vkCreateFramebuffer(getDevice(), &createInfo, nullptr, &res));
 
 	return res;
 }
 
 Swapchain::Image::Image(Swapchain &swapchain, VkImage image) :
+	Dep::Device(swapchain.getDevice()),
 	swapchain(swapchain),
 	image(image),
 	view(createImageView()),
@@ -278,21 +283,22 @@ Swapchain::Image::Image(Swapchain &swapchain, VkImage image) :
 {
 }
 
-Swapchain::Image::Image(Swapchain::Image &&that) :
-	swapchain(that.swapchain),
-	image(that.image),
-	view(that.view),
-	framebuffer(that.framebuffer)
+Swapchain::Image::Image(Swapchain::Image &&other) :
+	Dep::Device(other.getDevice()),
+	swapchain(other.swapchain),
+	image(other.image),
+	view(other.view),
+	framebuffer(other.framebuffer)
 {
-	that.image = VK_NULL_HANDLE;
-	that.view = VK_NULL_HANDLE;
-	that.framebuffer = VK_NULL_HANDLE;
+	other.image = VK_NULL_HANDLE;
+	other.view = VK_NULL_HANDLE;
+	other.framebuffer = VK_NULL_HANDLE;
 }
 
 Swapchain::Image::~Image(void)
 {
-	vkDestroyFramebuffer(swapchain.vk.device.device, framebuffer, nullptr);
-	vkDestroyImageView(swapchain.vk.device.device, view, nullptr);
+	vkDestroyFramebuffer(getDevice(), framebuffer, nullptr);
+	vkDestroyImageView(getDevice(), view, nullptr);
 }
 
 }

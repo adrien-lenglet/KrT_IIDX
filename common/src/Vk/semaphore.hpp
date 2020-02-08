@@ -1,15 +1,17 @@
 #pragma once
 
+#include <vulkan/vulkan.h>
+
+#include "Dep/Device.hpp"
+
 namespace Vk {
 
-class Semaphore
+class Semaphore : public Dep::Device
 {
 public:
-	Semaphore(Instance &vk);
-	Semaphore(Semaphore &&that);	
+	Semaphore(VkDevice dev);
+	Semaphore(Semaphore &&other);
 	~Semaphore(void);
-
-	Instance &vk;
 
 	VkSemaphore semaphore;
 

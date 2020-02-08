@@ -1,5 +1,5 @@
-
-#include "vk.hpp"
+#include "Semaphore.hpp"
+#include "Vk/Misc.hpp"
 
 namespace Vk {
 
@@ -12,27 +12,27 @@ VkSemaphore Semaphore::createSemaphore(void)
 	createInfo.pNext = nullptr;
 	createInfo.flags = 0;
 
-	vkAssert(vkCreateSemaphore(vk.device.device, &createInfo, nullptr, &res));
+	vkAssert(vkCreateSemaphore(getDevice(), &createInfo, nullptr, &res));
 
 	return res;
 }
 
-Semaphore::Semaphore(Instance &vk) :
-	vk(vk),
+Semaphore::Semaphore(VkDevice dev) :
+	Dep::Device(dev),
 	semaphore(createSemaphore())
 {
 }
 
-Semaphore::Semaphore(Semaphore &&that) :
-	vk(that.vk),
-	semaphore(that.semaphore)
+Semaphore::Semaphore(Semaphore &&other) :
+	Dep::Device(other.getDevice()),
+	semaphore(other.semaphore)
 {
-	that.semaphore = VK_NULL_HANDLE;
+	other.semaphore = VK_NULL_HANDLE;
 }
 
 Semaphore::~Semaphore(void)
 {
-	vkDestroySemaphore(vk.device.device, semaphore, nullptr);
+	vkDestroySemaphore(getDevice(), semaphore, nullptr);
 }
 
 }

@@ -1,36 +1,19 @@
 #pragma once
 
+#include <vector>
+#include <vulkan/vulkan.h>
+#include "Vk/Device.hpp"
+
+#include "Dep/Device.hpp"
+
 namespace Vk {
 
-class QueueFamilies
+class Queue : public Dep::Device
 {
 public:
-	QueueFamilies();
-	QueueFamilies(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);
-	QueueFamilies(Instance &vk);
-	~QueueFamilies(void);
-
-	std::vector<VkQueueFamilyProperties> families;
-
-	VkQueueFlags getSupportedFlags(void);
-	int isPresentationSupported(void);
-	int areQueuesSupported(void);
-	uint32_t getIndex(VkQueueFlags flags);
-	uint32_t getIndexPresent(void);
-
-private:
-	VkPhysicalDevice physicalDevice;
-	VkSurfaceKHR surface;
-	void updateFamilies(void);
-};
-
-class Queue
-{
-public:
-	Queue(Instance &vk, uint32_t queueFamilyIndex);
+	Queue(::Vk::Device &dev, uint32_t queueFamilyIndex);
 	~Queue(void);
 
-	Instance &vk;
 	uint32_t queueFamilyIndex;
 
 	VkQueue queue;
@@ -43,7 +26,7 @@ private:
 class Queues
 {
 public:
-	Queues(Instance &vk);
+	Queues(Device &dev);
 	~Queues(void);
 
 	Queue present;
