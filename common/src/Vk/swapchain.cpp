@@ -55,7 +55,7 @@ Swapchain::Swapchain(VkSurfaceKHR surface, VkPhysicalDevice physicalDevice) :
 {
 }
 
-Swapchain::Swapchain(VkSurfaceKHR surface, ::Vk::Device &dev) :
+Swapchain::Swapchain(VkSurfaceKHR surface, Vk::Device &dev) :
 	Dep::Device(dev.device),
 	physicalDevice(dev.physicalDevice),
 	surface(surface),
@@ -198,7 +198,7 @@ uint32_t Swapchain::getMinImageCount(void)
 	return res;
 }
 
-VkSwapchainKHR Swapchain::createSwapchain(::Vk::Device &device)
+VkSwapchainKHR Swapchain::createSwapchain(Vk::Device &device)
 {
 	VkSwapchainKHR res;
 	VkSwapchainCreateInfoKHR createInfo;

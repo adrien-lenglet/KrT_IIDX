@@ -29,7 +29,7 @@ public:
 	};
 
 	Swapchain(VkSurfaceKHR surface, VkPhysicalDevice physicalDevice);
-	Swapchain(VkSurfaceKHR surface, ::Vk::Device &dev);
+	Swapchain(VkSurfaceKHR surface, Vk::Device &dev);
 	~Swapchain(void);
 
 	VkPhysicalDevice physicalDevice;
@@ -58,7 +58,7 @@ private:
 	VkSurfaceFormatKHR getSurfaceFormat(void);
 	VkPresentModeKHR getPresentMode(void);
 	uint32_t getMinImageCount(void);
-	VkSwapchainKHR createSwapchain(::Vk::Device &device);
+	VkSwapchainKHR createSwapchain(Vk::Device &device);
 	VkRenderPass createRenderPass(void);
 	std::vector<Image> fetchImages(void);
 };

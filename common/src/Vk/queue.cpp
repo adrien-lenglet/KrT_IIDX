@@ -23,7 +23,7 @@ VkCommandPool Queue::createCommandPool(void)
 	return res;
 }
 
-Queue::Queue(::Vk::Device &dev, uint32_t queueFamilyIndex) :
+Queue::Queue(Vk::Device &dev, uint32_t queueFamilyIndex) :
 	Dep::Device(dev.device),
 	queueFamilyIndex(queueFamilyIndex),
 	queue(dev.getQueue(queueFamilyIndex, 0)),

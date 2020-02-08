@@ -1,25 +1,32 @@
-#include <algorithm>
-#include "krt/krt.hpp"
+#include "Krt.hpp"
+#include "util.hpp"
 
-Krt::Krt(std::vector<std::string> args) :
+namespace Krt {
+
+Instance::Instance(std::vector<std::string> args) :
 	config(args),
 	vk(config.isProfile)
 {
 }
 
-Krt::~Krt(void)
+Instance::~Instance(void)
 {
 }
 
-void Krt::run(void)
+void Instance::run(void)
 {
 }
 
-Krt::Config::Config(std::vector<std::string> &args)
+Instance::Config::Config(std::vector<std::string> args)
 {
-	isProfile = std::find(args.begin(), args.end(), "profile") != args.end();
+	isProfile = util::erase_if_contains(args, "profile");
+
+	if (!args.empty())
+		throw std::runtime_error(std::string("Unknown argument(s): " + util::join(args, std::string(", "))));
 }
 
-Krt::Config::~Config(void)
+Instance::Config::~Config(void)
 {
+}
+
 }

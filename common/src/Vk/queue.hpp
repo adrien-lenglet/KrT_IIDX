@@ -11,7 +11,7 @@ namespace Vk {
 class Queue : public Dep::Device
 {
 public:
-	Queue(::Vk::Device &dev, uint32_t queueFamilyIndex);
+	Queue(Vk::Device &dev, uint32_t queueFamilyIndex);
 	~Queue(void);
 
 	uint32_t queueFamilyIndex;
