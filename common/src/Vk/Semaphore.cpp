@@ -13,7 +13,6 @@ VkSemaphore Semaphore::createSemaphore(void)
 	createInfo.flags = 0;
 
 	vkAssert(vkCreateSemaphore(getDevice(), &createInfo, nullptr, &res));
-
 	return res;
 }
 

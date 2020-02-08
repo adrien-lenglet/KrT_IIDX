@@ -1,8 +1,3 @@
-#include <optional>
-#include <bitset>
-#include <iostream>
-#include <exception>
-
 #include "Queue.hpp"
 #include "Misc.hpp"
 
@@ -19,7 +14,6 @@ VkCommandPool Queue::createCommandPool(void)
 	createInfo.queueFamilyIndex = queueFamilyIndex;
 
 	vkAssert(vkCreateCommandPool(getDevice(), &createInfo, nullptr, &res));
-
 	return res;
 }
 

@@ -1,6 +1,5 @@
 #include <optional>
 #include <bitset>
-#include <iostream>
 #include <exception>
 
 #include "Queue.hpp"

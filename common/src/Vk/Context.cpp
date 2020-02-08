@@ -33,8 +33,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 	void* pUserData)
 {
-	(void)messageType;
-	(void)pUserData;
+	static_cast<void>(messageType);
+	static_cast<void>(pUserData);
 
 	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT)
 		std::cerr << "[VERBOSE]: ";
@@ -45,6 +45,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
 		std::cerr << "[ERROR]: ";
 	std::cerr << pCallbackData->pMessage << std::endl;
+
 	return VK_FALSE;
 }
 
@@ -61,8 +62,10 @@ static std::vector<const char*> getLayers(bool isProfile)
 	res.push_back("VK_LAYER_KHRONOS_validation");
 	res.push_back("VK_LAYER_LUNARG_monitor");
 	#endif // DEBUG
+
 	if (isProfile)
 		res.push_back("VK_LAYER_RENDERDOC_Capture");
+
 	return res;
 }
 
@@ -79,6 +82,7 @@ static std::vector<const char*> getExtensions(void)
 	#ifdef DEBUG
 	res.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 	#endif // DEBUG
+
 	return res;
 }
 
@@ -93,6 +97,7 @@ static VkApplicationInfo getApplicationInfo(void)
 	res.pEngineName = "SUBtire";
 	res.engineVersion = VK_MAKE_VERSION(0, 1, 0);
 	res.apiVersion = VK_API_VERSION_1_1;
+
 	return res;
 }
 
@@ -149,6 +154,7 @@ VkInstance Context::createInstance(bool doProfile)
 	for (auto layer : data.layers)
 		printf("	%s\n", layer);
 	vkAssert(vkCreateInstance(&data.createInfo, nullptr, &res));
+
 	return res;
 }
 
@@ -183,6 +189,7 @@ GLFWwindow* Context::createWindow(void)
 	res = glfwCreateWindow(w, h, "KrT_IIDX", nullptr, nullptr);
 	if (res == nullptr)
 		throw std::runtime_error("Can't initialize GLFW window");
+
 	return res;
 }
 
@@ -201,6 +208,7 @@ Context::~Context(void)
 	#ifdef DEBUG
 	vkDestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
 	#endif
+
 	vkDestroySurfaceKHR(instance, surface, nullptr);
 	printf("Vk destr done.\n");
 	vkDestroyInstance(instance, nullptr);
@@ -218,6 +226,7 @@ VkSurfaceKHR Context::createSurface(void)
 	VkSurfaceKHR res;
 
 	vkAssert(glfwCreateWindowSurface(instance, window, nullptr, &res));
+
 	return res;
 }
 
