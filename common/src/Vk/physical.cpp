@@ -1,13 +1,10 @@
-
-#include <iostream>
 #include <exception>
-#include <tuple>
-
-#include <cstring>
+#include <string>
 
 #include "Device.hpp"
 #include "Misc.hpp"
 #include "Swapchain.hpp"
+#include "util.hpp"
 
 namespace Vk {
 
@@ -23,22 +20,16 @@ static std::vector<VkPhysicalDevice> getDevices(VkInstance instance)
 
 static bool areExtensionsSupported(VkPhysicalDevice device)
 {
-	std::vector<const char*> desiredExt = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-	std::vector<bool> extAvailable(desiredExt.size(), false);
+	std::vector<std::string> desiredExt = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
 	uint32_t count = 0;
 	vkAssert(vkEnumerateDeviceExtensionProperties(device, nullptr, &count, nullptr));
 	std::vector<VkExtensionProperties> ext(count);
 	vkAssert(vkEnumerateDeviceExtensionProperties(device, nullptr, &count, ext.data()));
 
-	for (size_t i = 0; i < desiredExt.size(); i++)
-		for (uint32_t j = 0; j < count; j++)
-			if (strcmp(desiredExt[i], ext[j].extensionName) == 0)
-				extAvailable[i] = true;
-	for (auto avail : extAvailable)
-		if (!avail)
-			return false;
-	return true;
+	for (const auto &e : ext)
+		util::remove(desiredExt, e.extensionName);
+	return desiredExt.empty();
 }
 
 static VkPhysicalDevice findBestPhysicalDevice(VkInstance instance, VkSurfaceKHR surface)

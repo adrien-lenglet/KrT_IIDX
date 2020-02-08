@@ -44,4 +44,16 @@ U join(const T &values, const U &delim)
 	return res;
 }
 
+template <typename T, typename U>
+class T::iterator remove(T &container, const U &value)
+{
+	return container.erase(std::remove(container.begin(), container.end(), value), container.end());
+}
+
+template <typename T, typename U>
+class T::iterator remove_if(T &container, const U &value)
+{
+	return container.erase(std::remove_if(container.begin(), container.end(), value), container.end());
+}
+
 }
