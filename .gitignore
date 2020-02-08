@@ -1,6 +1,6 @@
 KrT_IIDX
 KrT_IIDX.exe
-build_run.sh
+glfw3.dll
 
 *.cbp
 *.o
