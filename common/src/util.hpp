@@ -56,4 +56,14 @@ class T::iterator remove_if(T &container, const U &value)
 	return container.erase(std::remove_if(container.begin(), container.end(), value), container.end());
 }
 
+template <template<typename,typename...> typename T, typename U, typename V>
+T<V> map(const T<U> &container, const std::function<V(const U&)> &func)
+{
+	T<V> res;
+
+	for (const U &el : container)
+		res.push_back(func(el));
+	return res;
+}
+
 }

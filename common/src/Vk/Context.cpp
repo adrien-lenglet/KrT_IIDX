@@ -5,8 +5,7 @@
 
 #include "Context.hpp"
 #include "Misc.hpp"
-#include "util/algo.hpp"
-#include "util/func.hpp"
+#include "util.hpp"
 
 VkResult vkCreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
 const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger)

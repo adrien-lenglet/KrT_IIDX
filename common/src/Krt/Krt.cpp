@@ -1,5 +1,5 @@
 #include "Krt.hpp"
-#include "util/algo.hpp"
+#include "util.hpp"
 
 namespace Krt {
 
