@@ -11,9 +11,35 @@ class T::iterator find(T &container, const U &value)
 }
 
 template <typename T, typename U>
-bool contains(T &container, const U &value)
+class T::const_iterator find(const T &container, const U &value)
 {
-	return find(container, value) != container.end();
+	return std::find(container.cbegin(), container.cend(), value);
+}
+
+template <typename T, typename U>
+bool contains(const T &container, const U &value)
+{
+	return find(container, value) != container.cend();
+}
+
+template <template<typename,typename...> typename T, typename U, typename V>
+bool contains(const T<U> &container, const T<V> &included)
+{
+	for (const auto &i : included)
+		if (!contains(container, i))
+			return false;
+	return true;
+}
+
+template <template<typename,typename...> typename T, typename U, typename V>
+T<U> not_contained(const T<U> &container, const T<V> &included)
+{
+	T<U> res;
+
+	for (const auto &i : included)
+		if (!contains(container, i))
+			res.push_back(i);
+	return res;
 }
 
 template <typename T, typename U>

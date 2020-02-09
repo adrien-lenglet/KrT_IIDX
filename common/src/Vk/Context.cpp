@@ -63,10 +63,7 @@ static std::vector<const char*> getLayers(bool isProfile)
 	if (isProfile)
 		wanted.push_back("VK_LAYER_RENDERDOC_Capture");
 
-	std::vector<std::string> not_present;
-	for (const auto &w : wanted)
-		if (!util::contains(layers, w))
-			not_present.push_back(w);
+	auto not_present = util::not_contained(layers, wanted);
 	if (!not_present.empty())
 		throw std::runtime_error(std::string("Layers not found: " + util::join(not_present, std::string(", "))));
 
