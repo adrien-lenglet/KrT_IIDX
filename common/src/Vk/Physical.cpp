@@ -4,7 +4,7 @@
 #include "Device.hpp"
 #include "Misc.hpp"
 #include "Swapchain.hpp"
-#include "util.hpp"
+#include "util/algo.hpp"
 
 namespace Vk {
 

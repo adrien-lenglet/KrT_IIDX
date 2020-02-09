@@ -5,11 +5,13 @@
 
 #include "Context.hpp"
 #include "Misc.hpp"
+#include "util/algo.hpp"
+#include "util/func.hpp"
 
 VkResult vkCreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
 const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger)
 {
-	auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+	auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
 
 	if (func != nullptr)
 		return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
@@ -19,7 +21,7 @@ const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMesseng
 
 void vkDestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator)
 {
-	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+	auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
 
 	if (func != nullptr)
 		func(instance, debugMessenger, pAllocator);
@@ -45,28 +47,31 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
 		std::cerr << "[ERROR]: ";
 	std::cerr << pCallbackData->pMessage << std::endl;
-
 	return VK_FALSE;
 }
 
 static std::vector<const char*> getLayers(bool isProfile)
 {
-	std::vector<const char*> res;
+	std::vector<const char*> wanted;
+	auto layers = util::map(
+		Vk::retrieve(vkEnumerateInstanceLayerProperties),
+		std::function([](const VkLayerProperties &layer) -> std::string { return layer.layerName; }));
 
 	#ifdef DEBUG
-	uint32_t layerCount = 0;
-	vkAssert(vkEnumerateInstanceLayerProperties(&layerCount, nullptr));
-	std::vector<VkLayerProperties> layers(layerCount);
-	vkAssert(vkEnumerateInstanceLayerProperties(&layerCount, layers.data()));
-
-	res.push_back("VK_LAYER_KHRONOS_validation");
-	res.push_back("VK_LAYER_LUNARG_monitor");
-	#endif // DEBUG
-
+	wanted.push_back("VK_LAYER_KHRONOS_validation");
+	wanted.push_back("VK_LAYER_LUNARG_monitor");
+	#endif
 	if (isProfile)
-		res.push_back("VK_LAYER_RENDERDOC_Capture");
+		wanted.push_back("VK_LAYER_RENDERDOC_Capture");
 
-	return res;
+	std::vector<std::string> not_present;
+	for (const auto &w : wanted)
+		if (!util::contains(layers, w))
+			not_present.push_back(w);
+	if (!not_present.empty())
+		throw std::runtime_error(std::string("Layers not found: " + util::join(not_present, std::string(", "))));
+
+	return wanted;
 }
 
 static std::vector<const char*> getExtensions(void)
