@@ -2,8 +2,11 @@
 
 #include <vector>
 
-void vkAssert_real(VkResult res, const char *file, int line, const char *fun);
-#define vkAssert(res) vkAssert_real(res, __FILE__, __LINE__, __func__)
+namespace Vk {
+void assert(VkResult res, const char *file, int line, const char *fun);
+}
+
+#define vkAssert(res) Vk::assert(res, __FILE__, __LINE__, __func__)
 
 namespace Vk {
 
@@ -15,6 +18,30 @@ std::vector<T> retrieve(VkResult (*func)(uint32_t *count, T *props))
 	vkAssert(func(&count, nullptr));
 	std::vector<T> res(count);
 	vkAssert(func(&count, res.data()));
+
+	return res;
+}
+
+template <typename T, typename U>
+std::vector<T> retrieve(VkResult (*func)(U a,uint32_t *count, T *props), U a)
+{
+	uint32_t count = 0;
+
+	vkAssert(func(a, &count, nullptr));
+	std::vector<T> res(count);
+	vkAssert(func(a, &count, res.data()));
+
+	return res;
+}
+
+template <typename T, typename U, typename V>
+std::vector<T> retrieve(VkResult (*func)(U a, V b, uint32_t *count, T *props), U a, V b)
+{
+	uint32_t count = 0;
+
+	vkAssert(func(a, b, &count, nullptr));
+	std::vector<T> res(count);
+	vkAssert(func(a, b, &count, res.data()));
 
 	return res;
 }

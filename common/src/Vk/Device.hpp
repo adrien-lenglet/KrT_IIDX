@@ -22,6 +22,7 @@ public:
 	VkQueue getQueue(uint32_t familyIndex, uint32_t index);
 
 private:
+	static bool areExtensionsSupported(VkPhysicalDevice device);
 	VkPhysicalDevice createPhysicalDevice(VkInstance instance, VkSurfaceKHR surface);
 	VkPhysicalDeviceProperties getPhysicalDeviceProperties(void);
 	VkPhysicalDeviceFeatures getPhysicalDeviceFeatures(void);

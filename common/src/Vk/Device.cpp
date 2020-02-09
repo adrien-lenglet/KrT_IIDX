@@ -1,38 +1,10 @@
-
-#include <iostream>
-#include <exception>
-#include <set>
-
 #include "Device.hpp"
+#include "Swapchain.hpp"
+#include "DeviceQueueCreateInfos.hpp"
 #include "Misc.hpp"
+#include "util.hpp"
 
 namespace Vk {
-
-class VkDeviceQueueCreateInfos : public std::vector<VkDeviceQueueCreateInfo>
-{
-public:
-	VkDeviceQueueCreateInfos(Device &device);
-	~VkDeviceQueueCreateInfos(void);
-	std::vector<std::vector<float>> priorities;
-
-private:
-};
-
-VkDeviceQueueCreateInfos::VkDeviceQueueCreateInfos(Device &device)
-{
-	for (size_t i = 0; i < device.queueFamilies.families.size(); i++) {
-		VkDeviceQueueCreateInfo to_push;
-
-		to_push.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-		to_push.pNext = nullptr;
-		to_push.flags = 0;
-		to_push.queueFamilyIndex = i;
-		to_push.queueCount = 1;
-		priorities.push_back(std::vector<float>{1.0f});
-		to_push.pQueuePriorities = priorities.back().data();
-		push_back(to_push);
-	}
-}
 
 VmaAllocator Device::createAllocator(void)
 {
@@ -55,10 +27,6 @@ VmaAllocator Device::createAllocator(void)
 	return res;
 }
 
-VkDeviceQueueCreateInfos::~VkDeviceQueueCreateInfos(void)
-{
-}
-
 Device::Device(VkInstance instance, VkSurfaceKHR surface) :
 	physicalDevice(createPhysicalDevice(instance, surface)),
 	properties(getPhysicalDeviceProperties()),
@@ -79,7 +47,7 @@ VkDevice Device::createDevice(void)
 {
 	VkDevice res;
 	VkDeviceCreateInfo createInfo;
-	VkDeviceQueueCreateInfos queueCreateInfos(*this);
+	DeviceQueueCreateInfos queueCreateInfos(*this);
 	std::vector<const char*> extensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -94,6 +62,55 @@ VkDevice Device::createDevice(void)
 	createInfo.pEnabledFeatures = &features;
 
 	vkAssert(vkCreateDevice(physicalDevice, &createInfo, nullptr, &res));
+	return res;
+}
+
+bool Device::areExtensionsSupported(VkPhysicalDevice device)
+{
+	std::vector<std::string> desiredExt = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+	auto ext = Vk::retrieve(vkEnumerateDeviceExtensionProperties, device, static_cast<const char*>(nullptr));
+
+	for (const auto &e : ext)
+		util::remove(desiredExt, e.extensionName);
+	return desiredExt.empty();
+}
+
+VkPhysicalDevice Device::createPhysicalDevice(VkInstance instance, VkSurfaceKHR surface)
+{
+	auto devices = Vk::retrieve(vkEnumeratePhysicalDevices, instance);
+	VkPhysicalDevice res = VK_NULL_HANDLE;
+	VkPhysicalDeviceProperties properties;
+	VkPhysicalDeviceFeatures features;
+	QueueFamilies queueFamilies;
+
+	for (auto device : devices) {
+		vkGetPhysicalDeviceProperties(device, &properties);
+		vkGetPhysicalDeviceFeatures(device, &features);
+		queueFamilies = QueueFamilies(surface, device);
+		if (areExtensionsSupported(device) && queueFamilies.areQueuesSupported() && Swapchain(surface, device).isValid()) {
+			res = device;
+			if (properties.deviceType & VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+				return res;
+		}
+	}
+	if (res == VK_NULL_HANDLE)
+		throw std::runtime_error("Cannot find any compatible GPU on this system");
+	return res;
+}
+
+VkPhysicalDeviceProperties Device::getPhysicalDeviceProperties(void)
+{
+	VkPhysicalDeviceProperties res;
+
+	vkGetPhysicalDeviceProperties(physicalDevice, &res);
+	return res;
+}
+
+VkPhysicalDeviceFeatures Device::getPhysicalDeviceFeatures(void)
+{
+	VkPhysicalDeviceFeatures res;
+
+	vkGetPhysicalDeviceFeatures(physicalDevice, &res);
 	return res;
 }
 
