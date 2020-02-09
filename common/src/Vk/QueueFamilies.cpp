@@ -11,20 +11,11 @@ QueueFamilies::QueueFamilies(void)
 {
 }
 
-void QueueFamilies::updateFamilies(void)
-{
-	uint32_t count = 0;
-
-	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &count, nullptr);
-	this->families.resize(count);
-	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &count, this->families.data());
-}
-
 QueueFamilies::QueueFamilies(VkSurfaceKHR surface, VkPhysicalDevice physicalDevice) :
 	surface(surface),
 	physicalDevice(physicalDevice)
 {
-	updateFamilies();
+	families = Vk::retrieve(vkGetPhysicalDeviceQueueFamilyProperties, physicalDevice);
 }
 
 QueueFamilies::~QueueFamilies(void)

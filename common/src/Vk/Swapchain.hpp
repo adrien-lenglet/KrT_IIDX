@@ -51,8 +51,6 @@ public:
 private:
 
 	VkSurfaceCapabilitiesKHR getCapabilities(void);
-	std::vector<VkSurfaceFormatKHR> getSurfaceFormats(void);
-	std::vector<VkPresentModeKHR> getPresentModes(void);
 
 	VkExtent2D getExtent2D(void);
 	VkSurfaceFormatKHR getSurfaceFormat(void);

@@ -4,6 +4,7 @@
 
 #include "Swapchain.hpp"
 #include "Misc.hpp"
+#include "util.hpp"
 
 namespace Vk {
 
@@ -12,31 +13,6 @@ VkSurfaceCapabilitiesKHR Swapchain::getCapabilities(void)
 	VkSurfaceCapabilitiesKHR res;
 
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &res);
-
-	return res;
-}
-
-std::vector<VkSurfaceFormatKHR> Swapchain::getSurfaceFormats(void)
-{
-	std::vector<VkSurfaceFormatKHR> res;
-	uint32_t count;
-
-	vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &count, nullptr);
-	res.resize(count);
-	vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &count, res.data());
-
-	return res;
-}
-
-std::vector<VkPresentModeKHR> Swapchain::getPresentModes(void)
-{
-	std::vector<VkPresentModeKHR> res;
-	uint32_t count;
-
-	vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &count, nullptr);
-	res.resize(count);
-	vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &count, res.data());
-
 	return res;
 }
 
@@ -45,8 +21,8 @@ Swapchain::Swapchain(VkSurfaceKHR surface, VkPhysicalDevice physicalDevice) :
 	physicalDevice(physicalDevice),
 	surface(surface),
 	capabilities(getCapabilities()),
-	surfaceFormats(getSurfaceFormats()),
-	presentModes(getPresentModes()),
+	surfaceFormats(Vk::retrieve(vkGetPhysicalDeviceSurfaceFormatsKHR, physicalDevice, surface)),
+	presentModes(Vk::retrieve(vkGetPhysicalDeviceSurfacePresentModesKHR, physicalDevice, surface)),
 	extent(getExtent2D()),
 	surfaceFormat(getSurfaceFormat()),
 	presentMode(getPresentMode()),
@@ -60,8 +36,8 @@ Swapchain::Swapchain(VkSurfaceKHR surface, Vk::Device &dev) :
 	physicalDevice(dev.physicalDevice),
 	surface(surface),
 	capabilities(getCapabilities()),
-	surfaceFormats(getSurfaceFormats()),
-	presentModes(getPresentModes()),
+	surfaceFormats(Vk::retrieve(vkGetPhysicalDeviceSurfaceFormatsKHR, physicalDevice, surface)),
+	presentModes(Vk::retrieve(vkGetPhysicalDeviceSurfacePresentModesKHR, physicalDevice, surface)),
 	extent(getExtent2D()),
 	surfaceFormat(getSurfaceFormat()),
 	presentMode(getPresentMode()),
@@ -73,17 +49,8 @@ Swapchain::Swapchain(VkSurfaceKHR surface, Vk::Device &dev) :
 
 std::vector<Swapchain::Image> Swapchain::fetchImages(void)
 {
-	std::vector<Swapchain::Image> res;
-	std::vector<VkImage> vkImages;
-
-	uint32_t count;
-	vkGetSwapchainImagesKHR(getDevice(), swapchain, &count, nullptr);
-	vkImages.resize(count);
-	vkGetSwapchainImagesKHR(getDevice(), swapchain, &count, vkImages.data());
-
-	for (auto vkImage : vkImages)
-		res.push_back(Swapchain::Image(*this, vkImage));
-	return res;
+	return util::map(Vk::retrieve(vkGetSwapchainImagesKHR, getDevice(), swapchain),
+	std::function([this](const VkImage &img) { return Swapchain::Image(*this, img); }));
 }
 
 VkRenderPass Swapchain::createRenderPass(void)
@@ -180,12 +147,9 @@ VkSurfaceFormatKHR Swapchain::getSurfaceFormat(void)
 
 VkPresentModeKHR Swapchain::getPresentMode(void)
 {
-	for (auto presentMode : presentModes)
-		if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR)
-			return presentMode;
-	for (auto presentMode : presentModes)
-		if (presentMode == VK_PRESENT_MODE_FIFO_KHR)
-			return presentMode;
+	for (const auto &mode : std::vector<VkPresentModeKHR>{VK_PRESENT_MODE_MAILBOX_KHR, VK_PRESENT_MODE_FIFO_KHR})
+		if (util::contains(presentModes, mode))
+			return mode;
 	return presentModes.at(0);
 }
 
@@ -249,7 +213,6 @@ VkImageView Swapchain::Image::createImageView(void)
 	createInfo.subresourceRange.layerCount = 1;
 
 	vkAssert(vkCreateImageView(getDevice(), &createInfo, nullptr, &res));
-
 	return res;
 }
 
@@ -270,7 +233,6 @@ VkFramebuffer Swapchain::Image::createFramebuffer(void)
 	createInfo.layers = 1;
 
 	vkAssert(vkCreateFramebuffer(getDevice(), &createInfo, nullptr, &res));
-
 	return res;
 }
 

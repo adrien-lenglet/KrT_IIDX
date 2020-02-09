@@ -23,8 +23,6 @@ public:
 private:
 	VkSurfaceKHR surface;
 	VkPhysicalDevice physicalDevice;
-
-	void updateFamilies(void);
 };
 
 }

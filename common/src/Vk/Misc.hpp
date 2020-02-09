@@ -46,4 +46,16 @@ std::vector<T> retrieve(VkResult (*func)(U a, V b, uint32_t *count, T *props), U
 	return res;
 }
 
+template <typename T, typename U>
+std::vector<T> retrieve(void (*func)(U a,uint32_t *count, T *props), U a)
+{
+	uint32_t count = 0;
+
+	func(a, &count, nullptr);
+	std::vector<T> res(count);
+	func(a, &count, res.data());
+
+	return res;
+}
+
 }
