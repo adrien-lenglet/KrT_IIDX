@@ -31,9 +31,9 @@ Queue::~Queue(void)
 }
 
 Queues::Queues(Device &dev) :
-	present(Queue(dev, dev.queueFamilies.getIndexPresent())),
-	graphics(Queue(dev, dev.queueFamilies.getIndex(VK_QUEUE_GRAPHICS_BIT))),
-	transfer(Queue(dev, dev.queueFamilies.getIndex(VK_QUEUE_TRANSFER_BIT)))
+	present(dev, dev.queueFamilies.getIndexPresent()),
+	graphics(dev, dev.queueFamilies.getIndex(VK_QUEUE_GRAPHICS_BIT)),
+	transfer(dev, dev.queueFamilies.getIndex(VK_QUEUE_TRANSFER_BIT))
 {
 }
 
