@@ -1,5 +1,7 @@
+#include "Pipeline.hpp"
+#include "Vk/Misc.hpp"
 
-#include "krt/krt.hpp"
+namespace Vk {
 
 VkPipelineVertexInputStateCreateInfo Pipeline::createVertexInputState(void)
 {
@@ -35,8 +37,8 @@ VkViewport Pipeline::createViewport(void)
 
 	res.x = 0.0f;
 	res.y = 0.0f;
-	res.width = (float)vk.swapchain.extent.width;
-	res.height = (float)vk.swapchain.extent.height;
+	res.width = static_cast<float>(swapchain.extent.width);
+	res.height = static_cast<float>(swapchain.extent.height);
 	res.minDepth = 0.0f;
 	res.maxDepth = 1.0f;
 
@@ -49,7 +51,7 @@ VkRect2D Pipeline::createScissor(void)
 
 	res.offset.x = 0;
 	res.offset.y = 0;
-	res.extent = vk.swapchain.extent;
+	res.extent = swapchain.extent;
 
 	return res;
 }
@@ -166,7 +168,7 @@ VkPipelineLayout Pipeline::createLayout(void)
 	createInfo.pushConstantRangeCount = 0;
 	createInfo.pPushConstantRanges = nullptr;
 
-	vkAssert(vkCreatePipelineLayout(vk.device.device, &createInfo, nullptr, &res));
+	vkAssert(vkCreatePipelineLayout(swapchain.getDevice(), &createInfo, nullptr, &res));
 
 	return res;
 }
@@ -176,7 +178,7 @@ VkPipeline Pipeline::createPipeline(std::vector<ShaderStageCreateInfo> &stages)
 	VkPipeline res;
 	VkGraphicsPipelineCreateInfo createInfo;
 
-	Pipeline::ShaderStages shaderStages(vk, stages);
+	Pipeline::ShaderStages shaderStages(swapchain.getDevice(), stages);
 	createInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	createInfo.pNext = nullptr;
 	createInfo.flags = 0;
@@ -203,18 +205,18 @@ VkPipeline Pipeline::createPipeline(std::vector<ShaderStageCreateInfo> &stages)
 	auto dynamicState = createDynamicState(dynamicStates);
 	createInfo.pDynamicState = &dynamicState;
 	createInfo.layout = layout;
-	createInfo.renderPass = vk.swapchain.renderPass;
+	createInfo.renderPass = swapchain.renderPass;
 	createInfo.subpass = 0;
 	createInfo.basePipelineHandle = VK_NULL_HANDLE;
 	createInfo.basePipelineIndex = -1;
 
-	vkAssert(vkCreateGraphicsPipelines(vk.device.device, VK_NULL_HANDLE, 1, &createInfo, nullptr, &res));
+	vkAssert(vkCreateGraphicsPipelines(swapchain.getDevice(), VK_NULL_HANDLE, 1, &createInfo, nullptr, &res));
 
 	return res;
 }
 
-Pipeline::Pipeline(Vk &vk, std::vector<ShaderStageCreateInfo> &&stages) :
-	vk(vk),
+Pipeline::Pipeline(Swapchain &swapchain, std::vector<ShaderStageCreateInfo> &&stages) :
+	swapchain(swapchain),
 	layout(createLayout()),
 	pipeline(createPipeline(stages))
 {
@@ -222,6 +224,8 @@ Pipeline::Pipeline(Vk &vk, std::vector<ShaderStageCreateInfo> &&stages) :
 
 Pipeline::~Pipeline(void)
 {
-	vkDestroyPipeline(vk.device.device, pipeline, nullptr);
-	vkDestroyPipelineLayout(vk.device.device, layout, nullptr);
+	vkDestroyPipeline(swapchain.getDevice(), pipeline, nullptr);
+	vkDestroyPipelineLayout(swapchain.getDevice(), layout, nullptr);
+}
+
 }

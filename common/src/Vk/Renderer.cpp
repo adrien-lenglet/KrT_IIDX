@@ -1,5 +1,7 @@
+#include "Renderer.hpp"
+#include "Vk/Misc.hpp"
 
-#include "krt/krt.hpp"
+namespace Vk {
 
 VkCommandBuffer Renderer::Image::createCommandBuffer(void)
 {
@@ -8,11 +10,11 @@ VkCommandBuffer Renderer::Image::createCommandBuffer(void)
 
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	allocInfo.pNext = nullptr;
-	allocInfo.commandPool = swapchainImage.swapchain.vk.queues.graphics.commandPool;
+	allocInfo.commandPool = swapchainImage.swapchain.getCommandPool();
 	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	allocInfo.commandBufferCount = 1;
 
-	vkAssert(vkAllocateCommandBuffers(swapchainImage.swapchain.vk.device.device, &allocInfo, &res));
+	vkAssert(vkAllocateCommandBuffers(swapchainImage.swapchain.getDevice(), &allocInfo, &res));
 
 	return res;
 }
@@ -20,8 +22,8 @@ VkCommandBuffer Renderer::Image::createCommandBuffer(void)
 Renderer::Image::Image(Swapchain::Image &swapchainImage) :
 	swapchainImage(swapchainImage),
 	commandBuffer(createCommandBuffer()),
-	imageAvailable(swapchainImage.swapchain.vk),
-	renderFinished(swapchainImage.swapchain.vk)
+	imageAvailable(swapchainImage.swapchain.getDevice()),
+	renderFinished(swapchainImage.swapchain.getDevice())
 {
 }
 
@@ -36,7 +38,7 @@ Renderer::Image::Image(Renderer::Image &&that) :
 
 Renderer::Image::~Image(void)
 {
-	vkFreeCommandBuffers(swapchainImage.swapchain.vk.device.device, swapchainImage.swapchain.vk.queues.graphics.commandPool, 1, &commandBuffer);
+	vkFreeCommandBuffers(swapchainImage.swapchain.getDevice(), swapchainImage.swapchain.getCommandPool(), 1, &commandBuffer);
 }
 
 std::vector<Renderer::Image> Renderer::Images::createImages(void)
@@ -65,11 +67,13 @@ Renderer::Images::~Images(void)
 	//vkAssert(vkAcquireNextImageKHR(swapchain.vk.device.device, swapchain.swapchain, UINT64_MAX, images, VK_NULL_HANDLE, &index));
 }*/
 
-Renderer::Renderer(Vk& vk) :
-	pipeline(vk, std::vector<Pipeline::ShaderStageCreateInfo>{
+Renderer::Renderer(Swapchain &swapchain) :
+	pipeline(swapchain, std::vector<Pipeline::ShaderStageCreateInfo>{
 		{VK_SHADER_STAGE_VERTEX_BIT, "common/shaders/vert.spv"},
 		{VK_SHADER_STAGE_FRAGMENT_BIT, "common/shaders/frag.spv"}
 	}),
-	images(vk.swapchain)
+	images(swapchain)
 {
+}
+
 }

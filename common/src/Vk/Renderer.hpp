@@ -1,5 +1,9 @@
 
-#include "pipeline/pipeline.hpp"
+#include "Swapchain.hpp"
+#include "Semaphore.hpp"
+#include "Pipeline.hpp"
+
+namespace Vk {
 
 class Renderer
 {
@@ -12,6 +16,7 @@ public:
 		~Image(void);
 
 		Swapchain::Image &swapchainImage;
+		VkCommandPool commandPool;
 		VkCommandBuffer commandBuffer;
 		Semaphore imageAvailable;
 		Semaphore renderFinished;
@@ -36,8 +41,10 @@ public:
 		std::vector<Image> createImages(void);
 	};
 
-	Renderer(Vk &vk);
+	Renderer(Swapchain &swapchain);
 
 	Pipeline pipeline;
 	Images images;
 };
+
+}

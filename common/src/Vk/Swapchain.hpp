@@ -29,7 +29,7 @@ public:
 	};
 
 	Swapchain(VkSurfaceKHR surface, VkPhysicalDevice physicalDevice);
-	Swapchain(VkSurfaceKHR surface, Vk::Device &dev);
+	Swapchain(VkSurfaceKHR surface, Vk::Device &dev, VkCommandPool commandPool);
 	~Swapchain(void);
 
 	VkPhysicalDevice physicalDevice;
@@ -47,8 +47,10 @@ public:
 	std::vector<Image> images;
 
 	bool isValid(void);
+	VkCommandPool getCommandPool(void) const;
 
 private:
+	VkCommandPool m_commandPool;
 
 	VkSurfaceCapabilitiesKHR getCapabilities(void);
 

@@ -1,14 +1,17 @@
 
 #pragma once
 
-#include "shader_module.hpp"
+#include "Swapchain.hpp"
+#include "ShaderModule.hpp"
+
+namespace Vk {
 
 class Pipeline
 {
 public:
 	class ShaderStage {
 	public:
-		ShaderStage(Vk &vk, VkShaderStageFlagBits stage, std::string path, std::string entryPoint = "main");
+		ShaderStage(VkDevice dev, VkShaderStageFlagBits stage, std::string path, std::string entryPoint = "main");
 		~ShaderStage(void);
 
 		std::string name;
@@ -33,18 +36,18 @@ public:
 	class ShaderStages : public std::vector<ShaderStage>
 	{
 	public:
-		ShaderStages(Vk &vk, std::vector<ShaderStageCreateInfo> &createInfos);
+		ShaderStages(VkDevice dev, std::vector<ShaderStageCreateInfo> &createInfos);
 
 		std::vector<VkPipelineShaderStageCreateInfo> createInfos;
 
 	private:
-		std::vector<VkPipelineShaderStageCreateInfo> getCreateInfos(Vk &vk, std::vector<ShaderStageCreateInfo> &createInfos);
+		std::vector<VkPipelineShaderStageCreateInfo> getCreateInfos(VkDevice dev, std::vector<ShaderStageCreateInfo> &createInfos);
 	};
 
-	Pipeline(Vk &vk, std::vector<ShaderStageCreateInfo> &&stages);
-	~Pipeline(void);
+	Swapchain &swapchain;
 
-	Vk &vk;
+	Pipeline(Swapchain &swapchain, std::vector<ShaderStageCreateInfo> &&stages);
+	~Pipeline(void);
 
 	VkPipelineLayout layout;
 	VkPipeline pipeline;
@@ -63,3 +66,5 @@ private:
 	VkPipelineLayout createLayout(void);
 	VkPipeline createPipeline(std::vector<ShaderStageCreateInfo> &stages);
 };
+
+}

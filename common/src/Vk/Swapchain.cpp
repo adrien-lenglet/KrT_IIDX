@@ -27,11 +27,12 @@ Swapchain::Swapchain(VkSurfaceKHR surface, VkPhysicalDevice physicalDevice) :
 	surfaceFormat(getSurfaceFormat()),
 	presentMode(getPresentMode()),
 	swapchain(VK_NULL_HANDLE),
-	renderPass(VK_NULL_HANDLE)
+	renderPass(VK_NULL_HANDLE),
+	m_commandPool(VK_NULL_HANDLE)
 {
 }
 
-Swapchain::Swapchain(VkSurfaceKHR surface, Vk::Device &dev) :
+Swapchain::Swapchain(VkSurfaceKHR surface, Vk::Device &dev, VkCommandPool commandPool) :
 	Dep::Device(dev.device),
 	physicalDevice(dev.physicalDevice),
 	surface(surface),
@@ -43,7 +44,8 @@ Swapchain::Swapchain(VkSurfaceKHR surface, Vk::Device &dev) :
 	presentMode(getPresentMode()),
 	swapchain(createSwapchain(dev)),
 	renderPass(createRenderPass()),
-	images(fetchImages())
+	images(fetchImages()),
+	m_commandPool(commandPool)
 {
 }
 
@@ -120,6 +122,11 @@ Swapchain::~Swapchain(void)
 bool Swapchain::isValid(void)
 {
 	return surfaceFormats.size() > 0 && presentModes.size() > 0;
+}
+
+VkCommandPool Swapchain::getCommandPool(void) const
+{
+	return m_commandPool;
 }
 
 VkExtent2D Swapchain::getExtent2D(void)

@@ -1,5 +1,6 @@
+#include "../Pipeline.hpp"
 
-#include "krt/krt.hpp"
+namespace Vk {
 
 VkPipelineShaderStageCreateInfo Pipeline::ShaderStage::initCreateInfo(void)
 {
@@ -16,10 +17,10 @@ VkPipelineShaderStageCreateInfo Pipeline::ShaderStage::initCreateInfo(void)
 	return res;
 }
 
-Pipeline::ShaderStage::ShaderStage(Vk &vk, VkShaderStageFlagBits stage, std::string path, std::string entryPoint) :
+Pipeline::ShaderStage::ShaderStage(VkDevice dev, VkShaderStageFlagBits stage, std::string path, std::string entryPoint) :
 	name(entryPoint),
 	stage(stage),
-	module(vk, path),
+	module(dev, path),
 	createInfo(initCreateInfo())
 {
 }
@@ -41,20 +42,21 @@ Pipeline::ShaderStageCreateInfo::~ShaderStageCreateInfo(void)
 
 
 
-Pipeline::ShaderStages::ShaderStages(Vk &vk, std::vector<ShaderStageCreateInfo> &createInfos) :
-	createInfos(getCreateInfos(vk, createInfos))
+Pipeline::ShaderStages::ShaderStages(VkDevice dev, std::vector<ShaderStageCreateInfo> &createInfos) :
+	createInfos(getCreateInfos(dev, createInfos))
 {
 }
 
-std::vector<VkPipelineShaderStageCreateInfo> Pipeline::ShaderStages::getCreateInfos(Vk &vk, std::vector<ShaderStageCreateInfo> &createInfos)
+std::vector<VkPipelineShaderStageCreateInfo> Pipeline::ShaderStages::getCreateInfos(VkDevice dev, std::vector<ShaderStageCreateInfo> &createInfos)
 {
 	std::vector<VkPipelineShaderStageCreateInfo> res;
 
 	reserve(createInfos.size());
 	for (auto &createInfo : createInfos)
-		emplace_back(vk, createInfo.stage, createInfo.path, createInfo.entryPoint);
+		emplace_back(dev, createInfo.stage, createInfo.path, createInfo.entryPoint);
 	for (auto &stage : *this)
 		res.push_back(stage.createInfo);
-
 	return res;
+}
+
 }

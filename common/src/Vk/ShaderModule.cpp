@@ -1,10 +1,11 @@
 #include <fstream>
-
-#include "shader_module.hpp"
+#include "ShaderModule.hpp"
+#include "Vk/Misc.hpp"
 
 namespace Vk {
 
-ShaderModule::ShaderModule(Instance &vk, std::string path) : vk(vk)
+ShaderModule::ShaderModule(VkDevice dev, std::string path) :
+	Dep::Device(dev)
 {
 	auto file = std::ifstream(path, std::ios::ate | std::ios::binary);
 	file.exceptions(std::ifstream::failbit);
@@ -23,12 +24,12 @@ ShaderModule::ShaderModule(Instance &vk, std::string path) : vk(vk)
 	createInfo.codeSize = buf.size();
 	createInfo.pCode = (const uint32_t*)buf.data();
 
-	vkAssert(vkCreateShaderModule(vk.device.device, &createInfo, nullptr, &module));
+	vkAssert(vkCreateShaderModule(getDevice(), &createInfo, nullptr, &module));
 }
 
 ShaderModule::~ShaderModule(void)
 {
-	vkDestroyShaderModule(vk.device.device, module, nullptr);
+	vkDestroyShaderModule(getDevice(), module, nullptr);
 }
 
 }

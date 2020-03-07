@@ -4,6 +4,7 @@
 #include "Device.hpp"
 #include "Queue.hpp"
 #include "Swapchain.hpp"
+#include "Renderer.hpp"
 
 namespace Vk {
 
@@ -17,8 +18,7 @@ public:
 	Device device;
 	Queues queues;
 	Swapchain swapchain;
-
-private:
+	Renderer renderer;
 };
 
 }
