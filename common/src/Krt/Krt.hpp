@@ -4,7 +4,13 @@
 #include <vector>
 #include <string>
 
-#include "Vk/Instance.hpp"
+#include "Subtile/Instance.hpp"
+
+#ifdef DEBUG
+#define IS_DEBUG true
+#else
+#define IS_DEBUG false
+#endif
 
 namespace Krt {
 
@@ -19,15 +25,14 @@ class Instance
 	};
 
 public:
-	Instance(std::vector<std::string> args);
+	Instance(std::vector<std::string> args, bool isDebug = IS_DEBUG);
 	~Instance(void);
 
 	void run(void);
 
-	Config config;
-	Vk::Instance vk;
-
 private:
+	Config config;
+	Subtile::Instance subtile;
 };
 
 }

@@ -3,9 +3,9 @@
 
 namespace Krt {
 
-Instance::Instance(std::vector<std::string> args) :
+Instance::Instance(std::vector<std::string> args, bool isDebug) :
 	config(args),
-	vk(config.isProfile)
+	subtile(1600, 900, isDebug, config.isProfile)
 {
 }
 
@@ -15,10 +15,7 @@ Instance::~Instance(void)
 
 void Instance::run(void)
 {
-	while (!vk.context.shouldClose()) {
-		glfwPollEvents();
-		vk.renderer.render();
-	}
+	subtile.run();
 }
 
 Instance::Config::Config(std::vector<std::string> args)
