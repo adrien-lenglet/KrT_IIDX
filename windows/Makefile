@@ -1,24 +1,17 @@
 
 .DEFAULT_GOAL := all
+LINK_OPT =
+OPT = -j12
 
 ifndef VULKAN_SDK
 $(error VULKAN_SDK is not set. Make sure the LunarG Vulkan SDK is installed on your system and that this variable is properly set in your environment)
 endif
 
-DEFINE =
-WARNINGS =
-EXTRA =
-INCLUDE = -I../common/src -I../common/libs/include
-CXXFLAGS = -m64 -std=c++17 $(EXTRA) $(WARNINGS) $(DEFINE) $(INCLUDE)
-
 SRC_FOLDER = ../common/src
 LIB_SRC_FOLDER = ../common/libs/src
 
-SRC = $(wildcard $(SRC_FOLDER)/*.cpp) $(wildcard $(SRC_FOLDER)/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*.cpp)
+SRC = $(wildcard $(SRC_FOLDER)/*.cpp) $(wildcard $(SRC_FOLDER)/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*.cpp) $(wildcard $(LIB_SRC_FOLDER)/*.cpp)
 OBJ = $(SRC:.cpp=.o)
-
-LIB_SRC = $(wildcard $(LIB_SRC_FOLDER)/*.cpp)
-LIB_OBJ = $(LIB_SRC:.cpp=.o)
 
 TARGET = ../KrT_IIDX.exe
 LIBS_SO = $(wildcard ../*.dll)
@@ -28,36 +21,39 @@ LDLIB = $(LIBS_SO) \
 DARG = all
 
 libs:
-	$(MAKE) -C libs $(DARG)
+	$(MAKE) -C libs
 
-libs_clean: DARG = clean
-libs_clean: libs
-	rm -f $(LIB_OBJ)
+libs_clean:
+	$(MAKE) -C libs clean
 
 shaders:
-	$(MAKE) -C ../common/shaders $(DARG)
+	$(MAKE) -C ../common/shaders $(OPT)
 
-shaders_clean: DARG = clean
-shaders_clean: shaders
+shaders_clean:
+	$(MAKE) -C ../common/shaders clean
 
-$(OBJ): WARNINGS = -Wall -Wextra
-$(LIB_OBJ): WARNINGS =
+obj:
+	$(MAKE) -C ../common $(DARG) $(OPT)
 
-$(TARGET): libs shaders $(OBJ) $(LIB_OBJ) $(SHADER_BIN)
-	g++ $(OBJ) $(LIB_OBJ) -o $(TARGET) $(LDLIB)
+obj_clean:
+	$(MAKE) -C ../common clean
+
+$(TARGET): libs shaders obj $(SHADER_BIN)
+	g++ $(LINK_OPT) $(OBJ) $(LIB_OBJ) -Wl,-rpath,linux/libs/bin -o $(TARGET) $(LDLIB)
 
 all: $(TARGET)
 
-debug: EXTRA += -g
-debug: DEFINE += -DDEBUG
+debug: DARG = debug
 debug: all
 
-release: EXTRA += -O3
+release: DARG = release
+release: LINK_OPT = -s
 release: all
 
-clean: shaders_clean
-	rm -f $(TARGET) $(OBJ)
+clean: obj_clean
+	rm -f $(TARGET)
 
 clean_all: libs_clean shaders_clean clean
+	$(MAKE) -C ../common clean_libs
 
 .PHONY: all debug release clean libs libs_clean shaders shaders_clean clean_all
