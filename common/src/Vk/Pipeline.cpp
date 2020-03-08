@@ -201,7 +201,7 @@ VkPipeline Pipeline::createPipeline(std::vector<ShaderStageCreateInfo> &stages)
 	auto colorBlendAttachmentStates = std::vector<VkPipelineColorBlendAttachmentState>{createColorBlendAttachmentState()};
 	auto colorBlendState = createColorBlendState(colorBlendAttachmentStates);
 	createInfo.pColorBlendState = &colorBlendState;
-	auto dynamicStates = std::vector<VkDynamicState>{VK_DYNAMIC_STATE_VIEWPORT};
+	auto dynamicStates = std::vector<VkDynamicState>{};
 	auto dynamicState = createDynamicState(dynamicStates);
 	createInfo.pDynamicState = &dynamicState;
 	createInfo.layout = layout;

@@ -15,6 +15,10 @@ Instance::~Instance(void)
 
 void Instance::run(void)
 {
+	while (!vk.context.shouldClose()) {
+		glfwPollEvents();
+		vk.renderer.render();
+	}
 }
 
 Instance::Config::Config(std::vector<std::string> args)

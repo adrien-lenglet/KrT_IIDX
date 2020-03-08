@@ -76,7 +76,7 @@ static std::string VkResult_to_string(VkResult result)
 
 namespace Vk {
 
-void assert(VkResult res, const char *file, int line, const char *fun)
+void vkAssert(VkResult res, const char *file, int line, const char *fun)
 {
 
 	if (res != VK_SUCCESS)

@@ -4,6 +4,7 @@
 #include <vulkan/vulkan.h>
 #include "Device.hpp"
 #include "Dep/Device.hpp"
+#include "Queue.hpp"
 
 namespace Vk {
 
@@ -29,7 +30,7 @@ public:
 	};
 
 	Swapchain(VkSurfaceKHR surface, VkPhysicalDevice physicalDevice);
-	Swapchain(VkSurfaceKHR surface, Vk::Device &dev, VkCommandPool commandPool);
+	Swapchain(VkSurfaceKHR surface, Vk::Device &dev, Queue &queue);
 	~Swapchain(void);
 
 	VkPhysicalDevice physicalDevice;
@@ -47,10 +48,10 @@ public:
 	std::vector<Image> images;
 
 	bool isValid(void);
-	VkCommandPool getCommandPool(void) const;
+	Queue& getQueue(void) const;
 
 private:
-	VkCommandPool m_commandPool;
+	Queue *m_queue;
 
 	VkSurfaceCapabilitiesKHR getCapabilities(void);
 

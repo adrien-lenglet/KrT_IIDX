@@ -28,11 +28,11 @@ Swapchain::Swapchain(VkSurfaceKHR surface, VkPhysicalDevice physicalDevice) :
 	presentMode(getPresentMode()),
 	swapchain(VK_NULL_HANDLE),
 	renderPass(VK_NULL_HANDLE),
-	m_commandPool(VK_NULL_HANDLE)
+	m_queue(nullptr)
 {
 }
 
-Swapchain::Swapchain(VkSurfaceKHR surface, Vk::Device &dev, VkCommandPool commandPool) :
+Swapchain::Swapchain(VkSurfaceKHR surface, Vk::Device &dev, Queue &queue) :
 	Dep::Device(dev.device),
 	physicalDevice(dev.physicalDevice),
 	surface(surface),
@@ -45,7 +45,7 @@ Swapchain::Swapchain(VkSurfaceKHR surface, Vk::Device &dev, VkCommandPool comman
 	swapchain(createSwapchain(dev)),
 	renderPass(createRenderPass()),
 	images(fetchImages()),
-	m_commandPool(commandPool)
+	m_queue(&queue)
 {
 }
 
@@ -94,6 +94,16 @@ VkRenderPass Swapchain::createRenderPass(void)
 	subpass.pPreserveAttachments = nullptr;
 	subpasses.push_back(subpass);
 
+	VkSubpassDependency dependency = {};
+	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	dependency.dstSubpass = 0;
+	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependency.srcAccessMask = 0;
+	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	dependency.dependencyFlags = 0;
+	dependencies.push_back(dependency);
+
 	VkRenderPassCreateInfo createInfo;
 
 	createInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -124,9 +134,11 @@ bool Swapchain::isValid(void)
 	return surfaceFormats.size() > 0 && presentModes.size() > 0;
 }
 
-VkCommandPool Swapchain::getCommandPool(void) const
+Queue& Swapchain::getQueue(void) const
 {
-	return m_commandPool;
+	if (m_queue == nullptr)
+		throw std::runtime_error("No queue attached to swapchain");
+	return *m_queue;
 }
 
 VkExtent2D Swapchain::getExtent2D(void)

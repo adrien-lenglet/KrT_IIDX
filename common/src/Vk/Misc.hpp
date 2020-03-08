@@ -3,10 +3,12 @@
 #include <vector>
 
 namespace Vk {
-void assert(VkResult res, const char *file, int line, const char *fun);
+
+void vkAssert(VkResult res, const char *file, int line, const char *fun);
+
 }
 
-#define vkAssert(res) Vk::assert(res, __FILE__, __LINE__, __func__)
+#define vkAssert(res) Vk::vkAssert(res, __FILE__, __LINE__, __func__)
 
 namespace Vk {
 
