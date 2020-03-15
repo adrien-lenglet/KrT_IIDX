@@ -3,7 +3,7 @@
 #include <vector>
 #include <string>
 #include <map>
-#include "ISystem/IInput.hpp"
+#include "System/IInput.hpp"
 
 namespace Subtile {
 

@@ -13,9 +13,7 @@ public:
 	virtual ~IInput(void) = default;
 
 	virtual const std::string& getName(void) const;
-
-private:
-	void scan(void);
+	virtual bool isActive(void) const;
 };
 
 }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Vk/Instance.hpp"
+#include "ISystem.hpp"
 
 namespace Subtile {
 
@@ -13,7 +13,7 @@ public:
 	void run(void);
 
 private:
-	Vk::Instance vk;
+	//Vk::Instance vk;
 };
 
 }
