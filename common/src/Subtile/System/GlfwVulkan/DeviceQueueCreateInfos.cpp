@@ -1,7 +1,8 @@
 #include "DeviceQueueCreateInfos.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 DeviceQueueCreateInfos::DeviceQueueCreateInfos(Device &device)
 {
@@ -23,5 +24,6 @@ DeviceQueueCreateInfos::~DeviceQueueCreateInfos(void)
 {
 }
 
+}
 }
 }

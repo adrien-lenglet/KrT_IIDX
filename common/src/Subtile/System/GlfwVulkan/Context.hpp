@@ -5,7 +5,8 @@
 #include <vulkan/vulkan.h>
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 class Context
 {
@@ -30,5 +31,6 @@ private:
 	VkSurfaceKHR createSurface(void);
 };
 
+}
 }
 }

@@ -5,7 +5,8 @@
 #include "util.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 std::vector<const char*> InstanceCreateInfo::getLayers(bool isDebug, bool isProfile)
 {
@@ -88,5 +89,6 @@ InstanceCreateInfo::~InstanceCreateInfo(void)
 {
 }
 
+}
 }
 }

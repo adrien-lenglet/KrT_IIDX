@@ -2,7 +2,8 @@
 #include "Misc.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 VkCommandBuffer Renderer::Image::createCommandBuffer(void)
 {
@@ -142,5 +143,6 @@ void Renderer::render(void)
 	currentImage = (currentImage + 1) % images.size();
 }
 
+}
 }
 }

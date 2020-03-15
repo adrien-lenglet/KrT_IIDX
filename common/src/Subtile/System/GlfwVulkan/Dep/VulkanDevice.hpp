@@ -3,13 +3,15 @@
 #include <vulkan/vulkan.h>
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 namespace Dep {
 
-class Device {
+class VulkanDevice
+{
 public:
-	Device(VkDevice device);
-	~Device(void) = default;
+	VulkanDevice(VkDevice device);
+	~VulkanDevice(void) = default;
 
 	VkDevice getDevice(void) const;
 
@@ -17,6 +19,7 @@ private:
 	VkDevice m_device;
 };
 
+}
 }
 }
 }

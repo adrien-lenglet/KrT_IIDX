@@ -3,6 +3,7 @@
 #include <vector>
 
 namespace Subtile {
+namespace System {
 namespace Vk {
 
 void vkAssert(VkResult res, const char *file, int line, const char *fun);
@@ -61,5 +62,6 @@ std::vector<T> retrieve(void (*func)(U a,uint32_t *count, T *props), U a)
 	return res;
 }
 
+}
 }
 }

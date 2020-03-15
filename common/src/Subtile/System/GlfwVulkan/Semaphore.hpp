@@ -2,12 +2,13 @@
 
 #include <vulkan/vulkan.h>
 
-#include "Dep/Device.hpp"
+#include "Dep/VulkanDevice.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
-class Semaphore : public Dep::Device
+class Semaphore : public Dep::VulkanDevice
 {
 public:
 	Semaphore(VkDevice dev);
@@ -20,5 +21,6 @@ private:
 	VkSemaphore createSemaphore(void);
 };
 
+}
 }
 }

@@ -2,12 +2,13 @@
 
 #include <vulkan/vulkan.h>
 
-#include "Dep/Device.hpp"
+#include "Dep/VulkanDevice.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
-class Fence : public Dep::Device
+class Fence : public Dep::VulkanDevice
 {
 public:
 	Fence(VkDevice dev);
@@ -20,5 +21,6 @@ private:
 	VkFence createFence(void);
 };
 
+}
 }
 }

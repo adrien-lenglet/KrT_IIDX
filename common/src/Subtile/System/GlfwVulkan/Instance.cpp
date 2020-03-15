@@ -2,7 +2,8 @@
 #include "Instance.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 Instance::Instance(size_t w, size_t h, bool isDebug, bool doProfile) :
 	m_context(w, h, isDebug, doProfile),
@@ -30,5 +31,6 @@ void Instance::render(void)
 	return m_renderer.render();
 }
 
+}
 }
 }

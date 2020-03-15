@@ -7,7 +7,8 @@
 #include "Renderer.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 class Instance
 {
@@ -26,5 +27,6 @@ private:
 	Renderer m_renderer;
 };
 
+}
 }
 }

@@ -2,7 +2,8 @@
 #include "Misc.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 VkSemaphore Semaphore::createSemaphore(void)
 {
@@ -18,13 +19,13 @@ VkSemaphore Semaphore::createSemaphore(void)
 }
 
 Semaphore::Semaphore(VkDevice dev) :
-	Dep::Device(dev),
+	Dep::VulkanDevice(dev),
 	semaphore(createSemaphore())
 {
 }
 
 Semaphore::Semaphore(Semaphore &&other) :
-	Dep::Device(other.getDevice()),
+	Dep::VulkanDevice(other.getDevice()),
 	semaphore(other.semaphore)
 {
 	other.semaphore = VK_NULL_HANDLE;
@@ -35,5 +36,6 @@ Semaphore::~Semaphore(void)
 	vkDestroySemaphore(getDevice(), semaphore, nullptr);
 }
 
+}
 }
 }

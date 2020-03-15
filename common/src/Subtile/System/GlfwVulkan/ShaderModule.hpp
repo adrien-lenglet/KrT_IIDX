@@ -1,12 +1,13 @@
 #pragma once
 
 #include <string>
-#include "Dep/Device.hpp"
+#include "Dep/VulkanDevice.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
-class ShaderModule : Dep::Device
+class ShaderModule : Dep::VulkanDevice
 {
 public:
 	ShaderModule(VkDevice dev, std::string path);
@@ -15,5 +16,6 @@ public:
 	VkShaderModule module;
 };
 
+}
 }
 }

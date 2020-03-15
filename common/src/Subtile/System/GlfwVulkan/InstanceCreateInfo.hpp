@@ -4,7 +4,8 @@
 #include <vulkan/vulkan.h>
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 class InstanceCreateInfo
 {
@@ -25,5 +26,6 @@ private:
 	VkInstanceCreateInfo getInstanceCreateInfo(const VkApplicationInfo &applicationInfo, std::vector<const char*> &layers, std::vector<const char*> &extensions);
 };
 
+}
 }
 }

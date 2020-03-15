@@ -7,7 +7,8 @@
 #include "util.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 VkImageView Swapchain::Image::createImageView(void)
 {
@@ -55,7 +56,7 @@ VkFramebuffer Swapchain::Image::createFramebuffer(void)
 }
 
 Swapchain::Image::Image(Swapchain &swapchain, VkImage image) :
-	Dep::Device(swapchain.getDevice()),
+	Dep::VulkanDevice(swapchain.getDevice()),
 	swapchain(swapchain),
 	image(image),
 	view(createImageView()),
@@ -64,7 +65,7 @@ Swapchain::Image::Image(Swapchain &swapchain, VkImage image) :
 }
 
 Swapchain::Image::Image(Swapchain::Image &&other) :
-	Dep::Device(other.getDevice()),
+	Dep::VulkanDevice(other.getDevice()),
 	swapchain(other.swapchain),
 	image(other.image),
 	view(other.view),
@@ -81,5 +82,6 @@ Swapchain::Image::~Image(void)
 	vkDestroyImageView(getDevice(), view, nullptr);
 }
 
+}
 }
 }

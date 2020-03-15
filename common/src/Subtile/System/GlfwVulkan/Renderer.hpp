@@ -5,7 +5,8 @@
 #include "Pipeline.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 class Renderer
 {
@@ -46,5 +47,6 @@ private:
 	std::vector<Renderer::Image> createImages(void);
 };
 
+}
 }
 }

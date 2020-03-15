@@ -6,7 +6,8 @@
 #include "Misc.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 QueueFamilies::QueueFamilies(void)
 {
@@ -83,5 +84,6 @@ uint32_t QueueFamilies::getIndexPresent(void)
 	throw std::runtime_error("Can't find any queue family for presentation");
 }
 
+}
 }
 }

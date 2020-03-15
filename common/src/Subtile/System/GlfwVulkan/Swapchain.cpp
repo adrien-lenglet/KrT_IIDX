@@ -7,7 +7,8 @@
 #include "util.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 VkSurfaceCapabilitiesKHR Swapchain::getCapabilities(void)
 {
@@ -18,7 +19,7 @@ VkSurfaceCapabilitiesKHR Swapchain::getCapabilities(void)
 }
 
 Swapchain::Swapchain(VkSurfaceKHR surface, VkPhysicalDevice physicalDevice) :
-	Dep::Device(VK_NULL_HANDLE),
+	Dep::VulkanDevice(VK_NULL_HANDLE),
 	physicalDevice(physicalDevice),
 	surface(surface),
 	capabilities(getCapabilities()),
@@ -33,8 +34,8 @@ Swapchain::Swapchain(VkSurfaceKHR surface, VkPhysicalDevice physicalDevice) :
 {
 }
 
-Swapchain::Swapchain(VkSurfaceKHR surface, Vk::Device &dev, Queue &queue) :
-	Dep::Device(dev.device),
+Swapchain::Swapchain(VkSurfaceKHR surface, Device &dev, Queue &queue) :
+	Dep::VulkanDevice(dev.device),
 	physicalDevice(dev.physicalDevice),
 	surface(surface),
 	capabilities(getCapabilities()),
@@ -182,7 +183,7 @@ uint32_t Swapchain::getMinImageCount(void)
 	return res;
 }
 
-VkSwapchainKHR Swapchain::createSwapchain(Vk::Device &device)
+VkSwapchainKHR Swapchain::createSwapchain(Device &device)
 {
 	VkSwapchainKHR res;
 	VkSwapchainCreateInfoKHR createInfo;
@@ -211,5 +212,6 @@ VkSwapchainKHR Swapchain::createSwapchain(Vk::Device &device)
 	return res;
 }
 
+}
 }
 }

@@ -3,15 +3,16 @@
 #include <vulkan/vulkan.h>
 #include "Device.hpp"
 
-#include "Dep/Device.hpp"
+#include "Dep/VulkanDevice.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
-class Queue : public Dep::Device
+class Queue : public Dep::VulkanDevice
 {
 public:
-	Queue(Vk::Device &dev, uint32_t queueFamilyIndex);
+	Queue(Device &dev, uint32_t queueFamilyIndex);
 	~Queue(void);
 
 	uint32_t queueFamilyIndex;
@@ -34,5 +35,6 @@ public:
 	Queue transfer;
 };
 
+}
 }
 }

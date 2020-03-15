@@ -3,10 +3,11 @@
 #include "Misc.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 ShaderModule::ShaderModule(VkDevice dev, std::string path) :
-	Dep::Device(dev)
+	Dep::VulkanDevice(dev)
 {
 	auto file = std::ifstream(path, std::ios::ate | std::ios::binary);
 	file.exceptions(std::ifstream::failbit);
@@ -33,5 +34,6 @@ ShaderModule::~ShaderModule(void)
 	vkDestroyShaderModule(getDevice(), module, nullptr);
 }
 
+}
 }
 }

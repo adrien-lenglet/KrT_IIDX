@@ -2,7 +2,8 @@
 #include "Misc.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 VkFence Fence::createFence(void)
 {
@@ -18,13 +19,13 @@ VkFence Fence::createFence(void)
 }
 
 Fence::Fence(VkDevice dev) :
-	Dep::Device(dev),
+	Dep::VulkanDevice(dev),
 	fence(createFence())
 {
 }
 
 Fence::Fence(Fence &&other) :
-	Dep::Device(other.getDevice()),
+	Dep::VulkanDevice(other.getDevice()),
 	fence(other.fence)
 {
 	other.fence = VK_NULL_HANDLE;
@@ -35,5 +36,6 @@ Fence::~Fence(void)
 	vkDestroyFence(getDevice(), fence, nullptr);
 }
 
+}
 }
 }

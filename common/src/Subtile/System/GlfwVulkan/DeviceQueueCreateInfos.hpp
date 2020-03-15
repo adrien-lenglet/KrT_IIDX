@@ -4,7 +4,8 @@
 #include "Device.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 class DeviceQueueCreateInfos : public std::vector<VkDeviceQueueCreateInfo>
 {
@@ -17,5 +18,6 @@ public:
 private:
 };
 
+}
 }
 }

@@ -49,7 +49,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 }
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 VkInstance Context::createInstance(bool isDebug, bool doProfile)
 {
@@ -129,5 +130,6 @@ VkSurfaceKHR Context::createSurface(void)
 	return res;
 }
 
+}
 }
 }

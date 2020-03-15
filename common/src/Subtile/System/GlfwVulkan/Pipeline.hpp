@@ -5,7 +5,8 @@
 #include "ShaderModule.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 class Pipeline
 {
@@ -68,5 +69,6 @@ private:
 	VkPipeline createPipeline(std::vector<ShaderStageCreateInfo> &stages);
 };
 
+}
 }
 }

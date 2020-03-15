@@ -2,7 +2,8 @@
 #include "Misc.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 VkPipelineVertexInputStateCreateInfo Pipeline::createVertexInputState(void)
 {
@@ -229,5 +230,6 @@ Pipeline::~Pipeline(void)
 	vkDestroyPipelineLayout(swapchain.getDevice(), layout, nullptr);
 }
 
+}
 }
 }

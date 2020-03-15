@@ -5,7 +5,8 @@
 #include "util.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 VmaAllocator Device::createAllocator(void)
 {
@@ -123,5 +124,6 @@ VkQueue Device::getQueue(uint32_t familyIndex, uint32_t index)
 	return res;
 }
 
+}
 }
 }

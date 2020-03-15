@@ -2,7 +2,8 @@
 #include "Misc.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 VkCommandPool Queue::createCommandPool(void)
 {
@@ -18,8 +19,8 @@ VkCommandPool Queue::createCommandPool(void)
 	return res;
 }
 
-Queue::Queue(Vk::Device &dev, uint32_t queueFamilyIndex) :
-	Dep::Device(dev.device),
+Queue::Queue(Device &dev, uint32_t queueFamilyIndex) :
+	Dep::VulkanDevice(dev.device),
 	queueFamilyIndex(queueFamilyIndex),
 	queue(dev.getQueue(queueFamilyIndex, 0)),
 	commandPool(createCommandPool())
@@ -42,5 +43,6 @@ Queues::~Queues(void)
 {
 }
 
+}
 }
 }

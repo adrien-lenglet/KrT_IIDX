@@ -14,6 +14,8 @@ public:
 
 	virtual const std::string& getName(void) const;
 	virtual bool isActive(void) const;
+
+	virtual void scan(void);
 };
 
 }

@@ -4,7 +4,8 @@
 #include <vulkan/vulkan.h>
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 class QueueFamilies
 {
@@ -26,5 +27,6 @@ private:
 	VkPhysicalDevice physicalDevice;
 };
 
+}
 }
 }

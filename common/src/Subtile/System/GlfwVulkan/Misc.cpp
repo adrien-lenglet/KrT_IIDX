@@ -75,6 +75,7 @@ static std::string VkResult_to_string(VkResult result)
 }
 
 namespace Subtile {
+namespace System {
 namespace Vk {
 
 void vkAssert(VkResult res, const char *file, int line, const char *fun)
@@ -84,5 +85,6 @@ void vkAssert(VkResult res, const char *file, int line, const char *fun)
 		throw std::runtime_error(std::string(file) + "("+ std::to_string(line) + ") in " + std::string(fun) + "() got VkResult: " + std::to_string(res) + " (" + VkResult_to_string(res) + ")");
 }
 
+}
 }
 }

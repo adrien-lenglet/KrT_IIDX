@@ -1,7 +1,8 @@
 #include "../Pipeline.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 VkPipelineShaderStageCreateInfo Pipeline::ShaderStage::initCreateInfo(void)
 {
@@ -30,5 +31,6 @@ Pipeline::ShaderStage::~ShaderStage(void)
 {
 }
 
+}
 }
 }

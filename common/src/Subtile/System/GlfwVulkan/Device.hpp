@@ -5,7 +5,8 @@
 #include "QueueFamilies.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
 class Device
 {
@@ -31,5 +32,6 @@ private:
 	VmaAllocator createAllocator(void);
 };
 
+}
 }
 }

@@ -3,16 +3,17 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 #include "Device.hpp"
-#include "Dep/Device.hpp"
+#include "Dep/VulkanDevice.hpp"
 #include "Queue.hpp"
 
 namespace Subtile {
-namespace Vk {
+namespace System {
+namespace GlfwVulkan {
 
-class Swapchain : public Dep::Device
+class Swapchain : public Dep::VulkanDevice
 {
 public:
-	class Image : public Dep::Device
+	class Image : public Dep::VulkanDevice
 	{
 	public:
 		Image(Swapchain &swapchain, VkImage image);
@@ -31,7 +32,7 @@ public:
 	};
 
 	Swapchain(VkSurfaceKHR surface, VkPhysicalDevice physicalDevice);
-	Swapchain(VkSurfaceKHR surface, Vk::Device &dev, Queue &queue);
+	Swapchain(VkSurfaceKHR surface, Device &dev, Queue &queue);
 	~Swapchain(void);
 
 	VkPhysicalDevice physicalDevice;
@@ -60,10 +61,11 @@ private:
 	VkSurfaceFormatKHR getSurfaceFormat(void);
 	VkPresentModeKHR getPresentMode(void);
 	uint32_t getMinImageCount(void);
-	VkSwapchainKHR createSwapchain(Vk::Device &device);
+	VkSwapchainKHR createSwapchain(Device &device);
 	VkRenderPass createRenderPass(void);
 	std::vector<Image> fetchImages(void);
 };
 
+}
 }
 }
