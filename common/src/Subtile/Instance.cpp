@@ -15,9 +15,9 @@ void Instance::run(void)
 {
 	while (true) {
 		glfwPollEvents();
-		if (vk.context.shouldClose())
+		if (vk.shouldClose())
 			break;
-		vk.renderer.render();
+		vk.render();
 	}
 }
 

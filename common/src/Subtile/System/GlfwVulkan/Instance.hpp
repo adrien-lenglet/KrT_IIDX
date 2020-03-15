@@ -15,11 +15,15 @@ public:
 	Instance(size_t w, size_t h, bool isDebug, bool doProfile);
 	~Instance(void);
 
-	Context context;
-	Device device;
-	Queues queues;
-	Swapchain swapchain;
-	Renderer renderer;
+	bool shouldClose(void);
+	void render(void);
+
+private:
+	Context m_context;
+	Device m_device;
+	Queues m_queues;
+	Swapchain m_swapchain;
+	Renderer m_renderer;
 };
 
 }
