@@ -6,12 +6,14 @@ namespace Subtile {
 namespace System {
 namespace Input {
 
-class IButton : IInput
+class IButton : public IInput
 {
 public:
 	virtual ~IButton(void) = default;
 
-	bool getState(void) const;
+	virtual bool getState(void) const = 0;
+	virtual bool isPressed(void) const = 0;
+	virtual bool isReleased(void) const = 0;
 };
 
 }

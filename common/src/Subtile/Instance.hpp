@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include "ISystem.hpp"
 
 namespace Subtile {
@@ -7,13 +8,13 @@ namespace Subtile {
 class Instance
 {
 public:
-	Instance(size_t w, size_t h, bool isDebug, bool isProfile);
+	Instance(size_t w, size_t h, bool isDebug, bool doProfile);
 	~Instance(void);
 
 	void run(void);
 
 private:
-	//Vk::Instance vk;
+	std::unique_ptr<ISystem> m_system;
 };
 
 }

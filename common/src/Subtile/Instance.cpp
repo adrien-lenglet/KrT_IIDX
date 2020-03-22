@@ -1,13 +1,11 @@
 #include "Instance.hpp"
+#include "System/CGlfwVulkan.hpp"
 
 namespace Subtile {
 
-Instance::Instance(size_t w, size_t h, bool isDebug, bool isProfile)
+Instance::Instance(size_t w, size_t h, bool isDebug, bool doProfile) :
+	m_system(new System::CGlfwVulkan(w, h, isDebug, doProfile))
 {
-	static_cast<void>(w);
-	static_cast<void>(h);
-	static_cast<void>(isDebug);
-	static_cast<void>(isProfile);
 }
 
 Instance::~Instance(void)
@@ -16,12 +14,12 @@ Instance::~Instance(void)
 
 void Instance::run(void)
 {
-	/*while (true) {
-		glfwPollEvents();
-		if (vk.shouldClose())
+	while (true) {
+		m_system->scanInputs();
+		if (m_system->getInputs().at("close_window").isActive())
 			break;
-		vk.render();
-	}*/
+		m_system->render();
+	}
 }
 
 }

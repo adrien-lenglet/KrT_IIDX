@@ -14,6 +14,7 @@ public:
 
 	virtual void scanInputs(void) = 0;
 	virtual const std::map<std::string, System::IInput&> getInputs(void) = 0;
+	virtual void render(void) = 0;
 };
 
 }

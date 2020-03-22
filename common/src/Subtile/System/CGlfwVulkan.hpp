@@ -1,6 +1,8 @@
 #pragma once
 
+#include <memory>
 #include "../ISystem.hpp"
+#include "GlfwVulkan/Vk/Instance.hpp"
 
 namespace Subtile {
 namespace System {
@@ -8,14 +10,17 @@ namespace System {
 class CGlfwVulkan : public ISystem
 {
 public:
-	CGlfwVulkan(void);
+	CGlfwVulkan(size_t w, size_t h, bool isDebug, bool doProfile);
 	~CGlfwVulkan(void) override;
 
 	void scanInputs(void) override;
 	const std::map<std::string, System::IInput&> getInputs(void) override;
+	void render(void) override;
 
 private:
-	const std::map<std::string, System::IInput&> m_inputs;
+	GlfwVulkan::Instance m_vk;
+	std::vector<std::unique_ptr<System::IInput>> m_inputs;
+	std::map<std::string, System::IInput&> m_inputs_map;
 };
 
 }

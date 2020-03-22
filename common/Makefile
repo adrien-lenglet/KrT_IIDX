@@ -7,7 +7,7 @@ CXXFLAGS = -m64 -std=c++17 $(EXTRA) $(WARNINGS) $(DEFINE) $(INCLUDE)
 SRC_FOLDER = src
 LIB_SRC_FOLDER = libs/src
 
-SRC = $(wildcard $(SRC_FOLDER)/*.cpp) $(wildcard $(SRC_FOLDER)/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*.cpp)
+SRC = $(wildcard $(SRC_FOLDER)/*.cpp) $(wildcard $(SRC_FOLDER)/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*/*/*.cpp)
 OBJ = $(SRC:.cpp=.o)
 
 LIB_SRC = $(wildcard $(LIB_SRC_FOLDER)/*.cpp)

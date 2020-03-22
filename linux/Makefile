@@ -6,7 +6,11 @@ OPT = -j12
 SRC_FOLDER = ../common/src
 LIB_SRC_FOLDER = ../common/libs/src
 
-SRC = $(wildcard $(SRC_FOLDER)/*.cpp) $(wildcard $(SRC_FOLDER)/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*.cpp) $(wildcard $(LIB_SRC_FOLDER)/*.cpp)
+
+LIB_SRC = $(wildcard $(LIB_SRC_FOLDER)/*.cpp)
+LIB_OBJ = $(LIB_SRC:.cpp=.o)
+
+SRC = $(wildcard $(SRC_FOLDER)/*.cpp) $(wildcard $(SRC_FOLDER)/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*/*/*.cpp)
 OBJ = $(SRC:.cpp=.o)
 
 TARGET = ../KrT_IIDX
