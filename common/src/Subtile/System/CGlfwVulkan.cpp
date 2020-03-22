@@ -1,6 +1,7 @@
 #include <iostream>
 #include "CGlfwVulkan.hpp"
 #include "GlfwVulkan/Input/AButton.hpp"
+#include "GlfwVulkan/Input/Keyboard.hpp"
 
 namespace Subtile {
 namespace System {
@@ -133,9 +134,9 @@ std::vector<std::unique_ptr<System::IInput>> CGlfwVulkan::createInputs(void)
 	std::vector<std::unique_ptr<System::IInput>> res;
 
 	res.emplace_back(new GlfwVulkan::Input::AButton("close_window", [this](){ return m_vk.shouldClose(); }));
-
 	for (const auto &k : glfw_keys)
 		res.emplace_back(new GlfwVulkan::Input::AButton(k.first, [=](){ return glfwGetKey(m_vk.getWindow(), k.second) == GLFW_PRESS; }));
+	res.emplace_back(new GlfwVulkan::Input::Keyboard(m_vk.getWindow()));
 	return res;
 }
 
@@ -166,12 +167,16 @@ void CGlfwVulkan::scanInputs(void)
 		try {
 			dynamic_cast<GlfwVulkan::Input::AButton&>(*input).scan();
 		} catch (std::bad_cast&) {
-			throw std::runtime_error("Unknown input type for scanning");
+			try {
+				dynamic_cast<GlfwVulkan::Input::Keyboard&>(*input);
+			} catch (std::bad_cast&) {
+				throw std::runtime_error("Unknown input type for scanning");
+			}
 		}
 	}
 }
 
-const std::map<std::string, const System::IInput&> CGlfwVulkan::getInputs(void)
+const std::map<std::string, const System::IInput&>& CGlfwVulkan::getInputs(void)
 {
 	return m_inputs_map;
 }

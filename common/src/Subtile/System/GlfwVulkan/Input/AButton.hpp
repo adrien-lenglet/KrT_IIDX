@@ -15,7 +15,7 @@ public:
 	~AButton(void) override;
 
 	const std::string& getName(void) const override;
-	bool isActive(void) const override;
+	double getActivity(void) const override;
 
 	bool getState(void) const override;
 	bool isPressed(void) const override;

@@ -9,7 +9,7 @@ namespace Input {
 class IButton : public IInput
 {
 public:
-	virtual ~IButton(void) = default;
+	virtual ~IButton(void) override = default;
 
 	virtual bool getState(void) const = 0;
 	virtual bool isPressed(void) const = 0;

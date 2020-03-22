@@ -14,7 +14,7 @@ public:
 	~CGlfwVulkan(void) override;
 
 	void scanInputs(void) override;
-	const std::map<std::string, const System::IInput&> getInputs(void) override;
+	const std::map<std::string, const System::IInput&>& getInputs(void) override;
 	void render(void) override;
 
 private:

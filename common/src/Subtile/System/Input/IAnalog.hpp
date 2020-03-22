@@ -9,7 +9,7 @@ namespace Input {
 class IAnalog : IInput
 {
 public:
-	virtual ~IAnalog(void) = default;
+	virtual ~IAnalog(void) override = default;
 
 	double getState(void) const;
 };

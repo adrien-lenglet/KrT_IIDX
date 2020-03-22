@@ -22,9 +22,9 @@ const std::string& AButton::getName(void) const
 	return m_name;
 }
 
-bool AButton::isActive(void) const
+double AButton::getActivity(void) const
 {
-	return isPressed();
+	return isPressed() ? 1.0 : 0.0;
 }
 
 bool AButton::getState(void) const
