@@ -18,6 +18,7 @@ public:
 
 	bool shouldClose(void);
 	void render(void);
+	GLFWwindow* getWindow(void) const { return m_context.window; };
 
 private:
 	Context m_context;
