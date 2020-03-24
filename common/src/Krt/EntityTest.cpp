@@ -2,11 +2,11 @@
 
 namespace Krt {
 
-EntityTest::EntityTest(Subtile::World &world) :
-	Entity(world)
+EntityTest::EntityTest(const Subtile::Entity::Context &ctx) :
+	Entity(ctx),
+	entity1(add<Subtile::Entity>()),
+	entity2(add<Subtile::Entity>())
 {
-	add<Subtile::Entity>();
-	add<Subtile::Entity>();
 }
 
 EntityTest::~EntityTest(void)

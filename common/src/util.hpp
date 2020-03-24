@@ -11,9 +11,21 @@ class T::iterator find(T &container, const U &value)
 }
 
 template <typename T, typename U>
+class T::iterator find_if(T &container, const U &value)
+{
+	return std::find_if(container.begin(), container.end(), value);
+}
+
+template <typename T, typename U>
 class T::const_iterator find(const T &container, const U &value)
 {
 	return std::find(container.cbegin(), container.cend(), value);
+}
+
+template <typename T, typename U>
+class T::const_iterator find_if(const T &container, const U &value)
+{
+	return std::find_if(container.cbegin(), container.cend(), value);
 }
 
 template <typename T, typename U>
@@ -46,6 +58,18 @@ template <typename T, typename U>
 bool erase_if_contains(T &container, const U &value)
 {
 	auto it = find(container, value);
+
+	if (it != container.end()) {
+		container.erase(it);
+		return true;
+	} else
+		return false;
+}
+
+template <typename T, typename U>
+bool erase_if(T &container, const U &value)
+{
+	auto it = find_if(container, value);
 
 	if (it != container.end()) {
 		container.erase(it);

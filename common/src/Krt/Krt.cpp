@@ -2,6 +2,8 @@
 #include "Krt/EntityTest.hpp"
 #include "util.hpp"
 
+#include <iostream>
+
 namespace Krt {
 
 Instance::Instance(std::vector<std::string> args, bool isDebug) :
@@ -19,6 +21,8 @@ void Instance::run(void)
 	auto world = subtile.world();
 
 	world.set<EntityTest>();
+	std::cout << sizeof(std::map<Subtile::Entity*, std::unique_ptr<Subtile::Entity>>) << std::endl;
+	std::cout << sizeof(std::vector<std::unique_ptr<Subtile::Entity>>) << std::endl;
 	subtile.run();
 }
 

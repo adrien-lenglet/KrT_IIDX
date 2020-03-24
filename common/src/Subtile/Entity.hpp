@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vector>
+#include <map>
 #include <memory>
 
 namespace Subtile {
@@ -10,23 +10,49 @@ class World;
 class Entity
 {
 public:
-	Entity(World &world);
+	class Context
+	{
+	public:
+		~Context(void) = default;
+
+	private:
+		friend Entity;
+		friend World;
+
+		Context(World &world, Entity *parent);
+
+		World &m_world;
+		Entity *m_parent;
+
+		World& getWorld(void) const;
+		Entity* getParent(void) const;
+	};
+
+	Entity(const Entity::Context &ctx);
 	virtual ~Entity(void);
 
 protected:
 	World& getWorld(void);
 
 	template <typename EntityType, class ...ArgType>
-	void add(ArgType &&...args)
+	EntityType& add(ArgType &&...args)
 	{
-		m_children.emplace_back(new EntityType(m_world, std::forward(args)...));
+		auto added = new EntityType(Context(m_world, this), std::forward(args)...);
+
+		m_children.emplace(added, added);
+		return *added;
 	}
 
 	void destroy(void);
 
 private:
+	friend World;
 	World &m_world;
-	std::vector<std::unique_ptr<Entity>> m_children;
+	Entity *m_parent;
+	std::map<Subtile::Entity*, std::unique_ptr<Subtile::Entity>> m_children;
+
+	Entity& getParent(void);
+	void destroyChild(Entity &entity);
 };
 
 }

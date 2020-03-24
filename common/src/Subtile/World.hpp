@@ -14,7 +14,7 @@ public:
 	template <typename EntityType, class ...ArgType>
 	void set(ArgType &&...args)
 	{
-		m_root.reset(new EntityType(*this, std::forward(args)...));
+		m_root.reset(new EntityType(Entity::Context(*this, nullptr), std::forward(args)...));
 	}
 
 private:
