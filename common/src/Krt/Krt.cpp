@@ -1,4 +1,5 @@
 #include "Krt.hpp"
+#include "Krt/EntityTest.hpp"
 #include "util.hpp"
 
 namespace Krt {
@@ -15,6 +16,9 @@ Instance::~Instance(void)
 
 void Instance::run(void)
 {
+	auto world = subtile.world();
+
+	world.set<EntityTest>();
 	subtile.run();
 }
 
