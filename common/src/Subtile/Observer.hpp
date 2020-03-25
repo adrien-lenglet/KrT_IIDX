@@ -1,7 +1,8 @@
 #pragma once
 
-#include <memory>
+#include <map>
 #include <functional>
+#include <memory>
 
 namespace Subtile {
 
@@ -12,7 +13,7 @@ public:
 	Observer(std::function<void (const std::function<void (const ReturnTypes &...payload)> &signal)> update) :
 		m_signal_listeners([this](const ReturnTypes &...payload) {
 			for (auto &l : m_listeners)
-				l.second->m_callback(payload...);
+				l.second.m_callback(payload...);
 		}),
 		m_update(update)
 	{
@@ -35,7 +36,7 @@ public:
 	{
 		auto res = new ListenerImpl(*this, callback);
 
-		m_listeners.emplace(res, res);
+		m_listeners.emplace(res, *res);
 		return Listener(res);
 	}
 
@@ -44,7 +45,7 @@ private:
 
 	const std::function<void (const ReturnTypes &...payload)> m_signal_listeners;
 	const std::function<void (const std::function<void (const ReturnTypes &...payload)> &signal)> m_update;
-	std::map<ListenerImpl*, ListenerImpl*> m_listeners;
+	std::map<ListenerImpl*, ListenerImpl&> m_listeners;
 
 	void removeListener(ListenerImpl &listener)
 	{

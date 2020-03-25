@@ -41,4 +41,14 @@ void Entity::destroyChild(Entity &entity)
 		throw std::runtime_error("Entity to destroy not found among children");
 }
 
+void Entity::listenInput(const std::string &input, const std::function<void (bool)> &callback)
+{
+	m_input_listeners_bool.push_back(m_world.listenInput(input, callback));
+}
+
+void Entity::listenInput(const std::string &input, const std::function<void (double)> &callback)
+{
+	m_input_listeners_double.push_back(m_world.listenInput(input, callback));
+}
+
 }

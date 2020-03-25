@@ -18,8 +18,13 @@ public:
 	}
 
 private:
+	friend Entity;
+
 	Instance &m_engine;
 	std::unique_ptr<Entity> m_root;
+
+	Observer<bool>::Listener listenInput(const std::string &input, const std::function<void (bool)> &callback);
+	Observer<double>::Listener listenInput(const std::string &input, const std::function<void (double)> &callback);
 };
 
 }

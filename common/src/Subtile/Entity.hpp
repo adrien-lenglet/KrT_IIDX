@@ -1,9 +1,7 @@
 #pragma once
 
-#include <map>
 #include <vector>
-#include <memory>
-#include <functional>
+#include "Observer.hpp"
 
 namespace Subtile {
 
@@ -36,8 +34,8 @@ public:
 protected:
 	World& getWorld(void);
 
-	void listen(const std::string &input, std::function<void (bool)> &callback);
-	void listen(const std::string &input, std::function<void (double)> &callback, bool isTrigger = false);
+	void listenInput(const std::string &input, const std::function<void (bool)> &callback);
+	void listenInput(const std::string &input, const std::function<void (double)> &callback);
 
 	template <typename EntityType, class ...ArgsTypes>
 	EntityType& add(const ArgsTypes &...args)
@@ -55,17 +53,8 @@ private:
 	Entity *m_parent;
 	std::map<Subtile::Entity*, std::unique_ptr<Subtile::Entity>> m_children;
 
-	class InputListener
-	{
-	public:
-		InputListener(const std::string &input, std::function<void (bool)> &callback);
-		InputListener(const std::string &input, std::function<void (double)> &callback, bool isTrigger);
-		~InputListener(void);
-
-	private:
-	};
-
-	std::vector<InputListener> m_listeners;
+	std::vector<Observer<bool>::Listener> m_input_listeners_bool;
+	std::vector<Observer<double>::Listener> m_input_listeners_double;
 
 	Entity& getParent(void);
 	void destroyChild(Entity &entity);

@@ -18,11 +18,9 @@ Instance::~Instance(void)
 
 void Instance::run(void)
 {
-	auto world = subtile.world();
+	auto world = subtile.createWorld();
 
 	world.set<EntityTest>();
-	std::cout << sizeof(std::map<Subtile::Entity*, std::unique_ptr<Subtile::Entity>>) << std::endl;
-	std::cout << sizeof(std::vector<std::unique_ptr<Subtile::Entity>>) << std::endl;
 	subtile.run();
 }
 

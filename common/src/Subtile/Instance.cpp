@@ -2,12 +2,10 @@
 #include "System/Input/IButton.hpp"
 #include "System/Input/IKeyboard.hpp"
 #include "System/CGlfwVulkan.hpp"
+#include "Input/Analog.hpp"
+#include "Input/Button.hpp"
 
 #include <iostream>
-#include <map>
-#include <string>
-#include <tuple>
-#include "Subtile/Listener.hpp"
 
 namespace Subtile {
 
@@ -20,36 +18,40 @@ Instance::~Instance(void)
 {
 }
 
-World Instance::world(void)
+void Instance::scanInputs(void)
+{
+	for (auto &i : m_inputs)
+		i.second->update();
+}
+
+World Instance::createWorld(void)
 {
 	return World(*this);
 }
 
 void Instance::run(void)
 {
-	bool swit = false;
-	auto &close_button = dynamic_cast<const System::Input::IButton&>(m_system->getInputs().at("close_window"));
-	auto &keyboard = dynamic_cast<const System::Input::IKeyboard&>(m_system->getInputs().at("keyboard"));
-	auto observer = Observer<double>([&](auto &signal) {
-		swit = !swit;
-		if (swit)
-			signal(3.14);
-		else
-			signal(2.56);
-	});
-	Observer<double>::Listener listener = observer.listen([](double val){
-		std::cout << "GOT VAL:" << val << std::endl;
-	});
+	/*auto &close_button = dynamic_cast<const System::Input::IButton&>(m_system->getInputs().at("close_window"));
+	auto &keyboard = dynamic_cast<const System::Input::IKeyboard&>(m_system->getInputs().at("keyboard"));*/
 
 	while (true) {
-		observer.update();
-		m_system->scanInputs();
-		for (const auto &k : keyboard.poll())
-			std::cout << static_cast<char>(k) << std::endl;
-		if (close_button.isPressed())
-			break;
+		scanInputs();
+		/*for (const auto &k : keyboard.poll())
+			std::cout << static_cast<char>(k) << std::endl;*/
+		/*if (close_button.isPressed())
+			break;*/
 		m_system->render();
 	}
+}
+
+Observer<bool>::Listener Instance::listenInput(const std::string &input, const std::function<void (bool)> &callback)
+{
+	return dynamic_cast<Input::Button&>(*m_inputs.at(input)).listen(callback);
+}
+
+Observer<double>::Listener Instance::listenInput(const std::string &input, const std::function<void (double)> &callback)
+{
+	return dynamic_cast<Input::Analog&>(*m_inputs.at(input)).listen(callback);
 }
 
 }
