@@ -42,7 +42,7 @@ protected:
 	template <typename EntityType, class ...ArgsTypes>
 	EntityType& add(const ArgsTypes &...args)
 	{
-		auto added = new EntityType(Context(m_world, this), std::forward(args)...);
+		auto added = new EntityType(Context(m_world, this), args...);
 
 		m_children.emplace(added, added);
 		return *added;
