@@ -1,7 +1,9 @@
 #pragma once
 
 #include <map>
+#include <vector>
 #include <memory>
+#include <functional>
 
 namespace Subtile {
 
@@ -34,8 +36,11 @@ public:
 protected:
 	World& getWorld(void);
 
-	template <typename EntityType, class ...ArgType>
-	EntityType& add(ArgType &&...args)
+	void listen(const std::string &input, std::function<void (bool)> &callback);
+	void listen(const std::string &input, std::function<void (double)> &callback, bool isTrigger = false);
+
+	template <typename EntityType, class ...ArgsTypes>
+	EntityType& add(const ArgsTypes &...args)
 	{
 		auto added = new EntityType(Context(m_world, this), std::forward(args)...);
 
@@ -46,10 +51,21 @@ protected:
 	void destroy(void);
 
 private:
-	friend World;
 	World &m_world;
 	Entity *m_parent;
 	std::map<Subtile::Entity*, std::unique_ptr<Subtile::Entity>> m_children;
+
+	class InputListener
+	{
+	public:
+		InputListener(const std::string &input, std::function<void (bool)> &callback);
+		InputListener(const std::string &input, std::function<void (double)> &callback, bool isTrigger);
+		~InputListener(void);
+
+	private:
+	};
+
+	std::vector<InputListener> m_listeners;
 
 	Entity& getParent(void);
 	void destroyChild(Entity &entity);

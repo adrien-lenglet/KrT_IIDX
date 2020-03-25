@@ -11,8 +11,8 @@ public:
 	World(Instance &engine);
 	~World(void);
 
-	template <typename EntityType, class ...ArgType>
-	void set(ArgType &&...args)
+	template <typename EntityType, class ...ArgsTypes>
+	void set(const ArgsTypes &...args)
 	{
 		m_root.reset(new EntityType(Entity::Context(*this, nullptr), std::forward(args)...));
 	}
