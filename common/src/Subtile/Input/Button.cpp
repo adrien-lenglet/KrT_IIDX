@@ -23,6 +23,5 @@ Observer<bool>::Listener Button::listen(const std::function<void (bool)> &callba
 	return m_observer.listen(callback);
 }
 
-
 }
 }

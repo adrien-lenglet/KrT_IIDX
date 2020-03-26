@@ -20,7 +20,10 @@ World& Entity::getWorld(void)
 
 void Entity::destroy(void)
 {
-	getParent().destroyChild(*this);
+	if (m_parent == nullptr)
+		m_world.resetRoot();
+	else
+		getParent().destroyChild(*this);
 }
 
 Entity& Entity::getParent(void)

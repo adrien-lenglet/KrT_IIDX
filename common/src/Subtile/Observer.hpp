@@ -20,11 +20,14 @@ public:
 	}
 	~Observer(void)
 	{
+		for (auto &l : m_listeners)
+			l.second.observerDestroyed();
 	}
 
 	void update(void)
 	{
-		m_update(m_signal_listeners);
+		if (m_listeners.size() > 0)
+			m_update(m_signal_listeners);
 	}
 
 private:
@@ -32,9 +35,9 @@ private:
 public:
 
 	using Listener = std::unique_ptr<ListenerImpl>;
-	Listener listen(const std::function<void (const ReturnTypes &...payload)> &callback)
+	Listener listen(const std::function<void (const ReturnTypes &...payload)> &callback, const std::function<void (void)> &observerDestroyed = [](){ throw std::runtime_error("Observer destroyed"); })
 	{
-		auto res = new ListenerImpl(*this, callback);
+		auto res = new ListenerImpl(*this, callback, observerDestroyed);
 
 		m_listeners.emplace(res, *res);
 		return Listener(res);
@@ -60,9 +63,11 @@ private:
 	class ListenerImpl
 	{
 	public:
-		ListenerImpl(Observer &observer, const std::function<void (const ReturnTypes &...payload)> &callback) :
+		ListenerImpl(Observer &observer, const std::function<void (const ReturnTypes &...payload)> &callback, const std::function<void (void)> &observerDestroyed) :
 			m_observer(observer),
-			m_callback(callback)
+			m_callback(callback),
+			m_oberver_destroyed(observerDestroyed),
+			m_has_unlisten(false)
 		{
 		}
 		~ListenerImpl(void)
@@ -74,11 +79,22 @@ private:
 		friend Observer;
 
 		Observer &m_observer;
-		std::function<void (const ReturnTypes &...args)> m_callback;
+		const std::function<void (const ReturnTypes &...args)> m_callback;
+		const std::function<void (void)> m_oberver_destroyed;
+		bool m_has_unlisten;
 
 		void unlisten(void)
 		{
-			m_observer.removeListener(*this);
+			if (!m_has_unlisten) {
+				m_observer.removeListener(*this);
+				m_has_unlisten = true;
+			}
+		}
+
+		void observerDestroyed(void)
+		{
+			unlisten();
+			m_oberver_destroyed();
 		}
 	};
 };
