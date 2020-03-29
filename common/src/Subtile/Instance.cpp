@@ -2,8 +2,6 @@
 #include "System/Input/IButton.hpp"
 #include "System/Input/IKeyboard.hpp"
 #include "System/CGlfwVulkan.hpp"
-#include "Input/Analog.hpp"
-#include "Input/Button.hpp"
 
 #include <iostream>
 
@@ -16,6 +14,32 @@ Instance::Instance(size_t w, size_t h, bool isDebug, bool doProfile) :
 
 Instance::~Instance(void)
 {
+}
+
+Input::Analog& Instance::addAnalog(const std::string &name, double min, double max, bool isStrict)
+{
+	auto in = new Input::Analog(min, max, isStrict);
+
+	m_inputs.emplace(name, in);
+	return *in;
+}
+
+Input::Button& Instance::addButton(const std::string &name, bool isStrict, double analogThreshold)
+{
+	auto in = new Input::Button(isStrict, analogThreshold);
+
+	m_inputs.emplace(name, in);
+	return *in;
+}
+
+void Instance::removeInput(const std::string &name)
+{
+	auto got = m_inputs.find(name);
+
+	if (got != m_inputs.end())
+		m_inputs.erase(got);
+	else
+		throw std::runtime_error(std::string("Can't remove input '") + name + std::string("'"));
 }
 
 void Instance::scanInputs(void)

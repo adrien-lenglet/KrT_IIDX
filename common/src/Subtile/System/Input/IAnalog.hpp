@@ -11,7 +11,7 @@ class IAnalog : IInput
 public:
 	virtual ~IAnalog(void) override = default;
 
-	double getState(void) const;
+	virtual double getState(void) const = 0;
 };
 
 }
