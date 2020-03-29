@@ -24,22 +24,12 @@ const std::string& AButton::getName(void) const
 
 double AButton::getActivity(void) const
 {
-	return isPressed() ? 1.0 : 0.0;
+	return m_last_state != m_state ? 1.0 : 0.0;
 }
 
 bool AButton::getState(void) const
 {
 	return m_state;
-}
-
-bool AButton::isPressed(void) const
-{
-	return !m_last_state && m_state;
-}
-
-bool AButton::isReleased(void) const
-{
-	return m_last_state && !m_state;
 }
 
 void AButton::scan(void)

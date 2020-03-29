@@ -18,8 +18,6 @@ public:
 	double getActivity(void) const override;
 
 	bool getState(void) const override;
-	bool isPressed(void) const override;
-	bool isReleased(void) const override;
 
 	void scan(void);
 
