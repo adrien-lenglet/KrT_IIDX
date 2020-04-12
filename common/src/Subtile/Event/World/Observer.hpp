@@ -24,17 +24,11 @@ public:
 		}
 		~Input(void) = default;
 
-		class Analog : public Event::Observer
+		class Analog : public Event::Observer, public DescGen<Analog>
 		{
 		public:
 			Analog(void) = default;
 			~Analog(void) override = default;
-
-			template <typename ...ArgsTypes>
-			Descriptor<Analog, ArgsTypes...> operator()(ArgsTypes &&...args)
-			{
-				return Descriptor<Analog, ArgsTypes...>(*this, std::forward<ArgsTypes...>(args)...);
-			}
 
 		private:
 			friend Event::Socket;
@@ -43,6 +37,7 @@ public:
 			{
 				static_cast<void>(inputName);
 				static_cast<void>(callback);
+				callback(3.14);
 				return std::unique_ptr<Listener>(nullptr);
 			}
 

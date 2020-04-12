@@ -24,13 +24,33 @@ struct Descriptor
 {
 	Descriptor(ObserverType &observer, ArgsType &&...args) :
 		observer(observer),
-		args(std::forward<ArgsType>(args)...)
+		args(std::forward_as_tuple<ArgsType>(args)...)
 	{
 	}
 	~Descriptor(void) = default;
 
 	ObserverType &observer;
 	std::tuple<ArgsType...> args;
+};
+
+template <typename ObserverType>
+class DescGen
+{
+public:
+	DescGen(void) = default;
+	~DescGen(void) = default;
+
+	template <typename ...ArgsTypes>
+	Descriptor<ObserverType, ArgsTypes...> operator()(ArgsTypes &&...args)
+	{
+		return Descriptor<ObserverType, ArgsTypes...>(getObserver(), std::forward<ArgsTypes...>(args)...);
+	}
+
+private:
+	ObserverType& getObserver(void)
+	{
+		return static_cast<ObserverType&>(*this);
+	}
 };
 
 class Observer::Cluster : public Observer

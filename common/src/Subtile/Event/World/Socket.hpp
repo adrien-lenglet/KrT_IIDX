@@ -13,10 +13,7 @@ public:
 	Socket(Observer &events);
 	~Socket(void);
 
-	Observer& events(void) const;
-
-private:
-	Observer &m_events;
+	Observer &events;
 };
 
 }
