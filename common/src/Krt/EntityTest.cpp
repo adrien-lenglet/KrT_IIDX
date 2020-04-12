@@ -9,9 +9,9 @@ EntityTest::EntityTest(const Subtile::Entity::Context &ctx) :
 	entity1(add<Subtile::Entity>()),
 	entity2(add<Subtile::Entity>())
 {
-	/*listenInput("forward", std::function<void (double)>([](double val) {
-		std::cout << val << std::endl;
-	}));*/
+	listen(events().input.analog("lol"), [this](double value){
+		std::cout << value << std::endl;
+	});
 }
 
 EntityTest::~EntityTest(void)

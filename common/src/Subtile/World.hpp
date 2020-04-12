@@ -24,9 +24,7 @@ private:
 	std::unique_ptr<Entity> m_root;
 
 	void resetRoot(void);
-
-	Observer<bool>::Listener listenInput(const std::string &input, const std::function<void (bool)> &callback);
-	Observer<double>::Listener listenInput(const std::string &input, const std::function<void (double)> &callback);
+	Event::World::Observer& getEvents(void);
 };
 
 }

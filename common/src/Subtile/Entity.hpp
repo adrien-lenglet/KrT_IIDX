@@ -2,12 +2,13 @@
 
 #include <vector>
 #include "Observer.hpp"
+#include "Event/World/Socket.hpp"
 
 namespace Subtile {
 
 class World;
 
-class Entity
+class Entity : protected Event::World::Socket
 {
 public:
 	class Context
@@ -34,9 +35,6 @@ public:
 protected:
 	World& getWorld(void);
 
-	void listenInput(const std::string &input, const std::function<void (bool)> &callback);
-	void listenInput(const std::string &input, const std::function<void (double)> &callback);
-
 	template <typename EntityType, class ...ArgsTypes>
 	EntityType& add(const ArgsTypes &...args)
 	{
@@ -53,11 +51,7 @@ private:
 	Entity *m_parent;
 	std::map<Subtile::Entity*, std::unique_ptr<Subtile::Entity>> m_children;
 
-	std::vector<Observer<bool>::Listener> m_input_listeners_bool;
-	std::vector<Observer<double>::Listener> m_input_listeners_double;
-
 	Entity& getParent(void);
-	void destroyChild(Entity &entity);
 };
 
 }

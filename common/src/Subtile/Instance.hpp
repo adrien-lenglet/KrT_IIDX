@@ -6,6 +6,7 @@
 #include "Observer.hpp"
 #include "Input/Analog.hpp"
 #include "Input/Button.hpp"
+#include "Event/World/Observer.hpp"
 
 namespace Subtile {
 
@@ -28,11 +29,11 @@ private:
 	friend World;
 
 	std::unique_ptr<ISystem> m_system;
+	Event::World::Observer m_events;
 	std::map<std::string, std::unique_ptr<IInput>> m_inputs;
 
+	Event::World::Observer& getEvents(void);
 	void scanInputs(void);
-	Observer<bool>::Listener listenInput(const std::string &input, const std::function<void (bool)> &callback);
-	Observer<double>::Listener listenInput(const std::string &input, const std::function<void (double)> &callback);
 };
 
 }

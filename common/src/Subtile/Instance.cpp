@@ -3,6 +3,8 @@
 #include "System/Input/IKeyboard.hpp"
 #include "System/CGlfwVulkan.hpp"
 
+#include "Event/World/Socket.hpp"
+
 #include <iostream>
 
 namespace Subtile {
@@ -58,6 +60,10 @@ void Instance::run(void)
 	/*auto &close_button = dynamic_cast<const System::Input::IButton&>(m_system->getInputs().at("close_window"));
 	auto &keyboard = dynamic_cast<const System::Input::IKeyboard&>(m_system->getInputs().at("keyboard"));*/
 
+	//std::cout << sizeof(Event::Socket) << std::endl;
+	//std::cout << sizeof(Event::World::Socket) << std::endl;
+	//std::cout << sizeof(Event::World::Socket::Input) << std::endl;
+	//std::cout << sizeof(Event::World::Socket::Input::Data) << std::endl;
 	while (true) {
 		scanInputs();
 		/*for (const auto &k : keyboard.poll())
@@ -68,14 +74,9 @@ void Instance::run(void)
 	}
 }
 
-Observer<bool>::Listener Instance::listenInput(const std::string &input, const std::function<void (bool)> &callback)
+Event::World::Observer& Instance::getEvents(void)
 {
-	return dynamic_cast<Input::Button&>(*m_inputs.at(input)).listen(callback);
-}
-
-Observer<double>::Listener Instance::listenInput(const std::string &input, const std::function<void (double)> &callback)
-{
-	return dynamic_cast<Input::Analog&>(*m_inputs.at(input)).listen(callback);
+	return m_events;
 }
 
 }
