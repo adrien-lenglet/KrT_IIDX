@@ -20,30 +20,21 @@ public:
 	public:
 		Input(void)
 		{
-			add(analog);
+			add(static_cast<Cluster&>(analog));
 		}
 		~Input(void) = default;
 
-		class Analog : public Cluster, public DescGen<Analog>, Group<std::tuple<std::string>, std::tuple<double>>
+		class Analog : public Cluster, public DescGen<Analog>, public Group<Analog, std::tuple<std::string>, std::tuple<double>>
 		{
 		public:
-			Analog(void) = default;
+			Analog(void) :
+				Group<Analog, std::tuple<std::string>, std::tuple<double>>([](const std::string &inputName) {
+					static_cast<void>(inputName);
+					return std::optional<std::tuple<double>>();
+				})
+			{
+			}
 			~Analog(void) override = default;
-
-		private:
-			friend Event::Socket;
-
-			std::unique_ptr<Listener> listen(const std::string &inputName, const std::function<void (double)> &callback)
-			{
-				static_cast<void>(inputName);
-				static_cast<void>(callback);
-				callback(3.14);
-				return std::unique_ptr<Listener>(nullptr);
-			}
-
-			void update(void) override
-			{
-			}
 		} analog;
 
 	} input;

@@ -21,7 +21,7 @@ void Instance::run(void)
 	auto world = subtile.createWorld();
 
 	world.set<EntityTest>();
-	subtile.run();
+	//subtile.run();
 }
 
 Instance::Config::Config(std::vector<std::string> args)

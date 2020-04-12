@@ -36,9 +36,9 @@ protected:
 	World& getWorld(void);
 
 	template <typename EntityType, class ...ArgsTypes>
-	EntityType& add(const ArgsTypes &...args)
+	EntityType& add(ArgsTypes &&...args)
 	{
-		auto added = new EntityType(Context(m_world, this), args...);
+		auto added = new EntityType(Context(m_world, this), std::forward<ArgsTypes>(args)...);
 
 		m_children.emplace(added, added);
 		return *added;

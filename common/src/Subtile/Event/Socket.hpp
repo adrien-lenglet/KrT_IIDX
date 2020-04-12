@@ -17,7 +17,7 @@ public:
 	template <typename L, typename ObserverType, typename ...ArgsType>
 	void listen(const Descriptor<ObserverType, ArgsType...> &req, const L &callback)
 	{
-		req.observer.listen(std::get<ArgsType>(req.args)..., callback);
+		m_listeners.push_back(req.observer.listen(req.args, callback));
 	}
 
 private:
