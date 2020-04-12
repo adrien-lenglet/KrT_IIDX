@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include "../Observer.hpp"
 
 namespace Subtile {
@@ -16,7 +17,7 @@ public:
 	{
 	public:
 		Input(void);
-		~Input(void);
+		~Input(void) override;
 
 		class Analog : public Cluster, public DescGen<Analog>, public Group<Analog, std::tuple<std::string>, std::tuple<double>>
 		{
@@ -26,6 +27,16 @@ public:
 		} analog;
 
 	} input;
+
+	class Update : public Cluster, public DescGen<Update>, public Group<Update, std::tuple<>, std::tuple<double>>
+	{
+	public:
+		Update(void);
+		~Update(void) override;
+
+	private:
+		std::chrono::high_resolution_clock::time_point m_time_before;
+	} update;
 };
 
 }

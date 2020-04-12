@@ -37,7 +37,7 @@ struct Descriptor
 	~Descriptor(void) = default;
 
 	ObserverType &observer;
-	std::tuple<ArgsType...> args;
+	const std::tuple<ArgsType...> args;
 };
 
 template <typename ObserverType>
