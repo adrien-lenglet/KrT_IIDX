@@ -26,6 +26,13 @@ public:
 			~Analog(void) override;
 		} analog;
 
+		class Button : public Cluster, public DescGen<Button>, public Group<Button, std::tuple<std::string>, std::tuple<bool>>
+		{
+		public:
+			Button(void);
+			~Button(void) override;
+		} button;
+
 	} input;
 
 	class Update : public Cluster, public DescGen<Update>, public Group<Update, std::tuple<>, std::tuple<double>>

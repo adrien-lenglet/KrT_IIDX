@@ -23,6 +23,7 @@ public:
 	virtual ~Observer(void) = default;
 
 private:
+	friend Instance;
 	virtual void update(void) = 0;
 };
 
@@ -156,7 +157,6 @@ protected:
 private:
 	std::vector<std::reference_wrapper<Observer>> m_observers;
 
-	friend Instance;
 	template <typename... GroupingType>
 	friend class Group;
 	void update(void) override;
