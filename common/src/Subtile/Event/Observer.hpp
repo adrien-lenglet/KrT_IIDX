@@ -6,6 +6,9 @@
 #include "Listener.hpp"
 
 namespace Subtile {
+
+class Instance;
+
 namespace Event {
 
 class Observer
@@ -64,6 +67,7 @@ protected:
 private:
 	std::vector<std::reference_wrapper<Observer>> m_observers;
 
+	friend Instance;
 	void update(void) override;
 };
 

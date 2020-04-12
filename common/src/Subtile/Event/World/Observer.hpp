@@ -15,7 +15,7 @@ public:
 	}
 	~Observer(void) override = default;
 
-	class Input : public Event::Observer::Cluster
+	class Input : public Cluster
 	{
 	public:
 		Input(void)
@@ -24,7 +24,7 @@ public:
 		}
 		~Input(void) = default;
 
-		class Analog : public Event::Observer, public DescGen<Analog>
+		class Analog : public Cluster, public DescGen<Analog>, Group<std::tuple<std::string>, std::tuple<double>>
 		{
 		public:
 			Analog(void) = default;

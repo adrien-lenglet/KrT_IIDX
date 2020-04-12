@@ -1,4 +1,3 @@
-#include <iostream>
 #include "Instance.hpp"
 
 namespace Subtile {
