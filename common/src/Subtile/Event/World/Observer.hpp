@@ -4,22 +4,23 @@
 #include "../Observer.hpp"
 #include "../../Input/Analog.hpp"
 #include "../../Input/Button.hpp"
+#include "../../ISystem.hpp"
 #include "util.hpp"
 
 namespace Subtile {
 namespace Event {
 namespace World {
 
-class Observer : public Event::Observer::Cluster
+class Observer : public Event::Observer::Cluster, public util::dep<ISystem&>
 {
 public:
-	Observer(void);
+	Observer(ISystem &system);
 	~Observer(void) override;
 
-	class Input : public Cluster
+	class Input : public Cluster, public util::dep<ISystem&>
 	{
 	public:
-		Input(void);
+		Input(ISystem &system);
 		~Input(void) override;
 
 		class Analog : public Cluster, public DescGen<Analog>, public Group<Analog, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Analog>>, std::tuple<double>>
@@ -75,8 +76,12 @@ public:
 
 		void set(const std::function<void (const Setter &setter)> &binder)
 		{
-			m_inputs.clear();
+			if (m_inputs.size() != 0)
+				throw std::runtime_error("Can't rebind inputs");
 			binder(Setter(*this));
+			m_bindings = loadBindings();
+			for (const auto &p : m_bindings)
+				m_inputs.at(p.first)->bind(static_cast<ISystem&>(*this).getInputs().at(p.second));
 		}
 
 	private:
@@ -84,7 +89,10 @@ public:
 		friend Button;
 
 		std::map<std::string, std::unique_ptr<IInput>> m_inputs;
-		Observer::Cluster m_input_update;
+		std::map<std::string, std::string> m_bindings;
+		Observer::Cluster::Optimized m_input_update;
+
+		std::map<std::string, std::string> loadBindings(void) const;
 	} input;
 
 	class Update : public Cluster, public DescGen<Update>, public Group<Update, std::tuple<>, std::tuple<double>>

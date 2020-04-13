@@ -136,4 +136,25 @@ public:
 	}
 };
 
+template <typename T>
+class dep
+{
+public:
+	dep(T value) :
+		m_value(value)
+	{
+	}
+	~dep(void)
+	{
+	}
+
+	operator T(void) const
+	{
+		return m_value;
+	}
+
+private:
+	T m_value;
+};
+
 }

@@ -18,6 +18,7 @@ Button::~Button(void)
 
 double Button::read(void)
 {
+	m_input.update();
 	return m_input.getState() ? m_max : m_min;
 }
 

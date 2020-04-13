@@ -16,6 +16,8 @@ public:
 	Keyboard(GLFWwindow *window);
 	~Keyboard(void) override;
 
+	void update(void) override;
+
 	const std::string& getName(void) const override;
 	double getActivity(void) const override;
 

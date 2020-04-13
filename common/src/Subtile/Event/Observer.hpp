@@ -66,7 +66,26 @@ private:
 class Observer::Cluster : public Observer
 {
 public:
+	class Optimized;
+
 	virtual ~Cluster(void) = default;
+
+protected:
+	void add(Observer &observer);
+
+private:
+	std::vector<std::reference_wrapper<Observer>> m_observers;
+
+	template <typename... GroupingType>
+	friend class Group;
+	void update(void) override;
+};
+
+
+class Observer::Cluster::Optimized : public Observer
+{
+public:
+	virtual ~Optimized(void) = default;
 
 protected:
 	void add(Observer &observer);
@@ -89,7 +108,7 @@ public:
 	using ConverterType = std::function<std::tuple<StoreTypes...> (const RequestTypes &...)>;
 	using UpdaterType = std::function<std::optional<std::tuple<ReturnTypes...>> (const StoreTypes &...)>;
 	using CallbackType = std::function<void (const ReturnTypes &...)>;
-	using ClusterCallbackType = std::function<Cluster& (void)>;
+	using ClusterCallbackType = std::function<Cluster::Optimized& (void)>;
 
 	Group(const ConverterType &converter, const UpdaterType &updater, const ClusterCallbackType &clusterCallback = nullptr) :
 		m_converter(converter),
@@ -185,7 +204,7 @@ class Observer::Group<ObserverType, GroupingType<RequestTypes...>, GroupingType<
 {
 public:
 	using UpdaterType = std::function<std::optional<std::tuple<ReturnTypes...>> (const RequestTypes &...)>;
-	using ClusterCallbackType = std::function<Cluster& (void)>;
+	using ClusterCallbackType = std::function<Cluster::Optimized& (void)>;
 
 	Group(const UpdaterType &updater, const ClusterCallbackType &clusterCallback = nullptr) :
 		Group<ObserverType, GroupingType<RequestTypes...>, GroupingType<RequestTypes...>, GroupingType<ReturnTypes...>>(nullptr, updater, clusterCallback)

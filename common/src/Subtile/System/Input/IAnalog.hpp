@@ -6,7 +6,7 @@ namespace Subtile {
 namespace System {
 namespace Input {
 
-class IAnalog : IInput
+class IAnalog : public IInput
 {
 public:
 	virtual ~IAnalog(void) override = default;

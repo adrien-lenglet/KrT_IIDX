@@ -17,6 +17,7 @@ Analog::~Analog(void)
 
 bool Analog::read(void)
 {
+	m_input.update();
 	return m_input.getState() >= m_threshold;
 }
 

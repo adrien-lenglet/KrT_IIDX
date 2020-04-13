@@ -1,10 +1,13 @@
+#include <fstream>
 #include "Observer.hpp"
 
 namespace Subtile {
 namespace Event {
 namespace World {
 
-Observer::Observer(void)
+Observer::Observer(ISystem &system) :
+	util::dep<ISystem&>(system),
+	input(system)
 {
 	add(input);
 	add(static_cast<Cluster&>(update));
@@ -14,7 +17,8 @@ Observer::~Observer(void)
 {
 }
 
-Observer::Input::Input(void) :
+Observer::Input::Input(ISystem &system) :
+	util::dep<ISystem&>(system),
 	analog(*this),
 	button(*this)
 {
@@ -27,6 +31,14 @@ Observer::Input::~Input(void)
 {
 }
 
+std::map<std::string, std::string> Observer::Input::loadBindings(void) const
+{
+	std::map<std::string, std::string> res;
+
+	res.emplace("quit", "KEY_ESCAPE");
+
+	return res;
+}
 
 Observer::Input::Analog::Analog(Input &input) :
 	Group<Analog, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Analog>>, std::tuple<double>>(
@@ -34,7 +46,7 @@ Observer::Input::Analog::Analog(Input &input) :
 		return util::ref_wrapper(dynamic_cast<Subtile::Input::Analog&>(*m_input.m_inputs.at(inputName)));
 	}, [](const util::ref_wrapper<Subtile::Input::Analog> &input) {
 		return input.get().getState();
-	}, [this](void) -> Observer::Cluster& {
+	}, [this](void) -> auto& {
 		return m_input.m_input_update;
 	}),
 	m_input(input)
@@ -51,7 +63,7 @@ Observer::Input::Button::Button(Input &input) :
 		return util::ref_wrapper(dynamic_cast<Subtile::Input::Button&>(*m_input.m_inputs.at(inputName)));
 	}, [](const util::ref_wrapper<Subtile::Input::Button> &input) {
 		return input.get().getState();
-	}, [this](void) -> Observer::Cluster& {
+	}, [this](void) -> auto& {
 		return m_input.m_input_update;
 	}),
 	m_input(input)

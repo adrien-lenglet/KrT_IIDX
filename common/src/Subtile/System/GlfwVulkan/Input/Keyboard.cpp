@@ -51,6 +51,10 @@ std::vector<uint32_t> Keyboard::poll(void) const
 	return res;
 }
 
+void Keyboard::update(void)
+{
+}
+
 }
 }
 }

@@ -18,6 +18,7 @@ Analog::~Analog(void)
 
 double Analog::read(void)
 {
+	m_input.update();
 	return m_min + m_input.getState() * (m_max - m_min);
 }
 

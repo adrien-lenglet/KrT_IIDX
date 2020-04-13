@@ -19,8 +19,7 @@ Instance::~Instance(void)
 void Instance::run(void)
 {
 	subtile.getEvents().input.set([](const auto &s){
-		s.addAnalog("up");
-		s.addButton("A");
+		s.addButton("quit");
 	});
 
 	auto world = subtile.createWorld();

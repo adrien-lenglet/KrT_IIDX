@@ -6,7 +6,8 @@
 namespace Subtile {
 
 Instance::Instance(size_t w, size_t h, bool isDebug, bool doProfile) :
-	m_system(new System::CGlfwVulkan(w, h, isDebug, doProfile))
+	m_system(new System::CGlfwVulkan(w, h, isDebug, doProfile)),
+	m_events(*m_system)
 {
 }
 
@@ -29,7 +30,7 @@ void Instance::run(void)
 	//std::cout << sizeof(Event::World::Socket::Input) << std::endl;
 	//std::cout << sizeof(Event::World::Socket::Input::Data) << std::endl;
 	while (true) {
-		//scanInputs();
+		m_system->scanInputs();
 		static_cast<Event::Observer&>(m_events).update();
 		/*for (const auto &k : keyboard.poll())
 			std::cout << static_cast<char>(k) << std::endl;*/

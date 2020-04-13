@@ -16,6 +16,7 @@ Button::~Button(void)
 
 bool Button::read(void)
 {
+	m_input.update();
 	return m_input.getState();
 }
 

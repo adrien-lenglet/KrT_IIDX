@@ -11,7 +11,7 @@ namespace Input {
 class AButton : public System::Input::IButton
 {
 public:
-	AButton(const std::string &name, std::function<bool(void)> read_fun);
+	AButton(const std::string &name, std::function<bool (void)> read_fun);
 	~AButton(void) override;
 
 	const std::string& getName(void) const override;
@@ -19,11 +19,11 @@ public:
 
 	bool getState(void) const override;
 
-	void scan(void);
+	void update(void);
 
 protected:
 	std::string m_name;
-	std::function<bool(void)> m_read_fun;
+	std::function<bool (void)> m_read_fun;
 	bool m_last_state;
 	bool m_state;
 };

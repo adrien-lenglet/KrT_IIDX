@@ -133,16 +133,20 @@ std::vector<std::unique_ptr<System::IInput>> CGlfwVulkan::createInputs(void)
 {
 	std::vector<std::unique_ptr<System::IInput>> res;
 
-	res.emplace_back(new GlfwVulkan::Input::AButton("close_window", [this](){ return m_vk.shouldClose(); }));
+	res.emplace_back(new GlfwVulkan::Input::AButton("close_window", [this](){
+		return m_vk.shouldClose();
+	}));
 	for (const auto &k : glfw_keys)
-		res.emplace_back(new GlfwVulkan::Input::AButton(k.first, [=](){ return glfwGetKey(m_vk.getWindow(), k.second) == GLFW_PRESS; }));
+		res.emplace_back(new GlfwVulkan::Input::AButton(k.first, [k, this](){
+			return glfwGetKey(m_vk.getWindow(), k.second) == GLFW_PRESS;
+		}));
 	res.emplace_back(new GlfwVulkan::Input::Keyboard(m_vk.getWindow()));
 	return res;
 }
 
-std::map<std::string, const System::IInput&> CGlfwVulkan::createInputsMap(void)
+std::map<std::string, System::IInput&> CGlfwVulkan::createInputsMap(void)
 {
-	std::map<std::string, const System::IInput&> res;
+	std::map<std::string, System::IInput&> res;
 
 	for (const auto &in : m_inputs)
 		res.emplace(in->getName(), *in);
@@ -163,20 +167,9 @@ CGlfwVulkan::~CGlfwVulkan(void)
 void CGlfwVulkan::scanInputs(void)
 {
 	glfwPollEvents();
-	for (auto &input : m_inputs) {
-		try {
-			dynamic_cast<GlfwVulkan::Input::AButton&>(*input).scan();
-		} catch (std::bad_cast&) {
-			try {
-				dynamic_cast<GlfwVulkan::Input::Keyboard&>(*input);
-			} catch (std::bad_cast&) {
-				throw std::runtime_error("Unknown input type for scanning");
-			}
-		}
-	}
 }
 
-const std::map<std::string, const System::IInput&>& CGlfwVulkan::getInputs(void)
+const std::map<std::string, System::IInput&>& CGlfwVulkan::getInputs(void)
 {
 	return m_inputs_map;
 }
