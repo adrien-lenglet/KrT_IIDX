@@ -18,7 +18,7 @@ Instance::~Instance(void)
 
 void Instance::run(void)
 {
-	subtile.getEvents().input.bind([](const auto &s){
+	subtile.getEvents().input.set([](const auto &s){
 		s.addAnalog("up");
 		s.addButton("A");
 	});

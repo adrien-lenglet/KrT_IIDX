@@ -29,7 +29,8 @@ Observer::Input::~Input(void)
 
 
 Observer::Input::Analog::Analog(Input &input) :
-	Group<Analog, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Analog>>, std::tuple<double>>([this](const std::string &inputName){
+	Group<Analog, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Analog>>, std::tuple<double>>(
+	[this](const std::string &inputName){
 		return util::ref_wrapper(dynamic_cast<Subtile::Input::Analog&>(*m_input.m_inputs.at(inputName)));
 	}, [](const util::ref_wrapper<Subtile::Input::Analog> &input) {
 		return input.get().getState();
@@ -45,7 +46,8 @@ Observer::Input::Analog::~Analog(void)
 }
 
 Observer::Input::Button::Button(Input &input) :
-	Group<Button, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<bool>>([this](const std::string &inputName){
+	Group<Button, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<bool>>(
+	[this](const std::string &inputName){
 		return util::ref_wrapper(dynamic_cast<Subtile::Input::Button&>(*m_input.m_inputs.at(inputName)));
 	}, [](const util::ref_wrapper<Subtile::Input::Button> &input) {
 		return input.get().getState();
