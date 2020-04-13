@@ -28,14 +28,6 @@ public:
 			Analog(Input &input);
 			~Analog(void) override;
 
-			template <typename ...ArgsTypes>
-			void add(const std::string &name, ArgsTypes &&...args)
-			{
-				const auto [it, s] = m_input.m_inputs.emplace(name, new Subtile::Input::Analog(std::forward<ArgsTypes>(args)...));
-				if (!s)
-					throw std::runtime_error(std::string("Can't create analog input: '") + name + std::string("'"));
-			}
-
 		private:
 			Input &m_input;
 		} analog;
@@ -46,8 +38,31 @@ public:
 			Button(Input &input);
 			~Button(void) override;
 
+		private:
+			Input &m_input;
+		} button;
+
+		class Setter
+		{
+		public:
+			Setter(Input &input) :
+				m_input(input)
+			{
+			}
+			~Setter(void)
+			{
+			}
+
 			template <typename ...ArgsTypes>
-			void add(const std::string &name, ArgsTypes &&...args)
+			void addAnalog(const std::string &name, ArgsTypes &&...args) const
+			{
+				const auto [it, s] = m_input.m_inputs.emplace(name, new Subtile::Input::Analog(std::forward<ArgsTypes>(args)...));
+				if (!s)
+					throw std::runtime_error(std::string("Can't create analog input: '") + name + std::string("'"));
+			}
+
+			template <typename ...ArgsTypes>
+			void addButton(const std::string &name, ArgsTypes &&...args) const
 			{
 				const auto [it, s] = m_input.m_inputs.emplace(name, new Subtile::Input::Button(std::forward<ArgsTypes>(args)...));
 				if (!s)
@@ -56,7 +71,13 @@ public:
 
 		private:
 			Input &m_input;
-		} button;
+		};
+
+		void bind(const std::function<void (const Setter &setter)> &binder)
+		{
+			m_inputs.clear();
+			binder(Setter(*this));
+		}
 
 	private:
 		friend Analog;

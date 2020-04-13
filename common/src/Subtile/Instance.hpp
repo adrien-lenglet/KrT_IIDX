@@ -18,6 +18,7 @@ public:
 	Instance(size_t w, size_t h, bool isDebug, bool doProfile);
 	~Instance(void);
 
+	Event::World::Observer& getEvents(void);
 	World createWorld(void);
 	void run(void);
 
@@ -27,7 +28,6 @@ private:
 	std::unique_ptr<ISystem> m_system;
 	Event::World::Observer m_events;
 
-	Event::World::Observer& getEvents(void);
 	void scanInputs(void);
 };
 
