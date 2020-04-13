@@ -18,7 +18,7 @@ Instance::~Instance(void)
 
 void Instance::run(void)
 {
-	subtile.getEvents().input.set([](const auto &s){
+	subtile.setInputs([](const auto &s){
 		s.addButton("quit");
 	});
 

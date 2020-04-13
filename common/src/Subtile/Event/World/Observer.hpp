@@ -94,6 +94,15 @@ public:
 			Input &m_input;
 		};
 
+	private:
+		friend Analog;
+		friend Button;
+		friend Subtile::Instance;
+
+		std::map<std::string, std::unique_ptr<IInput>> m_inputs;
+		std::map<std::string, std::string> m_bindings;
+		Observer::Cluster::Optimized m_input_update;
+
 		void set(const std::function<void (const Setter &setter)> &binder)
 		{
 			if (m_inputs.size() != 0)
@@ -103,15 +112,6 @@ public:
 			for (const auto &p : m_bindings)
 				m_inputs.at(p.first)->bind(static_cast<ISystem&>(*this).getInputs().at(p.second));
 		}
-
-	private:
-		friend Analog;
-		friend Button;
-
-		std::map<std::string, std::unique_ptr<IInput>> m_inputs;
-		std::map<std::string, std::string> m_bindings;
-		Observer::Cluster::Optimized m_input_update;
-
 		std::map<std::string, std::string> loadBindings(void) const;
 	} input;
 

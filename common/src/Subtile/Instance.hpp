@@ -19,6 +19,7 @@ public:
 	~Instance(void);
 
 	Event::World::Observer& getEvents(void);
+	void setInputs(const std::function<void (const Event::World::Observer::Input::Setter &setter)> &binder);
 	World createWorld(void);
 	void run(void);
 
