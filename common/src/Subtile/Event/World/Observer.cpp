@@ -66,11 +66,55 @@ Observer::Input::Button::Button(Input &input) :
 	}, [this](void) -> auto& {
 		return m_input.m_input_update;
 	}),
+	pressed(input),
+	released(input),
+	m_input(input)
+{
+	add(static_cast<Observer::Cluster&>(pressed));
+	add(static_cast<Observer::Cluster&>(released));
+}
+
+Observer::Input::Button::~Button(void)
+{
+}
+
+Observer::Input::Button::Pressed::Pressed(Input &input) :
+	Group<Pressed, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<>>(
+	[this](const std::string &inputName){
+		return util::ref_wrapper(dynamic_cast<Subtile::Input::Button&>(*m_input.m_inputs.at(inputName)));
+	}, [](const util::ref_wrapper<Subtile::Input::Button> &input) {
+		if (input.get().isPressed())
+			return std::optional(std::make_tuple());
+		else
+			return std::optional<std::tuple<>>();
+	}, [this](void) -> auto& {
+		return m_input.m_input_update;
+	}),
 	m_input(input)
 {
 }
 
-Observer::Input::Button::~Button(void)
+Observer::Input::Button::Pressed::~Pressed(void)
+{
+}
+
+Observer::Input::Button::Released::Released(Input &input) :
+	Group<Released, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<>>(
+	[this](const std::string &inputName){
+		return util::ref_wrapper(dynamic_cast<Subtile::Input::Button&>(*m_input.m_inputs.at(inputName)));
+	}, [](const util::ref_wrapper<Subtile::Input::Button> &input) {
+		if (input.get().isReleased())
+			return std::optional(std::make_tuple());
+		else
+			return std::optional<std::tuple<>>();
+	}, [this](void) -> auto& {
+		return m_input.m_input_update;
+	}),
+	m_input(input)
+{
+}
+
+Observer::Input::Button::Released::~Released(void)
 {
 }
 

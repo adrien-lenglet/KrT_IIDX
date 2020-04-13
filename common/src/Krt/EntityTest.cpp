@@ -9,14 +9,16 @@ EntityTest::EntityTest(const Subtile::Entity::Context &ctx) :
 	entity1(add<Subtile::Entity>()),
 	entity2(add<Subtile::Entity>())
 {
-	/*listen(events.input.analog("up"), [this](double value){
-		std::cout << value << std::endl;
-	});
-	listen(events.input.button("A"), [this](bool value){
+	/*listen(events.input.button("quit"), [this](auto value){
 		std::cout << value << std::endl;
 	});*/
-	listen(events.input.button("quit"), [this](bool value){
-		std::cout << value << std::endl;
+
+	listen(events.input.button.pressed("quit"), [this](){
+		std::cout << "quit pressed" << std::endl;
+	});
+
+	listen(events.input.button.released("quit"), [this](){
+		std::cout << "quit released" << std::endl;
 	});
 }
 

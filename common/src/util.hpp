@@ -132,7 +132,7 @@ public:
 
 	bool operator<(const std::reference_wrapper<T> &other) const
 	{
-		return this < &other;
+		return &this->get() < &other.get();
 	}
 };
 

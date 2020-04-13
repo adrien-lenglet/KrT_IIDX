@@ -11,13 +11,13 @@ namespace Subtile {
 namespace Event {
 namespace World {
 
-class Observer : public Event::Observer::Cluster, public util::dep<ISystem&>
+class Observer : public Event::Observer::Cluster, private util::dep<ISystem&>
 {
 public:
 	Observer(ISystem &system);
 	~Observer(void) override;
 
-	class Input : public Cluster, public util::dep<ISystem&>
+	class Input : public Cluster, private util::dep<ISystem&>
 	{
 	public:
 		Input(ISystem &system);
@@ -38,6 +38,26 @@ public:
 		public:
 			Button(Input &input);
 			~Button(void) override;
+
+			class Pressed : public Cluster, public DescGen<Pressed>, public Group<Pressed, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<>>
+			{
+			public:
+				Pressed(Input &input);
+				~Pressed(void) override;
+
+			private:
+				Input &m_input;
+			} pressed;
+
+			class Released : public Cluster, public DescGen<Released>, public Group<Released, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<>>
+			{
+			public:
+				Released(Input &input);
+				~Released(void) override;
+
+			private:
+				Input &m_input;
+			} released;
 
 		private:
 			Input &m_input;
