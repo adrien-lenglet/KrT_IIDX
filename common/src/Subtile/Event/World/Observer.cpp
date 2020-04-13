@@ -33,10 +33,8 @@ Observer::Input::Analog::Analog(Input &input) :
 		return util::ref_wrapper(dynamic_cast<Subtile::Input::Analog&>(*m_input.m_inputs.at(inputName)));
 	}, [](const util::ref_wrapper<Subtile::Input::Analog> &input) {
 		return input.get().getState();
-	}, [this](const util::ref_wrapper<Subtile::Input::Analog> &input){
-		m_input.m_input_update.add(input);
-	}, [this](const util::ref_wrapper<Subtile::Input::Analog> &input){
-		m_input.m_input_update.remove(input);
+	}, [this](void) -> Observer::Cluster& {
+		return m_input.m_input_update;
 	}),
 	m_input(input)
 {
@@ -51,10 +49,8 @@ Observer::Input::Button::Button(Input &input) :
 		return util::ref_wrapper(dynamic_cast<Subtile::Input::Button&>(*m_input.m_inputs.at(inputName)));
 	}, [](const util::ref_wrapper<Subtile::Input::Button> &input) {
 		return input.get().getState();
-	}, [this](const util::ref_wrapper<Subtile::Input::Button> &input){
-		m_input.m_input_update.add(input);
-	}, [this](const util::ref_wrapper<Subtile::Input::Button> &input){
-		m_input.m_input_update.remove(input);
+	}, [this](void) -> Observer::Cluster& {
+		return m_input.m_input_update;
 	}),
 	m_input(input)
 {

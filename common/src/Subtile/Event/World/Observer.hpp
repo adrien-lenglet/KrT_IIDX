@@ -73,7 +73,7 @@ public:
 			Input &m_input;
 		};
 
-		void bind(const std::function<void (const Setter &setter)> &binder)
+		void set(const std::function<void (const Setter &setter)> &binder)
 		{
 			m_inputs.clear();
 			binder(Setter(*this));

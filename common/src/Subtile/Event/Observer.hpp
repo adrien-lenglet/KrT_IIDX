@@ -63,6 +63,23 @@ private:
 	}
 };
 
+class Observer::Cluster : public Observer
+{
+public:
+	virtual ~Cluster(void) = default;
+
+protected:
+	void add(Observer &observer);
+	void remove(Observer &observer);
+
+private:
+	std::map<util::ref_wrapper<Observer>, size_t> m_observers;
+
+	template <typename... GroupingType>
+	friend class Group;
+	void update(void) override;
+};
+
 class Socket;
 
 template <typename ObserverType, template <typename...> class GroupingType, typename... RequestTypes, typename... StoreTypes, typename... ReturnTypes>
@@ -72,13 +89,12 @@ public:
 	using ConverterType = std::function<std::tuple<StoreTypes...> (const RequestTypes &...)>;
 	using UpdaterType = std::function<std::optional<std::tuple<ReturnTypes...>> (const StoreTypes &...)>;
 	using CallbackType = std::function<void (const ReturnTypes &...)>;
-	using ModCallbackType = std::function<void (const StoreTypes &...)>;
+	using ClusterCallbackType = std::function<Cluster& (void)>;
 
-	Group(const ConverterType &converter, const UpdaterType &updater, const ModCallbackType &addCallback = nullptr, const ModCallbackType &removeCallback = nullptr) :
+	Group(const ConverterType &converter, const UpdaterType &updater, const ClusterCallbackType &clusterCallback = nullptr) :
 		m_converter(converter),
 		m_updater(updater),
-		m_add_cb(addCallback),
-		m_remove_cb(removeCallback)
+		m_cluster_cb(clusterCallback)
 	{
 		getObserver().Cluster::add(*this);
 	}
@@ -111,8 +127,7 @@ private:
 	friend Listener;
 	const ConverterType m_converter;
 	const UpdaterType m_updater;
-	const ModCallbackType m_add_cb;
-	const ModCallbackType m_remove_cb;
+	const ClusterCallbackType m_cluster_cb;
 	std::map<std::tuple<StoreTypes...>, std::map<Listener*, Listener&>> m_listeners;
 
 	friend Event::Socket;
@@ -126,8 +141,8 @@ private:
 			res = new Listener(*this, m_converter(std::get<RequestTypes>(request)...), callback);
 
 		m_listeners[res->m_request].emplace(res, *res);
-		if (m_add_cb)
-			m_add_cb(std::get<StoreTypes>(res->m_request)...);
+		if (m_cluster_cb)
+			m_cluster_cb().add(std::get<StoreTypes>(res->m_request)...);
 		return std::unique_ptr<Event::Listener>(res);
 	}
 
@@ -138,8 +153,8 @@ private:
 			auto &got_map = got->second;
 			auto l = got_map.find(&listener);
 			if (l != got_map.end()) {
-				if (m_remove_cb)
-					m_remove_cb(std::get<StoreTypes>(l->second.m_request)...);
+				if (m_cluster_cb)
+					m_cluster_cb().remove(std::get<StoreTypes>(l->second.m_request)...);
 				got_map.erase(l);
 				if (got_map.size() == 0)
 					m_listeners.erase(got);
@@ -170,32 +185,16 @@ class Observer::Group<ObserverType, GroupingType<RequestTypes...>, GroupingType<
 {
 public:
 	using UpdaterType = std::function<std::optional<std::tuple<ReturnTypes...>> (const RequestTypes &...)>;
-	using ModCallbackType = std::function<void (const RequestTypes &...)>;
+	using ClusterCallbackType = std::function<Cluster& (void)>;
 
-	Group(const UpdaterType &updater, const ModCallbackType &addCallback = nullptr, const ModCallbackType &removeCallback = nullptr) :
-		Group<ObserverType, GroupingType<RequestTypes...>, GroupingType<RequestTypes...>, GroupingType<ReturnTypes...>>(nullptr, updater, addCallback, removeCallback)
+	Group(const UpdaterType &updater, const ClusterCallbackType &clusterCallback = nullptr) :
+		Group<ObserverType, GroupingType<RequestTypes...>, GroupingType<RequestTypes...>, GroupingType<ReturnTypes...>>(nullptr, updater, clusterCallback)
 	{
 	}
 
 	~Group(void) override
 	{
 	}
-};
-
-class Observer::Cluster : public Observer
-{
-public:
-	virtual ~Cluster(void) = default;
-
-	void add(Observer &observer);
-	void remove(Observer &observer);
-
-private:
-	std::map<util::ref_wrapper<Observer>, size_t> m_observers;
-
-	template <typename... GroupingType>
-	friend class Group;
-	void update(void) override;
 };
 
 }
