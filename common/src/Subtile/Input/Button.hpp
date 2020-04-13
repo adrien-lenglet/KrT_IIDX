@@ -14,23 +14,18 @@ public:
 	~Button(void);
 
 	void update(void) override;
+	bool getState(void) const;
+	bool isPressed(void) const;
+	bool isReleased(void) const;
 	bool bind(System::IInput &input) override;
-
-	Observer<bool>::Listener listen(const std::function<void (bool)> &callback);
-	Observer<>::Listener listenPressed(const std::function<void (void)> &callback);
-	Observer<>::Listener listenReleased(const std::function<void (void)> &callback);
 
 private:
 	bool m_is_strict;
 	double m_analog_threshold;
 
+	std::unique_ptr<NButton::IAdapter> m_adapter;
 	bool m_last_state;
 	bool m_state;
-
-	Observer<bool> m_observer;
-	Observer<> m_observer_pressed;
-	Observer<> m_observer_released;
-	std::unique_ptr<NButton::IAdapter> m_adapter;
 };
 
 }

@@ -9,24 +9,11 @@ namespace Input {
 Button::Button(bool isStrict, double analogThreshold) :
 	m_is_strict(isStrict),
 	m_analog_threshold(analogThreshold),
+	m_adapter(new NButton::Adapter::Disconnected()),
 	m_last_state(false),
-	m_state(false),
-	m_observer([this](auto &signal) {
-		if (m_adapter) {
-			m_last_state = m_state;
-			m_state = m_adapter->read();
-			signal(m_state);
-		}
-	}),
-	m_observer_pressed([this](auto &signal) {
-		if (!m_last_state && m_state)
-			signal();
-	}),
-	m_observer_released([this](auto &signal) {
-		if (m_last_state && !m_state)
-			signal();
-	})
+	m_state(false)
 {
+	update();
 }
 
 Button::~Button(void)
@@ -35,9 +22,23 @@ Button::~Button(void)
 
 void Button::update(void)
 {
-	m_observer.update();
-	m_observer_pressed.update();
-	m_observer_released.update();
+	m_last_state = m_state;
+	m_state = m_adapter->read();
+}
+
+bool Button::getState(void) const
+{
+	return m_state;
+}
+
+bool Button::isPressed(void) const
+{
+	return !m_last_state && m_state;
+}
+
+bool Button::isReleased(void) const
+{
+	return m_last_state && !m_state;
 }
 
 bool Button::bind(System::IInput &input)
@@ -55,21 +56,6 @@ bool Button::bind(System::IInput &input)
 	} catch (std::bad_cast&) {
 	}
 	return false;
-}
-
-Observer<bool>::Listener Button::listen(const std::function<void (bool)> &callback)
-{
-	return m_observer.listen(callback);
-}
-
-Observer<>::Listener Button::listenPressed(const std::function<void (void)> &callback)
-{
-	return m_observer_pressed.listen(callback);
-}
-
-Observer<>::Listener Button::listenReleased(const std::function<void (void)> &callback)
-{
-	return m_observer_released.listen(callback);
 }
 
 }

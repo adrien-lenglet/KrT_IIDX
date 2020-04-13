@@ -14,10 +14,13 @@ Observer::~Observer(void)
 {
 }
 
-Observer::Input::Input(void)
+Observer::Input::Input(void) :
+	analog(*this),
+	button(*this)
 {
 	add(static_cast<Cluster&>(analog));
 	add(static_cast<Cluster&>(button));
+	add(m_input_update);
 }
 
 Observer::Input::~Input(void)
@@ -25,13 +28,17 @@ Observer::Input::~Input(void)
 }
 
 
-Observer::Input::Analog::Analog(void) :
-	Group<Analog, std::tuple<std::string>, std::tuple<std::string>, std::tuple<double>>([](const std::string &inputName){
-		return std::make_tuple(inputName);
-	}, [](const std::string &inputName) {
-		static_cast<void>(inputName);
-		return std::optional<std::tuple<double>>();
-	})
+Observer::Input::Analog::Analog(Input &input) :
+	Group<Analog, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Analog>>, std::tuple<double>>([this](const std::string &inputName){
+		return util::ref_wrapper(dynamic_cast<Subtile::Input::Analog&>(*m_input.m_inputs.at(inputName)));
+	}, [](const util::ref_wrapper<Subtile::Input::Analog> &input) {
+		return input.get().getState();
+	}, [this](const util::ref_wrapper<Subtile::Input::Analog> &input){
+		m_input.m_input_update.add(input);
+	}, [this](const util::ref_wrapper<Subtile::Input::Analog> &input){
+		m_input.m_input_update.remove(input);
+	}),
+	m_input(input)
 {
 }
 
@@ -39,11 +46,17 @@ Observer::Input::Analog::~Analog(void)
 {
 }
 
-Observer::Input::Button::Button(void) :
-	Group<Button, std::tuple<std::string>, std::tuple<bool>>([](const std::string &inputName) {
-		static_cast<void>(inputName);
-		return std::optional<std::tuple<bool>>(true);
-	})
+Observer::Input::Button::Button(Input &input) :
+	Group<Button, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<bool>>([this](const std::string &inputName){
+		return util::ref_wrapper(dynamic_cast<Subtile::Input::Button&>(*m_input.m_inputs.at(inputName)));
+	}, [](const util::ref_wrapper<Subtile::Input::Button> &input) {
+		return input.get().getState();
+	}, [this](const util::ref_wrapper<Subtile::Input::Button> &input){
+		m_input.m_input_update.add(input);
+	}, [this](const util::ref_wrapper<Subtile::Input::Button> &input){
+		m_input.m_input_update.remove(input);
+	}),
+	m_input(input)
 {
 }
 

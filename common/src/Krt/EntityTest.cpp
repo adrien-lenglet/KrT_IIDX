@@ -9,7 +9,7 @@ EntityTest::EntityTest(const Subtile::Entity::Context &ctx) :
 	entity1(add<Subtile::Entity>()),
 	entity2(add<Subtile::Entity>())
 {
-	listen(events.input.analog("lol"), [this](double value){
+	/*listen(events.input.analog("lol"), [this](double value){
 		std::cout << value << std::endl;
 	});
 
@@ -23,6 +23,15 @@ EntityTest::EntityTest(const Subtile::Entity::Context &ctx) :
 
 	listen(events.update(), [](double deltaTime){
 		std::cout << "time elapsed: " << deltaTime << std::endl;
+	});*/
+
+	events.input.analog.add("up");
+	events.input.button.add("A");
+	listen(events.input.analog("up"), [this](double value){
+		std::cout << value << std::endl;
+	});
+	listen(events.input.button("A"), [this](bool value){
+		std::cout << value << std::endl;
 	});
 }
 
