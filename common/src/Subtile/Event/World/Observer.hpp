@@ -19,7 +19,7 @@ public:
 		Input(void);
 		~Input(void) override;
 
-		class Analog : public Cluster, public DescGen<Analog>, public Group<Analog, std::tuple<std::string>, std::tuple<double>>
+		class Analog : public Cluster, public DescGen<Analog>, public Group<Analog, std::tuple<std::string>, std::tuple<std::string>, std::tuple<double>>
 		{
 		public:
 			Analog(void);

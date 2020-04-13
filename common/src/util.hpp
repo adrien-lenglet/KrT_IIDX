@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <functional>
 
 namespace util {
 
@@ -115,5 +116,24 @@ T<V> map(const T<U> &container, const std::function<V(const U&)> &func)
 		res.push_back(func(el));
 	return res;
 }
+
+template <typename T>
+class ref_wrapper : public std::reference_wrapper<T>
+{
+public:
+	ref_wrapper(void)
+	{
+	}
+
+	ref_wrapper(T &ref) :
+		std::reference_wrapper<T>(ref)
+	{
+	}
+
+	bool operator<(const std::reference_wrapper<T> &other) const
+	{
+		return this < &other;
+	}
+};
 
 }

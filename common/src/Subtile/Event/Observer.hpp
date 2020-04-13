@@ -17,7 +17,7 @@ class Observer
 {
 public:
 	class Cluster;
-	template <typename... GroupingType>
+	template <typename... Types>
 	class Group;
 
 	virtual ~Observer(void) = default;
@@ -63,14 +63,16 @@ private:
 
 class Socket;
 
-template <typename ObserverType, template <typename...> class GroupingType, typename... RequestTypes, typename... ReturnTypes>
-class Observer::Group<ObserverType, GroupingType<RequestTypes...>, GroupingType<ReturnTypes...>> : public Observer
+template <typename ObserverType, template <typename...> class GroupingType, typename... RequestTypes, typename... StoreTypes, typename... ReturnTypes>
+class Observer::Group<ObserverType, GroupingType<RequestTypes...>, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>> : public Observer
 {
 public:
-	using UpdaterType = std::function<std::optional<std::tuple<ReturnTypes...>> (const RequestTypes &...)>;
+	using ConverterType = std::function<std::tuple<StoreTypes...> (const RequestTypes &...)>;
+	using UpdaterType = std::function<std::optional<std::tuple<ReturnTypes...>> (const StoreTypes &...)>;
 	using CallbackType = std::function<void (const ReturnTypes &...)>;
 
-	Group(const UpdaterType &updater) :
+	Group(const ConverterType &converter, const UpdaterType &updater) :
+		m_converter(converter),
 		m_updater(updater)
 	{
 		getObserver().add(*this);
@@ -83,7 +85,7 @@ private:
 	class Listener : Event::Listener
 	{
 	public:
-		Listener(Group &group, const std::tuple<RequestTypes...> &request, const CallbackType &callback) :
+		Listener(Group &group, const std::tuple<StoreTypes...> &request, const CallbackType &callback) :
 			m_group(group),
 			m_request(request),
 			m_callback(callback)
@@ -97,18 +99,19 @@ private:
 	private:
 		friend Group;
 		Group &m_group;
-		const std::tuple<RequestTypes...> m_request;
+		const std::tuple<StoreTypes...> m_request;
 		const CallbackType m_callback;
 	};
 
 	friend Listener;
+	const ConverterType m_converter;
 	const UpdaterType m_updater;
-	std::map<std::tuple<RequestTypes...>, std::map<Listener*, Listener&>> m_listeners;
+	std::map<std::tuple<StoreTypes...>, std::map<Listener*, Listener&>> m_listeners;
 
 	friend Event::Socket;
 	std::unique_ptr<Event::Listener> listen(const std::tuple<RequestTypes...> &request, const CallbackType &callback)
 	{
-		auto res = new Listener(*this, request, callback);
+		auto res = new Listener(*this, m_converter ? m_converter(std::get<RequestTypes>(request)...) : request, callback);
 
 		m_listeners[res->m_request].emplace(res, *res);
 		return std::unique_ptr<Event::Listener>(res);
@@ -143,6 +146,22 @@ private:
 	ObserverType& getObserver(void)
 	{
 		return static_cast<ObserverType&>(*this);
+	}
+};
+
+template <typename ObserverType, template <typename...> class GroupingType, typename... RequestTypes, typename... ReturnTypes>
+class Observer::Group<ObserverType, GroupingType<RequestTypes...>, GroupingType<ReturnTypes...>> : public Observer::Group<ObserverType, GroupingType<RequestTypes...>, GroupingType<RequestTypes...>, GroupingType<ReturnTypes...>>
+{
+public:
+	using UpdaterType = std::function<std::optional<std::tuple<ReturnTypes...>> (const RequestTypes &...)>;
+
+	Group(const UpdaterType &updater) :
+		Group<ObserverType, GroupingType<RequestTypes...>, GroupingType<RequestTypes...>, GroupingType<ReturnTypes...>>(nullptr, updater)
+	{
+	}
+
+	~Group(void) override
+	{
 	}
 };
 

@@ -26,7 +26,9 @@ Observer::Input::~Input(void)
 
 
 Observer::Input::Analog::Analog(void) :
-	Group<Analog, std::tuple<std::string>, std::tuple<double>>([](const std::string &inputName) {
+	Group<Analog, std::tuple<std::string>, std::tuple<std::string>, std::tuple<double>>([](const std::string &inputName){
+		return std::make_tuple(inputName);
+	}, [](const std::string &inputName) {
 		static_cast<void>(inputName);
 		return std::optional<std::tuple<double>>();
 	})
