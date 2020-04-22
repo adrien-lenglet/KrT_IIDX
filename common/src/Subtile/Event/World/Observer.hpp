@@ -8,8 +8,13 @@
 #include "util.hpp"
 
 namespace Subtile {
+
+class Entity;
+
 namespace Event {
 namespace World {
+
+class Socket;
 
 class Observer : public Event::Observer::Cluster, private util::dep<ISystem&>
 {
@@ -17,6 +22,29 @@ public:
 	Observer(ISystem &system);
 	~Observer(void) override;
 
+private:
+	class Lifetime : public Event::Observer::Cluster
+	{
+	public:
+		Lifetime(void);
+		~Lifetime(void);
+
+		class Add : public Event::Observer
+		{
+		public:
+			Add(void);
+			~Add(void);
+
+			std::unique_ptr<Listener> operator()(Entity &parent, std::unique_ptr<Entity> &to_add);
+
+		private:
+			Bindings<util::ref_wrapper<Entity>, std::unique_ptr<Entity>> m_to_add;
+
+			void update(void) override;
+		} add;
+	} lifetime;
+
+public:
 	class Input : public Cluster, private util::dep<ISystem&>
 	{
 	public:
@@ -145,8 +173,13 @@ public:
 			bool m_quit;
 		} quit;
 	} system;
+
+private:
+	friend Entity;
 };
 
 }
 }
 }
+
+#include "../../Entity.hpp"

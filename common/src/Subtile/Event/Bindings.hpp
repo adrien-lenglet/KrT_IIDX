@@ -72,7 +72,7 @@ public:
 		return std::unique_ptr<Event::Listener>(new Binder(*this, p, value));
 	}
 
-	MapType& getMap(void)
+	const MapType& getMap(void)
 	{
 		return m_bindings;
 	}

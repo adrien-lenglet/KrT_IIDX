@@ -5,6 +5,9 @@
 #include "Observer.hpp"
 
 namespace Subtile {
+
+class Entity;
+
 namespace Event {
 
 class Socket
@@ -20,7 +23,14 @@ public:
 	}
 
 private:
+	friend Entity;
 	std::vector<std::unique_ptr<Listener>> m_listeners;
+
+	template <typename T>
+	void addListener(T &&to_add)
+	{
+		m_listeners.push_back(std::move(to_add));
+	}
 };
 
 }

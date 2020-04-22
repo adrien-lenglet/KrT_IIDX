@@ -1,11 +1,12 @@
 #pragma once
 
 #include "../Socket.hpp"
-#include "Observer.hpp"
 
 namespace Subtile {
 namespace Event {
 namespace World {
+
+class Observer;
 
 class Socket : public Event::Socket
 {
@@ -19,3 +20,5 @@ public:
 }
 }
 }
+
+#include "Observer.hpp"

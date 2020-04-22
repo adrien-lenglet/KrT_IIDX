@@ -38,10 +38,10 @@ protected:
 	template <typename EntityType, class ...ArgsTypes>
 	EntityType& add(ArgsTypes &&...args)
 	{
-		auto added = new EntityType(Context(m_world, this), std::forward<ArgsTypes>(args)...);
+		auto to_add = std::make_unique<EntityType>(Context(m_world, this), std::forward<ArgsTypes>(args)...);
 
-		m_children.emplace(added, added);
-		return *added;
+		events.lifetime.add(*this, to_add);
+		return *to_add;
 	}
 
 	void destroy(void);
