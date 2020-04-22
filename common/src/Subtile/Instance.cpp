@@ -29,7 +29,7 @@ void Instance::run(void)
 	//std::cout << sizeof(Event::World::Socket) << std::endl;
 	//std::cout << sizeof(Event::World::Socket::Input) << std::endl;
 	//std::cout << sizeof(Event::World::Socket::Input::Data) << std::endl;
-	while (true) {
+	while (!m_events.system.quit) {
 		m_system->scanInputs();
 		static_cast<Event::Observer&>(m_events).update();
 		/*for (const auto &k : keyboard.poll())

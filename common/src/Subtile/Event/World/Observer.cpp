@@ -133,6 +133,33 @@ Observer::Update::~Update(void)
 {
 }
 
+Observer::System::System(void)
+{
+}
+
+Observer::System::~System(void)
+{
+}
+
+Observer::System::Quit::Quit(void) :
+	m_quit(false)
+{
+}
+
+Observer::System::Quit::~Quit(void)
+{
+}
+
+void Observer::System::Quit::operator()(void)
+{
+	m_quit = true;
+}
+
+Observer::System::Quit::operator bool(void) const
+{
+	return m_quit;
+}
+
 }
 }
 }

@@ -113,6 +113,7 @@ public:
 				m_inputs.at(p.first)->bind(static_cast<ISystem&>(*this).getInputs().at(p.second));
 		}
 		std::map<std::string, std::string> loadBindings(void) const;
+		void saveBindings(void) const;
 	} input;
 
 	class Update : public Cluster, public DescGen<Update>, public Group<Update, std::tuple<>, std::tuple<double>>
@@ -124,6 +125,26 @@ public:
 	private:
 		std::chrono::high_resolution_clock::time_point m_time_before;
 	} update;
+
+	class System
+	{
+	public:
+		System(void);
+		~System(void);
+
+		class Quit
+		{
+		public:
+			Quit(void);
+			~Quit(void);
+
+			void operator()(void);
+			operator bool(void) const;
+
+		private:
+			bool m_quit;
+		} quit;
+	} system;
 };
 
 }

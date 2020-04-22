@@ -19,6 +19,7 @@ EntityTest::EntityTest(const Subtile::Entity::Context &ctx) :
 
 	listen(events.input.button.released("quit"), [this](){
 		std::cout << "quit released" << std::endl;
+		events.system.quit();
 	});
 }
 
