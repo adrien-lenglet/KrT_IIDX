@@ -2,7 +2,6 @@
 
 #include <vector>
 #include <memory>
-#include "Listener.hpp"
 #include "Observer.hpp"
 
 namespace Subtile {

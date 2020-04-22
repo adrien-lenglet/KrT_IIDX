@@ -6,7 +6,7 @@
 #include <functional>
 #include <optional>
 #include <type_traits>
-#include "Listener.hpp"
+#include "Bindings.hpp"
 #include "util.hpp"
 
 namespace Subtile {
@@ -101,83 +101,6 @@ private:
 
 class Socket;
 
-template <typename Key, typename Value>
-class Bindings
-{
-public:
-	using MapType = std::map<Key, std::map<Value*, std::unique_ptr<Value>>>;
-
-	Bindings(void)
-	{
-	}
-	~Bindings(void)
-	{
-	}
-
-	class Binder : Event::Listener
-	{
-	public:
-		Binder(Bindings &bindings, typename MapType::value_type &pair, Value &value) :
-			m_bindings(&bindings),
-			m_pair(&pair),
-			m_value(&value)
-		{
-		}
-		~Binder(void) override
-		{
-			if (m_bindings)
-				m_bindings->unbind(*m_pair, *m_value);
-		}
-
-		Binder(Binder &&other) :
-			m_bindings(other.m_bindings),
-			m_pair(other.m_pair),
-			m_value(other.m_value)
-		{
-			other.m_bindings = nullptr;
-			other.m_pair = nullptr;
-			other.m_value = nullptr;
-		}
-
-	private:
-		Bindings *m_bindings;
-		typename MapType::value_type *m_pair;
-		Value *m_value;
-	};
-
-	template <typename ...ArgsTypes>
-	Binder bind(const Key &key, ArgsTypes &&...args)
-	{
-		auto new_value = new Value(std::forward<ArgsTypes>(args)...);
-		auto res = m_bindings[key].emplace(new_value, std::unique_ptr(new_value));
-		if (!res.second)
-			throw std::runtime_error("Can't bind element in collection");
-		auto &p = *res.first;
-		return Binder(*this, p, *new_value);
-	}
-
-private:
-	friend Binder;
-	MapType m_bindings;
-
-	void unbind(typename MapType::value_type &pair, Value &value)
-	{
-		auto &map = pair.second;
-		auto got = map.find(&value);
-		if (got != map.end()) {
-			map.erase(got);
-			if (map.size() == 0) {
-				auto b_got = m_bindings.find(pair.first);
-				if (b_got != m_bindings.end())
-					m_bindings.erase(b_got);
-				else
-					throw std::runtime_error("Can't unbind");
-			}
-		} else
-			throw std::runtime_error("Can't unbind");
-	}
-};
-
 template <typename ObserverType, template <typename...> class GroupingType, typename... RequestTypes, typename... StoreTypes, typename... ReturnTypes>
 class Observer::Group<ObserverType, GroupingType<RequestTypes...>, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>> : public Observer
 {
@@ -186,93 +109,63 @@ public:
 	using UpdaterType = std::function<std::optional<std::tuple<ReturnTypes...>> (const StoreTypes &...)>;
 	using CallbackType = std::function<void (const ReturnTypes &...)>;
 	using ClusterCallbackType = std::function<Cluster::Optimized& (void)>;
+	using BindingsType = Bindings<std::tuple<StoreTypes...>, CallbackType>;
+	using BindingsCallback = typename BindingsType::CallbackType;
 
 	Group(const ConverterType &converter, const UpdaterType &updater, const ClusterCallbackType &clusterCallback = nullptr) :
 		m_converter(converter),
 		m_updater(updater),
-		m_cluster_cb(clusterCallback)
+		m_cluster_cb(clusterCallback),
+		m_listeners(BindingsCallback([this](bool isAdd, const std::tuple<StoreTypes...> &req, const CallbackType&){
+			if (!m_cluster_cb)
+				return;
+			if constexpr (std::tuple_size<std::tuple<StoreTypes...>>::value == 1) {
+				if constexpr (std::is_convertible<typename std::tuple_element<0, std::tuple<StoreTypes...>>::type, Observer&>::value) {
+					if (isAdd)
+						m_cluster_cb().add(std::get<StoreTypes>(req)...);
+					else
+						m_cluster_cb().remove(std::get<StoreTypes>(req)...);
+				}
+			}
+		}))
 	{
-		getObserver().Cluster::add(*this);
+		static_cast<ObserverType&>(*this).Cluster::add(*this);
 	}
 	~Group(void) override
 	{
 	}
 
 private:
-	class Listener : Event::Listener
-	{
-	public:
-		Listener(Group &group, const std::tuple<StoreTypes...> &request, const CallbackType &callback) :
-			m_group(group),
-			m_request(request),
-			m_callback(callback)
-		{
-		}
-		~Listener(void) override
-		{
-			m_group.unlisten(*this);
-		}
-
-	private:
-		friend Group;
-		Group &m_group;
-		const std::tuple<StoreTypes...> m_request;
-		const CallbackType m_callback;
-	};
-
-	friend Listener;
 	const ConverterType m_converter;
 	const UpdaterType m_updater;
 	const ClusterCallbackType m_cluster_cb;
-	std::map<std::tuple<StoreTypes...>, std::map<Listener*, Listener&>> m_listeners;
+	BindingsType m_listeners;
 
 	friend Event::Socket;
-	std::unique_ptr<Event::Listener> listen(const std::tuple<RequestTypes...> &request, const CallbackType &callback)
+
+	auto getRequest(const std::tuple<RequestTypes...> &request)
 	{
-		Listener *res = nullptr;
-
 		if constexpr (std::is_same<std::tuple<RequestTypes...>, std::tuple<StoreTypes...>>::value)
-			res = new Listener(*this, request, callback);
+			return request;
 		else
-			res = new Listener(*this, m_converter(std::get<RequestTypes>(request)...), callback);
-
-		m_listeners[res->m_request].emplace(res, *res);
-		if (m_cluster_cb)
-			m_cluster_cb().add(std::get<StoreTypes>(res->m_request)...);
-		return std::unique_ptr<Event::Listener>(res);
+			return m_converter(std::get<RequestTypes>(request)...);
 	}
 
-	void unlisten(Listener &listener)
+	std::unique_ptr<Event::Listener> listen(const std::tuple<RequestTypes...> &request, const CallbackType &callback)
 	{
-		auto got = m_listeners.find(listener.m_request);
-		if (got != m_listeners.end()) {
-			auto &got_map = got->second;
-			auto l = got_map.find(&listener);
-			if (l != got_map.end()) {
-				if (m_cluster_cb)
-					m_cluster_cb().remove(std::get<StoreTypes>(l->second.m_request)...);
-				got_map.erase(l);
-				if (got_map.size() == 0)
-					m_listeners.erase(got);
-			} else
-				throw std::runtime_error("Can't unlisten");
-		} else
-			throw std::runtime_error("Can't unlisten");
+		auto req = getRequest(request);
+
+		return m_listeners.bind(req, callback);
 	}
 
 	void update(void) override
 	{
-		for (auto &p : m_listeners) {
+		for (auto &p : m_listeners.getMap()) {
 			auto res = m_updater(std::get<StoreTypes>(p.first)...);
 			if (res)
 				for (auto &l : p.second)
-					l.second.m_callback(std::get<ReturnTypes>(*res)...);
+					(*l.second)(std::get<ReturnTypes>(*res)...);
 		}
-	}
-
-	ObserverType& getObserver(void)
-	{
-		return static_cast<ObserverType&>(*this);
 	}
 };
 
