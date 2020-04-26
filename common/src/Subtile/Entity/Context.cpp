@@ -2,18 +2,13 @@
 
 namespace Subtile {
 
-Entity::Context::Context(World &world, Entity *parent) :
+Entity::Context::Context(World *world, EntityImpl *parent) :
 	m_world(world),
 	m_parent(parent)
 {
 }
 
-World& Entity::Context::getWorld(void) const
-{
-	return m_world;
-}
-
-Entity* Entity::Context::getParent(void) const
+EntityImpl* Entity::Context::getParent(void) const
 {
 	return m_parent;
 }

@@ -3,10 +3,8 @@
 #include <memory>
 #include "ISystem.hpp"
 #include "IInput.hpp"
-#include "Observer.hpp"
-#include "Input/Analog.hpp"
-#include "Input/Button.hpp"
 #include "Event/World/Observer.hpp"
+#include "World.hpp"
 
 namespace Subtile {
 
@@ -20,7 +18,14 @@ public:
 
 	Event::World::Observer& getEvents(void);
 	void setInputs(const std::function<void (const Event::World::Observer::Input::Setter &setter)> &binder);
-	World createWorld(void);
+
+	template <typename WorldType, typename ...ArgsTypes>
+	std::unique_ptr<WorldType> add(ArgsTypes &&...args)
+	{
+		EntityImpl::pushCtx(nullptr, nullptr);
+		World::pushEngine(*this);
+		return std::make_unique<WorldType>(std::forward<ArgsTypes>(args)...);
+	}
 	void run(void);
 
 private:

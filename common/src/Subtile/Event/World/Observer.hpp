@@ -9,7 +9,7 @@
 
 namespace Subtile {
 
-class Entity;
+class EntityImpl;
 
 namespace Event {
 namespace World {
@@ -175,7 +175,7 @@ public:
 	} system;
 
 private:
-	friend Entity;
+	friend EntityImpl;
 };
 
 }

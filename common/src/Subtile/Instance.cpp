@@ -15,11 +15,6 @@ Instance::~Instance(void)
 {
 }
 
-World Instance::createWorld(void)
-{
-	return World(*this);
-}
-
 void Instance::run(void)
 {
 	/*auto &close_button = dynamic_cast<const System::Input::IButton&>(m_system->getInputs().at("close_window"));

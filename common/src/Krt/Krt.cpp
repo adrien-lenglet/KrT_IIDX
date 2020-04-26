@@ -1,5 +1,6 @@
 #include "Krt.hpp"
 #include "Krt/EntityTest.hpp"
+#include "Krt/Track.hpp"
 #include "util.hpp"
 
 #include <iostream>
@@ -22,9 +23,7 @@ void Instance::run(void)
 		s.addButton("quit");
 	});
 
-	auto world = subtile.createWorld();
-
-	world.set<EntityTest>();
+	auto world = subtile.add<Track>();
 	subtile.run();
 }
 
