@@ -3,6 +3,7 @@
 namespace Subtile {
 
 World::World(void) :
+	Entity(&popEngine().getEvents()),
 	m_engine(popEngine())
 {
 }

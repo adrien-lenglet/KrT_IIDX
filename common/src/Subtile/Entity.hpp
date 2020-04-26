@@ -47,7 +47,7 @@ class EntityImpl : protected Event::World::Socket
 	static Context popCtx(void);
 
 public:
-	EntityImpl(const Context &ctx);
+	EntityImpl(const Context &ctx, Event::World::Observer *events = nullptr);
 	virtual ~EntityImpl(void) = 0;
 
 protected:
@@ -75,7 +75,7 @@ private:
 class Entity : public EntityImpl
 {
 public:
-	Entity(void);
+	Entity(Event::World::Observer *events = nullptr);
 	~Entity(void) = 0;
 
 	template <typename ...PayloadTypes>

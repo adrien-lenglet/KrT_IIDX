@@ -3,8 +3,8 @@
 
 namespace Subtile {
 
-EntityImpl::EntityImpl(const EntityImpl::Context &ctx) :
-	Event::World::Socket(ctx.getWorld(*this).getEvents()),
+EntityImpl::EntityImpl(const EntityImpl::Context &ctx, Subtile::Event::World::Observer *events) :
+	Event::World::Socket(events ? static_cast<Subtile::Event::World::Observer&>(*events) : ctx.getWorld(*this).getEvents()),
 	world(ctx.getWorld(*this)),
 	m_parent(ctx.getParent())
 {
@@ -43,8 +43,8 @@ EntityImpl::Context EntityImpl::popCtx(void)
 	return res;
 }
 
-Entity::Entity(void) :
-	EntityImpl(popCtx())
+Entity::Entity(Subtile::Event::World::Observer *events) :
+	EntityImpl(popCtx(), events)
 {
 }
 Entity::~Entity(void)

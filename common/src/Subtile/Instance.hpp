@@ -24,6 +24,7 @@ public:
 	{
 		EntityImpl::pushCtx(nullptr, nullptr);
 		World::pushEngine(*this);
+		World::pushEngine(*this);
 		return std::make_unique<WorldType>(std::forward<ArgsTypes>(args)...);
 	}
 	void run(void);
