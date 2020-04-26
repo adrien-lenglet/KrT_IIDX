@@ -8,6 +8,7 @@
 namespace Subtile {
 
 class World;
+class WorldImpl;
 class Entity;
 class Instance;
 
@@ -113,7 +114,7 @@ public:
 	};
 
 private:
-	friend World;
+	friend WorldImpl;
 	friend EntityImpl;
 };
 

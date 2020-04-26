@@ -4,7 +4,25 @@
 
 namespace Subtile {
 
-class World : public Entity
+class World;
+
+class WorldImpl : public Entity
+{
+public:
+	WorldImpl(Instance &engine);
+	~WorldImpl(void) = 0;
+
+private:
+	friend World;
+	friend Entity;
+	friend EntityImpl;
+
+	Instance &m_engine;
+
+	Subtile::Event::World::Observer& getEvents(void);
+};
+
+class World : public WorldImpl
 {
 public:
 	World(void);
@@ -12,12 +30,6 @@ public:
 
 private:
 	friend Instance;
-	friend Entity;
-	friend EntityImpl;
-
-	Instance &m_engine;
-
-	Event::World::Observer& getEvents(void);
 
 	static std::stack<std::reference_wrapper<Instance>> m_engines;
 	static void pushEngine(Instance &engine);

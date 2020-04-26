@@ -2,17 +2,17 @@
 
 namespace Subtile {
 
-World::World(void) :
-	Entity(&popEngine().getEvents()),
-	m_engine(popEngine())
+WorldImpl::WorldImpl(Instance &engine) :
+	Entity(&engine.getEvents()),
+	m_engine(engine)
 {
 }
 
-World::~World(void)
+WorldImpl::~WorldImpl(void)
 {
 }
 
-Event::World::Observer& World::getEvents(void)
+Event::World::Observer& WorldImpl::getEvents(void)
 {
 	return m_engine.getEvents();
 }
@@ -32,6 +32,15 @@ Instance& World::popEngine(void)
 
 	m_engines.pop();
 	return res;
+}
+
+World::World(void) :
+	WorldImpl(popEngine())
+{
+}
+
+World::~World(void)
+{
 }
 
 }
