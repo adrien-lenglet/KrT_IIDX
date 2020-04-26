@@ -5,6 +5,8 @@
 namespace Krt {
 
 EntityTest::EntityTest(void) :
+	just_died(*this),
+	got_score(*this),
 	entity1(add<EntityTest2>()),
 	entity2(add<EntityTest2>())
 {
@@ -14,10 +16,12 @@ EntityTest::EntityTest(void) :
 
 	listen(events.input.button.pressed("quit"), [this](){
 		std::cout << "quit pressed" << std::endl;
+		trigger(just_died, 14.2);
 	});
 
 	listen(events.input.button.released("quit"), [this](){
 		std::cout << "quit released" << std::endl;
+		trigger(got_score, 7.92);
 		events.system.quit();
 	});
 }

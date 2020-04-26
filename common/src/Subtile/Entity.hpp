@@ -78,6 +78,40 @@ public:
 	Entity(void);
 	~Entity(void) = 0;
 
+	template <typename ...PayloadTypes>
+	class Event : public Subtile::Event::DescGen<Event<PayloadTypes...>>
+	{
+	public:
+		Event(const Subtile::Event::Socket &owner) :
+			m_owner(owner)
+		{
+		}
+		~Event(void)
+		{
+		}
+
+	private:
+		friend Subtile::Event::Socket;
+
+		using CallbackType = std::function<void (PayloadTypes &&...args)>;
+		const Subtile::Event::Socket &m_owner;
+		Subtile::Event::Bindings<std::tuple<>, CallbackType> m_listeners;
+
+		std::unique_ptr<Subtile::Event::Listener> listen(const std::tuple<> &, const CallbackType &callback)
+		{
+			return m_listeners.bind(std::tuple<>(), callback);
+		}
+
+		void trigger(const Subtile::Event::Socket &actionner, PayloadTypes &&...args)
+		{
+			if (&actionner != &m_owner)
+				throw std::runtime_error("Not allowed to trigger this event");
+			for (const auto &pa : m_listeners.getMap())
+				for (const auto &p : pa.second)
+					(*p.second)(std::forward<PayloadTypes>(args)...);
+		}
+	};
+
 private:
 	friend World;
 	friend EntityImpl;

@@ -22,6 +22,12 @@ public:
 		m_listeners.push_back(req.observer.listen(req.args, callback));
 	}
 
+	template <typename T, typename ...PayloadTypes>
+	void trigger(T &triggered, PayloadTypes &&...args)
+	{
+		triggered.trigger(*this, std::forward<PayloadTypes>(args)...);
+	}
+
 private:
 	friend Entity;
 	std::vector<std::unique_ptr<Listener>> m_listeners;
