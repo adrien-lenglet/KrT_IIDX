@@ -25,6 +25,10 @@ public:
 	}
 	~Bindings(void)
 	{
+		util::fatal_throw([this](){
+			if (m_bindings.size() > 0)
+				throw std::runtime_error("Bindings are still connected");
+		});
 	}
 
 	class Binder : public Event::Listener

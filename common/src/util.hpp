@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <iostream>
 
 namespace util {
 
@@ -156,5 +157,15 @@ public:
 private:
 	T m_value;
 };
+
+template <typename CallbackType>
+void fatal_throw(const CallbackType &callback)
+{
+	try {
+		callback();
+	} catch (const std::exception &e) {
+		std::terminate();
+	}
+}
 
 }
