@@ -1,5 +1,7 @@
 #pragma once
 
+#include <map>
+#include <memory>
 #include <algorithm>
 #include <functional>
 #include <iostream>
@@ -167,5 +169,185 @@ void fatal_throw(const CallbackType &callback)
 		std::terminate();
 	}
 }
+
+template<typename T>
+class unique_set
+{
+	using Map = std::map<const T*, std::unique_ptr<T>>;
+
+public:
+	unique_set(void)
+	{
+	}
+	~unique_set(void)
+	{
+	}
+
+	class const_iterator
+	{
+		using map_const_iterator = typename Map::const_iterator;
+
+	public:
+		using difference_type = std::ptrdiff_t;
+		using value_type = const T;
+		using pointer = const T*;
+		using reference = const T&;
+		using iterator_category = std::bidirectional_iterator_tag;
+
+		const_iterator(const map_const_iterator &it) :
+			m_map_it(it)
+		{
+		}
+		~const_iterator(void)
+		{
+		}
+
+		const_iterator& operator++(void)
+		{
+			++m_map_it;
+			return *this;
+		}
+
+		const_iterator& operator--(void)
+		{
+			--m_map_it;
+			return *this;
+		}
+
+		reference operator*(void) const
+		{
+			return *m_map_it->second;
+		}
+
+		bool operator==(const const_iterator &other) const
+		{
+			return m_map_it == other.m_map_it;
+		}
+
+		bool operator!=(const const_iterator &other) const
+		{
+			return m_map_it != other.m_map_it;
+		}
+
+	private:
+		map_const_iterator m_map_it;
+	};
+
+	const_iterator begin(void) const
+	{
+		return const_iterator(m_map.cbegin());
+	}
+
+	const_iterator end(void) const
+	{
+		return const_iterator(m_map.cend());
+	}
+
+	const_iterator cbegin(void) const
+	{
+		return begin();
+	}
+
+	const_iterator cend(void) const
+	{
+		return end();
+	}
+
+	class iterator
+	{
+		using map_iterator = typename Map::iterator;
+
+	public:
+		using difference_type = std::ptrdiff_t;
+		using value_type = T;
+		using pointer = T*;
+		using reference = T&;
+		using iterator_category = std::bidirectional_iterator_tag;
+
+		iterator(const map_iterator &it) :
+			m_map_it(it)
+		{
+		}
+		~iterator(void)
+		{
+		}
+
+		iterator& operator++(void)
+		{
+			++m_map_it;
+			return *this;
+		}
+
+		iterator& operator--(void)
+		{
+			--m_map_it;
+			return *this;
+		}
+
+		reference operator*(void) const
+		{
+			return *m_map_it->second;
+		}
+
+		bool operator==(const iterator &other) const
+		{
+			return m_map_it == other.m_map_it;
+		}
+
+		bool operator!=(const iterator &other) const
+		{
+			return m_map_it != other.m_map_it;
+		}
+
+	private:
+		friend unique_set;
+
+		map_iterator m_map_it;
+	};
+
+	iterator begin(void)
+	{
+		return iterator(m_map.begin());
+	}
+
+	iterator end(void)
+	{
+		return iterator(m_map.end());
+	}
+
+	size_t size(void) const
+	{
+		return m_map.size();
+	}
+
+	template <typename ...Args>
+	T& emplace(Args &&...args)
+	{
+		auto to_insert = new T(std::forward<Args>(args)...);
+
+		auto [it, success] = m_map.emplace(to_insert, to_insert);
+		if (!success)
+			throw std::runtime_error("Can't insert element in set");
+		return *to_insert;
+	}
+
+	const_iterator find(const T &elem) const
+	{
+		return const_iterator(m_map.find(&elem));
+	}
+
+	iterator find(const T &elem)
+	{
+		return iterator(m_map.find(&elem));
+	}
+
+	void erase(const iterator &it)
+	{
+		m_map.erase(it.m_map_it);
+	}
+
+private:
+	Map m_map;
+};
 
 }

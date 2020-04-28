@@ -104,14 +104,14 @@ class Socket;
 template <typename ObserverType, template <typename...> class GroupingType, typename... RequestTypes, typename... StoreTypes, typename... ReturnTypes>
 class Observer::Group<ObserverType, GroupingType<RequestTypes...>, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>> : public Observer
 {
-public:
 	using ConverterType = std::function<std::tuple<StoreTypes...> (const RequestTypes &...)>;
 	using UpdaterType = std::function<std::optional<std::tuple<ReturnTypes...>> (const StoreTypes &...)>;
 	using CallbackType = std::function<void (const ReturnTypes &...)>;
 	using ClusterCallbackType = std::function<Cluster::Optimized& (void)>;
 	using BindingsType = Bindings<std::tuple<StoreTypes...>, CallbackType>;
-	using BindingsCallback = typename BindingsType::CallbackType;
+	using BindingsCallback = typename BindingsType::callback;
 
+public:
 	Group(const ConverterType &converter, const UpdaterType &updater, const ClusterCallbackType &clusterCallback = nullptr) :
 		m_converter(converter),
 		m_updater(updater),
@@ -160,11 +160,11 @@ private:
 
 	void update(void) override
 	{
-		for (auto &p : m_listeners.getMap()) {
+		for (auto &p : m_listeners) {
 			auto res = m_updater(std::get<StoreTypes>(p.first)...);
 			if (res)
-				for (auto &l : p.second)
-					(*l.second)(std::get<ReturnTypes>(*res)...);
+				for (auto &listener : p.second)
+					listener(std::get<ReturnTypes>(*res)...);
 		}
 	}
 };

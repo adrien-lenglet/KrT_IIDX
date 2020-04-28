@@ -22,6 +22,7 @@ EntityTest::EntityTest(void) :
 	listen(events.input.button.released("quit"), [this](){
 		std::cout << "quit released" << std::endl;
 		trigger(got_score, 7.92);
+		events.system.quit();
 	});
 }
 
