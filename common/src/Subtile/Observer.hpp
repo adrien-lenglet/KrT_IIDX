@@ -1,8 +1,6 @@
 #pragma once
 
-#include <map>
-#include <functional>
-#include <memory>
+#include "util.hpp"
 
 namespace Subtile {
 
@@ -37,10 +35,7 @@ public:
 	using Listener = std::unique_ptr<ListenerImpl>;
 	Listener listen(const std::function<void (const ReturnTypes &...payload)> &callback, const std::function<void (void)> &observerDestroyed = [](){ throw std::runtime_error("Observer destroyed"); })
 	{
-		auto res = new ListenerImpl(*this, callback, observerDestroyed);
-
-		m_listeners.emplace(res, *res);
-		return Listener(res);
+		return m_listeners.template emplace<ListenerImpl>(*this, callback, observerDestroyed);
 	}
 
 private:
@@ -48,16 +43,15 @@ private:
 
 	const std::function<void (const ReturnTypes &...payload)> m_signal_listeners;
 	const std::function<void (const std::function<void (const ReturnTypes &...payload)> &signal)> m_update;
-	std::map<ListenerImpl*, ListenerImpl&> m_listeners;
+	util::unique_set<ListenerImpl> m_listeners;
 
 	void removeListener(ListenerImpl &listener)
 	{
-		auto got = m_listeners.find(&listener);
+		auto got = m_listeners.find(listener);
 
-		if (got != m_listeners.end())
-			m_listeners.erase(got);
-		else
+		if (got == m_listeners.end())
 			throw std::runtime_error("Listener to remove not found among listeners");
+		m_listeners.erase(got);
 	}
 
 	class ListenerImpl

@@ -331,6 +331,17 @@ public:
 		return *to_insert;
 	}
 
+	template <typename TDerived, typename ...Args>
+	TDerived& emplace(Args &&...args)
+	{
+		auto to_insert = new TDerived(std::forward<Args>(args)...);
+
+		auto [it, success] = m_map.emplace(to_insert, to_insert);
+		if (!success)
+			throw std::runtime_error("Can't insert element in set");
+		return *to_insert;
+	}
+
 	const_iterator find(const T &elem) const
 	{
 		return const_iterator(m_map.find(&elem));

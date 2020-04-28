@@ -54,21 +54,18 @@ public:
 protected:
 	World &world;
 
-	template <typename EntityType, class ...ArgsTypes>
-	EntityType& add(ArgsTypes &&...args)
+	template <typename EntityType, class ...Args>
+	EntityType& add(Args &&...args)
 	{
 		pushCtx(&world, this);
-		auto to_add = new EntityType(std::forward<ArgsTypes>(args)...);
-
-		m_children.emplace(to_add, to_add);
-		return *to_add;
+		return m_children.emplace<EntityType>(std::forward<Args>(args)...);
 	}
 
 	void destroy(void);
 
 private:
 	EntityImpl *m_parent;
-	std::map<EntityImpl*, std::unique_ptr<EntityImpl>> m_children;
+	util::unique_set<EntityImpl> m_children;
 
 	EntityImpl& getParent(void);
 };
