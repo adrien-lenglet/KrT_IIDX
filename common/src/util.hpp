@@ -320,6 +320,16 @@ public:
 		return m_map.size();
 	}
 
+	T& insert(std::unique_ptr<T> &&to_insert)
+	{
+		auto ptr = to_insert.release();
+
+		auto [it, success] = m_map.emplace(ptr, ptr);
+		if (!success)
+			throw std::runtime_error("Can't insert element in set");
+		return *ptr;
+	}
+
 	template <typename ...Args>
 	T& emplace(Args &&...args)
 	{
@@ -327,7 +337,7 @@ public:
 
 		auto [it, success] = m_map.emplace(to_insert, to_insert);
 		if (!success)
-			throw std::runtime_error("Can't insert element in set");
+			throw std::runtime_error("Can't emplace element in set");
 		return *to_insert;
 	}
 
@@ -338,7 +348,7 @@ public:
 
 		auto [it, success] = m_map.emplace(to_insert, to_insert);
 		if (!success)
-			throw std::runtime_error("Can't insert element in set");
+			throw std::runtime_error("Can't emplace element in set");
 		return *to_insert;
 	}
 

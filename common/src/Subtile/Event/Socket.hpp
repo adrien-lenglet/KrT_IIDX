@@ -19,7 +19,7 @@ public:
 	template <typename L, typename ObserverType, typename ...ArgsType>
 	void listen(const Descriptor<ObserverType, ArgsType...> &req, const L &callback)
 	{
-		m_listeners.push_back(req.observer.listen(req.args, callback));
+		m_listeners.insert(req.observer.listen(req.args, callback));
 	}
 
 	template <typename T, typename ...PayloadTypes>
@@ -30,13 +30,7 @@ public:
 
 private:
 	friend Entity;
-	std::vector<std::unique_ptr<Listener>> m_listeners;
-
-	template <typename T>
-	void addListener(T &&to_add)
-	{
-		m_listeners.push_back(std::move(to_add));
-	}
+	util::unique_set<Listener> m_listeners;
 };
 
 }
