@@ -121,6 +121,8 @@ public:
 	template <typename Element>
 	class Storage
 	{
+		using UniqueSet = util::unique_set<Element>;
+
 	public:
 		Storage(void)
 		{
@@ -129,9 +131,44 @@ public:
 		{
 		}
 
+		class iterator : public UniqueSet::iterator
+		{
+			using unique_set_iterator = typename UniqueSet::iterator;
+
+		public:
+			using difference_type = std::ptrdiff_t;
+			using value_type = typename Element::value_type;
+			using pointer = value_type*;
+			using reference = value_type&;
+			using iterator_category = std::bidirectional_iterator_tag;
+
+			iterator(const unique_set_iterator &it) :
+				UniqueSet::iterator(it)
+			{
+			}
+			~iterator(void)
+			{
+			}
+
+			reference operator*(void) const
+			{
+				return UniqueSet::iterator::operator*();
+			}
+		};
+
+		iterator begin(void)
+		{
+			return m_elements.begin();
+		}
+
+		iterator end(void)
+		{
+			return m_elements.end();
+		}
+
 	protected:
 		friend Element;
-		util::unique_set<Element> m_elements;
+		UniqueSet m_elements;
 
 		void destroyElement(Element &elem)
 		{
@@ -149,6 +186,8 @@ public:
 	class Source::WeakElement : public Source
 	{
 	public:
+		using value_type = T;
+
 		template <typename ...Args>
 		WeakElement(Weak<T> &socket, Args &&...args) :
 			m_socket(socket),
@@ -202,6 +241,8 @@ public:
 	class Source::StrongElement : public Source
 	{
 	public:
+		using value_type = T;
+
 		template <typename ...Args>
 		StrongElement(Strong<T> &socket, Dependency::Socket &depSocket, Args &&...args) :
 			m_socket(socket),
@@ -240,6 +281,8 @@ public:
 		class MutipleElement : public Source
 		{
 		public:
+			using value_type = T;
+
 			template <typename ...Args>
 			MutipleElement(Multiple &socket, Args &&...args) :
 				m_socket(socket),

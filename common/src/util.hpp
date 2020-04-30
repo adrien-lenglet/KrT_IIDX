@@ -183,7 +183,7 @@ public:
 	{
 	}
 
-	class const_iterator
+	class const_iterator : public Map::const_iterator
 	{
 		using map_const_iterator = typename Map::const_iterator;
 
@@ -195,52 +195,27 @@ public:
 		using iterator_category = std::bidirectional_iterator_tag;
 
 		const_iterator(const map_const_iterator &it) :
-			m_map_it(it)
+			Map::const_iterator(it)
 		{
 		}
 		~const_iterator(void)
 		{
 		}
 
-		const_iterator& operator++(void)
-		{
-			++m_map_it;
-			return *this;
-		}
-
-		const_iterator& operator--(void)
-		{
-			--m_map_it;
-			return *this;
-		}
-
 		reference operator*(void) const
 		{
-			return *m_map_it->second;
+			return *(*this)->second;
 		}
-
-		bool operator==(const const_iterator &other) const
-		{
-			return m_map_it == other.m_map_it;
-		}
-
-		bool operator!=(const const_iterator &other) const
-		{
-			return m_map_it != other.m_map_it;
-		}
-
-	private:
-		map_const_iterator m_map_it;
 	};
 
 	const_iterator begin(void) const
 	{
-		return const_iterator(m_map.cbegin());
+		return m_map.cbegin();
 	}
 
 	const_iterator end(void) const
 	{
-		return const_iterator(m_map.cend());
+		return m_map.cend();
 	}
 
 	const_iterator cbegin(void) const
@@ -253,7 +228,7 @@ public:
 		return end();
 	}
 
-	class iterator
+	class iterator : public Map::iterator
 	{
 		using map_iterator = typename Map::iterator;
 
@@ -265,54 +240,27 @@ public:
 		using iterator_category = std::bidirectional_iterator_tag;
 
 		iterator(const map_iterator &it) :
-			m_map_it(it)
+			Map::iterator(it)
 		{
 		}
 		~iterator(void)
 		{
 		}
 
-		iterator& operator++(void)
-		{
-			++m_map_it;
-			return *this;
-		}
-
-		iterator& operator--(void)
-		{
-			--m_map_it;
-			return *this;
-		}
-
 		reference operator*(void) const
 		{
-			return *m_map_it->second;
+			return *(*this)->second;
 		}
-
-		bool operator==(const iterator &other) const
-		{
-			return m_map_it == other.m_map_it;
-		}
-
-		bool operator!=(const iterator &other) const
-		{
-			return m_map_it != other.m_map_it;
-		}
-
-	private:
-		friend unique_set;
-
-		map_iterator m_map_it;
 	};
 
 	iterator begin(void)
 	{
-		return iterator(m_map.begin());
+		return m_map.begin();
 	}
 
 	iterator end(void)
 	{
-		return iterator(m_map.end());
+		return m_map.end();
 	}
 
 	size_t size(void) const
@@ -364,7 +312,7 @@ public:
 
 	void erase(const iterator &it)
 	{
-		m_map.erase(it.m_map_it);
+		m_map.erase(it);
 	}
 
 	void clear(void)

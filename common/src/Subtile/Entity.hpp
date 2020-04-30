@@ -104,8 +104,8 @@ public:
 		{
 			if (&actionner != &m_owner)
 				throw std::runtime_error("Not allowed to trigger this event");
-			/*for (auto &listener : m_listeners)
-				listener(std::forward<PayloadTypes>(args)...);*/
+			for (auto &listener : m_listeners)
+				listener(std::forward<PayloadTypes>(args)...);
 		}
 	};
 
