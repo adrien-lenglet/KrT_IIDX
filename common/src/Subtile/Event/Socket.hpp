@@ -3,6 +3,7 @@
 #include <vector>
 #include <memory>
 #include "Observer.hpp"
+#include "../Binding.hpp"
 
 namespace Subtile {
 
@@ -31,6 +32,7 @@ public:
 private:
 	friend Entity;
 	util::unique_set<Listener> m_listeners;
+	Binding::Dependency::Socket m_dependencies;
 };
 
 }
