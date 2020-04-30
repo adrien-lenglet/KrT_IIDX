@@ -19,12 +19,11 @@ Track::Track(void) :
 		events.system.quit();
 	});
 
-	/*std::cout << sizeof(Subtile::Binding::Source::Weak<int>) << std::endl;
-	std::cout << sizeof(util::unique_set<int>) << std::endl;
-	std::cout << sizeof(Subtile::Binding::Source::Weak<int>::Element) << std::endl;*/
+	std::cout << sizeof(Subtile::Binding::Source::Strong<int>::Element) << std::endl;
+	std::cout << sizeof(Subtile::Binding::Source::Strong<int>::Multiple::Element) << std::endl;
 
-	Subtile::Binding::Source::Weak<int> socket;
 	Subtile::Binding::Dependency::Socket deps;
+	Subtile::Binding::Source::Strong<int> socket;
 
 	socket.bind(deps, 10);
 

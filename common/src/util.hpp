@@ -367,6 +367,11 @@ public:
 		m_map.erase(it.m_map_it);
 	}
 
+	void clear(void)
+	{
+		m_map.clear();
+	}
+
 private:
 	Map m_map;
 };
