@@ -93,20 +93,20 @@ public:
 
 		using CallbackType = std::function<void (PayloadTypes &&...args)>;
 		const Subtile::Event::Socket &m_owner;
-		Subtile::Event::Bindings<std::tuple<>, CallbackType> m_listeners;
+		Binding::Source::Strong<CallbackType> m_listeners;
 
-		std::unique_ptr<Subtile::Event::Listener> listen(const std::tuple<> &, const CallbackType &callback)
+		void bind(const std::tuple<>&, Binding::Dependency::Socket &socket, const CallbackType &callback)
 		{
-			return m_listeners.bind(std::tuple<>(), callback);
+			m_listeners.bind(socket, callback);
 		}
 
 		void trigger(const Subtile::Event::Socket &actionner, PayloadTypes &&...args)
 		{
 			if (&actionner != &m_owner)
 				throw std::runtime_error("Not allowed to trigger this event");
-			for (auto &p : m_listeners)
+			/*for (auto &p : m_listeners)
 				for (auto &listener : p.second)
-					listener(std::forward<PayloadTypes>(args)...);
+					listener(std::forward<PayloadTypes>(args)...);*/
 		}
 	};
 

@@ -23,6 +23,12 @@ public:
 		m_listeners.insert(req.observer.listen(req.args, callback));
 	}
 
+	template <typename L, typename ObserverType, typename ...ArgsType>
+	void bind(const Descriptor<ObserverType, ArgsType...> &req, const L &callback)
+	{
+		req.observer.bind(req.args, m_dependencies, callback);
+	}
+
 	template <typename T, typename ...PayloadTypes>
 	void trigger(T &triggered, PayloadTypes &&...args)
 	{

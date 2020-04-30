@@ -10,8 +10,6 @@ class Binding
 public:
 	virtual ~Binding(void) = 0;
 
-	//class Socket;
-
 	class Dependency;
 	class Source
 	{
@@ -321,18 +319,3 @@ public:
 		}
 	};
 };
-
-/*class Binding::Socket
-{
-public:
-	Socket(void);
-	~Socket(void);
-
-private:
-	//util::unique_set<Binding> m_bindings;
-};*/
-
-}
-
-//#include "Binding/Source.hpp"
-//#include "Binding/Dependency.hpp"
