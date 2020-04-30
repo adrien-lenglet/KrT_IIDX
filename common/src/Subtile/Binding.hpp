@@ -15,9 +15,9 @@ public:
 	{
 	public:
 		template <typename T>
-		class Weak;
+		class WeakElement;
 		template <typename T>
-		class Strong;
+		class StrongElement;
 
 		Source(void)
 		{
@@ -118,56 +118,18 @@ public:
 		Source &m_source;
 	};
 
-	template <typename T>
-	class Source::Weak
+	template <typename Element>
+	class Storage
 	{
 	public:
-		class Element : public Source
-		{
-		public:
-			template <typename ...Args>
-			Element(Weak<T> &socket, Args &&...args) :
-				m_socket(socket),
-				m_obj(std::forward<Args>(args)...)
-			{
-			}
-			~Element(void)
-			{
-			}
-
-			operator T&(void)
-			{
-				return m_obj;
-			}
-
-		private:
-			Weak<T> &m_socket;
-			T m_obj;
-
-			void depDestroyed(Dependency&) override
-			{
-				m_socket.destroyElement(*this);
-			}
-		};
-
-		Weak(void)
+		Storage(void)
 		{
 		}
-		~Weak(void)
+		~Storage(void)
 		{
-			if (m_elements.size() > 0)
-				util::fatal_throw([](){
-					throw std::runtime_error("Elements still in weak socket");
-				});
 		}
 
-		template <typename ...Args>
-		void bind(Dependency::Socket &socket, Args &&...args)
-		{
-			socket.add(m_elements.emplace(*this, std::forward<Args>(args)...));
-		}
-
-	private:
+	protected:
 		friend Element;
 		util::unique_set<Element> m_elements;
 
@@ -182,53 +144,143 @@ public:
 	};
 
 	template <typename T>
-	class Source::Strong
+	class Weak;
+	template <typename T>
+	class Source::WeakElement : public Source
 	{
 	public:
-		class Multiple
+		template <typename ...Args>
+		WeakElement(Weak<T> &socket, Args &&...args) :
+			m_socket(socket),
+			m_obj(std::forward<Args>(args)...)
+		{
+		}
+		~WeakElement(void)
+		{
+		}
+
+		operator T&(void)
+		{
+			return m_obj;
+		}
+
+	private:
+		Weak<T> &m_socket;
+		T m_obj;
+
+		void depDestroyed(Dependency&) override
+		{
+			m_socket.destroyElement(*this);
+		}
+	};
+
+	template <typename T>
+	class Weak : public Storage<Source::WeakElement<T>>
+	{
+	public:
+		Weak(void)
+		{
+		}
+		~Weak(void)
+		{
+			if (this->m_elements.size() > 0)
+				util::fatal_throw([](){
+					throw std::runtime_error("Elements still in weak socket");
+				});
+		}
+
+		template <typename ...Args>
+		void bind(Dependency::Socket &socket, Args &&...args)
+		{
+			socket.add(this->m_elements.emplace(*this, std::forward<Args>(args)...));
+		}
+	};
+
+	template <typename T>
+	class Strong;
+	template <typename T>
+	class Source::StrongElement : public Source
+	{
+	public:
+		template <typename ...Args>
+		StrongElement(Strong<T> &socket, Dependency::Socket &depSocket, Args &&...args) :
+			m_socket(socket),
+			m_dependency(depSocket, depSocket.add(*this)),
+			m_obj(std::forward<Args>(args)...)
+		{
+		}
+		~StrongElement(void)
+		{
+			m_dependency.destroyBound();
+		}
+
+		operator T&(void)
+		{
+			return m_obj;
+		}
+
+	private:
+		friend Strong<T>;
+		Strong<T> &m_socket;
+		Dependency::Point m_dependency;
+		T m_obj;
+
+		void depDestroyed(Dependency&) override
+		{
+			m_dependency.clear();
+			m_socket.destroyElement(*this);
+		}
+	};
+
+	template <typename T>
+	class Strong : public Storage<Source::StrongElement<T>>
+	{
+	public:
+		class Multiple;
+		class MutipleElement : public Source
 		{
 		public:
-			class Element : public Source
+			template <typename ...Args>
+			MutipleElement(Multiple &socket, Args &&...args) :
+				m_socket(socket),
+				m_obj(std::forward<Args>(args)...)
 			{
-			public:
-				template <typename ...Args>
-				Element(Strong<T> &socket, Args &&...args) :
-					m_socket(socket),
-					m_obj(std::forward<Args>(args)...)
-				{
-				}
-				~Element(void)
-				{
-					for (auto &d : m_dependencies)
+			}
+			~MutipleElement(void)
+			{
+				for (auto &d : m_dependencies)
+					d.destroyBound();
+			}
+
+			operator T&(void)
+			{
+				return m_obj;
+			}
+
+		private:
+			friend Strong<T>;
+			Multiple &m_socket;
+			util::unique_set<Dependency::Point> m_dependencies;
+			T m_obj;
+
+			void addDep(Dependency::Socket &socket, Dependency &dep)
+			{
+				m_dependencies.emplace(socket, dep);
+			}
+
+			void depDestroyed(Dependency &dep) override
+			{
+				for (auto &d : m_dependencies)
+					if (&d.getDependency() != &dep)
 						d.destroyBound();
-				}
+				m_dependencies.clear();
+				m_socket.destroyElement(*this);
+			}
+		};
 
-				operator T&(void)
-				{
-					return m_obj;
-				}
-
-			private:
-				friend Strong<T>;
-				Strong<T> &m_socket;
-				util::unique_set<Dependency::Point> m_dependencies;
-				T m_obj;
-
-				void addDep(Dependency::Socket &socket, Dependency &dep)
-				{
-					m_dependencies.emplace(socket, dep);
-				}
-
-				void depDestroyed(Dependency &dep) override
-				{
-					for (auto &d : m_dependencies)
-						if (&d.getDependency() != &dep)
-							d.destroyBound();
-					m_dependencies.clear();
-					m_socket.destroyElement(*this);
-				}
-			};
-
+		class Multiple : public Storage<MutipleElement>
+		{
+		public:
 			Multiple(void)
 			{
 			}
@@ -239,56 +291,10 @@ public:
 			template <typename ...Args>
 			void bind(const std::vector<std::reference_wrapper<Dependency::Socket>> &sockets, Args &&...args)
 			{
-				auto &el = m_elements.emplace(*this, std::forward<Args>(args)...);
+				auto &el = this->m_elements.emplace(*this, std::forward<Args>(args)...);
 
 				for (auto &s : sockets)
 					el.addDep(s, s.get().add(el));
-			}
-
-		private:
-			friend Element;
-			util::unique_set<Element> m_elements;
-
-			void destroyElement(Element &elem)
-			{
-				auto got = m_elements.find(elem);
-
-				if (got == m_elements.end())
-					throw std::runtime_error("Can't destroy element");
-				m_elements.erase(got);
-			}
-		};
-
-		class Element : public Source
-		{
-		public:
-			template <typename ...Args>
-			Element(Strong<T> &socket, Dependency::Socket &depSocket, Args &&...args) :
-				m_socket(socket),
-				m_dependency(depSocket, depSocket.add(*this)),
-				m_obj(std::forward<Args>(args)...)
-			{
-			}
-			~Element(void)
-			{
-				m_dependency.destroyBound();
-			}
-
-			operator T&(void)
-			{
-				return m_obj;
-			}
-
-		private:
-			friend Strong<T>;
-			Strong<T> &m_socket;
-			Dependency::Point m_dependency;
-			T m_obj;
-
-			void depDestroyed(Dependency&) override
-			{
-				m_dependency.clear();
-				m_socket.destroyElement(*this);
 			}
 		};
 
@@ -302,20 +308,7 @@ public:
 		template <typename ...Args>
 		void bind(Dependency::Socket &socket, Args &&...args)
 		{
-			m_elements.emplace(*this, socket, std::forward<Args>(args)...);
-		}
-
-	private:
-		friend Element;
-		util::unique_set<Element> m_elements;
-
-		void destroyElement(Element &elem)
-		{
-			auto got = m_elements.find(elem);
-
-			if (got == m_elements.end())
-				throw std::runtime_error("Can't destroy element");
-			m_elements.erase(got);
+			this->m_elements.emplace(*this, socket, std::forward<Args>(args)...);
 		}
 	};
 };

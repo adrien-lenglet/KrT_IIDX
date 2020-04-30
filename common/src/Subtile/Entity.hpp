@@ -93,7 +93,7 @@ public:
 
 		using CallbackType = std::function<void (PayloadTypes &&...args)>;
 		const Subtile::Event::Socket &m_owner;
-		Binding::Source::Strong<CallbackType> m_listeners;
+		Binding::Strong<CallbackType> m_listeners;
 
 		void bind(const std::tuple<>&, Binding::Dependency::Socket &socket, const CallbackType &callback)
 		{
