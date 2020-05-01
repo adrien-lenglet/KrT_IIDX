@@ -103,6 +103,7 @@ class Socket;
 template <typename ObserverType, template <typename...> class GroupingType, typename... StoreTypes, typename... ReturnTypes>
 class Observer::Group<ObserverType, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>> : public Observer
 {
+protected:
 	using UpdaterType = std::function<std::optional<std::tuple<ReturnTypes...>> (const StoreTypes &...)>;
 	using CallbackType = std::function<void (const ReturnTypes &...)>;
 	using ClusterCallbackType = std::function<Cluster::Optimized& (void)>;
@@ -155,10 +156,11 @@ protected:
 template <typename ObserverType, template <typename...> class GroupingType, typename... RequestTypes, typename... StoreTypes, typename... ReturnTypes>
 class Observer::Group<ObserverType, GroupingType<RequestTypes...>, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>> : public Observer::Group<ObserverType, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>>
 {
+	using Inherited = Observer::Group<ObserverType, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>>;
+	using UpdaterType = typename Inherited::UpdaterType;
+	using CallbackType = typename Inherited::CallbackType;
+	using ClusterCallbackType = typename Inherited::ClusterCallbackType;
 	using ConverterType = std::function<std::tuple<StoreTypes...> (const RequestTypes &...)>;
-	using UpdaterType = std::function<std::optional<std::tuple<ReturnTypes...>> (const StoreTypes &...)>;
-	using CallbackType = std::function<void (const ReturnTypes &...)>;
-	using ClusterCallbackType = std::function<Cluster::Optimized& (void)>;
 
 public:
 	Group(const ConverterType &converter, const UpdaterType &updater, const ClusterCallbackType &clusterCallback = nullptr) :
