@@ -9,7 +9,7 @@ Observer::Observer(ISystem &system) :
 	util::dep<ISystem&>(system),
 	input(system)
 {
-	add(lifetime);
+	//add(lifetime);
 	add(input);
 	add(static_cast<Cluster&>(update));
 }
@@ -18,7 +18,7 @@ Observer::~Observer(void)
 {
 }
 
-Observer::Lifetime::Lifetime(void)
+/*Observer::Lifetime::Lifetime(void)
 {
 	Cluster::add(add);
 }
@@ -42,10 +42,10 @@ std::unique_ptr<Listener> Observer::Lifetime::Add::operator()(Entity &parent, st
 
 void Observer::Lifetime::Add::update(void)
 {
-	/*while (m_to_add.getMap().size() > 0) {
+	while (m_to_add.getMap().size() > 0) {
 		auto p = std::move(m_to_add.getMap().)
-	}*/
-}
+	}
+}*/
 
 Observer::Input::Input(ISystem &system) :
 	util::dep<ISystem&>(system),

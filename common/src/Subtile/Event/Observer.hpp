@@ -6,7 +6,7 @@
 #include <functional>
 #include <optional>
 #include <type_traits>
-#include "Bindings.hpp"
+#include "../Binding.hpp"
 #include "util.hpp"
 
 namespace Subtile {
@@ -108,26 +108,13 @@ class Observer::Group<ObserverType, GroupingType<RequestTypes...>, GroupingType<
 	using UpdaterType = std::function<std::optional<std::tuple<ReturnTypes...>> (const StoreTypes &...)>;
 	using CallbackType = std::function<void (const ReturnTypes &...)>;
 	using ClusterCallbackType = std::function<Cluster::Optimized& (void)>;
-	using BindingsType = Bindings<std::tuple<StoreTypes...>, CallbackType>;
-	using BindingsCallback = typename BindingsType::callback;
+	using BindingsType = Binding::Weak<CallbackType, true>;
 
 public:
 	Group(const ConverterType &converter, const UpdaterType &updater, const ClusterCallbackType &clusterCallback = nullptr) :
 		m_converter(converter),
 		m_updater(updater),
-		m_cluster_cb(clusterCallback),
-		m_listeners(BindingsCallback([this](bool isAdd, const std::tuple<StoreTypes...> &req, const CallbackType&){
-			if (!m_cluster_cb)
-				return;
-			if constexpr (std::tuple_size<std::tuple<StoreTypes...>>::value == 1) {
-				if constexpr (std::is_convertible<typename std::tuple_element<0, std::tuple<StoreTypes...>>::type, Observer&>::value) {
-					if (isAdd)
-						m_cluster_cb().add(std::get<StoreTypes>(req)...);
-					else
-						m_cluster_cb().remove(std::get<StoreTypes>(req)...);
-				}
-			}
-		}))
+		m_cluster_cb(clusterCallback)
 	{
 		static_cast<ObserverType&>(*this).Cluster::add(*this);
 	}
@@ -139,7 +126,7 @@ private:
 	const ConverterType m_converter;
 	const UpdaterType m_updater;
 	const ClusterCallbackType m_cluster_cb;
-	BindingsType m_listeners;
+	std::map<std::tuple<StoreTypes...>, Binding::Weak<CallbackType, true>> m_listeners;
 
 	friend Event::Socket;
 
@@ -151,11 +138,21 @@ private:
 			return m_converter(std::get<RequestTypes>(request)...);
 	}
 
-	std::unique_ptr<Event::Listener> listen(const std::tuple<RequestTypes...> &request, const CallbackType &callback)
+	void bind(const std::tuple<RequestTypes...> &request, Binding::Dependency::Socket &socket, const CallbackType &callback)
 	{
 		auto req = getRequest(request);
 
-		return m_listeners.bind(req, callback);
+		auto got = m_listeners.find(req);
+		if (got == m_listeners.end()) {
+			auto [it, success] = m_listeners.emplace(req, [this, req](){
+				m_cluster_cb().remove(std::get<StoreTypes>(req)...);
+			});
+			if (!success)
+				throw std::runtime_error("Can't bind request");
+			it->second.bind(socket, callback);
+			m_cluster_cb().add(std::get<StoreTypes>(req)...);
+		} else
+			got->second.bind(socket, callback);
 	}
 
 	void update(void) override

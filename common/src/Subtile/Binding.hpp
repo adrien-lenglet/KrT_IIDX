@@ -16,9 +16,9 @@ private:
 	class Source
 	{
 	public:
-		template <typename T>
+		template <typename T, bool emptyCallback>
 		class WeakElement;
-		template <typename T>
+		template <typename T, bool emptyCallback>
 		class StrongElement;
 
 		Source(void)
@@ -252,14 +252,14 @@ public:
 	template <typename T, bool emptyCallback = false>
 	class Weak;
 
-	template <typename T>
+	template <typename T, bool emptyCallback>
 	class Source::WeakElement : public Source
 	{
 	public:
 		using value_type = T;
 
 		template <typename ...Args>
-		WeakElement(Weak<T> &socket, Args &&...args) :
+		WeakElement(Weak<T, emptyCallback> &socket, Args &&...args) :
 			m_socket(socket),
 			m_obj(std::forward<Args>(args)...)
 		{
@@ -274,7 +274,7 @@ public:
 		}
 
 	private:
-		Weak<T> &m_socket;
+		Weak<T, emptyCallback> &m_socket;
 		T m_obj;
 
 		void depDestroyed(Dependency&) override
@@ -284,12 +284,12 @@ public:
 	};
 
 	template <typename T, bool emptyCallback>
-	class Weak : public Storage<Source::WeakElement<T>, emptyCallback>
+	class Weak : public Storage<Source::WeakElement<T, emptyCallback>, emptyCallback>
 	{
 	public:
 		template <typename ...Args>
 		Weak(Args &&...args) :
-			Storage<Source::WeakElement<T>, emptyCallback>(std::forward<Args>(args)...)
+			Storage<Source::WeakElement<T, emptyCallback>, emptyCallback>(std::forward<Args>(args)...)
 		{
 		}
 		~Weak(void)
@@ -310,14 +310,14 @@ public:
 	template <typename T, bool emptyCallback = false>
 	class Strong;
 
-	template <typename T>
+	template <typename T, bool emptyCallback>
 	class Source::StrongElement : public Source
 	{
 	public:
 		using value_type = T;
 
 		template <typename ...Args>
-		StrongElement(Strong<T> &socket, Dependency::Socket &depSocket, Args &&...args) :
+		StrongElement(Strong<T, emptyCallback> &socket, Dependency::Socket &depSocket, Args &&...args) :
 			m_socket(socket),
 			m_dependency(depSocket, depSocket.add(*this)),
 			m_obj(std::forward<Args>(args)...)
@@ -334,8 +334,8 @@ public:
 		}
 
 	private:
-		friend Strong<T>;
-		Strong<T> &m_socket;
+		friend Strong<T, emptyCallback>;
+		Strong<T, emptyCallback> &m_socket;
 		Dependency::Point m_dependency;
 		T m_obj;
 
@@ -348,7 +348,7 @@ public:
 
 public:
 	template <typename T, bool emptyCallback>
-	class Strong : public Storage<Source::StrongElement<T>, emptyCallback>
+	class Strong : public Storage<Source::StrongElement<T, emptyCallback>, emptyCallback>
 	{
 	public:
 		class Multiple;
@@ -422,7 +422,7 @@ public:
 
 		template <typename ...Args>
 		Strong(Args &&...args) :
-			Storage<Source::StrongElement<T>, emptyCallback>(std::forward<Args>(args)...)
+			Storage<Source::StrongElement<T, emptyCallback>, emptyCallback>(std::forward<Args>(args)...)
 		{
 		}
 		~Strong(void)

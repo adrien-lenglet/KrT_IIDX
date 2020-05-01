@@ -3,7 +3,6 @@
 #include <vector>
 #include <memory>
 #include "Observer.hpp"
-#include "../Binding.hpp"
 
 namespace Subtile {
 
@@ -16,12 +15,6 @@ class Socket
 public:
 	Socket(void);
 	~Socket(void);
-
-	template <typename L, typename ObserverType, typename ...ArgsType>
-	void listen(const Descriptor<ObserverType, ArgsType...> &req, const L &callback)
-	{
-		m_listeners.insert(req.observer.listen(req.args, callback));
-	}
 
 	template <typename L, typename ObserverType, typename ...ArgsType>
 	void bind(const Descriptor<ObserverType, ArgsType...> &req, const L &callback)
@@ -37,7 +30,6 @@ public:
 
 private:
 	friend Entity;
-	util::unique_set<Listener> m_listeners;
 	Binding::Dependency::Socket m_dependencies;
 };
 

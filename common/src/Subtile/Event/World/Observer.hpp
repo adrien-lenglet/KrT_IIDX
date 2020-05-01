@@ -23,7 +23,7 @@ public:
 	~Observer(void) override;
 
 private:
-	class Lifetime : public Event::Observer::Cluster
+	/*class Lifetime : public Event::Observer::Cluster
 	{
 	public:
 		Lifetime(void);
@@ -42,7 +42,7 @@ private:
 
 			void update(void) override;
 		} add;
-	} lifetime;
+	} lifetime;*/
 
 public:
 	class Input : public Cluster, private util::dep<ISystem&>
