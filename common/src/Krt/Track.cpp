@@ -20,8 +20,8 @@ Track::Track(void) :
 		events.system.quit();
 	});
 
-	//std::cout << sizeof(Subtile::Binding::Source::StrongElement<int>) << std::endl;
-	//std::cout << sizeof(Subtile::Binding::Strong<int>::MutipleElement) << std::endl;
+	std::cout << sizeof(Subtile::Binding::Strong<int>) << std::endl;
+	std::cout << sizeof(Subtile::Binding::Strong<int, true>) << std::endl;
 
 	/*Subtile::Binding::Strong<int>::Multiple socket;
 	Subtile::Binding::Dependency::Socket deps, deps2;

@@ -16,10 +16,10 @@ public:
 	Socket(void);
 	~Socket(void);
 
-	template <typename L, typename ObserverType, typename ...ArgsType>
-	void bind(const Descriptor<ObserverType, ArgsType...> &req, const L &callback)
+	template <typename ReqType, typename ...Args>
+	void bind(const ReqType &req, Args &&...args)
 	{
-		req.observer.bind(req.args, m_dependencies, callback);
+		req.observer.bind(m_dependencies, req.args, std::forward<Args>(args)...);
 	}
 
 	template <typename T, typename ...PayloadTypes>

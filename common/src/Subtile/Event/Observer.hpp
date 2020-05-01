@@ -135,11 +135,16 @@ protected:
 		}
 	}
 
-	void bind(const std::tuple<StoreTypes...> &req, Binding::Dependency::Socket &socket, const CallbackType &callback)
+	void bind(Binding::Dependency::Socket &socket, const std::tuple<StoreTypes...> &req, const CallbackType &callback)
 	{
 		auto got = m_listeners.find(req);
 		if (got == m_listeners.end()) {
 			auto [it, success] = m_listeners.emplace(req, [this, req](){
+				auto got = m_listeners.find(req);
+
+				if (got == m_listeners.end())
+					throw std::runtime_error("Can't destroy event");
+				m_listeners.erase(got);
 				if (m_cluster_cb)
 					m_cluster_cb().remove(std::get<StoreTypes>(req)...);
 			});
@@ -176,9 +181,9 @@ private:
 	friend Event::Socket;
 	const ConverterType m_converter;
 
-	void bind(const std::tuple<RequestTypes...> &request, Binding::Dependency::Socket &socket, const CallbackType &callback)
+	void bind(Binding::Dependency::Socket &socket, const std::tuple<RequestTypes...> &request, const CallbackType &callback)
 	{
-		Observer::Group<ObserverType, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>>::bind(m_converter(std::get<RequestTypes>(request)...), socket, callback);
+		Observer::Group<ObserverType, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>>::bind(socket, m_converter(std::get<RequestTypes>(request)...), callback);
 	}
 };
 

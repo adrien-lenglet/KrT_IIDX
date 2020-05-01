@@ -95,7 +95,7 @@ public:
 		const Subtile::Event::Socket &m_owner;
 		Binding::Strong<CallbackType> m_listeners;
 
-		void bind(const std::tuple<>&, Binding::Dependency::Socket &socket, const CallbackType &callback)
+		void bind(Binding::Dependency::Socket &socket, const std::tuple<>&, const CallbackType &callback)
 		{
 			m_listeners.bind(socket, callback);
 		}
