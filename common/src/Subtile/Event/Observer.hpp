@@ -81,7 +81,6 @@ private:
 	void update(void) override;
 };
 
-
 class Observer::Cluster::Optimized : public Observer
 {
 public:
@@ -101,20 +100,17 @@ private:
 
 class Socket;
 
-template <typename ObserverType, template <typename...> class GroupingType, typename... RequestTypes, typename... StoreTypes, typename... ReturnTypes>
-class Observer::Group<ObserverType, GroupingType<RequestTypes...>, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>> : public Observer
+template <typename ObserverType, template <typename...> class GroupingType, typename... StoreTypes, typename... ReturnTypes>
+class Observer::Group<ObserverType, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>> : public Observer
 {
-	using ConverterType = std::function<std::tuple<StoreTypes...> (const RequestTypes &...)>;
 	using UpdaterType = std::function<std::optional<std::tuple<ReturnTypes...>> (const StoreTypes &...)>;
 	using CallbackType = std::function<void (const ReturnTypes &...)>;
 	using ClusterCallbackType = std::function<Cluster::Optimized& (void)>;
-	using BindingsType = Binding::Weak<CallbackType, true>;
 
 public:
-	Group(const ConverterType &converter, const UpdaterType &updater, const ClusterCallbackType &clusterCallback = nullptr) :
-		m_converter(converter),
+	Group(const UpdaterType &updater, const ClusterCallbackType &callback = nullptr) :
 		m_updater(updater),
-		m_cluster_cb(clusterCallback)
+		m_cluster_cb(callback)
 	{
 		static_cast<ObserverType&>(*this).Cluster::add(*this);
 	}
@@ -122,26 +118,24 @@ public:
 	{
 	}
 
-private:
-	const ConverterType m_converter;
+protected:
+	friend Event::Socket;
 	const UpdaterType m_updater;
 	const ClusterCallbackType m_cluster_cb;
 	std::map<std::tuple<StoreTypes...>, Binding::Weak<CallbackType, true>> m_listeners;
 
-	friend Event::Socket;
-
-	auto getRequest(const std::tuple<RequestTypes...> &request)
+	void update(void) override
 	{
-		if constexpr (std::is_same<std::tuple<RequestTypes...>, std::tuple<StoreTypes...>>::value)
-			return request;
-		else
-			return m_converter(std::get<RequestTypes>(request)...);
+		for (auto &p : m_listeners) {
+			auto res = m_updater(std::get<StoreTypes>(p.first)...);
+			if (res)
+				for (auto &listener : p.second)
+					listener(std::get<ReturnTypes>(*res)...);
+		}
 	}
 
-	void bind(const std::tuple<RequestTypes...> &request, Binding::Dependency::Socket &socket, const CallbackType &callback)
+	void bind(const std::tuple<StoreTypes...> &req, Binding::Dependency::Socket &socket, const CallbackType &callback)
 	{
-		auto req = getRequest(request);
-
 		auto got = m_listeners.find(req);
 		if (got == m_listeners.end()) {
 			auto [it, success] = m_listeners.emplace(req, [this, req](){
@@ -156,32 +150,33 @@ private:
 		} else
 			got->second.bind(socket, callback);
 	}
-
-	void update(void) override
-	{
-		for (auto &p : m_listeners) {
-			auto res = m_updater(std::get<StoreTypes>(p.first)...);
-			if (res)
-				for (auto &listener : p.second)
-					listener(std::get<ReturnTypes>(*res)...);
-		}
-	}
 };
 
-template <typename ObserverType, template <typename...> class GroupingType, typename... RequestTypes, typename... ReturnTypes>
-class Observer::Group<ObserverType, GroupingType<RequestTypes...>, GroupingType<ReturnTypes...>> : public Observer::Group<ObserverType, GroupingType<RequestTypes...>, GroupingType<RequestTypes...>, GroupingType<ReturnTypes...>>
+template <typename ObserverType, template <typename...> class GroupingType, typename... RequestTypes, typename... StoreTypes, typename... ReturnTypes>
+class Observer::Group<ObserverType, GroupingType<RequestTypes...>, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>> : public Observer::Group<ObserverType, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>>
 {
-public:
-	using UpdaterType = std::function<std::optional<std::tuple<ReturnTypes...>> (const RequestTypes &...)>;
+	using ConverterType = std::function<std::tuple<StoreTypes...> (const RequestTypes &...)>;
+	using UpdaterType = std::function<std::optional<std::tuple<ReturnTypes...>> (const StoreTypes &...)>;
+	using CallbackType = std::function<void (const ReturnTypes &...)>;
 	using ClusterCallbackType = std::function<Cluster::Optimized& (void)>;
 
-	Group(const UpdaterType &updater, const ClusterCallbackType &clusterCallback = nullptr) :
-		Group<ObserverType, GroupingType<RequestTypes...>, GroupingType<RequestTypes...>, GroupingType<ReturnTypes...>>(nullptr, updater, clusterCallback)
+public:
+	Group(const ConverterType &converter, const UpdaterType &updater, const ClusterCallbackType &clusterCallback = nullptr) :
+		Observer::Group<ObserverType, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>>(updater, clusterCallback),
+		m_converter(converter)
+	{
+	}
+	~Group(void) override
 	{
 	}
 
-	~Group(void) override
+private:
+	friend Event::Socket;
+	const ConverterType m_converter;
+
+	void bind(const std::tuple<RequestTypes...> &request, Binding::Dependency::Socket &socket, const CallbackType &callback)
 	{
+		Observer::Group<ObserverType, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>>::bind(m_converter(std::get<RequestTypes>(request)...), socket, callback);
 	}
 };
 
