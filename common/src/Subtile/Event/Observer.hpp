@@ -145,12 +145,14 @@ private:
 		auto got = m_listeners.find(req);
 		if (got == m_listeners.end()) {
 			auto [it, success] = m_listeners.emplace(req, [this, req](){
-				m_cluster_cb().remove(std::get<StoreTypes>(req)...);
+				if (m_cluster_cb)
+					m_cluster_cb().remove(std::get<StoreTypes>(req)...);
 			});
 			if (!success)
 				throw std::runtime_error("Can't bind request");
 			it->second.bind(socket, callback);
-			m_cluster_cb().add(std::get<StoreTypes>(req)...);
+			if (m_cluster_cb)
+				m_cluster_cb().add(std::get<StoreTypes>(req)...);
 		} else
 			got->second.bind(socket, callback);
 	}
