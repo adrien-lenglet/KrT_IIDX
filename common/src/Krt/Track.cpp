@@ -4,6 +4,7 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include <iostream>
+#include <array>
 
 namespace Krt {
 
@@ -19,14 +20,16 @@ Track::Track(void) :
 		events.system.quit();
 	});
 
-	/*std::cout << sizeof(Subtile::Binding::Source::StrongElement<int>) << std::endl;
-	std::cout << sizeof(Subtile::Binding::Strong<int>::MutipleElement) << std::endl;
+	//std::cout << sizeof(Subtile::Binding::Source::StrongElement<int>) << std::endl;
+	//std::cout << sizeof(Subtile::Binding::Strong<int>::MutipleElement) << std::endl;
 
-	Subtile::Binding::Dependency::Socket deps;
-	Subtile::Binding::Strong<int>::Multiple socket;
+	/*Subtile::Binding::Strong<int>::Multiple socket;
+	Subtile::Binding::Dependency::Socket deps, deps2;
 
-	socket.bind({deps}, 10);*/
-
+	socket.bind({deps, deps2}, 56);
+	std::cout << "Size of collection: " << sizeof(socket) << std::endl;
+	for (auto &i : socket)
+		std::cout << "Entry: " << i << std::endl;*/
 }
 
 Track::~Track(void)

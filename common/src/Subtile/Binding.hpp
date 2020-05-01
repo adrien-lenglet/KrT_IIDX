@@ -11,6 +11,8 @@ public:
 	virtual ~Binding(void) = 0;
 
 	class Dependency;
+
+private:
 	class Source
 	{
 	public:
@@ -31,10 +33,12 @@ public:
 		virtual void depDestroyed(Dependency &dep) = 0;
 	};
 
+public:
 	class Dependency
 	{
-	public:
 		class Point;
+
+	public:
 		class Socket
 		{
 		public:
@@ -66,6 +70,7 @@ public:
 			}
 		};
 
+	private:
 		class Point
 		{
 		public:
@@ -97,10 +102,12 @@ public:
 			}
 
 		private:
+			friend Socket;
 			Socket &m_socket;
 			Dependency *m_dependency;
 		};
 
+	public:
 		Dependency(Source &source) :
 			m_source(source)
 		{
@@ -118,16 +125,17 @@ public:
 		Source &m_source;
 	};
 
+private:
 	template <typename Element>
-	class Storage
+	class StorageBase
 	{
 		using UniqueSet = util::unique_set<Element>;
 
 	public:
-		Storage(void)
+		StorageBase(void)
 		{
 		}
-		~Storage(void)
+		~StorageBase(void)
 		{
 		}
 
@@ -167,21 +175,83 @@ public:
 		}
 
 	protected:
-		friend Element;
 		UniqueSet m_elements;
+	};
+
+	template <typename Element>
+	class StorageBasic : public StorageBase<Element>
+	{
+	public:
+		StorageBasic(void)
+		{
+		}
+		~StorageBasic(void)
+		{
+		}
+
+	protected:
+		friend Element;
 
 		void destroyElement(Element &elem)
 		{
-			auto got = m_elements.find(elem);
+			auto got = this->m_elements.find(elem);
 
-			if (got == m_elements.end())
+			if (got == this->m_elements.end())
 				throw std::runtime_error("Can't destroy element");
-			m_elements.erase(got);
+			this->m_elements.erase(got);
 		}
 	};
 
-	template <typename T>
+	template <typename Element>
+	class StorageEmptyCallback : public StorageBase<Element>
+	{
+	public:
+		using callback_type = std::function<void (void)>;
+
+		StorageEmptyCallback(const callback_type &callback) :
+			m_callback(callback)
+		{
+		}
+		~StorageEmptyCallback(void)
+		{
+		}
+
+	protected:
+		friend Element;
+		const callback_type m_callback;
+
+		void destroyElement(Element &elem)
+		{
+			auto got = this->m_elements.find(elem);
+
+			if (got == this->m_elements.end())
+				throw std::runtime_error("Can't destroy element");
+			this->m_elements.erase(got);
+			if (this->m_elements.size() == 0)
+				m_callback();
+		}
+	};
+
+	template <typename Element, bool emptyCallback = false>
+	class Storage : public std::conditional<emptyCallback, StorageEmptyCallback<Element>, StorageBasic<Element>>::type
+	{
+		using InheritedStorage = typename std::conditional<emptyCallback, StorageEmptyCallback<Element>, StorageBasic<Element>>::type;
+
+	public:
+		template <typename ...Args>
+		Storage(Args &&...args) :
+			InheritedStorage(std::forward<Args>(args)...)
+		{
+		}
+		~Storage(void)
+		{
+		}
+	};
+
+public:
+	template <typename T, bool emptyCallback = false>
 	class Weak;
+
 	template <typename T>
 	class Source::WeakElement : public Source
 	{
@@ -213,11 +283,13 @@ public:
 		}
 	};
 
-	template <typename T>
-	class Weak : public Storage<Source::WeakElement<T>>
+	template <typename T, bool emptyCallback>
+	class Weak : public Storage<Source::WeakElement<T>, emptyCallback>
 	{
 	public:
-		Weak(void)
+		template <typename ...Args>
+		Weak(Args &&...args) :
+			Storage<Source::WeakElement<T>, emptyCallback>(std::forward<Args>(args)...)
 		{
 		}
 		~Weak(void)
@@ -235,8 +307,9 @@ public:
 		}
 	};
 
-	template <typename T>
+	template <typename T, bool emptyCallback = false>
 	class Strong;
+
 	template <typename T>
 	class Source::StrongElement : public Source
 	{
@@ -273,11 +346,14 @@ public:
 		}
 	};
 
-	template <typename T>
-	class Strong : public Storage<Source::StrongElement<T>>
+public:
+	template <typename T, bool emptyCallback>
+	class Strong : public Storage<Source::StrongElement<T>, emptyCallback>
 	{
 	public:
 		class Multiple;
+
+	private:
 		class MutipleElement : public Source
 		{
 		public:
@@ -301,7 +377,7 @@ public:
 			}
 
 		private:
-			friend Strong<T>;
+			friend Multiple;
 			Multiple &m_socket;
 			util::unique_set<Dependency::Point> m_dependencies;
 			T m_obj;
@@ -321,10 +397,13 @@ public:
 			}
 		};
 
-		class Multiple : public Storage<MutipleElement>
+	public:
+		class Multiple : public Storage<MutipleElement, emptyCallback>
 		{
 		public:
-			Multiple(void)
+			template <typename ...Args>
+			Multiple(Args &&...args) :
+				Storage<MutipleElement, emptyCallback>(std::forward<Args>(args)...)
 			{
 			}
 			~Multiple(void)
@@ -341,7 +420,9 @@ public:
 			}
 		};
 
-		Strong(void)
+		template <typename ...Args>
+		Strong(Args &&...args) :
+			Storage<Source::StrongElement<T>, emptyCallback>(std::forward<Args>(args)...)
 		{
 		}
 		~Strong(void)
