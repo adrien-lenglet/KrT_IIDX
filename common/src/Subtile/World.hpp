@@ -6,23 +6,23 @@ namespace Subtile {
 
 class World;
 
-class WorldImpl : public Entity
+class WorldBase : public Entity
 {
 public:
-	WorldImpl(Instance &engine);
-	~WorldImpl(void) = 0;
+	WorldBase(Instance &engine);
+	~WorldBase(void) = 0;
+
+	Subtile::Event::World::Observer &events;
 
 private:
 	friend World;
 	friend Entity;
-	friend EntityImpl;
+	friend EntityBase;
 
 	Instance &m_engine;
-
-	Subtile::Event::World::Observer& getEvents(void);
 };
 
-class World : public WorldImpl
+class World : public WorldBase
 {
 public:
 	World(void);

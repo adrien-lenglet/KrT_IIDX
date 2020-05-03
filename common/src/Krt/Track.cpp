@@ -17,7 +17,7 @@ Track::Track(void) :
 
 	bind(entity.got_score(), [this](const size_t &score){
 		std::cout << "Got score event: " << score << std::endl;
-		events.system.quit();
+		//events.system.quit();
 	});
 
 	std::cout << sizeof(Subtile::Binding::Strong<int>) << std::endl;

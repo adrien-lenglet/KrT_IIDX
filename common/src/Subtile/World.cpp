@@ -2,19 +2,14 @@
 
 namespace Subtile {
 
-WorldImpl::WorldImpl(Instance &engine) :
-	Entity(&engine.getEvents()),
+WorldBase::WorldBase(Instance &engine) :
+	events(engine.getEvents()),
 	m_engine(engine)
 {
 }
 
-WorldImpl::~WorldImpl(void)
+WorldBase::~WorldBase(void)
 {
-}
-
-Event::World::Observer& WorldImpl::getEvents(void)
-{
-	return m_engine.getEvents();
 }
 
 std::stack<std::reference_wrapper<Instance>> World::m_engines;
@@ -35,7 +30,7 @@ Instance& World::popEngine(void)
 }
 
 World::World(void) :
-	WorldImpl(popEngine())
+	WorldBase(popEngine())
 {
 }
 

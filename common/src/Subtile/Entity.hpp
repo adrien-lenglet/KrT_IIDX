@@ -8,25 +8,25 @@
 namespace Subtile {
 
 class World;
-class WorldImpl;
+class WorldBase;
 class Entity;
 class Instance;
 
-class EntityImpl : protected Event::World::Socket
+class EntityBase : protected Event::World::Socket
 {
 	friend Entity;
 	friend Instance;
 	class Context
 	{
 	public:
-		Context(World *world, EntityImpl *parent);
+		Context(World *world, EntityBase *parent);
 		~Context(void) = default;
 
 	private:
 		friend Entity;
-		friend EntityImpl;
+		friend EntityBase;
 		World *m_world;
-		EntityImpl *m_parent;
+		EntityBase *m_parent;
 
 		template <typename EntType>
 		World& getWorld(EntType &ent) const
@@ -36,7 +36,7 @@ class EntityImpl : protected Event::World::Socket
 			else
 				return static_cast<World&>(ent);
 		}
-		EntityImpl* getParent(void) const;
+		EntityBase* getParent(void) const;
 	};
 
 	static std::stack<Context> m_ctx;
@@ -48,8 +48,8 @@ class EntityImpl : protected Event::World::Socket
 	static Context popCtx(void);
 
 public:
-	EntityImpl(const Context &ctx, Event::World::Observer *events = nullptr);
-	virtual ~EntityImpl(void) = 0;
+	EntityBase(const Context &ctx);
+	virtual ~EntityBase(void) = 0;
 
 protected:
 	World &world;
@@ -64,16 +64,16 @@ protected:
 	void destroy(void);
 
 private:
-	EntityImpl *m_parent;
-	util::unique_set<EntityImpl> m_children;
+	EntityBase *m_parent;
+	util::unique_set<EntityBase> m_children;
 
-	EntityImpl& getParent(void);
+	EntityBase& getParent(void);
 };
 
-class Entity : public EntityImpl
+class Entity : public EntityBase
 {
 public:
-	Entity(Event::World::Observer *events = nullptr);
+	Entity(void);
 	~Entity(void) = 0;
 
 	template <typename ...PayloadTypes>
@@ -110,8 +110,8 @@ public:
 	};
 
 private:
-	friend WorldImpl;
-	friend EntityImpl;
+	friend WorldBase;
+	friend EntityBase;
 };
 
 }

@@ -11,10 +11,8 @@ class Observer;
 class Socket : public Event::Socket
 {
 public:
-	Socket(Observer &events);
+	Socket(void);
 	~Socket(void);
-
-	Observer &events;
 };
 
 }

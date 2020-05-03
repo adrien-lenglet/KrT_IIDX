@@ -8,7 +8,7 @@
 
 namespace Subtile {
 
-class WorldImpl;
+class WorldBase;
 
 class Instance
 {
@@ -22,14 +22,14 @@ public:
 	template <typename WorldType, typename ...ArgsTypes>
 	std::unique_ptr<WorldType> add(ArgsTypes &&...args)
 	{
-		EntityImpl::pushCtx(nullptr, nullptr);
+		EntityBase::pushCtx(nullptr, nullptr);
 		World::pushEngine(*this);
 		return std::make_unique<WorldType>(std::forward<ArgsTypes>(args)...);
 	}
 	void run(void);
 
 private:
-	friend WorldImpl;
+	friend WorldBase;
 
 	std::unique_ptr<ISystem> m_system;
 	Event::World::Observer m_events;

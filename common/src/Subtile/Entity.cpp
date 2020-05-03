@@ -3,18 +3,17 @@
 
 namespace Subtile {
 
-EntityImpl::EntityImpl(const EntityImpl::Context &ctx, Subtile::Event::World::Observer *events) :
-	Event::World::Socket(events ? static_cast<Subtile::Event::World::Observer&>(*events) : ctx.getWorld(*this).getEvents()),
+EntityBase::EntityBase(const EntityBase::Context &ctx) :
 	world(ctx.getWorld(*this)),
 	m_parent(ctx.getParent())
 {
 }
 
-EntityImpl::~EntityImpl(void)
+EntityBase::~EntityBase(void)
 {
 }
 
-void EntityImpl::destroy(void)
+void EntityBase::destroy(void)
 {
 	/*if (m_parent == nullptr)
 		m_world.resetRoot();
@@ -22,7 +21,7 @@ void EntityImpl::destroy(void)
 		getParent().destroyChild(*this);*/
 }
 
-EntityImpl& EntityImpl::getParent(void)
+EntityBase& EntityBase::getParent(void)
 {
 	if (m_parent)
 		return *m_parent;
@@ -30,21 +29,21 @@ EntityImpl& EntityImpl::getParent(void)
 		throw std::runtime_error("No parent associated with this entity");
 }
 
-std::stack<EntityImpl::Context> EntityImpl::m_ctx;
+std::stack<EntityBase::Context> EntityBase::m_ctx;
 
-EntityImpl::Context EntityImpl::popCtx(void)
+EntityBase::Context EntityBase::popCtx(void)
 {
 	if (m_ctx.size() == 0)
 		throw std::runtime_error("No context for entity creation");
 
-	EntityImpl::Context res = std::move(m_ctx.top());
+	EntityBase::Context res = std::move(m_ctx.top());
 
 	m_ctx.pop();
 	return res;
 }
 
-Entity::Entity(Subtile::Event::World::Observer *events) :
-	EntityImpl(popCtx(), events)
+Entity::Entity(void) :
+	EntityBase(popCtx())
 {
 }
 Entity::~Entity(void)

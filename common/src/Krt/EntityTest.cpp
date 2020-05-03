@@ -14,15 +14,15 @@ EntityTest::EntityTest(void) :
 		std::cout << value << std::endl;
 	});*/
 
-	bind(events.input.button.pressed("quit"), [this](){
+	bind(world.events.system.input.button.pressed("quit"), [this](){
 		std::cout << "quit pressed" << std::endl;
 		trigger(just_died, 14.2);
 	});
 
-	bind(events.input.button.released("quit"), [this](){
+	bind(world.events.system.input.button.released("quit"), [this](){
 		std::cout << "quit released" << std::endl;
 		trigger(got_score, 7.92);
-		//events.system.quit();
+		world.events.system.system.quit();
 	});
 }
 
