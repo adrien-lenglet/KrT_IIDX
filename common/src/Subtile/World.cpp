@@ -2,9 +2,8 @@
 
 namespace Subtile {
 
-WorldBase::WorldBase(Instance &engine) :
-	events(engine.getEvents()),
-	m_engine(engine)
+WorldBase::WorldBase(Subtile::Event::System::Observer &system) :
+	events(system)
 {
 }
 
@@ -12,20 +11,20 @@ WorldBase::~WorldBase(void)
 {
 }
 
-std::stack<std::reference_wrapper<Instance>> World::m_engines;
-void World::pushEngine(Instance &engine)
+std::stack<std::reference_wrapper<Subtile::Event::System::Observer>> World::m_systems;
+void World::pushEngine(Subtile::Event::System::Observer &system)
 {
-	m_engines.emplace(engine);
+	m_systems.emplace(system);
 }
 
-Instance& World::popEngine(void)
+Subtile::Event::System::Observer& World::popEngine(void)
 {
-	if (m_engines.size() == 0)
+	if (m_systems.size() == 0)
 		throw std::runtime_error("No context for world creation");
 
-	auto res = std::move(m_engines.top());
+	auto res = std::move(m_systems.top());
 
-	m_engines.pop();
+	m_systems.pop();
 	return res;
 }
 

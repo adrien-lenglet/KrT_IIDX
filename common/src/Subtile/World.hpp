@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Entity.hpp"
+#include "Event/World/Observer.hpp"
 
 namespace Subtile {
 
@@ -9,17 +10,15 @@ class World;
 class WorldBase : public Entity
 {
 public:
-	WorldBase(Instance &engine);
+	WorldBase(Subtile::Event::System::Observer &engine);
 	~WorldBase(void) = 0;
 
-	Subtile::Event::World::Observer &events;
+	Subtile::Event::World::Observer events;
 
 private:
 	friend World;
 	friend Entity;
 	friend EntityBase;
-
-	Instance &m_engine;
 };
 
 class World : public WorldBase
@@ -31,9 +30,9 @@ public:
 private:
 	friend Instance;
 
-	static std::stack<std::reference_wrapper<Instance>> m_engines;
-	static void pushEngine(Instance &engine);
-	static Instance& popEngine(void);
+	static std::stack<std::reference_wrapper<Subtile::Event::System::Observer>> m_systems;
+	static void pushEngine(Subtile::Event::System::Observer &system);
+	static Subtile::Event::System::Observer& popEngine(void);
 };
 
 }

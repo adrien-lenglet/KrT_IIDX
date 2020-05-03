@@ -35,12 +35,7 @@ void Instance::run(void)
 	}
 }
 
-Event::World::Observer& Instance::getEvents(void)
-{
-	return m_events;
-}
-
-void Instance::setInputs(const std::function<void (const Event::World::Observer::Input::Setter &setter)> &binder)
+void Instance::setInputs(const std::function<void (const Event::System::Observer::Input::Setter &setter)> &binder)
 {
 	return m_events.input.set(binder);
 }

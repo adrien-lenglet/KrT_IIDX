@@ -6,8 +6,6 @@ namespace Subtile {
 namespace Event {
 namespace World {
 
-class Observer;
-
 class Socket : public Event::Socket
 {
 public:
@@ -18,5 +16,3 @@ public:
 }
 }
 }
-
-#include "Observer.hpp"
