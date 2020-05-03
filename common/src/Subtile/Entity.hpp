@@ -39,13 +39,7 @@ class EntityBase : protected Event::World::Socket
 		EntityBase* getParent(void) const;
 	};
 
-	static std::stack<Context> m_ctx;
-	template <typename ...ArgsTypes>
-	static void pushCtx(ArgsTypes &&...args)
-	{
-		m_ctx.emplace(std::forward<ArgsTypes>(args)...);
-	}
-	static Context popCtx(void);
+	static thread_local util::stack<Context> m_ctx;
 
 public:
 	EntityBase(const Context &ctx);
@@ -57,8 +51,9 @@ protected:
 	template <typename EntityType, class ...Args>
 	EntityType& add(Args &&...args)
 	{
-		pushCtx(&world, this);
-		return m_children.emplace<EntityType>(std::forward<Args>(args)...);
+		return m_ctx.emplace_frame(std::function([&]() -> auto& {
+			return m_children.emplace<EntityType>(std::forward<Args>(args)...);
+		}), &world, this);
 	}
 
 	void destroy(void);

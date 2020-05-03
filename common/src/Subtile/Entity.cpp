@@ -15,10 +15,12 @@ EntityBase::~EntityBase(void)
 
 void EntityBase::destroy(void)
 {
-	/*if (m_parent == nullptr)
-		m_world.resetRoot();
-	else
-		getParent().destroyChild(*this);*/
+	auto &p = getParent();
+	auto got = p.m_children.find(*this);
+
+	if (got == p.m_children.end())
+		throw std::runtime_error("Can't find children to destroy");
+	p.m_children.erase(got);
 }
 
 EntityBase& EntityBase::getParent(void)
@@ -29,21 +31,10 @@ EntityBase& EntityBase::getParent(void)
 		throw std::runtime_error("No parent associated with this entity");
 }
 
-std::stack<EntityBase::Context> EntityBase::m_ctx;
-
-EntityBase::Context EntityBase::popCtx(void)
-{
-	if (m_ctx.size() == 0)
-		throw std::runtime_error("No context for entity creation");
-
-	EntityBase::Context res = std::move(m_ctx.top());
-
-	m_ctx.pop();
-	return res;
-}
+thread_local util::stack<EntityBase::Context> EntityBase::m_ctx;
 
 Entity::Entity(void) :
-	EntityBase(popCtx())
+	EntityBase(m_ctx.top())
 {
 }
 Entity::~Entity(void)

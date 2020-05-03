@@ -6,8 +6,6 @@
 
 namespace Subtile {
 
-class Entity;
-
 namespace Event {
 
 class Socket
@@ -29,7 +27,6 @@ public:
 	}
 
 private:
-	friend Entity;
 	Binding::Dependency::Socket m_dependencies;
 };
 

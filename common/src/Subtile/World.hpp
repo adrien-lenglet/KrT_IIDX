@@ -30,9 +30,7 @@ public:
 private:
 	friend Instance;
 
-	static std::stack<std::reference_wrapper<Subtile::Event::System::Observer>> m_systems;
-	static void pushEngine(Subtile::Event::System::Observer &system);
-	static Subtile::Event::System::Observer& popEngine(void);
+	static thread_local util::stack<std::reference_wrapper<Subtile::Event::System::Observer>> m_systems;
 };
 
 }

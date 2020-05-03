@@ -82,11 +82,11 @@ Observer::Input::Button::Pressed::Pressed(Input &input) :
 	Group<Pressed, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<>>(
 	[this](const std::string &inputName){
 		return util::ref_wrapper(dynamic_cast<Subtile::Input::Button&>(*m_input.m_inputs.at(inputName)));
-	}, [](const util::ref_wrapper<Subtile::Input::Button> &input) {
+	}, [](const util::ref_wrapper<Subtile::Input::Button> &input) -> std::optional<std::tuple<>> {
 		if (input.get().isPressed())
-			return std::optional(std::make_tuple());
+			return std::make_tuple();
 		else
-			return std::optional<std::tuple<>>();
+			return std::nullopt;
 	}, [this](void) -> auto& {
 		return m_input.m_input_update;
 	}),
@@ -102,11 +102,11 @@ Observer::Input::Button::Released::Released(Input &input) :
 	Group<Released, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<>>(
 	[this](const std::string &inputName){
 		return util::ref_wrapper(dynamic_cast<Subtile::Input::Button&>(*m_input.m_inputs.at(inputName)));
-	}, [](const util::ref_wrapper<Subtile::Input::Button> &input) {
+	}, [](const util::ref_wrapper<Subtile::Input::Button> &input) -> std::optional<std::tuple<>> {
 		if (input.get().isReleased())
-			return std::optional(std::make_tuple());
+			return std::make_tuple();
 		else
-			return std::optional<std::tuple<>>();
+			return std::nullopt;
 	}, [this](void) -> auto& {
 		return m_input.m_input_update;
 	}),

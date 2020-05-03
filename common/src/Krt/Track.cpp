@@ -30,6 +30,10 @@ Track::Track(void) :
 	std::cout << "Size of collection: " << sizeof(socket) << std::endl;
 	for (auto &i : socket)
 		std::cout << "Entry: " << i << std::endl;*/
+
+	/*util::stack<int> stack;
+
+	std::cout << stack.top() << std::endl;*/
 }
 
 Track::~Track(void)

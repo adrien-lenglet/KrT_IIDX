@@ -21,9 +21,11 @@ public:
 	template <typename WorldType, typename ...ArgsTypes>
 	std::unique_ptr<WorldType> add(ArgsTypes &&...args)
 	{
-		EntityBase::pushCtx(nullptr, nullptr);
-		World::pushEngine(m_events);
-		return std::make_unique<WorldType>(std::forward<ArgsTypes>(args)...);
+		return World::m_systems.emplace_frame(std::function([&](){
+			return EntityBase::m_ctx.emplace_frame(std::function([&](){
+				return std::make_unique<WorldType>(std::forward<ArgsTypes>(args)...);
+			}), nullptr, nullptr);
+		}), m_events);
 	}
 	void run(void);
 

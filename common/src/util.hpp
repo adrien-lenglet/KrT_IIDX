@@ -4,6 +4,7 @@
 #include <memory>
 #include <algorithm>
 #include <functional>
+#include <stack>
 
 namespace util {
 
@@ -321,6 +322,54 @@ public:
 
 private:
 	Map m_map;
+};
+
+template <typename T>
+class stack : public std::stack<T>
+{
+	using Inherited = std::stack<T>;
+
+public:
+	using container_type = typename Inherited::container_type;
+	using value_type = typename Inherited::value_type;
+	using size_type = typename Inherited::size_type;
+	using reference = typename Inherited::reference;
+	using const_reference = typename Inherited::const_reference;
+
+	stack(void)
+	{
+	}
+	~stack(void)
+	{
+	}
+
+	reference top(void)
+	{
+		ensure_not_empty();
+		return std::stack<T>::top();
+	}
+
+	const_reference top(void) const
+	{
+		ensure_not_empty();
+		return std::stack<T>::top();
+	}
+
+	template <typename Ret, typename ...Args>
+	Ret emplace_frame(const std::function<Ret (void)> &callback, Args &&...args)
+	{
+		this->emplace(std::forward<Args>(args)...);
+		Ret res = callback();
+		this->pop();
+		return res;
+	}
+
+private:
+	void ensure_not_empty(void)
+	{
+		if (this->size() == 0)
+			throw std::runtime_error("Runtime assertion failed: No element in stack");
+	}
 };
 
 }
