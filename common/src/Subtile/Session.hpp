@@ -77,33 +77,10 @@ public:
 	}
 
 	template <class FinalLayoutType>
-	class Layout : public Screen::Layout
-	{
-	public:
-		Layout(void)
-		{
-		}
-		~Layout(void) override
-		{
-		}
-
-		using Class = Screen::Section::Top<FinalLayoutType>;
-	};
+	using Layout = typename Screen::Section::UserDerive<Screen::Layout>::Gen<FinalLayoutType>;
 
 	template <class FinalSubsectionType>
-	class Subsection : public Screen::Subsection
-	{
-	public:
-		Subsection(Camera &camera) :
-			Screen::Subsection(camera)
-		{
-		}
-		~Subsection(void) override
-		{
-		}
-
-		using Class = Screen::Section::Top<FinalSubsectionType>;
-	};
+	using Subsection = typename Screen::Section::UserDerive<Screen::Subsection>::Gen<FinalSubsectionType>;
 };
 
 }

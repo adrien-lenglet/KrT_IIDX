@@ -19,7 +19,6 @@ class Section
 		~TopBase(void);
 	};
 
-public:
 	template <typename SectionDerived>
 	class Top : public SectionDerived, public TopBase
 	{
@@ -37,6 +36,28 @@ public:
 		void _section_security(void) override
 		{
 		}
+	};
+
+public:
+	template <typename ToUserDerive>
+	class UserDerive
+	{
+	public:
+		template <class FinalType>
+		class Gen : public ToUserDerive
+		{
+		public:
+			template <typename ...Args>
+			Gen(Args &&...args) :
+				ToUserDerive(std::forward<Args>(args)...)
+			{
+			}
+			~Gen(void) override
+			{
+			}
+
+			using Class = Top<FinalType>;
+		};
 	};
 
 	Section(void);
