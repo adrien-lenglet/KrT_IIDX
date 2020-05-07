@@ -1,6 +1,7 @@
 #include "Krt.hpp"
 #include "Krt/EntityTest.hpp"
 #include "Krt/Track.hpp"
+#include "Krt/Race.hpp"
 #include "util.hpp"
 
 #include <iostream>
@@ -23,8 +24,7 @@ void Instance::run(void)
 		s.addButton("quit");
 	});
 
-	auto world = subtile.add<Track>();
-	subtile.run();
+	subtile.createSession<Race>()->run();
 }
 
 Instance::Config::Config(std::vector<std::string> args)

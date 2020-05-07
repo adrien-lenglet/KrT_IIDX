@@ -6,6 +6,7 @@
 namespace Subtile {
 
 class World;
+class SessionBase;
 
 class WorldBase : public Entity
 {
@@ -28,11 +29,9 @@ public:
 	~World(void) = 0;
 
 private:
-	friend Instance;
+	friend SessionBase;
 
 	static thread_local util::stack<std::reference_wrapper<Subtile::Event::System::Observer>> m_systems;
 };
 
 }
-
-#include "Instance.hpp"

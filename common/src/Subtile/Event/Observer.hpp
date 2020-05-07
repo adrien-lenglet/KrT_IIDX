@@ -11,8 +11,6 @@
 
 namespace Subtile {
 
-class Instance;
-
 namespace Event {
 
 class Observer
@@ -24,8 +22,7 @@ public:
 
 	virtual ~Observer(void) = default;
 
-private:
-	friend Instance;
+protected:
 	virtual void update(void) = 0;
 };
 
@@ -72,13 +69,13 @@ public:
 
 protected:
 	void add(Observer &observer);
+	void update(void) override;
 
 private:
 	std::vector<std::reference_wrapper<Observer>> m_observers;
 
 	template <typename... GroupingType>
 	friend class Group;
-	void update(void) override;
 };
 
 class Observer::Cluster::Optimized : public Observer

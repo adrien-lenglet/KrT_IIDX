@@ -9,6 +9,8 @@
 
 namespace Subtile {
 
+class Instance;
+class SessionBase;
 class EntityBase;
 
 namespace Event {
@@ -103,7 +105,7 @@ public:
 	private:
 		friend Analog;
 		friend Button;
-		friend Subtile::Instance;
+		friend Instance;
 
 		std::map<std::string, std::unique_ptr<IInput>> m_inputs;
 		std::map<std::string, std::string> m_bindings;
@@ -151,6 +153,11 @@ public:
 			bool m_quit;
 		} quit;
 	} system;
+
+private:
+	friend SessionBase;
+
+	void updateEvents(void);
 };
 
 }

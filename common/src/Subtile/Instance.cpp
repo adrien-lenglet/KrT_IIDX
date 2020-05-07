@@ -15,26 +15,6 @@ Instance::~Instance(void)
 {
 }
 
-void Instance::run(void)
-{
-	/*auto &close_button = dynamic_cast<const System::Input::IButton&>(m_system->getInputs().at("close_window"));
-	auto &keyboard = dynamic_cast<const System::Input::IKeyboard&>(m_system->getInputs().at("keyboard"));*/
-
-	//std::cout << sizeof(Event::Socket) << std::endl;
-	//std::cout << sizeof(Event::World::Socket) << std::endl;
-	//std::cout << sizeof(Event::World::Socket::Input) << std::endl;
-	//std::cout << sizeof(Event::World::Socket::Input::Data) << std::endl;
-	while (!m_events.system.quit) {
-		m_system->scanInputs();
-		static_cast<Event::Observer&>(m_events).update();
-		/*for (const auto &k : keyboard.poll())
-			std::cout << static_cast<char>(k) << std::endl;*/
-		/*if (close_button.isPressed())
-			break;*/
-		m_system->render();
-	}
-}
-
 void Instance::setInputs(const std::function<void (const Event::System::Observer::Input::Setter &setter)> &binder)
 {
 	return m_events.input.set(binder);

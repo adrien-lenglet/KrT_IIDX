@@ -7,6 +7,7 @@ EntityBase::EntityBase(const EntityBase::Context &ctx) :
 	world(ctx.getWorld(*this)),
 	m_parent(ctx.getParent())
 {
+	m_stack.emplace(*this);
 }
 
 EntityBase::~EntityBase(void)
@@ -32,6 +33,7 @@ EntityBase& EntityBase::getParent(void)
 }
 
 thread_local util::stack<EntityBase::Context> EntityBase::m_ctx;
+thread_local std::stack<std::reference_wrapper<EntityBase>> EntityBase::m_stack;
 
 Entity::Entity(void) :
 	EntityBase(m_ctx.top())

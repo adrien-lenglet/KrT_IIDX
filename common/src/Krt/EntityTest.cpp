@@ -5,8 +5,6 @@
 namespace Krt {
 
 EntityTest::EntityTest(void) :
-	just_died(*this),
-	got_score(*this),
 	entity1(add<EntityTest2>()),
 	entity2(add<EntityTest2>())
 {

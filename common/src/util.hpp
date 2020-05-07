@@ -372,4 +372,24 @@ private:
 	}
 };
 
+template <class DerType, class BaseType, typename ...Args>
+std::unique_ptr<BaseType> make_derived(Args &&...args)
+{
+	auto res = new DerType(std::forward<Args>(args)...);
+
+	return std::unique_ptr<BaseType>(static_cast<BaseType*>(res));
+}
+
+template <typename T>
+struct reversion_wrapper { T& iterable; };
+
+template <typename T>
+auto begin(reversion_wrapper<T> w) { return std::rbegin(w.iterable); }
+
+template <typename T>
+auto end(reversion_wrapper<T> w) { return std::rend(w.iterable); }
+
+template <typename T>
+reversion_wrapper<T> reverse(T&& iterable) { return { iterable }; }
+
 }

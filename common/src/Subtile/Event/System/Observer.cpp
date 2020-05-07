@@ -160,6 +160,11 @@ Observer::System::Quit::operator bool(void) const
 	return m_quit;
 }
 
+void Observer::updateEvents(void)
+{
+	Event::Observer::Cluster::update();
+}
+
 }
 }
 }

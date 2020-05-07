@@ -11,6 +11,8 @@ public:
 	Track(void);
 	~Track(void) override;
 
+	Subtile::Entity::Event<> done;
+
 private:
 	EntityTest &entity;
 };

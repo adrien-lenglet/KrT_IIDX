@@ -7,15 +7,15 @@
 
 namespace Subtile {
 
+class SessionBase;
 class World;
 class WorldBase;
 class Entity;
-class Instance;
 
 class EntityBase : protected Event::World::Socket
 {
 	friend Entity;
-	friend Instance;
+	friend SessionBase;
 	class Context
 	{
 	public:
@@ -51,14 +51,18 @@ protected:
 	template <typename EntityType, class ...Args>
 	EntityType& add(Args &&...args)
 	{
-		return m_ctx.emplace_frame(std::function([&]() -> auto& {
+		auto &res = m_ctx.emplace_frame(std::function([&]() -> auto& {
 			return m_children.emplace<EntityType>(std::forward<Args>(args)...);
 		}), &world, this);
+		m_stack.pop();
+		return res;
 	}
 
 	void destroy(void);
 
 private:
+	static thread_local std::stack<std::reference_wrapper<EntityBase>> m_stack;
+
 	EntityBase *m_parent;
 	util::unique_set<EntityBase> m_children;
 
@@ -75,8 +79,8 @@ public:
 	class Event : public Subtile::Event::DescGen<Event<PayloadTypes...>>
 	{
 	public:
-		Event(const Subtile::Event::Socket &owner) :
-			m_owner(owner)
+		Event(void) :
+			m_owner(EntityBase::m_stack.top())
 		{
 		}
 		~Event(void)

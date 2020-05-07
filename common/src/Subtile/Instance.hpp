@@ -5,6 +5,7 @@
 #include "IInput.hpp"
 #include "Event/System/Observer.hpp"
 #include "World.hpp"
+#include "Session.hpp"
 
 namespace Subtile {
 
@@ -18,16 +19,13 @@ public:
 
 	void setInputs(const std::function<void (const Event::System::Observer::Input::Setter &setter)> &binder);
 
-	template <typename WorldType, typename ...ArgsTypes>
-	std::unique_ptr<WorldType> add(ArgsTypes &&...args)
+	template <typename SessionType, typename ...ArgsTypes>
+	std::unique_ptr<SessionType> createSession(ArgsTypes &&...args)
 	{
-		return World::m_systems.emplace_frame(std::function([&](){
-			return EntityBase::m_ctx.emplace_frame(std::function([&](){
-				return std::make_unique<WorldType>(std::forward<ArgsTypes>(args)...);
-			}), nullptr, nullptr);
-		}), m_events);
+		return SessionBase::m_ctx.emplace_frame(std::function([&](){
+			return std::make_unique<SessionType>(std::forward<ArgsTypes>(args)...);
+		}), SessionBase::Ctx(*m_system, m_events));
 	}
-	void run(void);
 
 private:
 	friend WorldBase;
@@ -39,5 +37,3 @@ private:
 };
 
 }
-
-#include "World.hpp"

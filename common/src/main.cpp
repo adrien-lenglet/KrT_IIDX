@@ -1,4 +1,4 @@
-
+#include <iostream>
 #include "Krt/Krt.hpp"
 
 static std::vector<std::string> getArgs(int argc, char **argv)
@@ -13,5 +13,6 @@ static std::vector<std::string> getArgs(int argc, char **argv)
 int main(int argc, char **argv)
 {
 	Krt::Instance(getArgs(argc, argv)).run();
+	std::cout << "Engine done." << std::endl;
 	return 0;
 }
