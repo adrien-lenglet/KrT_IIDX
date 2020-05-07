@@ -5,7 +5,7 @@ namespace Krt {
 
 class Race;
 
-/*class PlayerScreen : public Subtile::Screen::Subsection
+/*class PlayerScreen : public sb::Screen::Subsection
 {
 public:
 	PlayerScreen(size_t pNum) :
@@ -18,7 +18,7 @@ private:
 	size_t m_p_num;
 };
 
-class Ui : public Subtile::Screen::Subsection
+class Ui : public sb::Screen::Subsection
 {
 public:
 	Ui(void) :
@@ -33,13 +33,13 @@ private:
 	PlayerScreen p2;
 };*/
 
-class Race : public Subtile::Session<Race>
+class Race : public sb::Session<Race>
 {
 public:
 	Race(void) :
 		m_unique_track(createWorld<Track>()),
 		m_track(*m_unique_track),
-		m_layout(createLayout<Screen::Class>())
+		m_layout(createLayout<Screen>())
 	{
 		bind(m_track.done, [this](){
 			done();
@@ -49,35 +49,37 @@ public:
 	{
 	}
 
-	Subtile::Screen::Layout& getScreenLayout(void) override
+	sb::Screen::Layout& getScreenLayout(void) override
 	{
 		return *m_layout;
 	}
 
-	class Screen : public Layout<Screen>
+	class Screen : public Layout
 	{
 	public:
 		Screen(void) = default;
 		~Screen(void) override = default;
 
 	private:
-		class Fx : public Subsection<Fx>
+		class Fx : public Subsection
 		{
 		public:
 			Fx(void) :
-				Subsection<Fx>(*(Subtile::Camera*)nullptr)
+				Subsection([](auto &r) -> auto& { return *r.camera; })
 			{
 			}
 			~Fx(void) override = default;
 		};
 
-		Fx::Class fx;
+		Class<Fx> fx;
 	};
+
+	sb::Camera *camera;
 
 private:
 	std::unique_ptr<Track> m_unique_track;
 	Track &m_track;
-	std::unique_ptr<Subtile::Screen::Layout> m_layout;
+	std::unique_ptr<sb::Screen::Layout> m_layout;
 };
 
 }

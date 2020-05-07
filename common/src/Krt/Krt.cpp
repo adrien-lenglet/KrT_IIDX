@@ -24,7 +24,8 @@ void Instance::run(void)
 		s.addButton("quit");
 	});
 
-	subtile.createSession<Race>()->run();
+	auto race = subtile.createSession<Race>();
+	race->run();
 }
 
 Instance::Config::Config(std::vector<std::string> args)

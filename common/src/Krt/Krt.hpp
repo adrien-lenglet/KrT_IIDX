@@ -31,7 +31,7 @@ public:
 
 private:
 	Config config;
-	Subtile::Instance subtile;
+	sb::Instance subtile;
 };
 
 }

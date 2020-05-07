@@ -115,4 +115,6 @@ private:
 
 }
 
+namespace sb = ::Subtile;
+
 #include "World.hpp"

@@ -5,13 +5,13 @@
 
 namespace Krt {
 
-class Track : public Subtile::World
+class Track : public sb::World
 {
 public:
 	Track(void);
 	~Track(void) override;
 
-	Subtile::Entity::Event<> done;
+	Event<> done;
 
 private:
 	EntityTest &entity;

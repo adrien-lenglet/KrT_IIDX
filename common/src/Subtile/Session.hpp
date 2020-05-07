@@ -36,6 +36,9 @@ protected:
 	virtual Screen::Layout& getScreenLayout(void) = 0;
 	void done(void);
 
+	template <class T>
+	using Class = typename T::template Impl<T>;
+
 	template <typename WorldType, typename ...ArgsTypes>
 	std::unique_ptr<WorldType> createWorld(ArgsTypes &&...args)
 	{
@@ -49,13 +52,14 @@ protected:
 	template <class LayoutType, typename ...Args>
 	std::unique_ptr<Screen::Layout> createLayout(Args &&...args)
 	{
-		return util::make_derived<LayoutType, Screen::Layout>(std::forward<Args>(args)...);
+		return util::make_derived<Class<LayoutType>, Screen::Layout>(std::forward<Args>(args)...);
 	}
 
 private:
 	friend Instance;
 
 	static thread_local util::stack<Ctx> m_ctx;
+	static thread_local util::stack<std::reference_wrapper<SessionBase>> m_stack;
 
 	ISystem &m_system;
 	Event::System::Observer &m_events;
@@ -71,16 +75,29 @@ public:
 	Session(void) :
 		SessionBase(m_ctx.top())
 	{
+		m_stack.emplace(*this);
 	}
 	~Session(void) override
 	{
 	}
 
-	template <class FinalLayoutType>
-	using Layout = typename Screen::Section::UserDerive<Screen::Layout>::Gen<FinalLayoutType>;
+	using Layout = Screen::Section::UserDerive<Screen::Layout>;
 
-	template <class FinalSubsectionType>
-	using Subsection = typename Screen::Section::UserDerive<Screen::Subsection>::Gen<FinalSubsectionType>;
+	class Subsection : public Screen::Section::UserDerive<Screen::Subsection>
+	{
+	public:
+		Subsection(Camera &camera) :
+			Screen::Section::UserDerive<Screen::Subsection>(camera)
+		{
+		}
+		Subsection(const std::function<Camera& (FinalType&)> &resolver) :
+			Screen::Section::UserDerive<Screen::Subsection>(resolver(reinterpret_cast<FinalType&>(m_stack.top().get())))
+		{
+		}
+		~Subsection(void)
+		{
+		}
+	};
 };
 
 }

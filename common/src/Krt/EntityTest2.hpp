@@ -4,7 +4,7 @@
 
 namespace Krt {
 
-class EntityTest2 : public Subtile::Entity
+class EntityTest2 : public sb::Entity
 {
 public:
 	EntityTest2(void);

@@ -39,25 +39,21 @@ class Section
 	};
 
 public:
-	template <typename ToUserDerive>
-	class UserDerive
+	template <class ToDerive>
+	class UserDerive : public ToDerive
 	{
 	public:
-		template <class FinalType>
-		class Gen : public ToUserDerive
+		template <typename ...Args>
+		UserDerive(Args &&...args) :
+			ToDerive(std::forward<Args>(args)...)
 		{
-		public:
-			template <typename ...Args>
-			Gen(Args &&...args) :
-				ToUserDerive(std::forward<Args>(args)...)
-			{
-			}
-			~Gen(void) override
-			{
-			}
+		}
+		~UserDerive(void)
+		{
+		}
 
-			using Class = Top<FinalType>;
-		};
+		template <class Final>
+		using Impl = Top<Final>;
 	};
 
 	Section(void);

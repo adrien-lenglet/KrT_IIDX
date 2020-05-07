@@ -5,14 +5,14 @@
 
 namespace Krt {
 
-class EntityTest : public Subtile::Entity
+class EntityTest : public sb::Entity
 {
 public:
 	EntityTest(void);
 	~EntityTest(void) override;
 
-	Subtile::Entity::Event<double> just_died;
-	Subtile::Entity::Event<size_t> got_score;
+	Event<double> just_died;
+	Event<size_t> got_score;
 
 private:
 	EntityTest2 &entity1;
