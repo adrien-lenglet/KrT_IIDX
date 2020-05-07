@@ -14,9 +14,16 @@ public:
 	Socket(void);
 	~Socket(void);
 
-	template <typename ReqType, typename ...Args>
-	void bind(const ReqType &req, Args &&...args)
+	template <typename ...ReqTypes, typename ...Args>
+	void bind(const Descriptor<ReqTypes...> &req, Args &&...args)
 	{
+		req.observer.bind(m_dependencies, req.args, std::forward<Args>(args)...);
+	}
+
+	template <typename ObserverType, typename ...Args>
+	void bind(DescGen<ObserverType> &reqGen, Args &&...args)
+	{
+		auto req = reqGen();
 		req.observer.bind(m_dependencies, req.args, std::forward<Args>(args)...);
 	}
 

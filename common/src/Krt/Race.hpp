@@ -41,7 +41,7 @@ public:
 		m_track(*m_unique_track),
 		m_layout(createLayout<Screen::Class>())
 	{
-		bind(m_track.done(), [this](){
+		bind(m_track.done, [this](){
 			done();
 		});
 	}

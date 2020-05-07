@@ -20,7 +20,6 @@ EntityTest::EntityTest(void) :
 	bind(world.events.system.input.button.released("quit"), [this](){
 		std::cout << "quit released" << std::endl;
 		trigger(got_score, 7.92);
-		world.events.system.system.quit();
 	});
 }
 

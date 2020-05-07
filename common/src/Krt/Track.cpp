@@ -11,11 +11,11 @@ namespace Krt {
 Track::Track(void) :
 	entity(add<EntityTest>())
 {
-	bind(entity.just_died(), [](const double &val){
+	bind(entity.just_died, [](const double &val){
 		std::cout << "Just died event: " << val << std::endl;
 	});
 
-	bind(entity.got_score(), [this](const size_t &score){
+	bind(entity.got_score, [this](const size_t &score){
 		std::cout << "Got score event: " << score << std::endl;
 		trigger(done);
 	});
