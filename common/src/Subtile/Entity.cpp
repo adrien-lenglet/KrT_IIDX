@@ -7,7 +7,7 @@ Entity::Entity(void) :
 	world(m_ctx.top().getWorld(*this)),
 	m_parent(m_ctx.top().getParent())
 {
-	m_stack.emplace(*this);
+	m_entity_stack.emplace(*this);
 }
 
 Entity::~Entity(void)
@@ -33,6 +33,6 @@ Entity& Entity::getParent(void)
 }
 
 thread_local util::stack<Entity::Context> Entity::m_ctx;
-thread_local util::stack<std::reference_wrapper<Entity>> Entity::m_stack;
+thread_local util::stack<std::reference_wrapper<Entity>> Entity::m_entity_stack;
 
 }

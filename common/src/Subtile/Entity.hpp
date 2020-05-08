@@ -7,11 +7,13 @@
 
 namespace Subtile {
 
+class Instance;
 class SessionBase;
 class World;
 
 class Entity : protected Event::World::Socket
 {
+	friend Instance;
 	friend SessionBase;
 
 	class Context
@@ -52,7 +54,7 @@ protected:
 		auto &res = m_ctx.emplace_frame(std::function([&]() -> auto& {
 			return m_children.emplace<EntityType>(std::forward<Args>(args)...);
 		}), &world, this);
-		m_stack.pop();
+		m_entity_stack.pop();
 		return res;
 	}
 
@@ -63,7 +65,7 @@ protected:
 	{
 	public:
 		Event(void) :
-			m_owner(Entity::m_stack.top())
+			m_owner(m_entity_stack.top())
 		{
 		}
 		~Event(void)
@@ -94,7 +96,7 @@ protected:
 private:
 	friend World;
 
-	static thread_local util::stack<std::reference_wrapper<Entity>> m_stack;
+	static thread_local util::stack<std::reference_wrapper<Entity>> m_entity_stack;
 
 	Entity *m_parent;
 	util::unique_set<Entity> m_children;
