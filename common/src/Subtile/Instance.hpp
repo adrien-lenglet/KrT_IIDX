@@ -9,8 +9,6 @@
 
 namespace Subtile {
 
-class WorldBase;
-
 class Instance
 {
 public:
@@ -30,8 +28,6 @@ public:
 	}
 
 private:
-	friend WorldBase;
-
 	std::unique_ptr<ISystem> m_system;
 	Event::System::Observer m_events;
 

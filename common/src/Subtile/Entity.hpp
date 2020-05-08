@@ -9,11 +9,11 @@ namespace Subtile {
 
 class SessionBase;
 class World;
-class WorldBase;
 
 class Entity : protected Event::World::Socket
 {
 	friend SessionBase;
+
 	class Context
 	{
 	public:
@@ -92,9 +92,9 @@ protected:
 	};
 
 private:
-	friend WorldBase;
+	friend World;
 
-	static thread_local std::stack<std::reference_wrapper<Entity>> m_stack;
+	static thread_local util::stack<std::reference_wrapper<Entity>> m_stack;
 
 	Entity *m_parent;
 	util::unique_set<Entity> m_children;

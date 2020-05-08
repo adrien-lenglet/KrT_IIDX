@@ -33,6 +33,6 @@ Entity& Entity::getParent(void)
 }
 
 thread_local util::stack<Entity::Context> Entity::m_ctx;
-thread_local std::stack<std::reference_wrapper<Entity>> Entity::m_stack;
+thread_local util::stack<std::reference_wrapper<Entity>> Entity::m_stack;
 
 }

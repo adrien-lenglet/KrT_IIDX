@@ -5,31 +5,19 @@
 
 namespace Subtile {
 
-class World;
 class SessionBase;
 
-class WorldBase : public Entity
-{
-public:
-	WorldBase(Subtile::Event::System::Observer &engine);
-	~WorldBase(void) = 0;
-
-	Subtile::Event::World::Observer events;
-
-private:
-	friend World;
-	friend Entity;
-	friend Entity;
-};
-
-class World : public WorldBase
+class World : public Entity
 {
 public:
 	World(void);
 	~World(void) = 0;
 
+	Subtile::Event::World::Observer events;
+
 private:
 	friend SessionBase;
+	friend Entity;
 
 	static thread_local util::stack<std::reference_wrapper<Subtile::Event::System::Observer>> m_systems;
 };
