@@ -2,11 +2,16 @@
 
 #include <vector>
 #include <memory>
-#include "Observer.hpp"
+#include "../Binding.hpp"
 
 namespace Subtile {
 
 namespace Event {
+
+template <typename ObserverType, typename ...ArgsType>
+struct Descriptor;
+template <typename ObserverType>
+class DescGen;
 
 class Socket
 {
@@ -39,3 +44,5 @@ private:
 
 }
 }
+
+#include "Observer.hpp"

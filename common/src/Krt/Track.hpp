@@ -2,6 +2,7 @@
 
 #include "Subtile/World.hpp"
 #include "EntityTest.hpp"
+#include "Subtile/Camera.hpp"
 
 namespace Krt {
 
@@ -12,6 +13,7 @@ public:
 	~Track(void) override;
 
 	Event<> done;
+	sb::Camera &camera;
 
 private:
 	EntityTest &entity;

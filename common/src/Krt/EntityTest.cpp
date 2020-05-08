@@ -8,10 +8,6 @@ EntityTest::EntityTest(void) :
 	entity1(add<EntityTest2>()),
 	entity2(add<EntityTest2>())
 {
-	/*listen(events.input.button("quit"), [this](auto value){
-		std::cout << value << std::endl;
-	});*/
-
 	bind(world.events.system.input.button.pressed("quit"), [this](){
 		std::cout << "quit pressed" << std::endl;
 		trigger(just_died, 14.2);

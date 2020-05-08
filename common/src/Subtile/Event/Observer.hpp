@@ -6,7 +6,7 @@
 #include <functional>
 #include <optional>
 #include <type_traits>
-#include "../Binding.hpp"
+#include "Socket.hpp"
 #include "util.hpp"
 
 namespace Subtile {
@@ -141,9 +141,9 @@ protected:
 
 				if (got == m_listeners.end())
 					throw std::runtime_error("Can't destroy event");
-				m_listeners.erase(got);
 				if (m_cluster_cb)
 					m_cluster_cb().remove(std::get<StoreTypes>(req)...);
+				m_listeners.erase(got);
 			});
 			if (!success)
 				throw std::runtime_error("Can't bind request");

@@ -59,7 +59,7 @@ private:
 	friend Instance;
 
 	static thread_local util::stack<Ctx> m_ctx;
-	static thread_local util::stack<std::reference_wrapper<SessionBase>> m_stack;
+	static thread_local util::stack<std::reference_wrapper<SessionBase>> m_session_stack;
 
 	ISystem &m_system;
 	Event::System::Observer &m_events;
@@ -75,7 +75,7 @@ public:
 	Session(void) :
 		SessionBase(m_ctx.top())
 	{
-		m_stack.emplace(*this);
+		m_session_stack.emplace(*this);
 	}
 	~Session(void) override
 	{
@@ -91,7 +91,7 @@ public:
 		{
 		}
 		Subsection(const std::function<Camera& (FinalType&)> &resolver) :
-			Screen::Section::UserDerive<Screen::Subsection>(resolver(reinterpret_cast<FinalType&>(m_stack.top().get())))
+			Screen::Section::UserDerive<Screen::Subsection>(resolver(static_cast<FinalType&>(m_session_stack.top().get())))
 		{
 		}
 		~Subsection(void)

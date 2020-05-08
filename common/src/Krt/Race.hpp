@@ -39,6 +39,7 @@ public:
 	Race(void) :
 		m_unique_track(createWorld<Track>()),
 		m_track(*m_unique_track),
+		camera(m_track.camera),
 		m_layout(createLayout<Screen>())
 	{
 		bind(m_track.done, [this](){
@@ -65,7 +66,7 @@ public:
 		{
 		public:
 			Fx(void) :
-				Subsection([](auto &r) -> auto& { return *r.camera; })
+				Subsection([](auto &r) -> auto& { return r.camera; })
 			{
 			}
 			~Fx(void) override = default;
@@ -74,11 +75,13 @@ public:
 		Class<Fx> fx;
 	};
 
-	sb::Camera *camera;
-
 private:
 	std::unique_ptr<Track> m_unique_track;
 	Track &m_track;
+public:
+	sb::Camera &camera;
+
+private:
 	std::unique_ptr<sb::Screen::Layout> m_layout;
 };
 

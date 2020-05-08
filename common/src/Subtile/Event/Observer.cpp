@@ -22,19 +22,18 @@ void Observer::Cluster::Optimized::update(void)
 
 void Observer::Cluster::Optimized::add(Observer &observer)
 {
-	m_observers[util::ref_wrapper(observer)]++;
+	m_observers[observer]++;
 }
 
 void Observer::Cluster::Optimized::remove(Observer &observer)
 {
-	auto got = m_observers.find(util::ref_wrapper(observer));
+	auto got = m_observers.find(observer);
 
-	if (got != m_observers.end()) {
-		got->second--;
-		if (got->second == 0)
-			m_observers.erase(got);
-	} else
+	if (got == m_observers.end())
 		throw std::runtime_error("No instance of that observer in the cluster");
+	got->second--;
+	if (got->second == 0)
+		m_observers.erase(got);
 }
 
 }

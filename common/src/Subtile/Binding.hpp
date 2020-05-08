@@ -125,6 +125,9 @@ public:
 		Source &m_source;
 	};
 
+	template <typename T, bool emptyCallback = false>
+	class Strong;
+
 private:
 	template <typename Element>
 	class StorageBase
@@ -208,8 +211,8 @@ private:
 	public:
 		using callback_type = std::function<void (void)>;
 
-		StorageEmptyCallback(const callback_type &callback) :
-			m_callback(callback)
+		StorageEmptyCallback(const callback_type &cb) :
+			m_callback(cb)
 		{
 		}
 		~StorageEmptyCallback(void)
@@ -306,9 +309,6 @@ public:
 			socket.add(this->m_elements.emplace(*this, std::forward<Args>(args)...));
 		}
 	};
-
-	template <typename T, bool emptyCallback = false>
-	class Strong;
 
 	template <typename T, bool emptyCallback>
 	class Source::StrongElement : public Source

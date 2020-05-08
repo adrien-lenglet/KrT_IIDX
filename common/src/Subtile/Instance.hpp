@@ -25,7 +25,7 @@ public:
 		auto res = SessionBase::m_ctx.emplace_frame(std::function([&](){
 			return std::make_unique<SessionType>(std::forward<ArgsTypes>(args)...);
 		}), SessionBase::Ctx(*m_system, m_events));
-		SessionBase::m_stack.pop();
+		SessionBase::m_session_stack.pop();
 		return res;
 	}
 

@@ -29,6 +29,6 @@ void SessionBase::done(void)
 }
 
 thread_local util::stack<SessionBase::Ctx> SessionBase::m_ctx;
-thread_local util::stack<std::reference_wrapper<SessionBase>> SessionBase::m_stack;
+thread_local util::stack<std::reference_wrapper<SessionBase>> SessionBase::m_session_stack;
 
 }
