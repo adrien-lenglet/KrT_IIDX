@@ -24,7 +24,6 @@ public:
 			return std::make_unique<SessionType>(std::forward<ArgsTypes>(args)...);
 		}), SessionBase::Ctx(*m_system, m_events));
 		SessionBase::m_session_stack.pop();
-		Entity::m_entity_stack.pop();
 		return res;
 	}
 

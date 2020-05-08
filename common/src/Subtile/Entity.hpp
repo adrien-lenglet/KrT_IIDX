@@ -7,13 +7,11 @@
 
 namespace Subtile {
 
-class Instance;
 class SessionBase;
 class World;
 
 class Entity : protected Event::World::Socket
 {
-	friend Instance;
 	friend SessionBase;
 
 	class Context
