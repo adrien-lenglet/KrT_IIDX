@@ -10,23 +10,21 @@ namespace Subtile {
 class SessionBase;
 class World;
 class WorldBase;
-class Entity;
 
-class EntityBase : protected Event::World::Socket
+class Entity : protected Event::World::Socket
 {
-	friend Entity;
 	friend SessionBase;
 	class Context
 	{
 	public:
-		Context(World *world, EntityBase *parent);
+		Context(World *world, Entity *parent);
 		~Context(void) = default;
 
 	private:
 		friend Entity;
-		friend EntityBase;
+		friend Entity;
 		World *m_world;
-		EntityBase *m_parent;
+		Entity *m_parent;
 
 		template <typename EntType>
 		World& getWorld(EntType &ent) const
@@ -36,14 +34,14 @@ class EntityBase : protected Event::World::Socket
 			else
 				return static_cast<World&>(ent);
 		}
-		EntityBase* getParent(void) const;
+		Entity* getParent(void) const;
 	};
 
 	static thread_local util::stack<Context> m_ctx;
 
 public:
-	EntityBase(const Context &ctx);
-	virtual ~EntityBase(void) = 0;
+	Entity(void);
+	virtual ~Entity(void) = 0;
 
 protected:
 	World &world;
@@ -60,27 +58,12 @@ protected:
 
 	void destroy(void);
 
-private:
-	static thread_local std::stack<std::reference_wrapper<EntityBase>> m_stack;
-
-	EntityBase *m_parent;
-	util::unique_set<EntityBase> m_children;
-
-	EntityBase& getParent(void);
-};
-
-class Entity : public EntityBase
-{
-public:
-	Entity(void);
-	~Entity(void) = 0;
-
 	template <typename ...PayloadTypes>
 	class Event : public Subtile::Event::DescGen<Event<PayloadTypes...>>
 	{
 	public:
 		Event(void) :
-			m_owner(EntityBase::m_stack.top())
+			m_owner(Entity::m_stack.top())
 		{
 		}
 		~Event(void)
@@ -110,7 +93,13 @@ public:
 
 private:
 	friend WorldBase;
-	friend EntityBase;
+
+	static thread_local std::stack<std::reference_wrapper<Entity>> m_stack;
+
+	Entity *m_parent;
+	util::unique_set<Entity> m_children;
+
+	Entity& getParent(void);
 };
 
 }

@@ -43,7 +43,7 @@ protected:
 	WorldType& addWorld(ArgsTypes &&...args)
 	{
 		return World::m_systems.emplace_frame(std::function([&]() -> auto& {
-			return EntityBase::m_ctx.emplace_frame(std::function([&]() -> auto& {
+			return Entity::m_ctx.emplace_frame(std::function([&]() -> auto& {
 				return m_worlds.emplace<WorldType>(std::forward<ArgsTypes>(args)...);
 			}), nullptr, nullptr);
 		}), m_events);

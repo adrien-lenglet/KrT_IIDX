@@ -19,7 +19,7 @@ public:
 private:
 	friend World;
 	friend Entity;
-	friend EntityBase;
+	friend Entity;
 };
 
 class World : public WorldBase

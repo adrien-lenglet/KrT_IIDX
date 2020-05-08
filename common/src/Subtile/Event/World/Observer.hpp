@@ -4,7 +4,7 @@
 
 namespace Subtile {
 
-class EntityBase;
+class Entity;
 
 namespace Event {
 namespace World {
@@ -20,7 +20,7 @@ public:
 	Subtile::Event::System::Observer &system;
 
 private:
-	friend EntityBase;
+	friend Entity;
 	friend SessionBase;
 
 	void updateEvents(void);
