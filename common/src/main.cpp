@@ -14,5 +14,6 @@ int main(int argc, char **argv)
 {
 	Krt::Instance(getArgs(argc, argv)).run();
 	std::cout << "Engine done." << std::endl;
+	std::cout << sb::EntityBase::
 	return 0;
 }

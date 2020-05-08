@@ -14,6 +14,11 @@ Observer::~Observer(void)
 {
 }
 
+void Observer::updateEvents(void)
+{
+	Event::Observer::Cluster::update();
+}
+
 }
 }
 }

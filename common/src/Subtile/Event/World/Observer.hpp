@@ -21,6 +21,9 @@ public:
 
 private:
 	friend EntityBase;
+	friend SessionBase;
+
+	void updateEvents(void);
 };
 
 }

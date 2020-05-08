@@ -37,8 +37,7 @@ class Race : public sb::Session<Race>
 {
 public:
 	Race(void) :
-		m_unique_track(createWorld<Track>()),
-		m_track(*m_unique_track),
+		m_track(addWorld<Track>()),
 		camera(m_track.camera),
 		m_layout(createLayout<Screen>())
 	{
@@ -76,8 +75,8 @@ public:
 	};
 
 private:
-	std::unique_ptr<Track> m_unique_track;
 	Track &m_track;
+
 public:
 	sb::Camera &camera;
 

@@ -18,6 +18,8 @@ void SessionBase::run(void)
 	while (!m_done) {
 		m_system.scanInputs();
 		m_events.updateEvents();
+		for (auto &w : m_worlds)
+			w.events.updateEvents();
 		getScreenLayout().render();
 		m_system.render();
 	}

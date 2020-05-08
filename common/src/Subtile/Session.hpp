@@ -40,11 +40,11 @@ protected:
 	using Class = typename T::template Impl<T>;
 
 	template <typename WorldType, typename ...ArgsTypes>
-	std::unique_ptr<WorldType> createWorld(ArgsTypes &&...args)
+	WorldType& addWorld(ArgsTypes &&...args)
 	{
-		return World::m_systems.emplace_frame(std::function([&](){
-			return EntityBase::m_ctx.emplace_frame(std::function([&](){
-				return std::make_unique<WorldType>(std::forward<ArgsTypes>(args)...);
+		return World::m_systems.emplace_frame(std::function([&]() -> auto& {
+			return EntityBase::m_ctx.emplace_frame(std::function([&]() -> auto& {
+				return m_worlds.emplace<WorldType>(std::forward<ArgsTypes>(args)...);
 			}), nullptr, nullptr);
 		}), m_events);
 	}
@@ -63,6 +63,7 @@ private:
 
 	ISystem &m_system;
 	Event::System::Observer &m_events;
+	util::unique_set<World> m_worlds;
 	bool m_done;
 };
 
