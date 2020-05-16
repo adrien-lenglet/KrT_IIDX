@@ -2,7 +2,8 @@ DEFINE =
 WARNINGS =
 EXTRA =
 INCLUDE = -I src -I libs/include
-CXXFLAGS = -m64 -std=c++17 $(EXTRA) $(WARNINGS) $(DEFINE) $(INCLUDE)
+CXX = clang++
+CXXFLAGS = -std=c++17 $(EXTRA) $(WARNINGS) $(DEFINE) $(INCLUDE)
 
 SRC_FOLDER = src
 LIB_SRC_FOLDER = libs/src

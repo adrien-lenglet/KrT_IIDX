@@ -38,7 +38,6 @@ class Race : public sb::Session<Race>
 public:
 	Race(void) :
 		m_track(addWorld<Track>()),
-		m_track2(addWorld<Track>()),
 		camera(m_track.camera),
 		m_layout(createLayout<Screen>())
 	{
@@ -77,7 +76,6 @@ public:
 
 private:
 	Track &m_track;
-	Track &m_track2;
 
 public:
 	sb::Camera &camera;

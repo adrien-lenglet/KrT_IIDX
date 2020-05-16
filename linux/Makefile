@@ -2,7 +2,8 @@
 .DEFAULT_GOAL := all
 LINK_OPT =
 OPT = -j12
-CXXFLAGS =
+CXX = clang++
+CXXFLAGS = -std=c++17
 
 SRC_FOLDER = ../common/src
 LIB_SRC_FOLDER = ../common/libs/src
@@ -38,7 +39,7 @@ obj_clean:
 	$(MAKE) -C ../common clean
 
 $(TARGET): libs shaders obj $(SHADER_BIN)
-	g++ $(CXXFLAGS) $(LINK_OPT) $(OBJ) $(LIB_OBJ) -Wl,-rpath,linux/libs/bin -o $(TARGET) $(LDLIB)
+	$(CXX) $(CXXFLAGS) $(LINK_OPT) $(OBJ) $(LIB_OBJ) -Wl,-rpath,linux/libs/bin -o $(TARGET) $(LDLIB)
 
 all: $(TARGET)
 

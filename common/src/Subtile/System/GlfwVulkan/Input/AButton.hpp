@@ -19,7 +19,7 @@ public:
 
 	bool getState(void) const override;
 
-	void update(void);
+	void update(void) override;
 
 protected:
 	std::string m_name;

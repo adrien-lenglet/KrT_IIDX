@@ -9,6 +9,9 @@
 
 namespace Subtile {
 
+template <class FinalType>
+class Session;
+
 class SessionBase : public Event::Socket
 {
 	struct Ctx {
@@ -59,6 +62,8 @@ protected:
 
 private:
 	friend Instance;
+	template <class FinalType>
+	friend class Session;
 
 	static thread_local util::stack<Ctx> m_ctx;
 	static thread_local util::stack<std::reference_wrapper<SessionBase>> m_session_stack;
@@ -71,7 +76,7 @@ private:
 
 #include "Camera.hpp"
 
-template <typename FinalType>
+template <class FinalType>
 class Session : public SessionBase
 {
 public:

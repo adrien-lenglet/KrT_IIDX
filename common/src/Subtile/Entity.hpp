@@ -4,13 +4,14 @@
 #include <stack>
 #include "Observer.hpp"
 #include "Event/World/Socket.hpp"
+#include "Transform.hpp"
 
 namespace Subtile {
 
 class SessionBase;
 class World;
 
-class Entity : protected Event::World::Socket
+class Entity : protected Event::World::Socket, protected Transform<Entity>
 {
 	friend SessionBase;
 

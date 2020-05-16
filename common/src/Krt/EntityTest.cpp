@@ -17,6 +17,8 @@ EntityTest::EntityTest(void) :
 		std::cout << "quit released" << std::endl;
 		trigger(got_score, 7.92);
 	});
+
+	scale = sb::vec3(1, 2, 3);
 }
 
 EntityTest::~EntityTest(void)

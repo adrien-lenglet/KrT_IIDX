@@ -2,6 +2,8 @@
 
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
+#include <glm/mat4x4.hpp>
+#include <glm/ext/quaternion_double.hpp>
 
 namespace Subtile {
 
@@ -47,5 +49,10 @@ public:
 
 using rect2 = frect2<vec2>;
 using rrect2 = frect2<rvec2>;
+
+using quat = glm::dquat;
+
+using mat4 = glm::dmat4;
+using rmat4 = glm::mat4;
 
 }

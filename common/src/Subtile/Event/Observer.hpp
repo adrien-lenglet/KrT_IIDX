@@ -110,7 +110,7 @@ public:
 		m_updater(updater),
 		m_cluster_cb(callback)
 	{
-		static_cast<ObserverType&>(*this).Cluster::add(*this);
+		static_cast<ObserverType&>(*this).Observer::Cluster::add(*this);
 	}
 	~Group(void) override
 	{

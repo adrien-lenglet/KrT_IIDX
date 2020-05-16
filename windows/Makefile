@@ -2,7 +2,8 @@
 .DEFAULT_GOAL := all
 LINK_OPT =
 OPT = -j12
-CXXFLAGS =
+CXX = clang++
+CXXFLAGS = -std=c++17
 
 ifndef VULKAN_SDK
 $(error VULKAN_SDK is not set. Make sure the LunarG Vulkan SDK is installed on your system and that this variable is properly set in your environment)
@@ -43,7 +44,7 @@ obj_clean:
 	$(MAKE) -C ../common clean
 
 $(TARGET): libs shaders obj $(SHADER_BIN)
-	g++ $(CXXFLAGS) $(LINK_OPT) $(OBJ) $(LIB_OBJ) -Wl,-rpath,linux/libs/bin -o $(TARGET) $(LDLIB)
+	$(CXX) $(CXXFLAGS) $(LINK_OPT) $(OBJ) $(LIB_OBJ) -Wl,-rpath,linux/libs/bin -o $(TARGET) $(LDLIB)
 
 all: $(TARGET)
 

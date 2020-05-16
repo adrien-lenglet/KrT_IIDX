@@ -47,7 +47,7 @@ public:
 			Button(Input &input);
 			~Button(void) override;
 
-			class Pressed : public Cluster, public DescGen<Pressed>, public Group<Pressed, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<>>
+			class Pressed : public Observer::Cluster, public DescGen<Pressed>, public Group<Pressed, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<>>
 			{
 			public:
 				Pressed(Input &input);
@@ -57,7 +57,7 @@ public:
 				Input &m_input;
 			} pressed;
 
-			class Released : public Cluster, public DescGen<Released>, public Group<Released, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<>>
+			class Released : public Observer::Cluster, public DescGen<Released>, public Group<Released, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<>>
 			{
 			public:
 				Released(Input &input);

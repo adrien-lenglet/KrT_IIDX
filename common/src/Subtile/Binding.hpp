@@ -36,9 +36,9 @@ private:
 public:
 	class Dependency
 	{
+	public:
 		class Point;
 
-	public:
 		class Socket
 		{
 		public:
@@ -70,7 +70,6 @@ public:
 			}
 		};
 
-	private:
 		class Point
 		{
 		public:
@@ -256,37 +255,6 @@ public:
 	class Weak;
 
 	template <typename T, bool emptyCallback>
-	class Source::WeakElement : public Source
-	{
-	public:
-		using value_type = T;
-
-		template <typename ...Args>
-		WeakElement(Weak<T, emptyCallback> &socket, Args &&...args) :
-			m_socket(socket),
-			m_obj(std::forward<Args>(args)...)
-		{
-		}
-		~WeakElement(void)
-		{
-		}
-
-		operator T&(void)
-		{
-			return m_obj;
-		}
-
-	private:
-		Weak<T, emptyCallback> &m_socket;
-		T m_obj;
-
-		void depDestroyed(Dependency&) override
-		{
-			m_socket.destroyElement(*this);
-		}
-	};
-
-	template <typename T, bool emptyCallback>
 	class Weak : public Storage<Source::WeakElement<T, emptyCallback>, emptyCallback>
 	{
 	public:
@@ -307,42 +275,6 @@ public:
 		void bind(Dependency::Socket &socket, Args &&...args)
 		{
 			socket.add(this->m_elements.emplace(*this, std::forward<Args>(args)...));
-		}
-	};
-
-	template <typename T, bool emptyCallback>
-	class Source::StrongElement : public Source
-	{
-	public:
-		using value_type = T;
-
-		template <typename ...Args>
-		StrongElement(Strong<T, emptyCallback> &socket, Dependency::Socket &depSocket, Args &&...args) :
-			m_socket(socket),
-			m_dependency(depSocket, depSocket.add(*this)),
-			m_obj(std::forward<Args>(args)...)
-		{
-		}
-		~StrongElement(void)
-		{
-			m_dependency.destroyBound();
-		}
-
-		operator T&(void)
-		{
-			return m_obj;
-		}
-
-	private:
-		friend Strong<T, emptyCallback>;
-		Strong<T, emptyCallback> &m_socket;
-		Dependency::Point m_dependency;
-		T m_obj;
-
-		void depDestroyed(Dependency&) override
-		{
-			m_dependency.clear();
-			m_socket.destroyElement(*this);
 		}
 	};
 
@@ -435,6 +367,73 @@ public:
 			this->m_elements.emplace(*this, socket, std::forward<Args>(args)...);
 		}
 	};
+};
+
+template <typename T, bool emptyCallback>
+class Binding::Source::WeakElement : public Source
+{
+public:
+	using value_type = T;
+
+	template <typename ...Args>
+	WeakElement(Weak<T, emptyCallback> &socket, Args &&...args) :
+		m_socket(socket),
+		m_obj(std::forward<Args>(args)...)
+	{
+	}
+	~WeakElement(void)
+	{
+	}
+
+	operator T&(void)
+	{
+		return m_obj;
+	}
+
+private:
+	Weak<T, emptyCallback> &m_socket;
+	T m_obj;
+
+	void depDestroyed(Dependency&) override
+	{
+		m_socket.destroyElement(*this);
+	}
+};
+
+template <typename T, bool emptyCallback>
+class Binding::Source::StrongElement : public Source
+{
+public:
+	using value_type = T;
+
+	template <typename ...Args>
+	StrongElement(Strong<T, emptyCallback> &socket, Dependency::Socket &depSocket, Args &&...args) :
+		m_socket(socket),
+		m_dependency(depSocket, depSocket.add(*this)),
+		m_obj(std::forward<Args>(args)...)
+	{
+	}
+	~StrongElement(void)
+	{
+		m_dependency.destroyBound();
+	}
+
+	operator T&(void)
+	{
+		return m_obj;
+	}
+
+private:
+	friend Strong<T, emptyCallback>;
+	Strong<T, emptyCallback> &m_socket;
+	Dependency::Point m_dependency;
+	T m_obj;
+
+	void depDestroyed(Dependency&) override
+	{
+		m_dependency.clear();
+		m_socket.destroyElement(*this);
+	}
 };
 
 }

@@ -5,31 +5,20 @@
 #include <algorithm>
 #include <functional>
 #include <stack>
+#include <stdexcept>
 
 namespace util {
 
 template <typename T, typename U>
-class T::iterator find(T &container, const U &value)
+auto find(T &&container, const U &value)
 {
 	return std::find(container.begin(), container.end(), value);
 }
 
 template <typename T, typename U>
-class T::iterator find_if(T &container, const U &value)
+auto find_if(T &&container, const U &value)
 {
 	return std::find_if(container.begin(), container.end(), value);
-}
-
-template <typename T, typename U>
-class T::const_iterator find(const T &container, const U &value)
-{
-	return std::find(container.cbegin(), container.cend(), value);
-}
-
-template <typename T, typename U>
-class T::const_iterator find_if(const T &container, const U &value)
-{
-	return std::find_if(container.cbegin(), container.cend(), value);
 }
 
 template <typename T, typename U>
@@ -59,7 +48,7 @@ T<U> not_contained(const T<U> &container, const T<V> &included)
 }
 
 template <typename T, typename U>
-bool erase_if_contains(T &container, const U &value)
+bool erase_if_contains(T &&container, const U &value)
 {
 	auto it = find(container, value);
 
@@ -71,7 +60,7 @@ bool erase_if_contains(T &container, const U &value)
 }
 
 template <typename T, typename U>
-bool erase_if(T &container, const U &value)
+bool erase_if(T &&container, const U &value)
 {
 	auto it = find_if(container, value);
 
@@ -99,13 +88,13 @@ U join(const T &values, const U &delim)
 }
 
 template <typename T, typename U>
-class T::iterator remove(T &container, const U &value)
+auto remove(T &container, const U &value)
 {
 	return container.erase(std::remove(container.begin(), container.end(), value), container.end());
 }
 
 template <typename T, typename U>
-class T::iterator remove_if(T &container, const U &value)
+auto remove_if(T &container, const U &value)
 {
 	return container.erase(std::remove_if(container.begin(), container.end(), value), container.end());
 }

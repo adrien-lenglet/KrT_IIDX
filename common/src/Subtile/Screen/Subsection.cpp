@@ -1,11 +1,14 @@
 #include "Subsection.hpp"
 
+#include <iostream>
+
 namespace Subtile {
 namespace Screen {
 
 Subsection::Subsection(Camera &camera) :
 	m_camera(camera)
 {
+	std::cout << &m_camera << std::endl;
 }
 
 Subsection::~Subsection(void)

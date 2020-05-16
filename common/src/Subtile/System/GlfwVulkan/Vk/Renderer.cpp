@@ -105,7 +105,7 @@ void Renderer::render(void)
 	renderPassInfo.framebuffer = image.swapchainImage.framebuffer;
 	renderPassInfo.renderArea.offset = {0, 0};
 	renderPassInfo.renderArea.extent = swapchain.extent;
-	VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
+	VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
 	renderPassInfo.clearValueCount = 1;
 	renderPassInfo.pClearValues = &clearColor;
 
