@@ -20,10 +20,10 @@ public:
 	template <typename SessionType, typename ...ArgsTypes>
 	std::unique_ptr<SessionType> createSession(ArgsTypes &&...args)
 	{
-		auto res = SessionBase::m_ctx.emplace_frame(std::function([&](){
+		auto res = SessionBase::getCtx().emplace_frame(std::function([&](){
 			return std::make_unique<SessionType>(std::forward<ArgsTypes>(args)...);
 		}), SessionBase::Ctx(*m_system, m_events));
-		SessionBase::m_session_stack.pop();
+		SessionBase::getSessionStack().pop();
 		return res;
 	}
 

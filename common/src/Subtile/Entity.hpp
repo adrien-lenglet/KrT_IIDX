@@ -38,7 +38,7 @@ class Entity : protected Event::World::Socket, protected Transform<Entity>
 		Entity* getParent(void) const;
 	};
 
-	static thread_local util::stack<Context> m_ctx;
+	static util::stack<Context>& getCtx(void);
 
 public:
 	Entity(void);
@@ -50,10 +50,10 @@ protected:
 	template <typename EntityType, class ...Args>
 	EntityType& add(Args &&...args)
 	{
-		auto &res = m_ctx.emplace_frame(std::function([&]() -> auto& {
+		auto &res = getCtx().emplace_frame(std::function([&]() -> auto& {
 			return m_children.emplace<EntityType>(std::forward<Args>(args)...);
 		}), &world, this);
-		m_entity_stack.pop();
+		getEntityStack().pop();
 		return res;
 	}
 
@@ -64,7 +64,7 @@ protected:
 	{
 	public:
 		Event(void) :
-			m_owner(m_entity_stack.top())
+			m_owner(getEntityStack().top())
 		{
 		}
 		~Event(void)
@@ -95,7 +95,7 @@ protected:
 private:
 	friend World;
 
-	static thread_local util::stack<std::reference_wrapper<Entity>> m_entity_stack;
+	static util::stack<std::reference_wrapper<Entity>>& getEntityStack(void);
 
 	Entity *m_parent;
 	util::unique_set<Entity> m_children;

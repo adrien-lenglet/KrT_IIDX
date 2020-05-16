@@ -5,7 +5,7 @@ namespace Screen {
 
 Section::TopBase::TopBase(void)
 {
-	m_stack.pop();
+	getStack().pop();
 }
 
 Section::TopBase::~TopBase(void)
@@ -14,9 +14,9 @@ Section::TopBase::~TopBase(void)
 
 Section::Section(void)
 {
-	if (m_stack.size() > 0)
-		m_stack.top().get().m_children.emplace_back(*this);
-	m_stack.emplace(*this);
+	if (getStack().size() > 0)
+		getStack().top().get().m_children.emplace_back(*this);
+	getStack().emplace(*this);
 }
 
 Section::~Section(void)
@@ -27,7 +27,12 @@ void Section::onRender(void)
 {
 }
 
-thread_local util::stack<std::reference_wrapper<Section>> Section::m_stack;
+util::stack<std::reference_wrapper<Section>>& Section::getStack(void)
+{
+	static thread_local util::stack<std::reference_wrapper<Section>> res;
+
+	return res;
+}
 
 void Section::render(void)
 {

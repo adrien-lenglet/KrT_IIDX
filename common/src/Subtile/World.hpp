@@ -19,7 +19,7 @@ private:
 	friend SessionBase;
 	friend Entity;
 
-	static thread_local util::stack<std::reference_wrapper<Subtile::Event::System::Observer>> m_systems;
+	static util::stack<std::reference_wrapper<Subtile::Event::System::Observer>>& getSystems(void);
 };
 
 }

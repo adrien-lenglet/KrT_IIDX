@@ -64,10 +64,11 @@ protected:
 
 private:
 	friend SessionBase;
+	friend TopBase;
 
 	virtual void _section_security(void) = 0;
 
-	static thread_local util::stack<std::reference_wrapper<Section>> m_stack;
+	static util::stack<std::reference_wrapper<Section>>& getStack(void);
 	std::vector<std::reference_wrapper<Section>> m_children;
 
 	void render(void);

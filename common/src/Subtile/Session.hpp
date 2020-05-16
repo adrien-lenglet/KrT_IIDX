@@ -45,12 +45,12 @@ protected:
 	template <typename WorldType, typename ...ArgsTypes>
 	WorldType& addWorld(ArgsTypes &&...args)
 	{
-		auto &res = World::m_systems.emplace_frame(std::function([&]() -> auto& {
-			return Entity::m_ctx.emplace_frame(std::function([&]() -> auto& {
+		auto &res = World::getSystems().emplace_frame(std::function([&]() -> auto& {
+			return Entity::getCtx().emplace_frame(std::function([&]() -> auto& {
 				return m_worlds.emplace<WorldType>(std::forward<ArgsTypes>(args)...);
 			}), nullptr, nullptr);
 		}), m_events);
-		Entity::m_entity_stack.pop();
+		Entity::getEntityStack().pop();
 		return res;
 	}
 
@@ -65,8 +65,8 @@ private:
 	template <class FinalType>
 	friend class Session;
 
-	static thread_local util::stack<Ctx> m_ctx;
-	static thread_local util::stack<std::reference_wrapper<SessionBase>> m_session_stack;
+	static util::stack<Ctx>& getCtx(void);
+	static util::stack<std::reference_wrapper<SessionBase>>& getSessionStack(void);
 
 	ISystem &m_system;
 	Event::System::Observer &m_events;
@@ -81,9 +81,9 @@ class Session : public SessionBase
 {
 public:
 	Session(void) :
-		SessionBase(m_ctx.top())
+		SessionBase(getCtx().top())
 	{
-		m_session_stack.emplace(*this);
+		getSessionStack().emplace(*this);
 	}
 	~Session(void) override
 	{
@@ -99,7 +99,7 @@ public:
 		{
 		}
 		Subsection(const std::function<Camera& (FinalType&)> &resolver) :
-			Screen::Section::UserDerive<Screen::Subsection>(resolver(static_cast<FinalType&>(m_session_stack.top().get())))
+			Screen::Section::UserDerive<Screen::Subsection>(resolver(static_cast<FinalType&>(getSessionStack().top().get())))
 		{
 		}
 		~Subsection(void)

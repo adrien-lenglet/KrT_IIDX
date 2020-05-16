@@ -8,7 +8,7 @@ namespace Screen {
 Subsection::Subsection(Camera &camera) :
 	m_camera(camera)
 {
-	std::cout << &m_camera << std::endl;
+	std::cout << "Camera: " << &m_camera << std::endl;
 }
 
 Subsection::~Subsection(void)

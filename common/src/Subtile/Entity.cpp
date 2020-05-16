@@ -4,10 +4,10 @@
 namespace Subtile {
 
 Entity::Entity(void) :
-	world(m_ctx.top().getWorld(*this)),
-	m_parent(m_ctx.top().getParent())
+	world(getCtx().top().getWorld(*this)),
+	m_parent(getCtx().top().getParent())
 {
-	m_entity_stack.emplace(*this);
+	getEntityStack().emplace(*this);
 }
 
 Entity::~Entity(void)
@@ -32,7 +32,18 @@ Entity& Entity::getParent(void)
 		throw std::runtime_error("No parent associated with this entity");
 }
 
-thread_local util::stack<Entity::Context> Entity::m_ctx;
-thread_local util::stack<std::reference_wrapper<Entity>> Entity::m_entity_stack;
+util::stack<Entity::Context>& Entity::getCtx(void)
+{
+	static thread_local util::stack<Entity::Context> res;
+
+	return res;
+}
+
+util::stack<std::reference_wrapper<Entity>>& Entity::getEntityStack(void)
+{
+	static thread_local util::stack<std::reference_wrapper<Entity>> res;
+
+	return res;
+}
 
 }

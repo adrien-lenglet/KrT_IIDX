@@ -30,7 +30,18 @@ void SessionBase::done(void)
 	m_done = true;
 }
 
-thread_local util::stack<SessionBase::Ctx> SessionBase::m_ctx;
-thread_local util::stack<std::reference_wrapper<SessionBase>> SessionBase::m_session_stack;
+util::stack<SessionBase::Ctx>& SessionBase::getCtx(void)
+{
+	static thread_local util::stack<Ctx> res;
+
+	return res;
+}
+
+util::stack<std::reference_wrapper<SessionBase>>& SessionBase::getSessionStack(void)
+{
+	static thread_local util::stack<std::reference_wrapper<SessionBase>> res;
+
+	return res;
+}
 
 }
