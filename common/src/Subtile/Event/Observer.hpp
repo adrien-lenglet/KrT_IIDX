@@ -19,6 +19,8 @@ public:
 	class Cluster;
 	template <typename... Types>
 	class Group;
+	template <typename... Types>
+	class GroupCb;
 
 	virtual ~Observer(void) = default;
 
@@ -76,6 +78,8 @@ private:
 
 	template <typename... GroupingType>
 	friend class Group;
+	template <typename... GroupingType>
+	friend class GroupCb;
 };
 
 class Observer::Cluster::Optimized : public Observer
@@ -92,6 +96,9 @@ private:
 
 	template <typename... GroupingType>
 	friend class Group;
+	template <typename... GroupingType>
+	friend class GroupCb;
+
 	void update(void) override;
 };
 
@@ -103,16 +110,95 @@ class Observer::Group<ObserverType, GroupingType<StoreTypes...>, GroupingType<Re
 protected:
 	using UpdaterType = std::function<std::optional<std::tuple<ReturnTypes...>> (const StoreTypes &...)>;
 	using CallbackType = std::function<void (const ReturnTypes &...)>;
+
+public:
+	Group(const UpdaterType &updater) :
+		m_updater(updater)
+	{
+		static_cast<ObserverType&>(*this).Observer::Cluster::add(*this);
+	}
+	~Group(void) override
+	{
+	}
+
+protected:
+	friend Event::Socket;
+	const UpdaterType m_updater;
+	std::map<std::tuple<StoreTypes...>, Binding::Weak<CallbackType, true>> m_listeners;
+
+	void update(void) override
+	{
+		for (auto &p : m_listeners) {
+			auto res = m_updater(std::get<StoreTypes>(p.first)...);
+			if (res)
+				for (auto &listener : p.second)
+					listener(std::get<ReturnTypes>(*res)...);
+		}
+	}
+
+	void bind(Binding::Dependency::Socket &socket, const std::tuple<StoreTypes...> &req, const CallbackType &callback)
+	{
+		auto got = m_listeners.find(req);
+		if (got == m_listeners.end()) {
+			auto [it, success] = m_listeners.emplace(req, [this, req](){
+				auto got = m_listeners.find(req);
+
+				if (got == m_listeners.end())
+					throw std::runtime_error("Can't destroy event");
+				m_listeners.erase(got);
+			});
+			if (!success)
+				throw std::runtime_error("Can't bind request");
+			it->second.bind(socket, callback);
+		} else
+			got->second.bind(socket, callback);
+	}
+};
+
+template <typename ObserverType, template <typename...> class GroupingType, typename... RequestTypes, typename... StoreTypes, typename... ReturnTypes>
+class Observer::Group<ObserverType, GroupingType<RequestTypes...>, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>> : public Observer::Group<ObserverType, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>>
+{
+	using Inherited = Observer::Group<ObserverType, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>>;
+	using UpdaterType = typename Inherited::UpdaterType;
+	using CallbackType = typename Inherited::CallbackType;
+	using ConverterType = std::function<std::tuple<StoreTypes...> (const RequestTypes &...)>;
+
+public:
+	Group(const ConverterType &converter, const UpdaterType &updater) :
+		Observer::Group<ObserverType, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>>(updater),
+		m_converter(converter)
+	{
+	}
+	~Group(void) override
+	{
+	}
+
+private:
+	friend Event::Socket;
+	const ConverterType m_converter;
+
+	void bind(Binding::Dependency::Socket &socket, const std::tuple<RequestTypes...> &request, const CallbackType &callback)
+	{
+		Observer::Group<ObserverType, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>>::bind(socket, m_converter(std::get<RequestTypes>(request)...), callback);
+	}
+};
+
+template <typename ObserverType, template <typename...> class GroupingType, typename... StoreTypes, typename... ReturnTypes>
+class Observer::GroupCb<ObserverType, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>> : public Observer
+{
+protected:
+	using UpdaterType = std::function<std::optional<std::tuple<ReturnTypes...>> (const StoreTypes &...)>;
+	using CallbackType = std::function<void (const ReturnTypes &...)>;
 	using ClusterCallbackType = std::function<Cluster::Optimized& (void)>;
 
 public:
-	Group(const UpdaterType &updater, const ClusterCallbackType &callback = nullptr) :
+	GroupCb(const UpdaterType &updater, const ClusterCallbackType &callback) :
 		m_updater(updater),
 		m_cluster_cb(callback)
 	{
 		static_cast<ObserverType&>(*this).Observer::Cluster::add(*this);
 	}
-	~Group(void) override
+	~GroupCb(void) override
 	{
 	}
 
@@ -156,21 +242,21 @@ protected:
 };
 
 template <typename ObserverType, template <typename...> class GroupingType, typename... RequestTypes, typename... StoreTypes, typename... ReturnTypes>
-class Observer::Group<ObserverType, GroupingType<RequestTypes...>, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>> : public Observer::Group<ObserverType, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>>
+class Observer::GroupCb<ObserverType, GroupingType<RequestTypes...>, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>> : public Observer::GroupCb<ObserverType, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>>
 {
-	using Inherited = Observer::Group<ObserverType, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>>;
+	using Inherited = Observer::GroupCb<ObserverType, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>>;
 	using UpdaterType = typename Inherited::UpdaterType;
 	using CallbackType = typename Inherited::CallbackType;
 	using ClusterCallbackType = typename Inherited::ClusterCallbackType;
 	using ConverterType = std::function<std::tuple<StoreTypes...> (const RequestTypes &...)>;
 
 public:
-	Group(const ConverterType &converter, const UpdaterType &updater, const ClusterCallbackType &clusterCallback = nullptr) :
-		Observer::Group<ObserverType, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>>(updater, clusterCallback),
+	GroupCb(const ConverterType &converter, const UpdaterType &updater, const ClusterCallbackType &clusterCallback) :
+		Observer::GroupCb<ObserverType, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>>(updater, clusterCallback),
 		m_converter(converter)
 	{
 	}
-	~Group(void) override
+	~GroupCb(void) override
 	{
 	}
 
@@ -180,7 +266,7 @@ private:
 
 	void bind(Binding::Dependency::Socket &socket, const std::tuple<RequestTypes...> &request, const CallbackType &callback)
 	{
-		Observer::Group<ObserverType, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>>::bind(socket, m_converter(std::get<RequestTypes>(request)...), callback);
+		Observer::GroupCb<ObserverType, GroupingType<StoreTypes...>, GroupingType<ReturnTypes...>>::bind(socket, m_converter(std::get<RequestTypes>(request)...), callback);
 	}
 };
 

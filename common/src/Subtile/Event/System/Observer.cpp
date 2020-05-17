@@ -41,7 +41,7 @@ std::map<std::string, std::string> Observer::Input::loadBindings(void) const
 }
 
 Observer::Input::Analog::Analog(Input &input) :
-	Observer::Group<Analog, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Analog>>, std::tuple<double>>(
+	Observer::GroupCb<Analog, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Analog>>, std::tuple<double>>(
 	[this](const std::string &inputName){
 		return util::ref_wrapper(dynamic_cast<Subtile::Input::Analog&>(*m_input.m_inputs.at(inputName)));
 	}, [](const util::ref_wrapper<Subtile::Input::Analog> &input) {
@@ -58,7 +58,7 @@ Observer::Input::Analog::~Analog(void)
 }
 
 Observer::Input::Button::Button(Input &input) :
-	Observer::Group<Button, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<bool>>(
+	Observer::GroupCb<Button, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<bool>>(
 	[this](const std::string &inputName){
 		return util::ref_wrapper(dynamic_cast<Subtile::Input::Button&>(*m_input.m_inputs.at(inputName)));
 	}, [](const util::ref_wrapper<Subtile::Input::Button> &input) {
@@ -79,7 +79,7 @@ Observer::Input::Button::~Button(void)
 }
 
 Observer::Input::Button::Pressed::Pressed(Input &input) :
-	Observer::Group<Pressed, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<>>(
+	Observer::GroupCb<Pressed, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<>>(
 	[this](const std::string &inputName){
 		return util::ref_wrapper(dynamic_cast<Subtile::Input::Button&>(*m_input.m_inputs.at(inputName)));
 	}, [](const util::ref_wrapper<Subtile::Input::Button> &input) -> std::optional<std::tuple<>> {
@@ -99,7 +99,7 @@ Observer::Input::Button::Pressed::~Pressed(void)
 }
 
 Observer::Input::Button::Released::Released(Input &input) :
-	Observer::Group<Released, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<>>(
+	Observer::GroupCb<Released, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<>>(
 	[this](const std::string &inputName){
 		return util::ref_wrapper(dynamic_cast<Subtile::Input::Button&>(*m_input.m_inputs.at(inputName)));
 	}, [](const util::ref_wrapper<Subtile::Input::Button> &input) -> std::optional<std::tuple<>> {

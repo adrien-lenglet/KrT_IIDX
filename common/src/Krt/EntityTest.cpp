@@ -18,7 +18,7 @@ EntityTest::EntityTest(void) :
 		trigger(got_score, 7.92);
 	});
 
-	/*bind(world.events.update, [this](auto &t){
+	bind(world.events.update, [this](auto &t){
 		pos = pos + sb::vec3(t, 0.0, 0.0);
 		auto &w = model_world();
 		for (size_t i = 0; i < 4; i++) {
@@ -29,7 +29,7 @@ EntityTest::EntityTest(void) :
 			}
 			std::cout << std::endl;
 		}
-	});*/
+	});
 }
 
 EntityTest::~EntityTest(void)

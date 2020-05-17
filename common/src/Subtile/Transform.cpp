@@ -36,7 +36,7 @@ mat4& Transform<Entity>::local(void)
 template <>
 mat4& Transform<Entity>::model_world(void)
 {
-	if (!m_is_world_up)
+	if (!m_is_local_up || !m_is_world_up)
 		updateWorld();
 	return m_world;
 }

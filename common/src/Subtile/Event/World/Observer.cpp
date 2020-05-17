@@ -8,6 +8,7 @@ namespace World {
 Observer::Observer(Subtile::Event::System::Observer &system) :
 	system(system)
 {
+	add(static_cast<Observer::Cluster&>(update));
 }
 
 Observer::~Observer(void)
