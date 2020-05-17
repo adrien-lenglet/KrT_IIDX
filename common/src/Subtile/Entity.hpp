@@ -14,6 +14,7 @@ class World;
 class Entity : protected Event::World::Socket, protected Transform<Entity>
 {
 	friend SessionBase;
+	friend Transform<Entity>;
 
 	class Context
 	{
@@ -27,7 +28,7 @@ class Entity : protected Event::World::Socket, protected Transform<Entity>
 		World *m_world;
 		Entity *m_parent;
 
-		template <typename EntType>
+		template <class EntType>
 		World& getWorld(EntType &ent) const
 		{
 			if (m_world)
@@ -47,7 +48,7 @@ public:
 protected:
 	World &world;
 
-	template <typename EntityType, class ...Args>
+	template <class EntityType, typename ...Args>
 	EntityType& add(Args &&...args)
 	{
 		auto &res = getCtx().emplace_frame(std::function([&]() -> auto& {

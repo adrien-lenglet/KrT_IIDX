@@ -1,9 +1,8 @@
 #include "Transform.hpp"
-#include <glm/gtx/quaternion.hpp>
+#include "Entity.hpp"
+#include "Math/Quaternion.hpp"
 
 namespace Subtile {
-
-class Entity;
 
 template <>
 Transform<Entity>::Transform(void) :
@@ -11,7 +10,8 @@ Transform<Entity>::Transform(void) :
 	rot(1.0, 0.0, 0.0, 0.0),
 	pos(0.0),
 	m_is_local_up(false),
-	m_is_world_up(false)
+	m_is_world_up(false),
+	m_is_absolute(false)
 {
 }
 
@@ -34,7 +34,7 @@ mat4& Transform<Entity>::local(void)
 }
 
 template <>
-mat4& Transform<Entity>::world(void)
+mat4& Transform<Entity>::model_world(void)
 {
 	if (!m_is_world_up)
 		updateWorld();
@@ -44,24 +44,38 @@ mat4& Transform<Entity>::world(void)
 template <>
 void Transform<Entity>::updateLocal(void)
 {
-	mat4 buf;
-
 	m_local = static_cast<mat4>(rot);
-	glm::scale(buf, scale);
-	m_local *= buf;
-	glm::translate(buf, pos);
-	m_local *= buf;
+	m_local = math::scale(m_local, scale);
+	m_local = math::translate(m_local, pos);
 	m_is_local_up = true;
 }
 
 template <>
 void Transform<Entity>::updateWorld(void)
 {
-	//if (m_parent)
-	//	m_world = m_parent->world() * local();
-	//else
+	auto &p = getFinal().m_parent;
+
+	if (p && !m_is_absolute)
+		m_world = p->model_world() * local();
+	else
 		m_world = local();
 	m_is_world_up = true;
+}
+
+template <>
+void Transform<Entity>::setAbsolute(void)
+{
+	m_is_absolute = true;
+}
+
+template <>
+void Transform<Entity>::parentMoved(void)
+{
+	if (m_is_absolute)
+		return;
+	m_is_world_up = false;
+	for (auto &c : getFinal().m_children)
+		c.parentMoved();
 }
 
 }

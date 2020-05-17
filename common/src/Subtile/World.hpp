@@ -15,6 +15,14 @@ public:
 
 	Subtile::Event::World::Observer events;
 
+	template <class EntityType, typename ...Args>
+	EntityType& add(Args &&...args)
+	{
+		auto &res = Entity::add<EntityType>(std::forward<Args>(args)...);
+		res.setAbsolute();
+		return res;
+	}
+
 private:
 	friend SessionBase;
 	friend Entity;

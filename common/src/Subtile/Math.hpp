@@ -7,15 +7,17 @@
 
 namespace Subtile {
 
+namespace math = glm;
+
 // Logical vector types
 // Double are suited for their precision
-using vec2 = glm::dvec2;
-using vec3 = glm::dvec3;
+using vec2 = math::dvec2;
+using vec3 = math::dvec3;
 
 // Render vector types
 // Floats are the only option
-using rvec2 = glm::vec2;
-using rvec3 = glm::vec3;
+using rvec2 = math::vec2;
+using rvec3 = math::vec3;
 
 template <typename FloatVec2Type>
 class frect2
@@ -50,9 +52,9 @@ public:
 using rect2 = frect2<vec2>;
 using rrect2 = frect2<rvec2>;
 
-using quat = glm::dquat;
+using quat = math::dquat;
 
-using mat4 = glm::dmat4;
-using rmat4 = glm::mat4;
+using mat4 = math::dmat4;
+using rmat4 = math::mat4;
 
 }
