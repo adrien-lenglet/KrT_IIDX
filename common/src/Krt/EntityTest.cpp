@@ -18,16 +18,18 @@ EntityTest::EntityTest(void) :
 		trigger(got_score, 7.92);
 	});
 
-	pos = sb::vec3(1, 2, 3);
-	auto &w = model_world();
-	for (size_t i = 0; i < 4; i++) {
-		auto comma = "";
-		for (size_t j = 0; j < 4; j++) {
-			std::cout << comma << w[j][i];
-			comma = ", ";
+	/*bind(world.events.update, [this](auto &t){
+		pos = pos + sb::vec3(t, 0.0, 0.0);
+		auto &w = model_world();
+		for (size_t i = 0; i < 4; i++) {
+			auto comma = "";
+			for (size_t j = 0; j < 4; j++) {
+				std::cout << comma << w[j][i];
+				comma = ", ";
+			}
+			std::cout << std::endl;
 		}
-		std::cout << std::endl;
-	}
+	});*/
 }
 
 EntityTest::~EntityTest(void)

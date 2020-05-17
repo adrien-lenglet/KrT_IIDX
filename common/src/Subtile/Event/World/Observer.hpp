@@ -19,6 +19,16 @@ public:
 
 	Subtile::Event::System::Observer &system;
 
+	class Update : public Cluster, public DescGen<Update>, public Group<Update, std::tuple<>, std::tuple<double>>
+	{
+	public:
+		Update(void);
+		~Update(void) override;
+
+	private:
+		std::chrono::high_resolution_clock::time_point m_time_before;
+	} update;
+
 private:
 	friend Entity;
 	friend SessionBase;

@@ -31,7 +31,7 @@ public:
 		Input(ISystem &system);
 		~Input(void) override;
 
-		class Analog : public Cluster, public DescGen<Analog>, public Group<Analog, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Analog>>, std::tuple<double>>
+		class Analog : public Cluster, public DescGen<Analog>, public Observer::Group<Analog, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Analog>>, std::tuple<double>>
 		{
 		public:
 			Analog(Input &input);
@@ -41,13 +41,13 @@ public:
 			Input &m_input;
 		} analog;
 
-		class Button : public Cluster, public DescGen<Button>, public Group<Button, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<bool>>
+		class Button : public Cluster, public DescGen<Button>, public Observer::Group<Button, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<bool>>
 		{
 		public:
 			Button(Input &input);
 			~Button(void) override;
 
-			class Pressed : public Observer::Cluster, public DescGen<Pressed>, public Group<Pressed, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<>>
+			class Pressed : public Observer::Cluster, public DescGen<Pressed>, public Observer::Group<Pressed, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<>>
 			{
 			public:
 				Pressed(Input &input);
@@ -57,7 +57,7 @@ public:
 				Input &m_input;
 			} pressed;
 
-			class Released : public Observer::Cluster, public DescGen<Released>, public Group<Released, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<>>
+			class Released : public Observer::Cluster, public DescGen<Released>, public Observer::Group<Released, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<>>
 			{
 			public:
 				Released(Input &input);
