@@ -21,6 +21,12 @@ Transform<Entity>::~Transform(void)
 }
 
 template <>
+Entity& Transform<Entity>::getFinal(void)
+{
+	return static_cast<Entity&>(*this);
+}
+
+template <>
 void Transform<Entity>::updateLocal(void);
 template <>
 void Transform<Entity>::updateWorld(void);
@@ -66,6 +72,17 @@ template <>
 void Transform<Entity>::setAbsolute(void)
 {
 	m_is_absolute = true;
+}
+
+template <>
+void Transform<Entity>::parentMoved(void);
+
+template <>
+void Transform<Entity>::propModified(void)
+{
+	m_is_local_up = false;
+	for (auto &c : getFinal().m_children)
+		c.parentMoved();
 }
 
 template <>

@@ -25,10 +25,7 @@ class Transform
 		template <typename ...Args>
 		auto& operator=(Args &&...args)
 		{
-			auto &t = *reinterpret_cast<Transform*>(reinterpret_cast<char*>(this) - off);
-			t.m_is_local_up = false;
-			for (auto &c : t.getFinal().m_children)
-				c.parentMoved();
+			reinterpret_cast<Transform*>(reinterpret_cast<char*>(this) - off)->propModified();
 			return Extended::operator=(std::forward<Args>(args)...);
 		}
 
@@ -53,10 +50,7 @@ private:
 	friend Final;
 	friend World;
 
-	Final& getFinal(void)
-	{
-		return static_cast<Final&>(*this);
-	}
+	Final& getFinal(void);
 
 	mat4 m_local;
 	mat4 m_world;
@@ -68,6 +62,7 @@ private:
 	void updateLocal(void);
 	void updateWorld(void);
 	void setAbsolute(void);
+	void propModified(void);
 	void parentMoved(void);
 };
 
