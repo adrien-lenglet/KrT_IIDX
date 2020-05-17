@@ -35,12 +35,12 @@ public:
 	{
 	}
 
-	frect2 operator*(const value_type &value) const
+	auto operator*(const value_type &value) const
 	{
 		return frect2(pos * value, size * value);
 	}
 
-	frect2 operator*(const vec2_type &value) const
+	auto operator*(const vec2_type &value) const
 	{
 		return frect2(pos * value, size * value);
 	}
