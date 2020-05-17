@@ -81,11 +81,6 @@ class Transform
 			return Extended::operator--(v);
 		}
 
-		static size_t offset(void)
-		{
-			return off;
-		}
-
 	private:
 		void transformed(void)
 		{
