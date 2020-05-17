@@ -9,8 +9,10 @@ Transform<Entity>::Transform(void) :
 	scale(1.0),
 	rot(1.0, 0.0, 0.0, 0.0),
 	pos(0.0),
-	m_is_local_up(false),
-	m_is_world_up(false),
+	m_local(1.0),
+	m_world(1.0),
+	m_is_local_up(true),
+	m_is_world_up(true),
 	m_is_absolute(false)
 {
 }
@@ -48,6 +50,17 @@ mat4& Transform<Entity>::model_world(void)
 }
 
 template <>
+void Transform<Entity>::parentMoved(void);
+
+template <>
+void Transform<Entity>::transformed(void)
+{
+	m_is_local_up = false;
+	for (auto &c : getFinal().m_children)
+		c.parentMoved();
+}
+
+template <>
 void Transform<Entity>::updateLocal(void)
 {
 	m_local = static_cast<mat4>(rot);
@@ -72,17 +85,6 @@ template <>
 void Transform<Entity>::setAbsolute(void)
 {
 	m_is_absolute = true;
-}
-
-template <>
-void Transform<Entity>::parentMoved(void);
-
-template <>
-void Transform<Entity>::propModified(void)
-{
-	m_is_local_up = false;
-	for (auto &c : getFinal().m_children)
-		c.parentMoved();
 }
 
 template <>

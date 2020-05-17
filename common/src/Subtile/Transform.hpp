@@ -25,13 +25,71 @@ class Transform
 		template <typename ...Args>
 		auto& operator=(Args &&...args)
 		{
-			reinterpret_cast<Transform*>(reinterpret_cast<char*>(this) - off)->propModified();
+			transformed();
 			return Extended::operator=(std::forward<Args>(args)...);
+		}
+
+		template <typename ...Args>
+		auto& operator+=(Args &&...args)
+		{
+			transformed();
+			return Extended::operator+=(std::forward<Args>(args)...);
+		}
+
+		template <typename ...Args>
+		auto& operator-=(Args &&...args)
+		{
+			transformed();
+			return Extended::operator-=(std::forward<Args>(args)...);
+		}
+
+		template <typename ...Args>
+		auto& operator*=(Args &&...args)
+		{
+			transformed();
+			return Extended::operator*=(std::forward<Args>(args)...);
+		}
+
+		template <typename ...Args>
+		auto& operator/=(Args &&...args)
+		{
+			transformed();
+			return Extended::operator/=(std::forward<Args>(args)...);
+		}
+
+		auto& operator++(void)
+		{
+			transformed();
+			return Extended::operator++();
+		}
+
+		auto& operator--(void)
+		{
+			transformed();
+			return Extended::operator--();
+		}
+
+		auto operator++(int v)
+		{
+			transformed();
+			return Extended::operator++(v);
+		}
+
+		auto operator--(int v)
+		{
+			transformed();
+			return Extended::operator--(v);
 		}
 
 		static size_t offset(void)
 		{
 			return off;
+		}
+
+	private:
+		void transformed(void)
+		{
+			reinterpret_cast<Transform*>(reinterpret_cast<char*>(this) - off)->transformed();
 		}
 	};
 
@@ -45,6 +103,7 @@ public:
 
 	mat4& local(void);
 	mat4& model_world(void);
+	void transformed(void);
 
 private:
 	friend Final;
@@ -62,7 +121,6 @@ private:
 	void updateLocal(void);
 	void updateWorld(void);
 	void setAbsolute(void);
-	void propModified(void);
 	void parentMoved(void);
 };
 
