@@ -11,6 +11,9 @@ LIB_SRC_FOLDER = libs/src
 SRC = $(wildcard $(SRC_FOLDER)/*.cpp) $(wildcard $(SRC_FOLDER)/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*/*/*.cpp)
 OBJ = $(SRC:.cpp=.o)
 
+$(SRC_FOLDER)/Krt/Res.o: $(SRC_FOLDER)/Krt/Res.cpp $(SRC_FOLDER)/Krt/Res.hpp
+	$(CXX) $(CXXFLAGS) -c $(SRC_FOLDER)/Krt/Res.cpp -o $(SRC_FOLDER)/Krt/Res.o
+
 LIB_SRC = $(wildcard $(LIB_SRC_FOLDER)/*.cpp)
 LIB_OBJ = $(LIB_SRC:.cpp=.o)
 
