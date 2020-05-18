@@ -12,6 +12,7 @@
 #include <boost/preprocessor/tuple/pop_front.hpp>
 #include <boost/preprocessor/control/if.hpp>
 #include <boost/preprocessor/facilities/empty.hpp>
+#include <boost/preprocessor/arithmetic/sub.hpp>
 
 #define REM(...) __VA_ARGS__
 #define EAT(...)
@@ -39,7 +40,7 @@ public: BOOST_PP_CAT(STRIP(x), _type)& STRIP(x)(void);
 
 #else
 
-#define declfolder_classimpl(name, ...) BOOST_PP_SEQ_FOR_EACH_I(declfolder_eachimpl, name, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
+#define declfolder_classimpl(ns, ...) BOOST_PP_SEQ_FOR_EACH_I(declfolder_eachimpl, ns, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
 
 #define NS_MACRO(ns, name, ...) declfolder_classimpl(ns::name, __VA_ARGS__)
 
@@ -47,9 +48,9 @@ public: BOOST_PP_CAT(STRIP(x), _type)& STRIP(x)(void);
 ns::BOOST_PP_CAT(STRIP(x), _type)& ns::STRIP(x)(void) \
 { \
 	return BOOST_PP_CAT(STRIP(x), _storage); \
-} BOOST_PP_IF(BOOST_PP_TUPLE_ELEM(0, TYPEOF(x)), BOOST_PP_EMPTY(), BOOST_PP_EXPAND(NS_MACRO BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_TUPLE_POP_FRONT(TYPEOF(x)), ns)))
+} BOOST_PP_IF(BOOST_PP_SUB(BOOST_PP_TUPLE_SIZE(TYPEOF(x)), 2), BOOST_PP_EMPTY(), BOOST_PP_EXPAND(NS_MACRO BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_TUPLE_POP_FRONT(TYPEOF(x)), ns)))
 
-#define declfolder(name, ...) (BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__), declfolder_classname(name)), 0)) name
+#define declfolder(name, ...) (BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__), declfolder_classname(name)), foo)) name
 #define declfolder_export(name, ...) declfolder_classname(name) name; declfolder_classimpl(declfolder_classname(name), __VA_ARGS__)
 
 #endif

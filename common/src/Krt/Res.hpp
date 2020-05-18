@@ -1,3 +1,4 @@
+//#define DECLFOLDER_IMPL
 #include "Subtile/Resource.hpp"
 
 namespace Krt {
@@ -7,7 +8,7 @@ namespace Krt {
 		(int) b
 	)*/
 
-declfolder_export(res,
+/*declfolder_export(res,
 	declfolder(sub1,
 		(int) a,
 		(int) b
@@ -20,12 +21,24 @@ declfolder_export(res,
 		)
 	),
 	(float) flres
-)
+)*/
 
 /*declfolder_export(res,
 	declfolder(sub1),
 	declfolder(sub2)
 )*/
+
+declfolder_export(res,
+	declfolder(sub,
+		(int) a
+	),
+	declfolder(sub2,
+		(int) a
+	),
+	declfolder(sub3,
+		(int) a
+	)
+)
 
 }
 
