@@ -1,10 +1,13 @@
-#pragma once
-
 #include "Subtile/Resource.hpp"
 
 namespace Krt {
 
-extern declfolder_export(res,
+	/*declfolder(sub1,
+		(int) a,
+		(int) b
+	)*/
+
+declfolder_export(res,
 	declfolder(sub1,
 		(int) a,
 		(int) b
@@ -18,6 +21,11 @@ extern declfolder_export(res,
 	),
 	(float) flres
 )
+
+/*declfolder_export(res,
+	declfolder(sub1),
+	declfolder(sub2)
+)*/
 
 }
 

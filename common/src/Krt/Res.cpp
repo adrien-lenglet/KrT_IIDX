@@ -4,11 +4,9 @@
 
 namespace Krt {
 
-res_class res;
-
 void lol(void)
 {
-	res.sub2().subsub().deep_res();
+	//res.sub2().subsub().deep_res();
 }
 
 }
