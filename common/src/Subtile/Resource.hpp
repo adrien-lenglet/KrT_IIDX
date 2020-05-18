@@ -26,33 +26,35 @@
 #define STRIP(x) EAT x
 #define PAIR(x) REM x
 
-#define declfolder_classname(name) BOOST_PP_CAT(name, _class)
+#define dir_classname(name) BOOST_PP_CAT(name, _class)
 
-#ifndef DECLFOLDER_IMPL
+#ifndef DIR_IMPL
 
-#define declfolder_class(name, ...) class declfolder_classname(name) { BOOST_PP_SEQ_FOR_EACH_I(declfolder_each, data, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__)) }
+#define dir_class(name, ...) class dir_classname(name) { BOOST_PP_SEQ_FOR_EACH_I(dir_each, data, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__)) }
 
-#define declfolder_each(r, data, i, x) \
+#define dir_each(r, data, i, x) \
 private: using BOOST_PP_CAT(STRIP(x), _type) = TYPEOF(x);\
 BOOST_PP_CAT(STRIP(x), _type) BOOST_PP_CAT(STRIP(x), _storage); \
 public: BOOST_PP_CAT(STRIP(x), _type)& STRIP(x)(void);
 
-#define declfolder(name, ...) (declfolder_class(name, __VA_ARGS__)) name
-#define declfolder_export(name, ...) extern declfolder_class(name, __VA_ARGS__) name;
+#define dir(name, ...) (dir_class(name, __VA_ARGS__)) name
+#define dir_export(name, ...) extern dir_class(name, __VA_ARGS__) name;
+
+#define res(type, name) (type) name
 
 #else
 
-#define declfolder_classimpl(ns, ...) BOOST_PP_SEQ_FOR_EACH_I(declfolder_eachimpl, ns, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
+#define dir_classimpl(ns, ...) BOOST_PP_SEQ_FOR_EACH_I(dir_eachimpl, ns, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
 
-#define NS_MACRO(ns, name, ...) declfolder_classimpl(ns::name, __VA_ARGS__)
-
-#define declfolder_eachimpl(r, ns, i, x) \
-ns::BOOST_PP_CAT(STRIP(x), _type)& ns::STRIP(x)(void) \
+#define dir_eachimpl(r, ns, i, x) \
+ns::BOOST_PP_CAT(BOOST_PP_TUPLE_ELEM(1, x), _type)& ns::BOOST_PP_TUPLE_ELEM(1, x)(void) \
 { \
-	return BOOST_PP_CAT(STRIP(x), _storage); \
-} BOOST_PP_EXPR_IF(BOOST_PP_SUB(BOOST_PP_TUPLE_SIZE((TYPEOF(x))), 1), BOOST_PP_EXPAND(NS_MACRO BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_TUPLE_ELEM(1, (TYPEOF(x))), ns)))
+	return BOOST_PP_CAT(BOOST_PP_TUPLE_ELEM(1, x), _storage); \
+} BOOST_PP_EXPR_IF(BOOST_PP_SUB(BOOST_PP_TUPLE_SIZE(x), 2), dir_classimpl(ns::BOOST_PP_TUPLE_ELEM(0, x), BOOST_PP_TUPLE_REM() BOOST_PP_TUPLE_ELEM(2, x)))
 
-#define declfolder(name, ...) (foo, (declfolder_classname(name), __VA_ARGS__)) name
-#define declfolder_export(name, ...) declfolder_classname(name) name; declfolder_classimpl(declfolder_classname(name), __VA_ARGS__)
+#define dir(name, ...) (dir_classname(name), name, (__VA_ARGS__))
+#define dir_export(name, ...) dir_classname(name) name; dir_classimpl(dir_classname(name), __VA_ARGS__)
+
+#define res(type, name) (type, name)
 
 #endif

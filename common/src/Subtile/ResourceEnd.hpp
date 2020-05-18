@@ -8,10 +8,12 @@
 #undef STRIP
 #undef PAIR
 
-#undef declfolder_classname
-#undef declfolder_class
+#undef dir_classname
+#undef dir_class
 
-#undef declfolder_each
+#undef dir_each
 
-#undef declfolder
-#undef declfolder_export
+#undef dir
+#undef dir_export
+
+#undef res
