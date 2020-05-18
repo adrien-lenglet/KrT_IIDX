@@ -13,6 +13,8 @@
 #include <boost/preprocessor/control/if.hpp>
 #include <boost/preprocessor/facilities/empty.hpp>
 #include <boost/preprocessor/arithmetic/sub.hpp>
+#include <boost/preprocessor/control/expr_if.hpp>
+#include <boost/preprocessor/arithmetic/dec.hpp>
 
 #define REM(...) __VA_ARGS__
 #define EAT(...)
@@ -48,9 +50,9 @@ public: BOOST_PP_CAT(STRIP(x), _type)& STRIP(x)(void);
 ns::BOOST_PP_CAT(STRIP(x), _type)& ns::STRIP(x)(void) \
 { \
 	return BOOST_PP_CAT(STRIP(x), _storage); \
-} BOOST_PP_IF(BOOST_PP_SUB(BOOST_PP_TUPLE_SIZE(TYPEOF(x)), 2), BOOST_PP_EMPTY(), BOOST_PP_EXPAND(NS_MACRO BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_TUPLE_POP_FRONT(TYPEOF(x)), ns)))
+} BOOST_PP_EXPR_IF(BOOST_PP_SUB(BOOST_PP_TUPLE_SIZE((TYPEOF(x))), 1), BOOST_PP_EXPAND(NS_MACRO BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_TUPLE_ELEM(1, (TYPEOF(x))), ns)))
 
-#define declfolder(name, ...) (BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__), declfolder_classname(name)), foo)) name
+#define declfolder(name, ...) (foo, (declfolder_classname(name), __VA_ARGS__)) name
 #define declfolder_export(name, ...) declfolder_classname(name) name; declfolder_classimpl(declfolder_classname(name), __VA_ARGS__)
 
 #endif

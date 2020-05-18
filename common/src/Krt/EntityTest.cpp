@@ -37,7 +37,7 @@ EntityTest::EntityTest(void) :
 		transformed();
 	});
 
-	std::cout << BOOST_PP_TUPLE_SIZE((foo, int, (lol, lolo, lolol))) << std::endl;
+	std::cout << BOOST_PP_TUPLE_SIZE((foo, (xdd) a)) << std::endl;
 }
 
 EntityTest::~EntityTest(void)
