@@ -17,6 +17,8 @@
 #include <boost/preprocessor/control/expr_if.hpp>
 #include <boost/preprocessor/arithmetic/dec.hpp>
 
+#include "Macro/for_each2.hpp"
+
 #define REM(...) __VA_ARGS__
 #define EAT(...)
 
@@ -47,7 +49,7 @@ public: BOOST_PP_CAT(STRIP(x), _type)& STRIP(x)(void);
 
 #define dir_classimpl(ns, ...) BOOST_PP_SEQ_FOR_EACH(dir_eachimpl, ns, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
 
-#define dir_eachimpl2(r, ns, i, x) \
+#define dir_eachimpl2(r, ns, x) \
 ns::BOOST_PP_CAT(BOOST_PP_TUPLE_ELEM(1, x), _type)& ns::BOOST_PP_TUPLE_ELEM(1, x)(void) \
 { \
 	return BOOST_PP_CAT(BOOST_PP_TUPLE_ELEM(1, x), _storage); \
@@ -57,7 +59,7 @@ ns::BOOST_PP_CAT(BOOST_PP_TUPLE_ELEM(1, x), _type)& ns::BOOST_PP_TUPLE_ELEM(1, x
 ns::BOOST_PP_CAT(BOOST_PP_TUPLE_ELEM(1, x), _type)& ns::BOOST_PP_TUPLE_ELEM(1, x)(void) \
 { \
 	return BOOST_PP_CAT(BOOST_PP_TUPLE_ELEM(1, x), _storage); \
-} BOOST_PP_EXPR_IF(BOOST_PP_SUB(BOOST_PP_TUPLE_SIZE(x), 2), BOOST_PP_SEQ_FOR_EACH_I(dir_eachimpl2, ns::BOOST_PP_TUPLE_ELEM(0, x), BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_ELEM(2, x))))
+} BOOST_PP_EXPR_IF(BOOST_PP_SUB(BOOST_PP_TUPLE_SIZE(x), 2), BOOST_PP_SEQ_FOR_EACH2(dir_eachimpl2, ns::BOOST_PP_TUPLE_ELEM(0, x), BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_ELEM(2, x))))
 
 #define dir(name, ...) (dir_classname(name), name, (__VA_ARGS__))
 #define dir_export(name, ...) dir_classname(name) name; dir_classimpl(dir_classname(name), __VA_ARGS__)
