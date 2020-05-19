@@ -17,16 +17,6 @@
 #include <boost/preprocessor/control/expr_if.hpp>
 #include <boost/preprocessor/arithmetic/dec.hpp>
 
-#define REM(...) __VA_ARGS__
-#define EAT(...)
-
-#define TYPEOF(x) DETAIL_TYPEOF(DETAIL_TYPEOF_PROBE x,)
-#define DETAIL_TYPEOF(...) DETAIL_TYPEOF_HEAD(__VA_ARGS__)
-#define DETAIL_TYPEOF_HEAD(x, ...) REM x
-#define DETAIL_TYPEOF_PROBE(...) (__VA_ARGS__),
-#define STRIP(x) EAT x
-#define PAIR(x) REM x
-
 #define dir_classname(name) BOOST_PP_CAT(name, _class)
 
 #ifndef DIR_IMPL
@@ -34,43 +24,21 @@
 #define dir_class(name, ...) class dir_classname(name) { BOOST_PP_SEQ_FOR_EACH(dir_each, data, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__)) }
 
 #define dir_each(r, data, x) \
-private: using BOOST_PP_CAT(STRIP(x), _type) = TYPEOF(x);\
-BOOST_PP_CAT(STRIP(x), _type) BOOST_PP_CAT(STRIP(x), _storage); \
-public: BOOST_PP_CAT(STRIP(x), _type)& STRIP(x)(void);
+private: using BOOST_PP_CAT(BOOST_PP_TUPLE_ELEM(1, x), _type) = BOOST_PP_TUPLE_ELEM(0, x);\
+BOOST_PP_CAT(BOOST_PP_TUPLE_ELEM(1, x), _type) BOOST_PP_CAT(BOOST_PP_TUPLE_ELEM(1, x), _storage); \
+public: BOOST_PP_CAT(BOOST_PP_TUPLE_ELEM(1, x), _type)& BOOST_PP_TUPLE_ELEM(1, x)(void);
 
-#define dir(name, ...) (dir_class(name, __VA_ARGS__)) name
+#define dir(name, ...) (dir_class(name, __VA_ARGS__), name)
 #define dir_export(name, ...) extern dir_class(name, __VA_ARGS__) name;
-
-#define res(type, name) (type) name
 
 #else
 
-#include "Macro/for_each2.hpp"
-#include "Macro/for_each3.hpp"
+#include "Macro/boost_pp_for_each.h_dupped.hpp"
+#include "Macro/dir_eachimpl.hpp_dupped.hpp"
 
-#define dir_classimpl(ns, ...) BOOST_PP_SEQ_FOR_EACH(dir_eachimpl, ns, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
-
-#define dir_eachimpl3(r, ns, x) \
-ns::BOOST_PP_CAT(BOOST_PP_TUPLE_ELEM(1, x), _type)& ns::BOOST_PP_TUPLE_ELEM(1, x)(void) \
-{ \
-	return BOOST_PP_CAT(BOOST_PP_TUPLE_ELEM(1, x), _storage); \
-}
-
-#define dir_eachimpl2(r, ns, x) \
-ns::BOOST_PP_CAT(BOOST_PP_TUPLE_ELEM(1, x), _type)& ns::BOOST_PP_TUPLE_ELEM(1, x)(void) \
-{ \
-	return BOOST_PP_CAT(BOOST_PP_TUPLE_ELEM(1, x), _storage); \
-} BOOST_PP_EXPR_IF(BOOST_PP_SUB(BOOST_PP_TUPLE_SIZE(x), 2), BOOST_PP_SEQ_FOR_EACH3(dir_eachimpl3, ns::BOOST_PP_TUPLE_ELEM(0, x), BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_ELEM(2, x))))
-
-#define dir_eachimpl(r, ns, x) \
-ns::BOOST_PP_CAT(BOOST_PP_TUPLE_ELEM(1, x), _type)& ns::BOOST_PP_TUPLE_ELEM(1, x)(void) \
-{ \
-	return BOOST_PP_CAT(BOOST_PP_TUPLE_ELEM(1, x), _storage); \
-} BOOST_PP_EXPR_IF(BOOST_PP_SUB(BOOST_PP_TUPLE_SIZE(x), 2), BOOST_PP_SEQ_FOR_EACH2(dir_eachimpl2, ns::BOOST_PP_TUPLE_ELEM(0, x), BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_ELEM(2, x))))
+#define dir_classimpl(ns, ...) BOOST_PP_SEQ_FOR_EACH(dir_eachimpl0, ns, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
 
 #define dir(name, ...) (dir_classname(name), name, (__VA_ARGS__))
 #define dir_export(name, ...) dir_classname(name) name; dir_classimpl(dir_classname(name), __VA_ARGS__)
-
-#define res(type, name) (type, name)
 
 #endif

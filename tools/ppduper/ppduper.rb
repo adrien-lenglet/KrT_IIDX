@@ -20,6 +20,7 @@ def it_file(input, output, it)
 	buf = ""
 	dict = {}
 	dict["it"] = it.to_s
+	dict["it + 1"] = (it + 1).to_s
 	File.open(input).each_line do |line|
 		buf += expand(line, dict)
 	end

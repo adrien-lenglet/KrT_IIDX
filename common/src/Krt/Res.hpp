@@ -30,15 +30,15 @@ namespace Krt {
 
 dir_export(re,
 	dir(sub,
-		res(int, a)
+		(int, a)
 	),
 	dir(sub2,
 		dir(sub2sub,
-			res(int, b)
+			(int, b)
 		),
-		res(int, d)
+		(int, d)
 	),
-	res(int, c)
+	(int, c)
 )
 
 }
