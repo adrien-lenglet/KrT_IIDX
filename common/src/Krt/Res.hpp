@@ -28,7 +28,7 @@ namespace Krt {
 	declfolder(sub2)
 )*/
 
-/*dir_export(re,
+dir_export(re,
 	dir(sub,
 		res(int, a)
 	),
@@ -39,13 +39,6 @@ namespace Krt {
 		res(int, d)
 	),
 	res(int, c)
-)*/
-
-
-dir_export(re,
-	dir(sub,
-		res(int, a)
-	)
 )
 
 }
