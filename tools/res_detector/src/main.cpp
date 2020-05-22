@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <fstream>
 #include <stdexcept>
 
 static auto getArgs(int argc, char **argv)
@@ -48,7 +49,7 @@ static size_t process(std::ostream &out, const std::fs::directory_iterator &it, 
 			continue;
 
 		if (e.is_directory()) {
-			std::cout << "," << std::endl;
+			out << "," << std::endl;
 			print_tabs(out, depth);
 			out << "dir(" << name;
 			if (process(out, std::fs::directory_iterator(e), depth + 1)) {
@@ -62,13 +63,63 @@ static size_t process(std::ostream &out, const std::fs::directory_iterator &it, 
 
 			if (got == exts.end())
 				continue;
-			std::cout << "," << std::endl;
+			out << "," << std::endl;
 			print_tabs(out, depth);
 			out << "(" << got->second << ", " << e.path().stem().string() << ")";
 		}
 		res++;
 	}
 	return res;
+}
+
+static void print_folder(std::ostream &out, const std::string &root)
+{
+	out << "dir_export(" << std::fs::path(root).filename().string();
+	process(out, std::fs::directory_iterator(root), 1);
+	out << std::endl << ")" << std::endl;;
+}
+
+static void print_header(const std::string &root, const std::string &output, const std::vector<std::string> &ns)
+{
+	std::ofstream out(output, std::ios::trunc);
+
+	out << "#include \"Subtile/Resource/Decl.hpp\"" << std::endl << std::endl;
+
+	for (auto &n : ns)
+		out << "namespace " << n << " {" << std::endl;
+	if (ns.size())
+		out << std::endl;
+
+	print_folder(out, root);
+
+	if (ns.size())
+		out << std::endl;
+	for (auto &n : ns) {
+		static_cast<void>(n);
+		out << "}" << std::endl;
+	}
+
+	out << std::endl;
+	out << "#include \"Subtile/Resource/DeclEnd.hpp\"" << std::endl;
+}
+
+static void print_impl(const std::string &path, const std::string &hpath)
+{
+	std::ofstream out(path, std::ios::trunc);
+
+	auto hp = std::fs::path(hpath).filename().string();
+
+	out << "#include \"" << hp << "\"" << std::endl;
+	out << "#define DIR_IMPL" << std::endl;
+	out << "#include \"" << hp << "\"" << std::endl;
+}
+
+static auto getOutpath(const std::string &root, const std::string &output, const std::string &ext)
+{
+	std::stringstream ss;
+
+	ss << output << "/" << std::fs::path(root).filename().string() << ext;
+	return ss.str();
 }
 
 int main(int argc, char **argv)
@@ -78,8 +129,8 @@ int main(int argc, char **argv)
 	auto &output = args.at(1);
 	auto ns = getNs(args);
 
-	std::cout << "dir_export(" << std::fs::path(input).filename().string();
-	process(std::cout, std::fs::directory_iterator(input), 1);
-	std::cout << std::endl << ")";
+	print_header(input, getOutpath(input, output, ".hpp"), ns);
+	print_impl(getOutpath(input, output, ".cpp"), getOutpath(input, output, ".hpp"));
+
 	return 0;
 }
