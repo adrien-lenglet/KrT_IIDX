@@ -5,3 +5,5 @@ glfw3.dll
 *.cbp
 *.o
 *.spv
+
+tools/res_detector/res_detector
