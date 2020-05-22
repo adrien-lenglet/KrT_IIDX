@@ -2,7 +2,7 @@ KrT_IIDX
 KrT_IIDX.exe
 glfw3.dll
 
-*.cbp
+*.a
 *.o
 *.spv
 

@@ -9,14 +9,7 @@ ifndef VULKAN_SDK
 $(error VULKAN_SDK is not set. Make sure the LunarG Vulkan SDK is installed on your system and that this variable is properly set in your environment)
 endif
 
-SRC_FOLDER = ../common/src
-LIB_SRC_FOLDER = ../common/libs/src
-
-LIB_SRC = $(wildcard $(LIB_SRC_FOLDER)/*.cpp)
-LIB_OBJ = $(LIB_SRC:.cpp=.o)
-
-SRC = $(wildcard $(SRC_FOLDER)/*.cpp) $(wildcard $(SRC_FOLDER)/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*/*/*.cpp)
-OBJ = $(SRC:.cpp=.o)
+OBJ = ../common/obj.a
 
 TARGET = ../KrT_IIDX.exe
 LIBS_SO = $(wildcard ../*.dll)
@@ -45,7 +38,7 @@ obj_clean:
 	$(MAKE) -C ../common clean
 
 $(TARGET): libs shaders obj $(SHADER_BIN)
-	$(CXX) $(CXXFLAGS) $(LINK_OPT) $(OBJ) $(LIB_OBJ) -Wl,-rpath,linux/libs/bin -o $(TARGET) $(LDLIB)
+	$(CXX) $(CXXFLAGS) $(LINK_OPT) $(OBJ) -Wl,-rpath,linux/libs/bin -o $(TARGET) $(LDLIB)
 
 all: $(TARGET)
 

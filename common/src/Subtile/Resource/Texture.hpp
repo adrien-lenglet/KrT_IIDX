@@ -8,8 +8,8 @@ namespace Resource {
 class Texture
 {
 public:
-	Texture(void) = default;
-	~Texture(void) = default;
+	Texture(void);
+	~Texture(void);
 };
 
 }
