@@ -83,6 +83,9 @@ static void print_header(const std::string &root, const std::string &output, con
 {
 	std::ofstream out(output, std::ios::trunc);
 
+	out << "#include \"Subtile/Resource/Model.hpp\"" << std::endl;
+	out << "#include \"Subtile/Resource/Texture.hpp\"" << std::endl;
+	out << std::endl;
 	out << "#include \"Subtile/Resource/Decl.hpp\"" << std::endl << std::endl;
 
 	for (auto &n : ns)

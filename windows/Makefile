@@ -38,6 +38,7 @@ shaders_clean:
 	$(MAKE) -C ../common/shaders clean
 
 obj:
+	$(MAKE) -C ../common resources
 	$(MAKE) -C ../common $(DARG) $(OPT)
 
 obj_clean:

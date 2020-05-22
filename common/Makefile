@@ -8,11 +8,18 @@ CXXFLAGS = -std=c++17 $(EXTRA) $(WARNINGS) $(DEFINE) $(INCLUDE)
 SRC_FOLDER = src
 LIB_SRC_FOLDER = libs/src
 
+ROOT = ..
+
 SRC = $(wildcard $(SRC_FOLDER)/*.cpp) $(wildcard $(SRC_FOLDER)/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*/*/*.cpp)
 OBJ = $(SRC:.cpp=.o)
 
-$(SRC_FOLDER)/Krt/Res.o: $(SRC_FOLDER)/Krt/Res.cpp $(SRC_FOLDER)/Krt/Res.hpp
-	$(CXX) $(CXXFLAGS) -c $(SRC_FOLDER)/Krt/Res.cpp -o $(SRC_FOLDER)/Krt/Res.o
+detect_res: .FORCE
+	$(ROOT)/tools/res_detector/res_detector $(ROOT)/res $(SRC_FOLDER)/Krt Krt
+
+resources: detect_res
+
+$(SRC_FOLDER)/Krt/res.o: $(SRC_FOLDER)/Krt/res.cpp $(SRC_FOLDER)/Krt/res.hpp
+	$(CXX) $(CXXFLAGS) -c $(SRC_FOLDER)/Krt/res.cpp -o $(SRC_FOLDER)/Krt/res.o
 
 LIB_SRC = $(wildcard $(LIB_SRC_FOLDER)/*.cpp)
 LIB_OBJ = $(LIB_SRC:.cpp=.o)
@@ -34,3 +41,5 @@ clean:
 
 clean_libs:
 	rm -f $(LIB_OBJ)
+
+.FORCE:

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../Subtile.hpp"
+
 #include <vector>
 #include <stack>
 #include "Observer.hpp"
@@ -105,7 +107,5 @@ private:
 };
 
 }
-
-namespace sb = ::Subtile;
 
 #include "World.hpp"
