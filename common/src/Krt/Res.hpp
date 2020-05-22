@@ -1,4 +1,4 @@
-#include "Subtile/Resource.hpp"
+#include "Subtile/Resource/Decl.hpp"
 
 namespace Krt {
 
@@ -19,4 +19,4 @@ dir_export(res,
 
 }
 
-#include "Subtile/ResourceEnd.hpp"
+#include "Subtile/Resource/DeclEnd.hpp"

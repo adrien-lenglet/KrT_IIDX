@@ -4,7 +4,7 @@
 
 namespace Krt {
 
-void lol(void)
+void testreslol(void)
 {
 	res.sub2().subsub().deep_res();
 	res.flres();
