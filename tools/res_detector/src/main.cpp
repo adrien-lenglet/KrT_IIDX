@@ -7,6 +7,27 @@
 #include <fstream>
 #include <stdexcept>
 
+static std::string read_file(const std::string &path)
+{
+	std::stringstream res;
+	std::ifstream in(path);
+
+	res << in.rdbuf();
+	return res.str();
+}
+
+static void output_file(const std::string &outpath, const std::string &data)
+{
+	auto got = read_file(outpath);
+	if (got == data)
+		return;
+
+	std::cout << "Update " << outpath << std::endl;
+	std::ofstream out(outpath, std::ios::trunc);
+
+	out << data;
+}
+
 static auto getArgs(int argc, char **argv)
 {
 	std::vector<std::string> res;
@@ -81,7 +102,7 @@ static void print_folder(std::ostream &out, const std::string &root)
 
 static void print_header(const std::string &root, const std::string &output, const std::vector<std::string> &ns)
 {
-	std::ofstream out(output, std::ios::trunc);
+	std::stringstream out;
 
 	out << "#include \"Subtile/Resource/Model.hpp\"" << std::endl;
 	out << "#include \"Subtile/Resource/Texture.hpp\"" << std::endl;
@@ -104,17 +125,21 @@ static void print_header(const std::string &root, const std::string &output, con
 
 	out << std::endl;
 	out << "#include \"Subtile/Resource/DeclEnd.hpp\"" << std::endl;
+
+	output_file(output, out.str());
 }
 
 static void print_impl(const std::string &path, const std::string &hpath)
 {
-	std::ofstream out(path, std::ios::trunc);
+	std::stringstream out;
 
 	auto hp = std::fs::path(hpath).filename().string();
 
 	out << "#include \"" << hp << "\"" << std::endl;
 	out << "#define DIR_IMPL" << std::endl;
 	out << "#include \"" << hp << "\"" << std::endl;
+
+	output_file(path, out.str());
 }
 
 static auto getOutpath(const std::string &root, const std::string &output, const std::string &ext)
