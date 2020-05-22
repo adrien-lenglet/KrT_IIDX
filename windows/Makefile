@@ -12,9 +12,9 @@ endif
 OBJ = ../common/obj.a
 
 TARGET = ../KrT_IIDX.exe
-LIBS_SO = $(wildcard ../*.dll)
-LDLIB = $(LIBS_SO) \
-"$(shell cygpath.exe --unix $(VULKAN_SDK))/Lib/vulkan-1.lib"
+LIBS_DLL = $(wildcard ../*.dll)
+LIB = $(LIBS_DLL) \
+"$(shell cygpath --unix $(VULKAN_SDK))/Lib/vulkan-1.lib"
 
 DARG = all
 
@@ -32,9 +32,9 @@ obj_clean:
 	$(MAKE) -C ../common clean
 
 $(TARGET): $(OBJ)
-	$(CXX) $(CXXFLAGS) $(LINK_OPT) $(OBJ) -Wl,-rpath,linux/libs/bin -o $(TARGET) $(LDLIB)
+	$(CXX) $(CXXFLAGS) $(LINK_OPT) $(OBJ) $(LIB) -o $(TARGET)
 
-builder: libs obj $(SHADER_BIN) $(TARGET)
+builder: libs obj $(TARGET)
 
 all: builder
 
@@ -49,7 +49,7 @@ release: all
 clean: obj_clean
 	rm -f $(TARGET)
 
-clean_all: libs_clean shaders_clean clean
+clean_all: libs_clean clean
 	$(MAKE) -C ../common clean_libs
 
-.PHONY: all debug release clean libs libs_clean shaders shaders_clean clean_all
+.PHONY: all debug release clean libs libs_clean clean_all

@@ -1,22 +1,14 @@
 
 .DEFAULT_GOAL := all
-LINK_OPT =
 OPT = -j12
 CXX = clang++
 CXXFLAGS = -std=c++17
 
-SRC_FOLDER = ../common/src
-LIB_SRC_FOLDER = ../common/libs/src
-
-LIB_SRC = $(wildcard $(LIB_SRC_FOLDER)/*.cpp)
-LIB_OBJ = $(LIB_SRC:.cpp=.o)
-
-SRC = $(wildcard $(SRC_FOLDER)/*.cpp) $(wildcard $(SRC_FOLDER)/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*/*.cpp) $(wildcard $(SRC_FOLDER)/*/*/*/*/*/*/*.cpp)
-OBJ = $(SRC:.cpp=.o)
+OBJ = ../common/obj.a
 
 TARGET = ../KrT_IIDX
 LIBS_SO = $(wildcard libs/bin/*.so)
-LDLIB = $(LIBS_SO) -lvulkan
+LIB = $(LIBS_SO) -lvulkan -Wl,-rpath,linux/libs/bin
 
 DARG = all
 
@@ -26,12 +18,6 @@ libs:
 libs_clean:
 	$(MAKE) -C libs clean
 
-shaders:
-	$(MAKE) -C ../common/shaders $(OPT)
-
-shaders_clean:
-	$(MAKE) -C ../common/shaders clean
-
 obj:
 	$(MAKE) -C ../common resources
 	$(MAKE) -C ../common $(DARG) $(OPT)
@@ -39,10 +25,12 @@ obj:
 obj_clean:
 	$(MAKE) -C ../common clean
 
-$(TARGET): libs shaders obj $(SHADER_BIN)
-	$(CXX) $(CXXFLAGS) $(LINK_OPT) $(OBJ) $(LIB_OBJ) -Wl,-rpath,linux/libs/bin -o $(TARGET) $(LDLIB)
+$(TARGET): $(OBJ)
+	$(CXX) $(CXXFLAGS) $(LINK_OPT) $(OBJ) $(LIB) -o $(TARGET)
 
-all: $(TARGET)
+builder: libs obj $(TARGET)
+
+all: builder
 
 debug: DARG = debug
 debug: CXXFLAGS = -g
