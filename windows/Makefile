@@ -24,12 +24,6 @@ libs:
 libs_clean:
 	$(MAKE) -C libs clean
 
-shaders:
-	$(MAKE) -C ../common/shaders $(OPT)
-
-shaders_clean:
-	$(MAKE) -C ../common/shaders clean
-
 obj:
 	$(MAKE) -C ../common resources
 	$(MAKE) -C ../common $(DARG) $(OPT)
@@ -37,10 +31,12 @@ obj:
 obj_clean:
 	$(MAKE) -C ../common clean
 
-$(TARGET): libs shaders obj $(SHADER_BIN)
+$(TARGET): $(OBJ)
 	$(CXX) $(CXXFLAGS) $(LINK_OPT) $(OBJ) -Wl,-rpath,linux/libs/bin -o $(TARGET) $(LDLIB)
 
-all: $(TARGET)
+builder: libs obj $(SHADER_BIN) $(TARGET)
+
+all: builder
 
 debug: DARG = debug
 debug: CXXFLAGS = -g
