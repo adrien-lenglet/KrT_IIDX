@@ -10,8 +10,11 @@ dir_export(res,
 		dir(etc),
 		dir(npc,
 			(sb::rs::Model, gordon),
-			(sb::rs::Texture, gordon_dif)
+			(sb::rs::Texture, gordon_diff)
 		)
+	),
+	dir(shaders,
+		dir(diffuse_pipeline)
 	)
 )
 

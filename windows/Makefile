@@ -24,6 +24,9 @@ libs:
 libs_clean:
 	$(MAKE) -C libs clean
 
+resource:
+	$(MAKE) -C ../common resources
+
 obj:
 	$(MAKE) -C ../common resources
 	$(MAKE) -C ../common $(DARG) $(OPT)
