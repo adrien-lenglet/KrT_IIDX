@@ -23,3 +23,21 @@ fragment {
 		return sample(diffuse, vertex_uv) + vec4(bias);
 	}
 }
+
+// OR
+
+// IMPLICIT
+/*struct SbIso {
+	vec4 color;
+	float depth;
+};*/
+
+SbIso sb_light_iso(void) {
+	return // ray trace primitive
+}
+
+// OR
+
+SbIso sb_color_iso(void) {
+	return // ray trace primitive
+}
