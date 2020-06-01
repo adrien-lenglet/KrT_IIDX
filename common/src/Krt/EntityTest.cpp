@@ -71,7 +71,7 @@ EntityTest::EntityTest(void) :
 	//auto &npc = res.models().npc();
 	//bind(world.render, res.shaders().diffuse()(npc.gordon(), npc.gordon_diff());
 
-	IntCache icache;
+	/*IntCache icache;
 
 	const auto l = icache.resolve(12, 6);
 	const auto m = icache.resolve(60, 2.5);
@@ -82,6 +82,11 @@ EntityTest::EntityTest(void) :
 
 	auto a = cache.resolve();
 	auto b = cache.resolve();
+
+	util::vector<DummyClass> vec;
+
+	for (size_t i = 0; i < 64; i++)
+		vec.emplace_back();*/
 }
 
 EntityTest::~EntityTest(void)

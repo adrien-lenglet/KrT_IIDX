@@ -1,12 +1,12 @@
 #include <iostream>
-#include "CGlfwVulkan.hpp"
-#include "GlfwVulkan/Input/AButton.hpp"
-#include "GlfwVulkan/Input/Keyboard.hpp"
+#include "Glfw.hpp"
+#include "Glfw/Input/AButton.hpp"
+#include "Glfw/Input/Keyboard.hpp"
 
 namespace Subtile {
 namespace System {
 
-static const std::map<std::string, int> glfw_keys = {
+const std::map<std::string, int> Glfw::m_keys = {
 	{"KEY_SPACE", GLFW_KEY_SPACE}, 
 	{"KEY_APOSTROPHE", GLFW_KEY_APOSTROPHE}, 
 	{"KEY_COMMA", GLFW_KEY_COMMA}, 
@@ -126,58 +126,8 @@ static const std::map<std::string, int> glfw_keys = {
 	{"KEY_RIGHT_CONTROL", GLFW_KEY_RIGHT_CONTROL}, 
 	{"KEY_RIGHT_ALT", GLFW_KEY_RIGHT_ALT}, 
 	{"KEY_RIGHT_SUPER", GLFW_KEY_RIGHT_SUPER}, 
-	{"KEY_MENU", GLFW_KEY_MENU}, 
+	{"KEY_MENU", GLFW_KEY_MENU},
 };
-
-std::vector<std::unique_ptr<System::IInput>> CGlfwVulkan::createInputs(void)
-{
-	std::vector<std::unique_ptr<System::IInput>> res;
-
-	res.emplace_back(new GlfwVulkan::Input::AButton("close_window", [this](){
-		return m_vk.shouldClose();
-	}));
-	for (const auto &k : glfw_keys)
-		res.emplace_back(new GlfwVulkan::Input::AButton(k.first, [k, this](){
-			return glfwGetKey(m_vk.getWindow(), k.second) == GLFW_PRESS;
-		}));
-	res.emplace_back(new GlfwVulkan::Input::Keyboard(m_vk.getWindow()));
-	return res;
-}
-
-std::map<std::string, System::IInput&> CGlfwVulkan::createInputsMap(void)
-{
-	std::map<std::string, System::IInput&> res;
-
-	for (const auto &in : m_inputs)
-		res.emplace(in->getName(), *in);
-	return res;
-}
-
-CGlfwVulkan::CGlfwVulkan(size_t w, size_t h, bool isDebug, bool doProfile) :
-	m_vk(w, h, isDebug, doProfile),
-	m_inputs(createInputs()),
-	m_inputs_map(createInputsMap())
-{
-}
-
-CGlfwVulkan::~CGlfwVulkan(void)
-{
-}
-
-void CGlfwVulkan::scanInputs(void)
-{
-	glfwPollEvents();
-}
-
-const std::map<std::string, System::IInput&>& CGlfwVulkan::getInputs(void)
-{
-	return m_inputs_map;
-}
-
-void CGlfwVulkan::render(void)
-{
-	m_vk.render();
-}
 
 }
 }

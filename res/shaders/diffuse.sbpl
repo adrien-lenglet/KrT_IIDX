@@ -1,2 +1,0 @@
-fragment: .diffuse_pipeline.fragment
-vertex: .diffuse_pipeline.vertex

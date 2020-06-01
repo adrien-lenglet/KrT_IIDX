@@ -1,0 +1,25 @@
+extern_world float time;
+
+vertex {
+	extern vec3 origin;
+
+	vec4 sb_transform_pos(void) {
+		return sb_pos - origin;
+	}
+}
+
+fragment {
+	extern float bias;
+	extern float seed;
+	extern_entity texture2D diffuse;
+
+	vec4 sb_light(void) {
+		return sample(diffuse, vertex_uv) + vec4(bias);
+	}
+
+	// OR
+
+	vec4 sb_color(void) {
+		return sample(diffuse, vertex_uv) + vec4(bias);
+	}
+}

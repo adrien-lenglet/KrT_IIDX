@@ -1,7 +1,0 @@
-export float bias;
-export_instance texture2D diffuse;
-export_instance texture2D normal_map;
-
-int main(void) {
-	return sample(diffuse, vertex_uv) + vec4(bias);
-}

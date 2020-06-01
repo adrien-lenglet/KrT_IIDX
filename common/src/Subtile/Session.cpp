@@ -21,7 +21,7 @@ void SessionBase::run(void)
 		for (auto &w : m_worlds)
 			w.events.updateEvents();
 		getScreenLayout().render();
-		m_system.render();
+		//m_system.render();
 	}
 }
 

@@ -8,9 +8,8 @@
 
 namespace Krt {
 
-Instance::Instance(std::vector<std::string> args, bool isDebug) :
-	config(args),
-	subtile(1600, 900, isDebug, config.isProfile)
+Instance::Instance(std::vector<std::string> args, bool) :
+	config(args)
 {
 }
 

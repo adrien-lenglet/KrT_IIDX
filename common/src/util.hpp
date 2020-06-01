@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdlib>
 #include <map>
 #include <memory>
 #include <algorithm>
@@ -380,5 +381,65 @@ auto end(reversion_wrapper<T> w) { return std::rend(w.iterable); }
 
 template <typename T>
 reversion_wrapper<T> reverse(T&& iterable) { return { iterable }; }
+
+size_t rounduppwr2(size_t value);
+
+template <typename T>
+class vector
+{
+public:
+	vector(void) :
+		m_size(0),
+		m_allocated(0),
+		m_data(nullptr)
+	{
+	}
+	vector(vector &&other) :
+		m_size(other.m_size),
+		m_allocated(other.m_allocated),
+		m_data(other.m_data)
+	{
+		other.m_size = 0;
+		other.m_allocated = 0;
+		other.m_data = nullptr;
+	}
+	~vector(void)
+	{
+		clear();
+	}
+
+	void reserve(size_t elems)
+	{
+		if (elems <= m_allocated)
+			return;
+		m_allocated = elems;
+		m_data = reinterpret_cast<T*>(realloc(m_data, m_allocated * sizeof(T)));
+	}
+
+	void clear(void)
+	{
+		for (size_t i = 0; i < m_size; i++)
+			m_data[i].~T();
+		free(m_data);
+		m_size = 0;
+		m_allocated = 0;
+		m_data = nullptr;
+	}
+
+	template <typename ...Args>
+	T& emplace_back(Args &&...args)
+	{
+		size_t cur = m_size++;
+
+		if (m_size > m_allocated)
+			reserve(m_allocated == 0 ? 1 : rounduppwr2(m_allocated));
+		return *new (&m_data[cur]) T(std::forward<Args>(args)...);
+	}
+
+private:
+	size_t m_size;
+	size_t m_allocated;
+	T *m_data;
+};
 
 }

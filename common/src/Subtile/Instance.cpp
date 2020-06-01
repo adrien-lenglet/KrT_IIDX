@@ -1,12 +1,12 @@
 #include "Instance.hpp"
 #include "System/Input/IButton.hpp"
 #include "System/Input/IKeyboard.hpp"
-#include "System/CGlfwVulkan.hpp"
+#include "System/Glfw.hpp"
 
 namespace Subtile {
 
-Instance::Instance(size_t w, size_t h, bool isDebug, bool doProfile) :
-	m_system(new System::CGlfwVulkan(w, h, isDebug, doProfile)),
+Instance::Instance(void) :
+	m_system(new System::Glfw()),
 	m_events(*m_system)
 {
 }
