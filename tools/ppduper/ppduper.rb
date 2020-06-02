@@ -16,7 +16,7 @@ def expand(str, dict)
 	str
 end
 
-def it_file(input, output, it)
+def it_file(input, it)
 	buf = ""
 	dict = {}
 	dict["it"] = it.to_s
@@ -24,7 +24,7 @@ def it_file(input, output, it)
 	File.open(input).each_line do |line|
 		buf += expand(line, dict)
 	end
-	File.new(output, "w+").write(buf)
+	buf
 end
 
 def file_noext(path)
@@ -38,13 +38,10 @@ def compile_macro(file_path, output_folder)
 
 	folder_path = file_noext(file_path)
 	system("rm -rf #{output_folder}/#{folder_path}")
-	system("mkdir #{output_folder}/#{folder_path}")
 
 	headers = "#pragma once\n\n"
 	(0..255).each do |it|
-		filename = "#{folder_path}/it_#{"%02x" % it}.hpp"
-		it_file(file_path, "#{output_folder}/#{filename}", it)
-		headers += "#include \"#{filename}\"\n"
+		headers += "#{it_file(file_path, it)}\n"
 	end
 	File.new("#{output_folder}/#{file_path}_dupped.hpp", "w+").write(headers)
 end
