@@ -94,3 +94,76 @@ EntityTest::~EntityTest(void)
 }
 
 }
+
+
+#include "Subtile/class_impl.hpp"
+
+class ClassA
+{
+public:
+	ClassA(void);
+	~ClassA(void);
+
+	class ClassB
+	{
+	public:
+		class ClassD
+		{
+		public:
+			ClassD(void) = default;
+			~ClassD(void) = default;
+
+			void method(void);
+		};
+
+		ClassB(void) = default;
+		~ClassB(void) = default;
+
+		void method(void);
+		void methodb(void);
+	};
+
+	class ClassC
+	{
+	public:
+		ClassC(void) = default;
+		~ClassC(void) = default;
+
+		void met(void);
+		void metb(void);
+	};
+};
+
+rc(ClassA, (
+	sc(ClassB,
+		lc_single(ClassD,
+			void ,method(void)
+			{
+			}
+		),
+
+		void ,method(void)
+		{
+		}
+		void ,methodb(void)
+		{
+		}
+	),
+	lc(ClassC,
+		void ,met(void)
+		{
+		}
+		void ,metb(void)
+		{
+		}
+	)
+),
+
+	,ClassA(void)
+	{
+	}
+
+	,~ClassA(void)
+	{
+	}
+)

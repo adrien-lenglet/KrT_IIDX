@@ -29,7 +29,7 @@ fragment {
 iso {
 
 	// IMPLICIT
-	/*struct Iso {
+	/*struct SbIso {
 		vec4 color;
 		float depth;
 	};*/

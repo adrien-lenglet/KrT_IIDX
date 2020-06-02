@@ -13,9 +13,7 @@ dir_export(res,
 			(sb::rs::Texture, gordon_diff)
 		)
 	),
-	dir(shaders,
-		dir(diffuse_pipeline)
-	)
+	dir(shaders)
 )
 
 }
