@@ -135,8 +135,8 @@ public:
 };
 
 class_impl(ClassA,
-	cl(ClassB,
-		cl(ClassD,,
+	sub_class(ClassB,
+		sub_class(ClassD,,
 			void ,method(void)
 			{
 			}
@@ -149,7 +149,7 @@ class_impl(ClassA,
 		{
 		}
 	)
-	cl(ClassC,,
+	sub_class(ClassC,,
 		void ,met(void)
 		{
 		}
@@ -166,3 +166,8 @@ class_impl(ClassA,
 	{
 	}
 )
+
+void lol(void)
+{
+	ClassA::ClassB::ClassD().method();
+}
