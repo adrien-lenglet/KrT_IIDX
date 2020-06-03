@@ -6,7 +6,7 @@ namespace Subtile {
 namespace Event {
 namespace World {
 
-root_scc(Observer,
+rt_scc(Observer,
 	scp::Observer(Subtile::Event::System::Observer &system) :
 		system(system)
 	{

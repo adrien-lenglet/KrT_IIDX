@@ -10,7 +10,7 @@
 #include <boost/preprocessor/expand.hpp>
 #include <boost/preprocessor/cat.hpp>
 
-#define root_scc(name, ...) __scc_unwrap(__scc_impl(name, (((__VA_ARGS__)))))
+#define rt_scc(name, ...) __scc_unwrap(__scc_impl(name, (((__VA_ARGS__)))))
 
 #define scc(name, ...) ))) __scc_impl(name, (((__VA_ARGS__)))) (((
 #define scp )))(()()((
