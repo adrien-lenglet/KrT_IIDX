@@ -1,0 +1,1 @@
+#define BOOST_PP_EVAL2p|it + 1|(...) BOOST_PP_EVAL2p|it|(BOOST_PP_EVAL2p|it|(__VA_ARGS__))
