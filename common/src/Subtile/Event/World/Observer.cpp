@@ -1,39 +1,44 @@
 #include <fstream>
 #include "Observer.hpp"
+#include "Subtile/class_impl.hpp"
 
 namespace Subtile {
 namespace Event {
 namespace World {
 
-Observer::Observer(Subtile::Event::System::Observer &system) :
-	system(system)
-{
-	add(static_cast<Observer::Cluster&>(update));
-}
+sci(Observer,
+	scp::Observer(Subtile::Event::System::Observer &system) :
+		system(system)
+	{
+		add(static_cast<Observer::Cluster&>(update));
+	}
 
-Observer::~Observer(void)
-{
-}
+	scp::~Observer(void)
+	{
+	}
 
-Observer::Update::Update(void) :
-	Observer::Group<Update, std::tuple<>, std::tuple<double>>([this](){
-		auto now = std::chrono::high_resolution_clock::now();
-		double res = std::chrono::duration<double>(now - m_time_before).count();
-		m_time_before = now;
-		return res;
-	}),
-	m_time_before(std::chrono::high_resolution_clock::now())
-{
-}
+	void scp::updateEvents(void)
+	{
+		Event::Observer::Cluster::update();
+	}
+)
 
-Observer::Update::~Update(void)
-{
-}
+sci(Observer::Update,
+	scp::Update(void) :
+		Observer::Group<Update, std::tuple<>, std::tuple<double>>([this](){
+			auto now = std::chrono::high_resolution_clock::now();
+			double res = std::chrono::duration<double>(now - m_time_before).count();
+			m_time_before = now;
+			return res;
+		}),
+		m_time_before(std::chrono::high_resolution_clock::now())
+	{
+	}
 
-void Observer::updateEvents(void)
-{
-	Event::Observer::Cluster::update();
-}
+	scp::~Update(void)
+	{
+	}
+)
 
 }
 }

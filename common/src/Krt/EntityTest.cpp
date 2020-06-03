@@ -8,45 +8,6 @@
 
 namespace Krt {
 
-class IntCache : public sb::Cache<std::tuple<size_t, double>, int>
-{
-public:
-	IntCache(void) = default;
-	~IntCache(void) = default;
-
-protected:
-	int build(const size_t &s, const double &d) const override
-	{
-		return s + d;
-	}
-};
-
-class DummyClass
-{
-public:
-	DummyClass(void)
-	{
-		std::cout << "const" << std::endl;
-	}
-	~DummyClass(void)
-	{
-		std::cout << "dest" << std::endl;
-	}
-};
-
-class DummyCache : public sb::Cache<std::tuple<>, DummyClass>
-{
-public:
-	DummyCache(void) = default;
-	~DummyCache(void) = default;
-
-protected:
-	DummyClass build(void) const override
-	{
-		return DummyClass();
-	}
-};
-
 EntityTest::EntityTest(void) :
 	entity1(add<EntityTest2>()),
 	entity2(add<EntityTest2>())
@@ -65,109 +26,10 @@ EntityTest::EntityTest(void) :
 		pos.x += t;
 		transformed();
 	});
-
-	//res.models().npc().gordon_diff();
-
-	//auto &npc = res.models().npc();
-	//bind(world.render, res.shaders().diffuse()(npc.gordon(), npc.gordon_diff());
-
-	/*IntCache icache;
-
-	const auto l = icache.resolve(12, 6);
-	const auto m = icache.resolve(60, 2.5);
-	std::cout << *l << std::endl;
-	std::cout << *m << std::endl;
-
-	DummyCache cache;
-
-	auto a = cache.resolve();
-	auto b = cache.resolve();
-
-	util::vector<DummyClass> vec;
-
-	for (size_t i = 0; i < 64; i++)
-		vec.emplace_back();*/
 }
 
 EntityTest::~EntityTest(void)
 {
 }
 
-}
-
-
-#include "Subtile/class_impl.hpp"
-
-class ClassA
-{
-public:
-	ClassA(void);
-	~ClassA(void);
-
-	class ClassB
-	{
-	public:
-		class ClassD
-		{
-		public:
-			ClassD(void) = default;
-			~ClassD(void) = default;
-
-			void method(void);
-		};
-
-		ClassB(void) = default;
-		~ClassB(void) = default;
-
-		void method(void);
-		void methodb(void);
-	};
-
-	class ClassC
-	{
-	public:
-		ClassC(void) = default;
-		~ClassC(void) = default;
-
-		void met(void);
-		void metb(void);
-	};
-};
-
-class_impl(ClassA,
-	sub_class(ClassB,
-		sub_class(ClassD,,
-			void ,method(void)
-			{
-			}
-		),
-		void ,method(void)
-		{
-		}
-
-		void ,methodb(void)
-		{
-		}
-	)
-	sub_class(ClassC,,
-		void ,met(void)
-		{
-		}
-		void ,metb(void)
-		{
-		}
-	),
-
-	,ClassA(void)
-	{
-	}
-
-	,~ClassA(void)
-	{
-	}
-)
-
-void lol(void)
-{
-	ClassA::ClassB::ClassD().method();
 }
