@@ -25,17 +25,23 @@
 #define EVAL2(...) EVAL1(EVAL1(__VA_ARGS__))
 #define EVAL1(...) __VA_ARGS__
 
+#define EMPTY()
+#define DEFER(m) m EMPTY()
+
 #define PP_ARG_COUNT_I(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, \
 a13, a14, a15, ...) a15
 #define PP_ARG_COUNT(...) PP_ARG_COUNT_I(foo, ## __VA_ARGS__, 13, 12, 11, \
 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0)
 
-#define class_impl(...) EVAL(__rc0(__VA_ARGS__))
+#define class_impl(...) EVAL(__rc(__VA_ARGS__))
 #define __impl_for_each(r, data, x) data::x
 
-#define cl(...) ((__VA_ARGS__))
+#define _BOOST_PP_SEQ_FOR_EACH() BOOST_PP_SEQ_FOR_EACH
 
-#include "Macro/class_impl_rc.hpp_dupped.hpp"
+#define __rc(name, sub, first, ...) DEFER(_BOOST_PP_SEQ_FOR_EACH)()(__sub_for_each, name, sub) first BOOST_PP_SEQ_FOR_EACH(__impl_for_each, name, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
+#define __sub_for_each(r, data, x) __rc BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_TUPLE_POP_FRONT(x), data::BOOST_PP_TUPLE_ELEM(0, x))
+
+#define cl(...) ((__VA_ARGS__))
 
 #define sc(name, ...) (name, __VA_ARGS__)
 #define lc(name, ...) (name, (), __VA_ARGS__)
