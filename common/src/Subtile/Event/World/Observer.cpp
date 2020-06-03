@@ -7,23 +7,23 @@ namespace Event {
 namespace World {
 
 root_scc(Observer,
-	scp()Observer(Subtile::Event::System::Observer &system) :
+	scp::Observer(Subtile::Event::System::Observer &system) :
 		system(system)
 	{
 		add(static_cast<Observer::Cluster&>(update));
 	}
 
-	scp()~Observer(void)
+	scp::~Observer(void)
 	{
 	}
 
-	void scp()updateEvents(void)
+	void scp::updateEvents(void)
 	{
 		Event::Observer::Cluster::update();
 	}
 
 	scc(Update,
-		scp()Update(void) :
+		scp::Update(void) :
 			Observer::Group<Update, std::tuple<>, std::tuple<double>>([this](){
 				auto now = std::chrono::high_resolution_clock::now();
 				double res = std::chrono::duration<double>(now - m_time_before).count();
@@ -34,7 +34,7 @@ root_scc(Observer,
 		{
 		}
 
-		scp()~Update(void)
+		scp::~Update(void)
 		{
 		}
 	)
