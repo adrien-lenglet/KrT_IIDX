@@ -8,11 +8,9 @@
 #include <boost/preprocessor/tuple/elem.hpp>
 #include <boost/preprocessor/control/expr_if.hpp>
 #include <boost/preprocessor/expand.hpp>
+#include <boost/preprocessor/seq/size.hpp>
 
 #include "Macro/boost_pp_for_each.h_dupped.hpp"
-#include "Macro/boost_pp_expr_if.h_dupped.hpp"
-#include "Macro/boost_pp_expr_iif.h_dupped.hpp"
-#include "Macro/boost_pp_bool.h_dupped.hpp"
 
 #define EVAL(...) EVAL1024(__VA_ARGS__)
 #define EVAL1024(...) EVAL512(EVAL512(__VA_ARGS__))
@@ -32,8 +30,10 @@ a13, a14, a15, ...) a15
 #define PP_ARG_COUNT(...) PP_ARG_COUNT_I(foo, ## __VA_ARGS__, 13, 12, 11, \
 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0)
 
-#define rc(...) EVAL(__rc0(__VA_ARGS__))
+#define class_impl(...) EVAL(__rc0(__VA_ARGS__))
 #define __impl_for_each(r, data, x) data::x
+
+#define cl(...) ((__VA_ARGS__))
 
 #include "Macro/class_impl_rc.hpp_dupped.hpp"
 

@@ -1,6 +1,6 @@
 #include "EntityTest.hpp"
-#include "res.hpp"
-#include "../../res/shaders/diffuse.hpp"
+//#include "res.hpp"
+//#include "../../res/shaders/diffuse.hpp"
 
 #include <iostream>
 
@@ -66,7 +66,7 @@ EntityTest::EntityTest(void) :
 		transformed();
 	});
 
-	res.models().npc().gordon_diff();
+	//res.models().npc().gordon_diff();
 
 	//auto &npc = res.models().npc();
 	//bind(world.render, res.shaders().diffuse()(npc.gordon(), npc.gordon_diff());
@@ -134,30 +134,29 @@ public:
 	};
 };
 
-rc(ClassA, (
-	sc(ClassB,
-		lc_single(ClassD,
+class_impl(ClassA,
+	cl(ClassB,
+		cl(ClassD,,
 			void ,method(void)
 			{
 			}
 		),
-
 		void ,method(void)
 		{
 		}
+
 		void ,methodb(void)
 		{
 		}
-	),
-	lc(ClassC,
+	)
+	cl(ClassC,,
 		void ,met(void)
 		{
 		}
 		void ,metb(void)
 		{
 		}
-	)
-),
+	),
 
 	,ClassA(void)
 	{
