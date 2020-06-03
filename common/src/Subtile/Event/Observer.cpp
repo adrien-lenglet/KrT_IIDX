@@ -4,6 +4,7 @@
 namespace Subtile {
 namespace Event {
 
+BOOST_PP_EVAL2p8(
 sci(Observer::Cluster,
 	void scp::update(void)
 	{
@@ -15,8 +16,9 @@ sci(Observer::Cluster,
 	{
 		m_observers.emplace_back(observer);
 	}
-)
+))
 
+BOOST_PP_EVAL2p8(
 sci(Observer::Cluster::Optimized,
 	void scp::update(void)
 	{
@@ -39,7 +41,7 @@ sci(Observer::Cluster::Optimized,
 		if (got->second == 0)
 			m_observers.erase(got);
 	}
-)
+))
 
 }
 }

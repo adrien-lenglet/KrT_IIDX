@@ -6,6 +6,7 @@ namespace Subtile {
 namespace Event {
 namespace World {
 
+BOOST_PP_EVAL2p8(
 sci(Observer,
 	scp::Observer(Subtile::Event::System::Observer &system) :
 		system(system)
@@ -21,8 +22,9 @@ sci(Observer,
 	{
 		Event::Observer::Cluster::update();
 	}
-)
+))
 
+BOOST_PP_EVAL2p8(
 sci(Observer::Update,
 	scp::Update(void) :
 		Observer::Group<Update, std::tuple<>, std::tuple<double>>([this](){
@@ -38,7 +40,7 @@ sci(Observer::Update,
 	scp::~Update(void)
 	{
 	}
-)
+))
 
 }
 }
