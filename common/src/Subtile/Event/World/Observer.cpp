@@ -7,7 +7,7 @@ namespace Event {
 namespace World {
 
 BOOST_PP_EVAL2p8(
-sci(Observer,
+scc(Observer,
 	scp::Observer(Subtile::Event::System::Observer &system) :
 		system(system)
 	{
@@ -25,7 +25,7 @@ sci(Observer,
 ))
 
 BOOST_PP_EVAL2p8(
-sci(Observer::Update,
+scc(Observer::Update,
 	scp::Update(void) :
 		Observer::Group<Update, std::tuple<>, std::tuple<double>>([this](){
 			auto now = std::chrono::high_resolution_clock::now();

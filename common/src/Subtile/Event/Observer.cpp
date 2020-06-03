@@ -5,7 +5,7 @@ namespace Subtile {
 namespace Event {
 
 BOOST_PP_EVAL2p8(
-sci(Observer::Cluster,
+scc(Observer::Cluster,
 	void scp::update(void)
 	{
 		for (auto &o : m_observers)
@@ -19,7 +19,7 @@ sci(Observer::Cluster,
 ))
 
 BOOST_PP_EVAL2p8(
-sci(Observer::Cluster::Optimized,
+scc(Observer::Cluster::Optimized,
 	void scp::update(void)
 	{
 		for (auto &o : m_observers)

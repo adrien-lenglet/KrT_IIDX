@@ -9,7 +9,7 @@
 #include "Macro/boost_pp_eval.hpp"
 #include "Macro/boost_pp_defer.hpp"
 
-#define sci(name, ...) __rc(name,, ((__VA_ARGS__)))
+#define scc(name, ...) __rc(name,, ((__VA_ARGS__)))
 #define scp ))((
 #define __impl_for_each(r, data, x) data BOOST_PP_REM x
 
