@@ -21,6 +21,7 @@ def it_file(input, it)
 	dict = {}
 	dict["it"] = it.to_s
 	dict["it + 1"] = (it + 1).to_s
+	dict["it - 1"] = (it - 1).to_s
 	File.open(input).each_line do |line|
 		buf += expand(line, dict)
 	end
@@ -31,7 +32,7 @@ def file_noext(path)
 	path.delete_suffix(File.extname(path))
 end
 
-def compile_macro(file_path, output_folder)
+def compile_macro(file_path, output_folder, itstart, itsize)
 	if file_path.nil? || output_folder.nil?
 		raise "This program take 2 arguments"
 	end
@@ -40,10 +41,10 @@ def compile_macro(file_path, output_folder)
 	system("rm -rf #{output_folder}/#{folder_path}")
 
 	headers = "#pragma once\n\n"
-	(0..255).each do |it|
+	(itstart..(itsize - 1)).each do |it|
 		headers += "#{it_file(file_path, it)}\n"
 	end
 	File.new("#{output_folder}/#{file_path}_dupped.hpp", "w+").write(headers)
 end
 
-compile_macro(ARGV[0], ARGV[1])
+compile_macro(ARGV[0], ARGV[1], ARGV[2].to_i, ARGV[3].to_i)
