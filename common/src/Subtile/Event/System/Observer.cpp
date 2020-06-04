@@ -1,169 +1,188 @@
 #include <fstream>
 #include "Observer.hpp"
+#include "Subtile/scp.hpp"
 
 namespace Subtile {
 namespace Event {
 namespace System {
 
-Observer::Observer(ISystem &system) :
-	util::dep<ISystem&>(system),
-	input(system)
-{
-	add(input);
-	add(static_cast<Cluster&>(update));
-}
+rt_scc(Observer,
+	scp::Observer(ISystem &system) :
+		util::dep<ISystem&>(system),
+		input(system)
+	{
+		add(input);
+		add(static_cast<Cluster&>(update));
+	}
 
-Observer::~Observer(void)
-{
-}
+	scp::~Observer(void)
+	{
+	}
 
-Observer::Input::Input(ISystem &system) :
-	util::dep<ISystem&>(system),
-	analog(*this),
-	button(*this)
-{
-	add(static_cast<Cluster&>(analog));
-	add(static_cast<Cluster&>(button));
-	add(m_input_update);
-}
+	scc(Input,
+		scp::Input(ISystem &system) :
+			util::dep<ISystem&>(system),
+			analog(*this),
+			button(*this)
+		{
+			add(static_cast<Cluster&>(analog));
+			add(static_cast<Cluster&>(button));
+			add(m_input_update);
+		}
 
-Observer::Input::~Input(void)
-{
-}
+		scp::~Input(void)
+		{
+		}
 
-std::map<std::string, std::string> Observer::Input::loadBindings(void) const
-{
-	std::map<std::string, std::string> res;
+		std::map<std::string, std::string> scp::loadBindings(void) const
+		{
+			std::map<std::string, std::string> res;
 
-	res.emplace("quit", "KEY_ESCAPE");
+			res.emplace("quit", "KEY_ESCAPE");
 
-	return res;
-}
+			return res;
+		}
 
-Observer::Input::Analog::Analog(Input &input) :
-	Observer::GroupCb<Analog, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Analog>>, std::tuple<double>>(
-	[this](const std::string &inputName){
-		return util::ref_wrapper(dynamic_cast<Subtile::Input::Analog&>(*m_input.m_inputs.at(inputName)));
-	}, [](const util::ref_wrapper<Subtile::Input::Analog> &input) {
-		return input.get().getState();
-	}, [this](void) -> auto& {
-		return m_input.m_input_update;
-	}),
-	m_input(input)
-{
-}
+		scc(Analog,
+			scp::Analog(Input &input) :
+				Observer::GroupCb<Analog, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Analog>>, std::tuple<double>>(
+				[this](const std::string &inputName){
+					return util::ref_wrapper(dynamic_cast<Subtile::Input::Analog&>(*m_input.m_inputs.at(inputName)));
+				}, [](const util::ref_wrapper<Subtile::Input::Analog> &input) {
+					return input.get().getState();
+				}, [this](void) -> auto& {
+					return m_input.m_input_update;
+				}),
+				m_input(input)
+			{
+			}
 
-Observer::Input::Analog::~Analog(void)
-{
-}
+			scp::~Analog(void)
+			{
+			}
+		)
 
-Observer::Input::Button::Button(Input &input) :
-	Observer::GroupCb<Button, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<bool>>(
-	[this](const std::string &inputName){
-		return util::ref_wrapper(dynamic_cast<Subtile::Input::Button&>(*m_input.m_inputs.at(inputName)));
-	}, [](const util::ref_wrapper<Subtile::Input::Button> &input) {
-		return input.get().getState();
-	}, [this](void) -> auto& {
-		return m_input.m_input_update;
-	}),
-	pressed(input),
-	released(input),
-	m_input(input)
-{
-	add(static_cast<Observer::Cluster&>(pressed));
-	add(static_cast<Observer::Cluster&>(released));
-}
+		scc(Button,
+			scp::Button(Input &input) :
+				Observer::GroupCb<Button, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<bool>>(
+				[this](const std::string &inputName){
+					return util::ref_wrapper(dynamic_cast<Subtile::Input::Button&>(*m_input.m_inputs.at(inputName)));
+				}, [](const util::ref_wrapper<Subtile::Input::Button> &input) {
+					return input.get().getState();
+				}, [this](void) -> auto& {
+					return m_input.m_input_update;
+				}),
+				pressed(input),
+				released(input),
+				m_input(input)
+			{
+				add(static_cast<Observer::Cluster&>(pressed));
+				add(static_cast<Observer::Cluster&>(released));
+			}
 
-Observer::Input::Button::~Button(void)
-{
-}
+			scp::~Button(void)
+			{
+			}
 
-Observer::Input::Button::Pressed::Pressed(Input &input) :
-	Observer::GroupCb<Pressed, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<>>(
-	[this](const std::string &inputName){
-		return util::ref_wrapper(dynamic_cast<Subtile::Input::Button&>(*m_input.m_inputs.at(inputName)));
-	}, [](const util::ref_wrapper<Subtile::Input::Button> &input) -> std::optional<std::tuple<>> {
-		if (input.get().isPressed())
-			return std::make_tuple();
-		else
-			return std::nullopt;
-	}, [this](void) -> auto& {
-		return m_input.m_input_update;
-	}),
-	m_input(input)
-{
-}
+			scc(Pressed,
+				scp::Pressed(Input &input) :
+					Observer::GroupCb<Pressed, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<>>(
+					[this](const std::string &inputName){
+						return util::ref_wrapper(dynamic_cast<Subtile::Input::Button&>(*m_input.m_inputs.at(inputName)));
+					}, [](const util::ref_wrapper<Subtile::Input::Button> &input) -> std::optional<std::tuple<>> {
+						if (input.get().isPressed())
+							return std::make_tuple();
+						else
+							return std::nullopt;
+					}, [this](void) -> auto& {
+						return m_input.m_input_update;
+					}),
+					m_input(input)
+				{
+				}
 
-Observer::Input::Button::Pressed::~Pressed(void)
-{
-}
+				scp::~Pressed(void)
+				{
+				}
+			)
 
-Observer::Input::Button::Released::Released(Input &input) :
-	Observer::GroupCb<Released, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<>>(
-	[this](const std::string &inputName){
-		return util::ref_wrapper(dynamic_cast<Subtile::Input::Button&>(*m_input.m_inputs.at(inputName)));
-	}, [](const util::ref_wrapper<Subtile::Input::Button> &input) -> std::optional<std::tuple<>> {
-		if (input.get().isReleased())
-			return std::make_tuple();
-		else
-			return std::nullopt;
-	}, [this](void) -> auto& {
-		return m_input.m_input_update;
-	}),
-	m_input(input)
-{
-}
+			scc(Released,
+				scp::Released(Input &input) :
+					Observer::GroupCb<Released, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Button>>, std::tuple<>>(
+					[this](const std::string &inputName){
+						return util::ref_wrapper(dynamic_cast<Subtile::Input::Button&>(*m_input.m_inputs.at(inputName)));
+					}, [](const util::ref_wrapper<Subtile::Input::Button> &input) -> std::optional<std::tuple<>> {
+						if (input.get().isReleased())
+							return std::make_tuple();
+						else
+							return std::nullopt;
+					}, [this](void) -> auto& {
+						return m_input.m_input_update;
+					}),
+					m_input(input)
+				{
+				}
 
-Observer::Input::Button::Released::~Released(void)
-{
-}
+				scp::~Released(void)
+				{
+				}
+			)
+		)
+	)
 
-Observer::Update::Update(void) :
-	Observer::Group<Update, std::tuple<>, std::tuple<double>>([this](){
-		auto now = std::chrono::high_resolution_clock::now();
-		double res = std::chrono::duration<double>(now - m_time_before).count();
-		m_time_before = now;
-		return res;
-	}),
-	m_time_before(std::chrono::high_resolution_clock::now())
-{
-}
+	scc(Update,
+		scp::Update(void) :
+			Observer::Group<Update, std::tuple<>, std::tuple<double>>([this](){
+				auto now = std::chrono::high_resolution_clock::now();
+				double res = std::chrono::duration<double>(now - m_time_before).count();
+				m_time_before = now;
+				return res;
+			}),
+			m_time_before(std::chrono::high_resolution_clock::now())
+		{
+		}
 
-Observer::Update::~Update(void)
-{
-}
+		scp::~Update(void)
+		{
+		}
+	)
 
-Observer::System::System(void)
-{
-}
+	scc(System,
+		scp::System(void)
+		{
+		}
 
-Observer::System::~System(void)
-{
-}
+		scp::~System(void)
+		{
+		}
 
-Observer::System::Quit::Quit(void) :
-	m_quit(false)
-{
-}
+		scc(Quit,
+			scp::Quit(void) :
+				m_quit(false)
+			{
+			}
 
-Observer::System::Quit::~Quit(void)
-{
-}
+			scp::~Quit(void)
+			{
+			}
 
-void Observer::System::Quit::operator()(void)
-{
-	m_quit = true;
-}
+			void scp::operator()(void)
+			{
+				m_quit = true;
+			}
 
-Observer::System::Quit::operator bool(void) const
-{
-	return m_quit;
-}
+			scp::operator bool(void) const
+			{
+				return m_quit;
+			}
+		)
+	)
 
-void Observer::updateEvents(void)
-{
-	Event::Observer::Cluster::update();
-}
+	void scp::updateEvents(void)
+	{
+		Event::Observer::Cluster::update();
+	}
+)
 
 }
 }
