@@ -4,7 +4,7 @@
 namespace Subtile {
 namespace Event {
 
-rt_scc(Observer::Cluster,
+scc(Observer::Cluster,
 	void scp::update(void)
 	{
 		for (auto &o : m_observers)
