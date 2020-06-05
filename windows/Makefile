@@ -24,11 +24,9 @@ libs:
 libs_clean:
 	$(MAKE) -C libs clean
 
-resource:
-	$(MAKE) -C ../common resources
-
 obj:
-	$(MAKE) -C ../common resources
+	$(MAKE) -C ../common macro $(OPT)
+	$(MAKE) -C ../common resources $(OPT)
 	$(MAKE) -C ../common $(DARG) $(OPT)
 
 obj_clean:
@@ -54,5 +52,6 @@ clean: obj_clean
 
 clean_all: libs_clean clean
 	$(MAKE) -C ../common clean_libs
+	$(MAKE) -C ../common clean_macros
 
 .PHONY: all debug release clean libs libs_clean clean_all

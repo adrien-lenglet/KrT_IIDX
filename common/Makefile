@@ -17,21 +17,16 @@ TARGET = obj.a
 
 all: $(TARGET)
 
-%.hduped: %.hdup
-	ruby $(ROOT)/tools/ppduper.rb $< $@ -I 0 -N 256
+MACRO_FOLDER = $(SRC_FOLDER)/Subtile/Macro
+macro:
+	$(MAKE) -C $(MACRO_FOLDER)
 
-MACRO = $(wildcard $(SRC_FOLDER)/Subtile/Macro/*.hdup)
-MACRO_DUPPED = $(MACRO:.hdup=.hduped)
+RES_DETECTOR = $(ROOT)/tools/res_detector/res_detector
+$(RES_DETECTOR):
+	$(MAKE) -C $(dir $(RES_DETECTOR))
 
-MACRO_SEQ_FOR_EACH = $(foreach var,64 128 256 512 1024 2048 4096 8192,$(SRC_FOLDER)/Subtile/Macro/seq_for_each/it_$(var).hduped)
-
-$(MACRO_SEQ_FOR_EACH): $(SRC_FOLDER)/Subtile/Macro/seq_for_each/seq_for_each.hdup
-	ruby $(ROOT)/tools/ppduper.rb $< $@ -I 1
-
-macro: $(MACRO_DUPPED) $(MACRO_SEQ_FOR_EACH)
-
-detect_res: .FORCE
-	$(ROOT)/tools/res_detector/res_detector $(ROOT)/res $(SRC_FOLDER)/Krt Krt
+detect_res: $(RES_DETECTOR) .FORCE
+	$(RES_DETECTOR) $(ROOT)/res $(SRC_FOLDER)/Krt Krt
 
 RESOURCES_SRC = $(wildcard $(SRC_FOLDER)/Subtile/Resource/*.cpp)
 RESOURCES_OBJ = $(RESOURCES_SRC:.cpp=.o) $(SRC_FOLDER)/Krt/res.o
@@ -60,13 +55,17 @@ debug: all
 release: EXTRA += -O3
 release: all
 
-$(TARGET): macro $(OBJ) $(LIB_OBJ)
+$(TARGET): $(OBJ) $(LIB_OBJ)
 	ar rcs $(TARGET) $(OBJ) $(LIB_OBJ)
 
 clean:
 	rm -f $(OBJ)
+	rm -f $(TARGET)
 
 clean_libs:
 	rm -f $(LIB_OBJ)
+
+clean_macros:
+	$(MAKE) -C $(MACRO_FOLDER) clean
 
 .FORCE:

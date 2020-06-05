@@ -19,7 +19,8 @@ libs_clean:
 	$(MAKE) -C libs clean
 
 obj:
-	$(MAKE) -C ../common resources
+	$(MAKE) -C ../common macro $(OPT)
+	$(MAKE) -C ../common resources $(OPT)
 	$(MAKE) -C ../common $(DARG) $(OPT)
 
 obj_clean:
