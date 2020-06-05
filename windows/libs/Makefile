@@ -1,12 +1,11 @@
 
 .DEFAULT_GOAL := all
+DARG = all
 
 LIBS = glfw
 
-DARG = all
-
-$(LIBS):
-	@$(MAKE) -C $@ $(DARG)
+$(LIBS): .FORCE
+	$(MAKE) -C $@ $(DARG)
 
 libs: $(LIBS)
 
@@ -15,4 +14,4 @@ all: libs
 clean: DARG = clean
 clean: $(LIBS)
 
-.PHONY: all clean libs $(LIBS)
+.FORCE:

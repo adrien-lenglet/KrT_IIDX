@@ -1,8 +1,6 @@
-
-.DEFAULT_GOAL := all
-OPT = -j12
+LINK_OPT =
 CXX = clang++
-CXXFLAGS = -std=c++17
+CXXFLAGS = -std=c++17 $(CXXFLAGS_ADD)
 
 OBJ = ../common/obj.a
 
@@ -10,42 +8,22 @@ TARGET = ../KrT_IIDX
 LIBS_SO = $(wildcard libs/bin/*.so)
 LIB = $(LIBS_SO) -lvulkan -Wl,-rpath,linux/libs/bin
 
-DARG = all
+$(TARGET): libs $(OBJ)
+	$(CXX) $(CXXFLAGS) $(LINK_OPT) $(OBJ) $(LIB) -o $(TARGET)
 
-libs:
+libs: .FORCE
 	$(MAKE) -C libs
-
 libs_clean:
 	$(MAKE) -C libs clean
 
-obj:
-	$(MAKE) -C ../common macro $(OPT)
-	$(MAKE) -C ../common resources $(OPT)
-	$(MAKE) -C ../common $(DARG) $(OPT)
+debug: CXXFLAGS_ADD = -g
+debug: $(TARGET)
 
-obj_clean:
-	$(MAKE) -C ../common clean
-
-$(TARGET): $(OBJ)
-	$(CXX) $(CXXFLAGS) $(LINK_OPT) $(OBJ) $(LIB) -o $(TARGET)
-
-builder: libs obj $(TARGET)
-
-all: builder
-
-debug: DARG = debug
-debug: CXXFLAGS = -g
-debug: all
-
-release: DARG = release
+release: CXXFLAGS_ADD = -O3
 release: LINK_OPT = -s
-release: CXXFLAGS = -O3
-release: all
+release: $(TARGET)
 
-clean: obj_clean
+clean:
 	rm -f $(TARGET)
 
-clean_all: libs_clean shaders_clean clean
-	$(MAKE) -C ../common clean_libs
-
-.PHONY: all debug release clean libs libs_clean shaders shaders_clean clean_all
+.FORCE:

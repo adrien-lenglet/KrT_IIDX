@@ -1,16 +1,14 @@
 
 .DEFAULT_GOAL := all
+DARG = all
 
 BIN_FOLDER = bin
-
 LIBS = glfw
-
-DARG = all
 
 $(BIN_FOLDER):
 	mkdir $(BIN_FOLDER)
 
-$(LIBS):
+$(LIBS): .FORCE
 	@$(MAKE) -C $@ $(DARG)
 
 libs: $(BIN_FOLDER) $(LIBS)
@@ -21,4 +19,4 @@ clean: DARG = clean
 clean: $(LIBS)
 	rm -rf bin
 
-.PHONY: all clean libs $(LIBS)
+.FORCE:

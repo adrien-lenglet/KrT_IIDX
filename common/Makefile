@@ -68,4 +68,7 @@ clean_libs:
 clean_macros:
 	$(MAKE) -C $(MACRO_FOLDER) clean
 
+clean_all: clean_libs clean
+wipe_all_build: clean_macros clean_all
+
 .FORCE:
