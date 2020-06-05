@@ -13,6 +13,6 @@ $(TARGET): $(OBJ)
 	$(CXX) $(CXXFLAGS) $(OBJ) -o $(TARGET)
 
 clean:
-	rm -f $(OBJ)
+	rm -f $(TARGET) $(OBJ)
 
 .PHONY: clean

@@ -69,6 +69,15 @@ clean_macros:
 	$(MAKE) -C $(MACRO_FOLDER) clean
 
 clean_all: clean_libs clean
-wipe_all_build: clean_macros clean_all
+
+TOOLS_FOLDER = $(ROOT)/tools
+TOOLS = $(TOOLS_FOLDER)/res_detector
+
+clean_tools:
+	for tool in $(TOOLS); do \
+		$(MAKE) -C $$tool clean; \
+	done
+
+wipe_all_build: clean_tools clean_macros clean_all
 
 .FORCE:
