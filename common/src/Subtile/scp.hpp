@@ -19,7 +19,11 @@
 #define SEQ_TUPLE_ENC0
 
 #define SEQ_FOR_EACH(macro, data, seq) SEQ_EXPAND(SEQ_FOR_EACH_I(macro, data, seq))
-#define SEQ_FOR_EACH_I(macro, data, seq) SEQ_FOR_EACH1 BOOST_PP_LPAREN() macro, data, SEQ_TUPLE_ENC(seq) BOOST_PP_RPAREN()
+#define SEQ_FOR_EACH_I(macro, data, seq) SEQ_FOR_EACH1 SEQ_FOR_EACH_II(macro, data, seq)
+#define SEQ_FOR_EACH_II(macro, data, seq) (macro, data, SEQ_TUPLE_ENC(seq))
+#define SEQ_GEN_ARGS(macro, data, ...) (macro, data, __VA_ARGS__)
+#define SEQ_FOR_EACH_EXPAND(x) SEQ_FOR_EACH_EXPAND_I(x)
+#define SEQ_FOR_EACH_EXPAND_I(x) x
 
 #define rt_scc(name, ...) __scc_unwrap(__scc_impl(name, ((1, (__VA_ARGS__)))))
 
