@@ -28,6 +28,106 @@ static void output_file(const std::string &outpath, const std::string &data)
 	out << data;
 }
 
+class CodeFormatter
+{
+	static bool is_whitespace(char in)
+	{
+		return in == ' ' || in == '\r' || in == '\n' || in == '\t';
+	}
+
+	static bool upcoming_char(const std::string &str, size_t ndx, char ch)
+	{
+		for (size_t i = ndx; i < str.size(); i++) {
+			auto &c = str.at(i);
+			if (c == ch)
+				return true;
+			if (is_whitespace(c))
+				continue;
+			return false;
+		}
+		return false;
+	}
+
+	static void str_add_tabs(std::string &str, size_t count)
+	{
+		for (size_t i = 0; i < count; i++)
+			str.push_back('\t');
+	}
+
+	static void format_decorate(std::string &out, const std::string &in, size_t i, size_t d, bool has_changed)
+	{
+		auto &c = in.at(i);
+
+		if ((has_changed && !upcoming_char(in, i, ';')) || c == ';') {
+			out.push_back('\n');
+			str_add_tabs(out, d);
+		}
+		if (c == '\n')
+			str_add_tabs(out, d);
+	}
+
+	static std::string format_code_first(const std::string &in)
+	{
+		std::string out;
+		size_t d = 0;
+
+		for (size_t i = 0; i < in.size(); i++) {
+			auto &c = in.at(i);
+
+			auto deco = false;
+			auto d_p = d;
+			if (c == '{')
+				d++;
+			if (c == '}') {
+				d--;
+				format_decorate(out, in, i, d, d != d_p);
+				deco = true;
+			}
+			out.push_back(c);
+			if (!deco)
+				format_decorate(out, in, i, d, d != d_p);
+		}
+		return out;
+	}
+
+	static size_t blank_line(const std::string &in, size_t ndx)
+	{
+		for (size_t i = ndx; i < in.size(); i++) {
+			auto &c = in.at(i);
+			if (c == '\n')
+				return i;
+			if (!is_whitespace(c))
+				return ndx;
+		}
+		return in.size();
+	}
+
+	static std::string format_code_second(const std::string &in)
+	{
+		std::string out;
+
+		for (size_t i = 0; i < in.size(); i++) {
+			auto next = blank_line(in, i);
+			if (next != i)
+				i = next;
+			else
+				for (; i < in.size(); i++) {
+					auto &c = in.at(i);
+					out.push_back(c);
+					if (c == '\n')
+						break;
+				}
+		}
+		return out;
+	}
+
+public:
+	static std::string format(const std::string &in)
+	{
+		return format_code_second(format_code_first(in));
+	}
+};
+
 static auto getArgs(int argc, char **argv)
 {
 	std::vector<std::string> res;
@@ -50,13 +150,12 @@ namespace std {
 namespace fs = filesystem;
 }
 
-static void print_tabs(std::ostream &out, size_t count)
+static std::string id_storage(const std::string &id)
 {
-	for (size_t i = 0; i < count; i++)
-		out << "\t";
+	return id + std::string("_storage");
 }
 
-static size_t process(std::ostream &out, const std::fs::directory_iterator &it, size_t depth = 0)
+static size_t process(std::ostream &out, const std::fs::directory_iterator &it)
 {
 	static const std::map<std::string, std::string> exts = {
 		{".obj", "sb::rs::Model"},
@@ -70,23 +169,19 @@ static size_t process(std::ostream &out, const std::fs::directory_iterator &it, 
 			continue;
 
 		if (e.is_directory()) {
-			out << "," << std::endl;
-			print_tabs(out, depth);
-			out << "dir(" << name;
-			if (process(out, std::fs::directory_iterator(e), depth + 1)) {
-				out << std::endl;
-				print_tabs(out, depth);
-			}
-			out << ")";
+			out << "class " << name << "{";
+			process(out, std::fs::directory_iterator(e));
+			out << "};";
 		} else {
 			auto ext = e.path().extension().string();
 			auto got = exts.find(ext);
 
 			if (got == exts.end())
 				continue;
-			out << "," << std::endl;
-			print_tabs(out, depth);
-			out << "(" << got->second << ", " << e.path().stem().string() << ")";
+			auto &type = got->second;
+			auto id = e.path().stem().string();
+			out << "private: " << type << " " << id_storage(id) << ";";
+			out << "public: " << type << "& " << id << "(void);";
 		}
 		res++;
 	}
@@ -95,9 +190,9 @@ static size_t process(std::ostream &out, const std::fs::directory_iterator &it, 
 
 static void print_folder(std::ostream &out, const std::string &root)
 {
-	out << "dir_export(" << std::fs::path(root).filename().string();
-	process(out, std::fs::directory_iterator(root), 1);
-	out << std::endl << ")" << std::endl;;
+	out << "class " << std::fs::path(root).filename().string() << "_class {";
+	process(out, std::fs::directory_iterator(root));
+	out << "};";
 }
 
 static void print_header(const std::string &root, const std::string &output, const std::vector<std::string> &ns)
@@ -107,7 +202,6 @@ static void print_header(const std::string &root, const std::string &output, con
 	out << "#include \"Subtile/Resource/Model.hpp\"" << std::endl;
 	out << "#include \"Subtile/Resource/Texture.hpp\"" << std::endl;
 	out << std::endl;
-	out << "#include \"Subtile/Resource/Decl.hpp\"" << std::endl << std::endl;
 
 	for (auto &n : ns)
 		out << "namespace " << n << " {" << std::endl;
@@ -116,6 +210,7 @@ static void print_header(const std::string &root, const std::string &output, con
 
 	print_folder(out, root);
 
+	out << std::endl;
 	if (ns.size())
 		out << std::endl;
 	for (auto &n : ns) {
@@ -123,10 +218,7 @@ static void print_header(const std::string &root, const std::string &output, con
 		out << "}" << std::endl;
 	}
 
-	out << std::endl;
-	out << "#include \"Subtile/Resource/DeclEnd.hpp\"" << std::endl;
-
-	output_file(output, out.str());
+	output_file(output, CodeFormatter::format(out.str()));
 }
 
 static void print_impl(const std::string &path, const std::string &hpath)
@@ -139,7 +231,7 @@ static void print_impl(const std::string &path, const std::string &hpath)
 	out << "#define DIR_IMPL" << std::endl;
 	out << "#include \"" << hp << "\"" << std::endl;
 
-	output_file(path, out.str());
+	output_file(path, CodeFormatter::format(out.str()));
 }
 
 static auto getOutpath(const std::string &root, const std::string &output, const std::string &ext)
