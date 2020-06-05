@@ -11,6 +11,7 @@ endef
 
 common_macro_resources:
 	$(MAKE) -C $(COMMON) macro $(OPT)
+	$(MAKE) -C $(COMMON) resources_detect $(OPT)
 	$(MAKE) -C $(COMMON) resources $(OPT)
 
 debug: common_macro_resources
