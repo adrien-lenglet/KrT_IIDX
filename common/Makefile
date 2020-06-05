@@ -17,6 +17,14 @@ TARGET = obj.a
 
 all: $(TARGET)
 
+%.hduped: %.hd
+	ruby $(ROOT)/tools/ppduper.rb $< $@ 0 256
+
+MACRO = $(wildcard $(SRC_FOLDER)/Subtile/Macro/*.hd)
+MACRO_DUPPED = $(MACRO:.hd=.hduped)
+
+macro: $(MACRO_DUPPED)
+
 detect_res: .FORCE
 	$(ROOT)/tools/res_detector/res_detector $(ROOT)/res $(SRC_FOLDER)/Krt Krt
 
@@ -47,7 +55,7 @@ debug: all
 release: EXTRA += -O3
 release: all
 
-$(TARGET): $(OBJ) $(LIB_OBJ)
+$(TARGET): macro $(OBJ) $(LIB_OBJ)
 	ar rcs $(TARGET) $(OBJ) $(LIB_OBJ)
 
 clean:

@@ -5,7 +5,7 @@
 #include <boost/preprocessor/cat.hpp>
 #include <boost/preprocessor/punctuation/paren.hpp>
 
-#include "Macro/seq_for_each.h_dupped.hpp"
+#include "Macro/seq_for_each.hduped"
 
 #define SEQ_REM(...) __VA_ARGS__
 #define SEQ_EXPAND(x) SEQ_EXPAND_I(x)

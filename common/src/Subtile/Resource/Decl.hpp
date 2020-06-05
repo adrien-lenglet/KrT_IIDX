@@ -31,8 +31,8 @@ public: BOOST_PP_CAT(BOOST_PP_TUPLE_ELEM(1, x), _type)& BOOST_PP_TUPLE_ELEM(1, x
 // #define DIR_IMPL                // mark incoming access method implementation
 // #include "resources.hpp"        // recinclude the resource declaration, this time generated classes are implemented
 
-#include "../Macro/boost_pp_for_each.h_dupped.hpp"
-#include "../Macro/dir_eachimpl.hpp_dupped.hpp"
+#include "../Macro/boost_pp_for_each.hduped"
+#include "../Macro/dir_eachimpl.hduped"
 
 #define dir_classimpl(ns, ...) BOOST_PP_SEQ_FOR_EACH(dir_eachimpl0, ns, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
 
