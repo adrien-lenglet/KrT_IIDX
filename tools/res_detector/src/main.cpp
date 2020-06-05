@@ -8,26 +8,30 @@
 #include <stdexcept>
 #include <optional>
 
-static std::string read_file(const std::string &path)
+class FileIO
 {
-	std::stringstream res;
-	std::ifstream in(path);
+public:
+	static std::string read(const std::string &path)
+	{
+		std::stringstream res;
+		std::ifstream in(path, std::ios::binary);
 
-	res << in.rdbuf();
-	return res.str();
-}
+		res << in.rdbuf();
+		return res.str();
+	}
 
-static void output_file(const std::string &outpath, const std::string &data)
-{
-	auto got = read_file(outpath);
-	if (got == data)
-		return;
+	static void write(const std::string &outpath, const std::string &data)
+	{
+		auto got = read(outpath);
+		if (got == data)
+			return;
 
-	std::cout << "Update " << outpath << std::endl;
-	std::ofstream out(outpath, std::ios::trunc);
+		std::cout << "Update " << outpath << std::endl;
+		std::ofstream out(outpath, std::ios::trunc | std::ios::binary);
 
-	out << data;
-}
+		out << data;
+	}
+};
 
 class CodeFormatter
 {
@@ -75,6 +79,8 @@ class CodeFormatter
 		for (size_t i = 0; i < in.size(); i++) {
 			auto &c = in.at(i);
 
+			if (c == '\r')
+				continue;
 			auto deco = false;
 			auto d_p = d;
 			if (c == '{')
@@ -129,6 +135,172 @@ public:
 	}
 };
 
+namespace std {
+namespace fs = filesystem;
+}
+
+class FolderPrinter
+{
+	static std::string id_storage(const std::string &id)
+	{
+		return id + std::string("_storage");
+	}
+
+	template <typename T>
+	static std::optional<std::tuple<std::string, std::string>> getMember(const T &e)
+	{
+		static const std::map<std::string, std::string> exts = {
+			{".obj", "sb::rs::Model"},
+			{".png", "sb::rs::Texture"},
+		};
+
+		auto ext = e.path().extension().string();
+		auto got = exts.find(ext);
+
+		if (got == exts.end())
+			return std::nullopt;
+		auto &type = got->second;
+		auto id = e.path().stem().string();
+		return std::make_tuple(type, id);
+	}
+
+	static std::string class_name(const std::string &str)
+	{
+		return str + std::string("_class");
+	}
+
+	static std::string scope_append(const std::string &base, const std::string &ap)
+	{
+		return base + std::string("::") + ap;
+	}
+
+	static void output_impl(std::ostream &out, const std::string &scope, const std::string &type, const std::string &id)
+	{
+		out << type << "& " << scope << "::" << id << "(void)" << std::endl;
+		out << "{" << std::endl;
+		out << "return " << id_storage(id) << ";" << std::endl;
+		out << "}" << std::endl;
+	}
+
+	template <typename T>
+	static void it_dir(std::ostream &out, std::ostream &outimpl, const T &itbase, const std::string &scope)
+	{
+		for (auto &e : std::fs::directory_iterator(itbase)) {
+			auto name = e.path().filename().string();
+			if (name.at(0) == '.')
+				continue;
+
+			if (e.is_directory()) {
+				out << "class " << class_name(name) << std::endl << "{";
+				it_dir(out, outimpl, e, scope_append(scope, class_name(name)));
+				out << "};";
+			} else {
+			}
+		}
+
+		for (auto &e : std::fs::directory_iterator(itbase)) {
+			auto name = e.path().filename().string();
+			if (name.at(0) == '.')
+				continue;
+
+			if (e.is_directory()) {
+				out << class_name(name) << " " << id_storage(name) << ";";
+				output_impl(outimpl, scope, scope_append(scope, class_name(name)), name);
+			} else {
+				auto got = getMember(e);
+				if (!got)
+					continue;
+				auto &[type, id] = *got;
+				out << type << " " << id_storage(id) << ";";
+				output_impl(outimpl, scope, type, id);
+			}
+		}
+
+		out << "public:\n";
+		for (auto &e : std::fs::directory_iterator(itbase)) {
+			auto name = e.path().filename().string();
+			if (name.at(0) == '.')
+				continue;
+
+			if (e.is_directory()) {
+				out << class_name(name) << "& " << name << "(void);";
+			} else {
+				auto got = getMember(e);
+				if (!got)
+					continue;
+				auto &[type, id] = *got;
+				out << type << "& " << id << "(void);";
+			}
+		}
+	}
+
+public:
+	static void print(std::ostream &out, std::ostream &impl_out, const std::string &root)
+	{
+		auto scope = class_name(std::fs::path(root).filename().string());
+		out << "class " << scope << std::endl << "{";
+		it_dir(out, impl_out, root, scope);
+		out << "};";
+	}
+};
+
+class ResourceCompiler
+{
+	static void namespace_prologue(std::ostream &out, const std::vector<std::string> &ns)
+	{
+		for (auto &n : ns)
+			out << "namespace " << n << " {" << std::endl;
+		if (ns.size())
+			out << std::endl;
+	}
+
+	static void namespace_epilogue(std::ostream &out, const std::vector<std::string> &ns)
+	{
+		if (ns.size())
+			out << std::endl;
+		for (auto &n : ns) {
+			static_cast<void>(n);
+			out << "}" << std::endl;
+		}
+	}
+
+public:
+	static void run(const std::string &root, const std::string &output, const std::vector<std::string> &ns, const std::string &implpath, const std::string &hpath)
+	{
+		std::stringstream out;
+
+		out << "#pragma once" << std::endl << std::endl;
+		out << "#include \"Subtile/Resource/Model.hpp\"" << std::endl;
+		out << "#include \"Subtile/Resource/Texture.hpp\"" << std::endl;
+		out << std::endl;
+
+		std::stringstream outimpl;
+
+		auto hp = std::fs::path(hpath).filename().string();
+
+		outimpl << "#include \"" << hp << "\"" << std::endl << std::endl;
+
+		namespace_prologue(out, ns);
+		namespace_prologue(outimpl, ns);
+
+		FolderPrinter::print(out, outimpl, root);
+
+		namespace_epilogue(out, ns);
+		namespace_epilogue(outimpl, ns);
+
+		FileIO::write(output, CodeFormatter::format(out.str()));
+		FileIO::write(implpath, CodeFormatter::format(outimpl.str()));
+	}
+};
+
+static auto getOutpath(const std::string &root, const std::string &output, const std::string &ext)
+{
+	std::stringstream ss;
+
+	ss << output << "/" << std::fs::path(root).filename().string() << ext;
+	return ss.str();
+}
+
 static auto getArgs(int argc, char **argv)
 {
 	std::vector<std::string> res;
@@ -147,135 +319,6 @@ static auto getNs(const std::vector<std::string> &args)
 	return res;
 }
 
-namespace std {
-namespace fs = filesystem;
-}
-
-static std::string id_storage(const std::string &id)
-{
-	return id + std::string("_storage");
-}
-
-template <typename T>
-static std::optional<std::tuple<std::string, std::string>> getMember(const T &e)
-{
-	static const std::map<std::string, std::string> exts = {
-		{".obj", "sb::rs::Model"},
-		{".png", "sb::rs::Texture"},
-	};
-
-	auto ext = e.path().extension().string();
-	auto got = exts.find(ext);
-
-	if (got == exts.end())
-		return std::nullopt;
-	auto &type = got->second;
-	auto id = e.path().stem().string();
-	return std::make_tuple(type, id);
-}
-
-template <typename T>
-static void it_dir(std::ostream &out, const T &itbase)
-{
-	for (auto &e : std::fs::directory_iterator(itbase)) {
-		auto name = e.path().filename().string();
-		if (name.at(0) == '.')
-			continue;
-
-		if (e.is_directory()) {
-			out << "class " << name << "\n{";
-			it_dir(out, e);
-			out << "};";
-		} else {
-		}
-	}
-
-	for (auto &e : std::fs::directory_iterator(itbase)) {
-		auto name = e.path().filename().string();
-		if (name.at(0) == '.')
-			continue;
-
-		if (e.is_directory()) {
-		} else {
-			auto got = getMember(e);
-			if (!got)
-				continue;
-			auto &[type, id] = *got;
-			out << type << " " << id_storage(id) << ";";
-		}
-	}
-
-	out << "public:\n";
-	for (auto &e : std::fs::directory_iterator(itbase)) {
-		auto name = e.path().filename().string();
-		if (name.at(0) == '.')
-			continue;
-
-		if (e.is_directory()) {
-		} else {
-			auto got = getMember(e);
-			if (!got)
-				continue;
-			auto &[type, id] = *got;
-			out << type << "& " << id << "(void);";
-		}
-	}
-}
-
-static void print_folder(std::ostream &out, const std::string &root)
-{
-	out << "class " << std::fs::path(root).filename().string() << "_class\n{";
-	it_dir(out, root);
-	out << "};";
-}
-
-static void print_header(const std::string &root, const std::string &output, const std::vector<std::string> &ns)
-{
-	std::stringstream out;
-
-	out << "#include \"Subtile/Resource/Model.hpp\"" << std::endl;
-	out << "#include \"Subtile/Resource/Texture.hpp\"" << std::endl;
-	out << std::endl;
-
-	for (auto &n : ns)
-		out << "namespace " << n << " {" << std::endl;
-	if (ns.size())
-		out << std::endl;
-
-	print_folder(out, root);
-
-	out << std::endl;
-	if (ns.size())
-		out << std::endl;
-	for (auto &n : ns) {
-		static_cast<void>(n);
-		out << "}" << std::endl;
-	}
-
-	output_file(output, CodeFormatter::format(out.str()));
-}
-
-static void print_impl(const std::string &path, const std::string &hpath)
-{
-	std::stringstream out;
-
-	auto hp = std::fs::path(hpath).filename().string();
-
-	out << "#include \"" << hp << "\"" << std::endl;
-	out << "#define DIR_IMPL" << std::endl;
-	out << "#include \"" << hp << "\"" << std::endl;
-
-	output_file(path, CodeFormatter::format(out.str()));
-}
-
-static auto getOutpath(const std::string &root, const std::string &output, const std::string &ext)
-{
-	std::stringstream ss;
-
-	ss << output << "/" << std::fs::path(root).filename().string() << ext;
-	return ss.str();
-}
-
 int main(int argc, char **argv)
 {
 	auto args = getArgs(argc, argv);
@@ -283,8 +326,7 @@ int main(int argc, char **argv)
 	auto &output = args.at(1);
 	auto ns = getNs(args);
 
-	print_header(input, getOutpath(input, output, ".hpp"), ns);
-	print_impl(getOutpath(input, output, ".cpp"), getOutpath(input, output, ".hpp"));
+	ResourceCompiler::run(input, getOutpath(input, output, ".hpp"), ns, getOutpath(input, output, ".cpp"), getOutpath(input, output, ".hpp"));
 
 	return 0;
 }

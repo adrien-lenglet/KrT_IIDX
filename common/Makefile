@@ -22,7 +22,7 @@ macro:
 	$(MAKE) -C $(MACRO_FOLDER)
 
 RES_DETECTOR = $(ROOT)/tools/res_detector/res_detector
-$(RES_DETECTOR): .FORCE
+$(RES_DETECTOR):
 	$(MAKE) -C $(dir $(RES_DETECTOR))
 
 detect_res: $(RES_DETECTOR) .FORCE
