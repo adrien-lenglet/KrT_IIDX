@@ -2,10 +2,6 @@ LINK_OPT =
 CXX = clang++
 CXXFLAGS = -std=c++17 $(CXXFLAGS_ADD)
 
-ifndef VULKAN_SDK
-$(error VULKAN_SDK is not set. Make sure the LunarG Vulkan SDK is installed on your system and that this variable is properly set in your environment)
-endif
-
 OBJ = ../common/obj.a
 
 TARGET = ../KrT_IIDX.exe
@@ -13,7 +9,7 @@ LIBS_DLL = $(wildcard ../*.dll)
 LIB = $(LIBS_DLL) \
 "$(shell cygpath --unix $(VULKAN_SDK))/Lib/vulkan-1.lib"
 
-$(TARGET): libs $(OBJ)
+$(TARGET): vulkan_sdk_ensure libs $(OBJ)
 	$(CXX) $(CXXFLAGS) $(LINK_OPT) $(OBJ) $(LIB) -o $(TARGET)
 
 libs: .FORCE
@@ -30,5 +26,10 @@ release: $(TARGET)
 
 clean:
 	rm -f $(TARGET)
+
+vulkan_sdk_ensure: .FORCE
+	ifndef VULKAN_SDK
+		$(error VULKAN_SDK is not set. Make sure the LunarG Vulkan SDK is installed on your system and that this variable is properly set in your environment)
+	endif
 
 .FORCE:
