@@ -6,6 +6,7 @@
 #include <sstream>
 #include <fstream>
 #include <stdexcept>
+#include <optional>
 
 static std::string read_file(const std::string &path)
 {
@@ -155,43 +156,76 @@ static std::string id_storage(const std::string &id)
 	return id + std::string("_storage");
 }
 
-static size_t process(std::ostream &out, const std::fs::directory_iterator &it)
+template <typename T>
+static std::optional<std::tuple<std::string, std::string>> getMember(const T &e)
 {
 	static const std::map<std::string, std::string> exts = {
 		{".obj", "sb::rs::Model"},
 		{".png", "sb::rs::Texture"},
 	};
-	size_t res = 0;
 
-	for (auto &e : it) {
+	auto ext = e.path().extension().string();
+	auto got = exts.find(ext);
+
+	if (got == exts.end())
+		return std::nullopt;
+	auto &type = got->second;
+	auto id = e.path().stem().string();
+	return std::make_tuple(type, id);
+}
+
+template <typename T>
+static void it_dir(std::ostream &out, const T &itbase)
+{
+	for (auto &e : std::fs::directory_iterator(itbase)) {
 		auto name = e.path().filename().string();
 		if (name.at(0) == '.')
 			continue;
 
 		if (e.is_directory()) {
-			out << "class " << name << "{";
-			process(out, std::fs::directory_iterator(e));
+			out << "class " << name << "\n{";
+			it_dir(out, e);
 			out << "};";
 		} else {
-			auto ext = e.path().extension().string();
-			auto got = exts.find(ext);
-
-			if (got == exts.end())
-				continue;
-			auto &type = got->second;
-			auto id = e.path().stem().string();
-			out << "private: " << type << " " << id_storage(id) << ";";
-			out << "public: " << type << "& " << id << "(void);";
 		}
-		res++;
 	}
-	return res;
+
+	for (auto &e : std::fs::directory_iterator(itbase)) {
+		auto name = e.path().filename().string();
+		if (name.at(0) == '.')
+			continue;
+
+		if (e.is_directory()) {
+		} else {
+			auto got = getMember(e);
+			if (!got)
+				continue;
+			auto &[type, id] = *got;
+			out << type << " " << id_storage(id) << ";";
+		}
+	}
+
+	out << "public:\n";
+	for (auto &e : std::fs::directory_iterator(itbase)) {
+		auto name = e.path().filename().string();
+		if (name.at(0) == '.')
+			continue;
+
+		if (e.is_directory()) {
+		} else {
+			auto got = getMember(e);
+			if (!got)
+				continue;
+			auto &[type, id] = *got;
+			out << type << "& " << id << "(void);";
+		}
+	}
 }
 
 static void print_folder(std::ostream &out, const std::string &root)
 {
-	out << "class " << std::fs::path(root).filename().string() << "_class {";
-	process(out, std::fs::directory_iterator(root));
+	out << "class " << std::fs::path(root).filename().string() << "_class\n{";
+	it_dir(out, root);
 	out << "};";
 }
 
