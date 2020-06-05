@@ -22,7 +22,7 @@ clean_windows: clean
 debug_linux: debug
 	$(MAKE) -C linux debug $(OPT)
 release_linux: release
-	$(MAKE) -C linux debug $(OPT)
+	$(MAKE) -C linux release $(OPT)
 clean_linux: clean
 
 clean: clean_builds
