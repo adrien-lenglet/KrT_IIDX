@@ -9,4 +9,7 @@ glfw3.dll
 *.hduped
 *.spv
 
+common/src/Krt/res.cpp
+common/src/Krt/res.hpp
+
 tools/res_detector/res_detector
