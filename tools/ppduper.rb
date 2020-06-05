@@ -33,10 +33,6 @@ def file_noext(path)
 end
 
 def compile_macro(file_path, output_file, itstart, itsize)
-	if file_path.nil? || output_file.nil? || itstart.nil? || itsize.nil?
-		raise "This program take 2 arguments"
-	end
-
 	itstart = itstart.to_i
 	itsize = itsize.to_i
 	folder_path = file_noext(file_path)
@@ -48,4 +44,28 @@ def compile_macro(file_path, output_file, itstart, itsize)
 	File.new(output_file, "w+").write(headers)
 end
 
-compile_macro(ARGV[0], ARGV[1], ARGV[2], ARGV[3])
+itstart = 0
+itsize = nil
+
+(0..(ARGV.size - 1)).each do |i|
+	if ARGV[i] == "-I"
+		itstart = ARGV[i + 1].to_i
+	end
+	if ARGV[i] == "-N"
+		itsize = ARGV[i + 1].to_i
+	end
+end
+
+input = ARGV[0]
+output = ARGV[1]
+
+if input.nil? || output.nil?
+	raise "This program take at least 2 arguments ([input] [output])"
+end
+
+outbase = File.basename(output)
+if itsize.nil? && outbase[0, 3] == "it_"
+	itsize = outbase.split(".")[0].split("it_")[1].to_i
+end
+
+compile_macro(input, output, itstart, itsize)

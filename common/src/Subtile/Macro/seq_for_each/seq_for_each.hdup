@@ -4,3 +4,6 @@
 #define SEQ_FOR_EACH|it|_1(macro, data, el, ...) macro(data, el) SEQ_EXPAND|it|(SEQ_FOR_EACH|it + 1| SEQ_GEN_ARGS(macro, data, __VA_ARGS__))
 #define SEQ_FOR_EACH|it|_0(...)
 #define SEQ_EXPAND|it|(x) x
+
+#define SEQ_SEQ_SIZE|it - 1|(_) SEQ_SEQ_SIZE|it|
+#define SEQ_SEQ_SIZE|it - 1|_END |it - 1|
