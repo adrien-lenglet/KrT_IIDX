@@ -3,14 +3,20 @@ OPT = -j12
 
 all: release
 
-debug:
+define make_platforms
+	for plat in windows linux; do \
+		$(MAKE) -C $$plat $(1) $(OPT); \
+	done
+endef
+
+common_macro_resources:
 	$(MAKE) -C $(COMMON) macro $(OPT)
 	$(MAKE) -C $(COMMON) resources $(OPT)
+
+debug: common_macro_resources
 	$(MAKE) -C $(COMMON) debug $(OPT)
 
-release:
-	$(MAKE) -C $(COMMON) macro $(OPT)
-	$(MAKE) -C $(COMMON) resources $(OPT)
+release: common_macro_resources
 	$(MAKE) -C $(COMMON) release $(OPT)
 
 debug_windows: debug
@@ -29,12 +35,10 @@ clean: clean_builds
 	$(MAKE) -C $(COMMON) clean $(OPT)
 
 clean_builds:
-	$(MAKE) -C windows clean $(OPT)
-	$(MAKE) -C linux clean $(OPT)
+	$(call make_platforms, clean)
 
 clean_builds_libs:
-	$(MAKE) -C windows libs_clean $(OPT)
-	$(MAKE) -C linux libs_clean $(OPT)
+	$(call make_platforms, libs_clean)
 
 clean_all: clean_builds clean_builds_libs
 	$(MAKE) -C $(COMMON) clean_all $(OPT)
