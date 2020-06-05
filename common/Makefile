@@ -78,6 +78,7 @@ clean_tools:
 		$(MAKE) -C $$tool clean; \
 	done
 
-wipe_all_build: clean_tools clean_macros clean_all
+wipe_all_obj: clean_tools clean_all
+wipe_all_build: clean_macros wipe_all_obj
 
 .FORCE:

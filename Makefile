@@ -39,5 +39,8 @@ clean_builds_libs:
 clean_all: clean_builds clean_builds_libs
 	$(MAKE) -C $(COMMON) clean_all $(OPT)
 
+wipe_all_obj: clean_builds clean_builds_libs
+	$(MAKE) -C $(COMMON) wipe_all_obj $(OPT)
+
 wipe_all_build: clean_builds clean_builds_libs
 	$(MAKE) -C $(COMMON) wipe_all_build $(OPT)
