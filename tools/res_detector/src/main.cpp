@@ -265,7 +265,7 @@ class ResourceCompiler
 	}
 
 public:
-	static void run(const std::string &root, const std::string &output, const std::vector<std::string> &ns, const std::string &implpath, const std::string &hpath)
+	static void run(const std::string &root, const std::vector<std::string> &ns, const std::string &implpath, const std::string &hpath)
 	{
 		std::stringstream out;
 
@@ -288,7 +288,7 @@ public:
 		namespace_epilogue(out, ns);
 		namespace_epilogue(outimpl, ns);
 
-		FileIO::write(output, CodeFormatter::format(out.str()));
+		FileIO::write(hpath, CodeFormatter::format(out.str()));
 		FileIO::write(implpath, CodeFormatter::format(outimpl.str()));
 	}
 };
@@ -326,7 +326,9 @@ int main(int argc, char **argv)
 	auto &output = args.at(1);
 	auto ns = getNs(args);
 
-	ResourceCompiler::run(input, getOutpath(input, output, ".hpp"), ns, getOutpath(input, output, ".cpp"), getOutpath(input, output, ".hpp"));
+	auto in = getOutpath(input, output, ".resdecl.cpp");
+	auto out = getOutpath(input, output, ".resdecl.hpp");
+	ResourceCompiler::run(input, ns, in, out);
 
 	return 0;
 }
