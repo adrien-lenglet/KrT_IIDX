@@ -7,6 +7,7 @@
 #include <fstream>
 #include <stdexcept>
 #include <optional>
+#include <functional>
 
 class FileIO
 {
@@ -149,21 +150,20 @@ class FolderPrinter
 		return id + std::string("_storage");
 	}
 
-	template <typename T>
-	static std::optional<std::tuple<std::string, std::string>> getMember(const T &e)
+	static std::optional<std::tuple<std::string, std::string>> getMember(const std::fs::path &path)
 	{
 		static const std::map<std::string, std::string> exts = {
 			{".obj", "sb::rs::Model"},
 			{".png", "sb::rs::Texture"},
 		};
 
-		auto ext = e.path().extension().string();
+		auto ext = path.extension().string();
 		auto got = exts.find(ext);
 
 		if (got == exts.end())
 			return std::nullopt;
 		auto &type = got->second;
-		auto id = e.path().stem().string();
+		auto id = path.stem().string();
 		return std::make_tuple(type, id);
 	}
 
@@ -210,9 +210,29 @@ class FolderPrinter
 	class FolderIterator
 	{
 	public:
-		FolderIterator(const T &itbase)
+		FolderIterator(const T &itbase, const std::function<void (const std::string&)> dir = nullptr,
+		const std::function<void (const std::string&, const std::fs::directory_entry&)> dir_entry = nullptr,
+		const std::function<void (const std::string&, const std::string&)> member = nullptr)
 		{
 			for (auto &e : std::fs::directory_iterator(itbase)) {
+				auto &path = e.path();
+				auto name = path.filename().string();
+				if (name.at(0) == '.')
+					continue;
+				if (e.is_directory()) {
+					if (dir)
+						dir(name);
+					if (dir_entry)
+						dir_entry(name, e);
+				} else {
+					if (member) {
+						auto got = getMember(e.path());
+						if (got) {
+							auto &[type, id] = *got;
+							member(type, id);
+						}
+					}
+				}
 			}
 		}
 		~FolderIterator(void)
@@ -223,50 +243,26 @@ class FolderPrinter
 	template <typename T>
 	void it_dir(const T &itbase, const std::string &scope)
 	{
-		for (auto &e : std::fs::directory_iterator(itbase)) {
-			auto name = e.path().filename().string();
-			if (name.at(0) == '.')
-				continue;
-			if (e.is_directory()) {
-				auto cname = class_name(name);
-				class_prologue(cname);
-				it_dir(e, scope_append(scope, cname));
-				class_epilogue(cname);
-			} else {
-			}
-		}
+		FolderIterator(itbase, nullptr, [&](auto &name, auto &e){
+			auto cname = class_name(name);
+			class_prologue(cname);
+			it_dir(e, scope_append(scope, cname));
+			class_epilogue(cname);
+		});
 
-		for (auto &e : std::fs::directory_iterator(itbase)) {
-			auto name = e.path().filename().string();
-			if (name.at(0) == '.')
-				continue;
+		FolderIterator(itbase, [&](auto &name){
+			storage(class_name(name), name);
+		}, nullptr, [&](auto &type, auto &id){
+			storage(type, id);
+		});
 
-			if (e.is_directory())
-				storage(class_name(name), name);
-			else {
-				auto got = getMember(e);
-				if (!got)
-					continue;
-				auto &[type, id] = *got;
-				storage(type, id);
-			}
-		}
+		m_out << "public:" << std::endl;
 
-		m_out << "public:\n";
-		for (auto &e : std::fs::directory_iterator(itbase)) {
-			auto name = e.path().filename().string();
-			if (name.at(0) == '.')
-				continue;
-			if (e.is_directory()) {
-				getter(scope, class_name(name), scope_append(scope, class_name(name)), name);
-			} else {
-				auto got = getMember(e);
-				if (!got)
-					continue;
-				auto &[type, id] = *got;
-				getter(scope, type, type, id);
-			}
-		}
+		FolderIterator(itbase, [&](auto &name){
+			getter(scope, class_name(name), scope_append(scope, class_name(name)), name);
+		}, nullptr, [&](auto &type, auto &id){
+			getter(scope, type, type, id);
+		});
 	}
 
 	void print(const std::string &root)
