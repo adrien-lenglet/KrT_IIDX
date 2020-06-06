@@ -210,7 +210,7 @@ class FolderPrinter
 	class FolderIterator
 	{
 	public:
-		FolderIterator(const T &itbase, const std::function<void (const std::string&)> dir = nullptr,
+		FolderIterator(const T &itbase,
 		const std::function<void (const std::string&, const std::fs::directory_entry&)> dir_entry = nullptr,
 		const std::function<void (const std::string&, const std::string&)> member = nullptr)
 		{
@@ -220,8 +220,6 @@ class FolderPrinter
 				if (name.at(0) == '.')
 					continue;
 				if (e.is_directory()) {
-					if (dir)
-						dir(name);
 					if (dir_entry)
 						dir_entry(name, e);
 				} else {
@@ -243,24 +241,24 @@ class FolderPrinter
 	template <typename T>
 	void it_dir(const T &itbase, const std::string &scope)
 	{
-		FolderIterator(itbase, nullptr, [&](auto &name, auto &e){
+		FolderIterator(itbase, [&](auto &name, auto &e){
 			auto cname = class_name(name);
 			class_prologue(cname);
 			it_dir(e, scope_append(scope, cname));
 			class_epilogue(cname);
 		});
 
-		FolderIterator(itbase, [&](auto &name){
+		FolderIterator(itbase, [&](auto &name, auto &){
 			storage(class_name(name), name);
-		}, nullptr, [&](auto &type, auto &id){
+		}, [&](auto &type, auto &id){
 			storage(type, id);
 		});
 
 		m_out << "public:" << std::endl;
 
-		FolderIterator(itbase, [&](auto &name){
+		FolderIterator(itbase, [&](auto &name, auto &){
 			getter(scope, class_name(name), scope_append(scope, class_name(name)), name);
-		}, nullptr, [&](auto &type, auto &id){
+		}, [&](auto &type, auto &id){
 			getter(scope, type, type, id);
 		});
 	}
