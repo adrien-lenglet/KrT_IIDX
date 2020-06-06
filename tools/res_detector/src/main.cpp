@@ -182,6 +182,20 @@ class FolderPrinter
 		out << "}" << std::endl;
 	}
 
+	static void class_prologue(std::ostream &out, const std::string &name)
+	{
+		out << "class " << name << " : public Subtile::Resource::Folder" << std::endl << "{";
+		out << "public:" << std::endl;
+		out << name << "(void);" << std::endl;
+		out << "~"<<  name << "(void);" << std::endl;
+		out << "private:" << std::endl;
+	}
+
+	static void class_epilogue(std::ostream &out, const std::string &)
+	{
+		out << "};";
+	}
+
 	template <typename T>
 	static void it_dir(std::ostream &out, std::ostream &outimpl, const T &itbase, const std::string &scope)
 	{
@@ -191,9 +205,11 @@ class FolderPrinter
 				continue;
 
 			if (e.is_directory()) {
-				out << "class " << class_name(name) << std::endl << "{";
-				it_dir(out, outimpl, e, scope_append(scope, class_name(name)));
-				out << "};";
+				auto cname = class_name(name);
+
+				class_prologue(out, cname);
+				it_dir(out, outimpl, e, scope_append(scope, cname));
+				class_epilogue(out, cname);
 			} else {
 			}
 		}
@@ -204,14 +220,14 @@ class FolderPrinter
 				continue;
 
 			if (e.is_directory()) {
-				out << class_name(name) << " " << id_storage(name) << ";";
+				out << class_name(name) << "& " << id_storage(name) << ";";
 				output_impl(outimpl, scope, scope_append(scope, class_name(name)), name);
 			} else {
 				auto got = getMember(e);
 				if (!got)
 					continue;
 				auto &[type, id] = *got;
-				out << type << " " << id_storage(id) << ";";
+				out << type << "& " << id_storage(id) << ";";
 				output_impl(outimpl, scope, type, id);
 			}
 		}
@@ -238,9 +254,9 @@ public:
 	static void print(std::ostream &out, std::ostream &impl_out, const std::string &root)
 	{
 		auto scope = class_name(std::fs::path(root).filename().string());
-		out << "class " << scope << std::endl << "{";
+		class_prologue(out, scope);
 		it_dir(out, impl_out, root, scope);
-		out << "};";
+		class_epilogue(out, scope);
 	}
 };
 
@@ -270,6 +286,8 @@ public:
 		std::stringstream out;
 
 		out << "#pragma once" << std::endl << std::endl;
+		out << "#include \"Subtile/Resource/Folder.hpp\"" << std::endl;
+		out << std::endl;
 		out << "#include \"Subtile/Resource/Model.hpp\"" << std::endl;
 		out << "#include \"Subtile/Resource/Texture.hpp\"" << std::endl;
 		out << std::endl;
