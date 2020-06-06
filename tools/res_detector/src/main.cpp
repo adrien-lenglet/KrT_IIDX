@@ -141,6 +141,9 @@ namespace fs = filesystem;
 
 class FolderPrinter
 {
+	std::ostream &m_out;
+	std::ostream &m_impl_out;
+
 	static std::string id_storage(const std::string &id)
 	{
 		return id + std::string("_storage");
@@ -174,42 +177,61 @@ class FolderPrinter
 		return base + std::string("::") + ap;
 	}
 
-	static void output_impl(std::ostream &out, const std::string &scope, const std::string &type, const std::string &id)
+	void storage(const std::string &type, const std::string &id)
 	{
-		out << type << "& " << scope << "::" << id << "(void)" << std::endl;
-		out << "{" << std::endl;
-		out << "return " << id_storage(id) << ";" << std::endl;
-		out << "}" << std::endl;
+		m_out << type << "& " << id_storage(id) << ";";
 	}
 
-	static void class_prologue(std::ostream &out, const std::string &name)
+	void getter(const std::string &scope, const std::string &type, const std::string &scoped_type, const std::string &id)
 	{
-		out << "class " << name << " : public Subtile::Resource::Folder" << std::endl << "{";
-		out << "public:" << std::endl;
-		out << name << "(void);" << std::endl;
-		out << "~"<<  name << "(void);" << std::endl;
-		out << "private:" << std::endl;
+		m_out << type << "& " << id << "(void);";
+
+		m_impl_out << scoped_type << "& " << scope << "::" << id << "(void)" << std::endl;
+		m_impl_out << "{" << std::endl;
+		m_impl_out << "return " << id_storage(id) << ";" << std::endl;
+		m_impl_out << "}" << std::endl;
 	}
 
-	static void class_epilogue(std::ostream &out, const std::string &)
+	void class_prologue(const std::string &name)
 	{
-		out << "};";
+		m_out << "class " << name << " : public Subtile::Resource::Folder" << std::endl << "{";
+		m_out << "public:" << std::endl;
+		m_out << name << "(void);" << std::endl;
+		m_out << "~"<<  name << "(void);" << std::endl;
+		m_out << "private:" << std::endl;
+	}
+
+	void class_epilogue(const std::string &)
+	{
+		m_out << "};";
 	}
 
 	template <typename T>
-	static void it_dir(std::ostream &out, std::ostream &outimpl, const T &itbase, const std::string &scope)
+	class FolderIterator
+	{
+	public:
+		FolderIterator(const T &itbase)
+		{
+			for (auto &e : std::fs::directory_iterator(itbase)) {
+			}
+		}
+		~FolderIterator(void)
+		{
+		}
+	};
+
+	template <typename T>
+	void it_dir(const T &itbase, const std::string &scope)
 	{
 		for (auto &e : std::fs::directory_iterator(itbase)) {
 			auto name = e.path().filename().string();
 			if (name.at(0) == '.')
 				continue;
-
 			if (e.is_directory()) {
 				auto cname = class_name(name);
-
-				class_prologue(out, cname);
-				it_dir(out, outimpl, e, scope_append(scope, cname));
-				class_epilogue(out, cname);
+				class_prologue(cname);
+				it_dir(e, scope_append(scope, cname));
+				class_epilogue(cname);
 			} else {
 			}
 		}
@@ -219,44 +241,51 @@ class FolderPrinter
 			if (name.at(0) == '.')
 				continue;
 
-			if (e.is_directory()) {
-				out << class_name(name) << "& " << id_storage(name) << ";";
-				output_impl(outimpl, scope, scope_append(scope, class_name(name)), name);
-			} else {
+			if (e.is_directory())
+				storage(class_name(name), name);
+			else {
 				auto got = getMember(e);
 				if (!got)
 					continue;
 				auto &[type, id] = *got;
-				out << type << "& " << id_storage(id) << ";";
-				output_impl(outimpl, scope, type, id);
+				storage(type, id);
 			}
 		}
 
-		out << "public:\n";
+		m_out << "public:\n";
 		for (auto &e : std::fs::directory_iterator(itbase)) {
 			auto name = e.path().filename().string();
 			if (name.at(0) == '.')
 				continue;
-
 			if (e.is_directory()) {
-				out << class_name(name) << "& " << name << "(void);";
+				getter(scope, class_name(name), scope_append(scope, class_name(name)), name);
 			} else {
 				auto got = getMember(e);
 				if (!got)
 					continue;
 				auto &[type, id] = *got;
-				out << type << "& " << id << "(void);";
+				getter(scope, type, type, id);
 			}
 		}
 	}
 
-public:
-	static void print(std::ostream &out, std::ostream &impl_out, const std::string &root)
+	void print(const std::string &root)
 	{
 		auto scope = class_name(std::fs::path(root).filename().string());
-		class_prologue(out, scope);
-		it_dir(out, impl_out, root, scope);
-		class_epilogue(out, scope);
+		class_prologue(scope);
+		it_dir(root, scope);
+		class_epilogue(scope);
+	}
+
+public:
+	FolderPrinter(std::ostream &out, std::ostream &impl_out, const std::string &root) :
+		m_out(out),
+		m_impl_out(impl_out)
+	{
+		print(root);
+	}
+	~FolderPrinter(void)
+	{
 	}
 };
 
@@ -301,7 +330,7 @@ public:
 		namespace_prologue(out, ns);
 		namespace_prologue(outimpl, ns);
 
-		FolderPrinter::print(out, outimpl, root);
+		FolderPrinter(out, outimpl, root);
 
 		namespace_epilogue(out, ns);
 		namespace_epilogue(outimpl, ns);
