@@ -1,4 +1,8 @@
-def expand(str, dict)
+def eval_it(it, expr)
+	eval(expr).to_s
+end
+
+def expand(str, it)
 	i = 0
 	while i < str.size
 		if str[i] == "|"
@@ -8,7 +12,7 @@ def expand(str, dict)
 				i += 1
 			end
 			id = str[start, i - start]
-			str = str[0, start - 1] + dict[id] + str[i + 1, str.size]
+			str = str[0, start - 1] + eval_it(it, id) + str[i + 1, str.size]
 			i = 0
 		end
 		i += 1
@@ -18,12 +22,8 @@ end
 
 def it_file(input, it)
 	buf = ""
-	dict = {}
-	dict["it"] = it.to_s
-	dict["it + 1"] = (it + 1).to_s
-	dict["it - 1"] = (it - 1).to_s
 	File.open(input).each_line do |line|
-		buf += expand(line, dict)
+		buf += expand(line, it)
 	end
 	buf
 end
