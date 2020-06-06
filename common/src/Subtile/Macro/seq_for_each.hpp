@@ -4,7 +4,7 @@
 #include <boost/preprocessor/punctuation/paren.hpp>
 
 #ifndef SEQ_TUPLE_ENC1
-#include "seq_for_each/it_1024.hduped"
+#include "seq_for_each/it_1024.hduped.hpp"
 #endif
 
 #define SEQ_SEQ_SIZE(seq) BOOST_PP_CAT(SEQ_SEQ_SIZE_I(seq), _END)

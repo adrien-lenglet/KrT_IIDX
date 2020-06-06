@@ -6,8 +6,9 @@ glfw3.dll
 
 *.a
 *.o
-*.hduped
 *.spv
+
+*.hduped.hpp
 
 *.resdecl.cpp
 *.resdecl.hpp

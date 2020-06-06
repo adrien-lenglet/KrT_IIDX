@@ -2,13 +2,13 @@ all: macros
 
 ROOT = ../../../..
 
-%.hduped: %.hdup
+%.hduped.hpp: %.hdup
 	ruby $(ROOT)/tools/ppduper.rb $< $@ -I 0 -N 256
 
 MACRO = $(wildcard ./*.hdup)
-MACRO_DUPPED = $(MACRO:.hdup=.hduped)
+MACRO_DUPPED = $(MACRO:.hdup=.hduped.hpp)
 
-MACRO_SEQ_FOR_EACH = $(foreach var,64 128 256 512 1024 2048 4096 8192,./seq_for_each/it_$(var).hduped)
+MACRO_SEQ_FOR_EACH = $(foreach var,64 128 256 512 1024 2048 4096 8192,./seq_for_each/it_$(var).hduped.hpp)
 $(MACRO_SEQ_FOR_EACH): ./seq_for_each/seq_for_each.hdup
 	ruby $(ROOT)/tools/ppduper.rb $< $@ -I 1
 
