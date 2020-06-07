@@ -147,7 +147,9 @@ class FolderPrinter
 
 	static std::string id_storage(const std::string &id)
 	{
-		return id + std::string("_storage");
+		static const std::string st("_storage");
+
+		return id + st;
 	}
 
 	static std::optional<std::tuple<std::string, std::string>> getMember(const std::fs::path &path)
@@ -169,12 +171,23 @@ class FolderPrinter
 
 	static std::string class_name(const std::string &str)
 	{
-		return str + std::string("_class");
+		static const std::string cl("_class");
+
+		return str + cl;
 	}
 
 	static std::string scope_append(const std::string &base, const std::string &ap)
 	{
-		return base + std::string("::") + ap;
+		static const std::string ns("::");
+
+		return base + ns + ap;
+	}
+
+	std::string stringize(const std::string &str)
+	{
+		static const std::string dq("\"");
+
+		return dq + str + dq;
 	}
 
 	void storage(const std::string &type, const std::string &id)
@@ -192,12 +205,33 @@ class FolderPrinter
 		m_impl_out << "}" << std::endl;
 	}
 
-	void class_prologue(const std::string &name)
+	template <typename T>
+	void impl_const(const T &itbase, const char *comma = ":")
 	{
-		m_out << "class " << name << " : public Subtile::Resource::Folder" << std::endl << "{";
+		FolderIterator(itbase, [&](auto &name, auto &){
+			addElem(class_name(name), name, comma);
+		}, [&](auto &type, auto &id){
+			addElem(type, id, comma);
+		});
+
+		m_impl_out << std::endl << "{" << std::endl;
+		m_impl_out << "}" << std::endl;
+	}
+
+	template <typename T>
+	void class_prologue(const T &itbase, const std::string &name, const std::string &scope, bool cstr_constr = false)
+	{
+		auto cname = class_name(name);
+		m_out << "class " << cname << " : public sb::rs::Folder" << std::endl << "{";
 		m_out << "public:" << std::endl;
-		m_out << name << "(void);" << std::endl;
-		m_out << "~"<<  name << "(void);" << std::endl;
+		m_out << cname << "(void);" << std::endl;
+		m_impl_out << scope << "::" << cname << "(void)";
+		if (cstr_constr) {
+			m_impl_out << " :" << std::endl << "sb::rs::Folder(" << stringize(name) << ")";
+		}
+		impl_const(itbase, cstr_constr ? "," : " :");
+		m_out << "~"<< cname << "(void) override;" << std::endl;
+		m_impl_out << scope << "::" << "~"<<  cname << "(void)" << std::endl << "{" << std::endl << "}" << std::endl;
 		m_out << "private:" << std::endl;
 	}
 
@@ -238,13 +272,20 @@ class FolderPrinter
 		}
 	};
 
+	void addElem(const std::string &type, const std::string &id, const char* &comma)
+	{
+		m_impl_out << comma << std::endl << id_storage(id) << "(add<" << type << ">(" << stringize(id) << "))";
+		comma = ",";
+	}
+
 	template <typename T>
 	void it_dir(const T &itbase, const std::string &scope)
 	{
 		FolderIterator(itbase, [&](auto &name, auto &e){
 			auto cname = class_name(name);
-			class_prologue(cname);
-			it_dir(e, scope_append(scope, cname));
+			auto cscope = scope_append(scope, cname);
+			class_prologue(e, name, cscope);
+			it_dir(e, cscope);
 			class_epilogue(cname);
 		});
 
@@ -265,10 +306,15 @@ class FolderPrinter
 
 	void print(const std::string &root)
 	{
-		auto scope = class_name(std::fs::path(root).filename().string());
-		class_prologue(scope);
+		auto fname = std::fs::path(root).filename().string();
+		auto scope = class_name(fname);
+		class_prologue(root, fname, scope, true);
 		it_dir(root, scope);
 		class_epilogue(scope);
+
+		m_impl_out << std::endl;
+		m_out << "extern " << scope << " " << fname << ";" << std::endl;
+		m_impl_out << scope << " " << fname << ";" << std::endl;
 	}
 
 public:

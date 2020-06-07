@@ -1,15 +1,15 @@
 #pragma once
 
-#include "../Resource.hpp"
+#include "Element.hpp"
 
 namespace Subtile {
 namespace Resource {
 
-class Texture
+class Texture : public Element
 {
 public:
 	Texture(void);
-	~Texture(void);
+	~Texture(void) override;
 };
 
 }

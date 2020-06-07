@@ -273,7 +273,7 @@ public:
 	{
 		auto to_insert = new T(std::forward<Args>(args)...);
 
-		auto [it, success] = m_map.emplace(to_insert, to_insert);
+		auto [it, success] = m_map.emplace(std::piecewise_construct, std::make_tuple(to_insert), std::make_tuple(to_insert));
 		if (!success)
 			throw std::runtime_error("Can't emplace element in set");
 		return *to_insert;
@@ -282,6 +282,8 @@ public:
 	template <typename TDerived, typename ...Args>
 	TDerived& emplace(Args &&...args)
 	{
+		static_assert(std::is_base_of<T, TDerived>::value, "Emplacing not derived type in unique_set");
+
 		auto to_insert = new TDerived(std::forward<Args>(args)...);
 
 		auto [it, success] = m_map.emplace(to_insert, to_insert);

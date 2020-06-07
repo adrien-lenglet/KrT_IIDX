@@ -10,17 +10,18 @@ class Folder : public Element
 {
 public:
 	Folder(void);
-	Folder(const std::string &name);	// root folder
 	~Folder(void) override;
 
 protected:
-	template <typename ...Args>
+	Folder(const std::string &name);	// root folder
+
+	template <class ElementType, typename ...Args>
 	auto& add(const std::string &name, Args &&...args)
 	{
 		auto &stack = getStack();
 
 		stack.emplace(this, name);
-		auto &res = m_children.emplace(std::forward<Args>(args)...);
+		auto &res = m_children.emplace<ElementType>(std::forward<Args>(args)...);
 		stack.pop();
 
 		return res;
