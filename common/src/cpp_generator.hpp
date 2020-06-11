@@ -69,7 +69,7 @@ namespace CppGenerator {
 			m_impl(m_filepath + m_baseimpl)
 		{
 			m_decl.new_line() << "#pragma once" << m_decl.end_line() << m_decl.end_line();
-			m_decl.new_line() << "#include \"" << m_basedecl << "\"" << m_decl.end_line() << m_decl.end_line();
+			m_impl.new_line() << "#include \"" << m_basedecl << "\"" << m_decl.end_line() << m_decl.end_line();
 		}
 		~Writer(void)
 		{
@@ -373,6 +373,10 @@ namespace CppGenerator {
 		}
 
 		Type(const std::string &str);
+		Type(const Primitive::Named &prim) :
+			Type(prim.getBaseName())
+		{
+		}
 
 		~Type(void) override
 		{
