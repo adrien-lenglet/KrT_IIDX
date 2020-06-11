@@ -836,6 +836,14 @@ namespace CppGenerator {
 		{
 			write_sub(o);
 		}
+
+		struct Modifiers
+		{
+			class Call;
+		};
+
+		template <typename ...Args>
+		Modifiers::Call Call(Args &&...args);
 	};
 
 	using Smt = Statement;
@@ -1127,6 +1135,61 @@ namespace CppGenerator {
 		Comma(Args &&...args) :
 			AssociativeOp(std::forward<Args>(args)..., ",") {}
 	};
+
+	class Smt::Modifiers::Call : public Smt
+	{
+	public:
+		template <typename T, typename ...Args>
+		Call(T &&type, Args &&...args) :
+			m_fun_name(std::forward<T>(type)),
+			m_args(getArgs(std::forward<Args>(args)...))
+		{
+		}
+
+		void write(std::ostream &o) const override
+		{
+			m_fun_name.write(o);
+			o << "(";
+			auto comma = "";
+			for (auto &s : m_args) {
+				o << comma;
+				s.write(o);
+				comma = ", ";
+			}
+			o << ")";
+		}
+
+	private:
+		Smt m_fun_name;
+		std::vector<Smt> m_args;
+
+		template <typename ...Args>
+		static inline constexpr bool are_args_empty_v = std::is_same_v<std::tuple<Args...>, std::tuple<>>;
+
+		template <typename First, typename ...Args>
+		void nextArg(std::vector<Smt> &res, First &&first, Args &&...args)
+		{
+			res.emplace_back(first);
+			if constexpr (!are_args_empty_v<Args...>)
+				nextArg(res, std::forward<Args>(args)...);
+		}
+
+		template <typename ...Args>
+		std::vector<Smt> getArgs(Args &&...args)
+		{
+			std::vector<Smt> res;
+
+			if constexpr (!are_args_empty_v<Args...>)
+				nextArg(res, std::forward<Args>(args)...);
+			return res;
+		}
+	};
+
+	template <typename ...Args>
+	Smt::Modifiers::Call Smt::Call(Args &&...args)
+	{
+		return Modifiers::Call(static_cast<std::string>(*this), std::forward<Args>(args)...);
+	}
 }
 
 namespace cppgen = CppGenerator;
