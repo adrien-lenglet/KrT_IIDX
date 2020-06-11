@@ -581,4 +581,7 @@ struct template_string {
 };
 template<unsigned N> template_string(char const (&)[N]) -> template_string<N - 1>;
 
+template <typename ...Args>
+static inline constexpr bool are_args_empty_v = std::is_same_v<std::tuple<Args...>, std::tuple<>>;
+
 }
