@@ -258,6 +258,10 @@ namespace CppGenerator {
 		{
 		}
 
+		Type(Type &other) :
+			Writable(other)
+		{
+		}
 		Type(Type&&) = default;
 
 		template <typename W, class = std::enable_if_t<is_w_ok_v<W> && std::is_rvalue_reference_v<W&&>>>
