@@ -999,6 +999,65 @@ namespace CppGenerator {
 		Smt m_smt;
 	};
 
+	class CppCast : public Smt
+	{
+	public:
+		template <typename T, typename S>
+		CppCast(const char *cast_type, T &&type, S &&smt) :
+			m_cast_type(cast_type),
+			m_type(std::forward<T>(type)),
+			m_smt(std::forward<S>(smt))
+		{
+		}
+
+		void write(std::ostream &o) const override
+		{
+			o << m_cast_type;
+			o << "<";
+			m_type.write(o);
+			o << ">(";
+			m_smt.write(o);
+			o << ")";
+		}
+
+	private:
+		const char *m_cast_type;
+		Type m_type;
+		Smt m_smt;
+	};
+
+	class StaticCast : public CppCast
+	{
+	public:
+		template <typename ...Args>
+		StaticCast(Args &&...args) :
+			CppCast("static_cast", std::forward<Args>(args)...) {}
+	};
+
+	class DynamicCast : public CppCast
+	{
+	public:
+		template <typename ...Args>
+		DynamicCast(Args &&...args) :
+			CppCast("dynamic_cast", std::forward<Args>(args)...) {}
+	};
+
+	class ConstCast : public CppCast
+	{
+	public:
+		template <typename ...Args>
+		ConstCast(Args &&...args) :
+			CppCast("const_cast", std::forward<Args>(args)...) {}
+	};
+
+	class ReinterpretCast : public CppCast
+	{
+	public:
+		template <typename ...Args>
+		ReinterpretCast(Args &&...args) :
+			CppCast("reinterpret_cast", std::forward<Args>(args)...) {}
+	};
+
 	class Ternary : public Smt
 	{
 	public:
