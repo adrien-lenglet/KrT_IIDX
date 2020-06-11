@@ -796,6 +796,45 @@ namespace CppGenerator {
 		Type m_type;
 	};
 
+	class Inc;
+	class Dec;
+	class Plus;
+	class Minus;
+	class Not;
+	class NotBin;
+	class Deref;
+	class Address;
+
+	class Add;
+	class Sub;
+	class Mul;
+	class Div;
+	class Rem;
+	class LShift;
+	class RShift;
+	class Less;
+	class LessEq;
+	class Greater;
+	class GreaterEq;
+	class Eq;
+	class Dif;
+	class AndBin;
+	class XorBin;
+	class OrBin;
+	class And;
+	class Or;
+	class Assign;
+	class AssignAdd;
+	class AssignSub;
+	class AssignMul;
+	class AssignDiv;
+	class AssignRem;
+	class AssignLShift;
+	class AssignRShift;
+	class AssignAndBin;
+	class AssignXorBin;
+	class AssignOrBin;
+
 	class Statement : public Writable
 	{
 		class String;
@@ -857,6 +896,81 @@ namespace CppGenerator {
 		Modifiers::Member Member(Args &&...args);
 		template <typename ...Args>
 		Modifiers::MemberPtr MemberPtr(Args &&...args);
+
+		Modifiers::Inc operator ++(int);
+		Modifiers::Dec operator --(int);
+		template <typename ...Args>
+		Modifiers::Call operator ()(Args &&...args);
+		template <typename T>
+		Modifiers::Array operator[](T &&smt);
+
+		CppGenerator::Inc operator++(void);
+		CppGenerator::Dec operator--(void);
+		CppGenerator::Plus operator+(void);
+		CppGenerator::Minus operator-(void);
+		CppGenerator::Not operator!(void);
+		CppGenerator::NotBin operator~(void);
+		CppGenerator::Deref operator*(void);
+		CppGenerator::Address operator&(void);
+
+		template <typename S>
+		CppGenerator::Add operator+(S &&smt);
+		template <typename S>
+		CppGenerator::Sub operator-(S &&smt);
+		template <typename S>
+		CppGenerator::Mul operator*(S &&smt);
+		template <typename S>
+		CppGenerator::Div operator/(S &&smt);
+		template <typename S>
+		CppGenerator::Rem operator%(S &&smt);
+		template <typename S>
+		CppGenerator::LShift operator<<(S &&smt);
+		template <typename S>
+		CppGenerator::RShift operator>>(S &&smt);
+		template <typename S>
+		CppGenerator::Less operator<(S &&smt);
+		template <typename S>
+		CppGenerator::LessEq operator<=(S &&smt);
+		template <typename S>
+		CppGenerator::Greater operator>(S &&smt);
+		template <typename S>
+		CppGenerator::GreaterEq operator>=(S &&smt);
+		template <typename S>
+		CppGenerator::Eq operator==(S &&smt);
+		template <typename S>
+		CppGenerator::Dif operator!=(S &&smt);
+		template <typename S>
+		CppGenerator::AndBin operator&(S &&smt);
+		template <typename S>
+		CppGenerator::XorBin operator^(S &&smt);
+		template <typename S>
+		CppGenerator::OrBin operator|(S &&smt);
+		template <typename S>
+		CppGenerator::And operator&&(S &&smt);
+		template <typename S>
+		CppGenerator::Or operator||(S &&smt);
+		template <typename S>
+		CppGenerator::Assign operator=(S &&smt);
+		template <typename S>
+		CppGenerator::AssignAdd operator+=(S &&smt);
+		template <typename S>
+		CppGenerator::AssignSub operator-=(S &&smt);
+		template <typename S>
+		CppGenerator::AssignMul operator*=(S &&smt);
+		template <typename S>
+		CppGenerator::AssignDiv operator/=(S &&smt);
+		template <typename S>
+		CppGenerator::AssignRem operator%=(S &&smt);
+		template <typename S>
+		CppGenerator::AssignLShift operator<<=(S &&smt);
+		template <typename S>
+		CppGenerator::AssignRShift operator>>=(S &&smt);
+		template <typename S>
+		CppGenerator::AssignAndBin operator&=(S &&smt);
+		template <typename S>
+		CppGenerator::AssignXorBin operator^=(S &&smt);
+		template <typename S>
+		CppGenerator::AssignOrBin operator|=(S &&smt);
 
 	private:
 		template <typename First, typename ...Args>
@@ -942,6 +1056,22 @@ namespace CppGenerator {
 			UnaryOp(std::forward<T>(smt), "--") {}
 	};
 
+	class Plus : public UnaryOp
+	{
+	public:
+		template <typename T>
+		Plus(T &&smt) :
+			UnaryOp(std::forward<T>(smt), "+") {}
+	};
+
+	class Minus : public UnaryOp
+	{
+	public:
+		template <typename T>
+		Minus(T &&smt) :
+			UnaryOp(std::forward<T>(smt), "-") {}
+	};
+
 	class Not : public UnaryOp
 	{
 	public:
@@ -973,6 +1103,46 @@ namespace CppGenerator {
 		Address(T &&smt) :
 			UnaryOp(std::forward<T>(smt), "&") {}
 	};
+
+	CppGenerator::Inc Smt::operator++(void)
+	{
+		return CppGenerator::Inc(static_cast<std::string>(*this));
+	}
+
+	CppGenerator::Dec Smt::operator--(void)
+	{
+		return CppGenerator::Dec(static_cast<std::string>(*this));
+	}
+
+	CppGenerator::Plus Smt::operator+(void)
+	{
+		return CppGenerator::Plus(static_cast<std::string>(*this));
+	}
+
+	CppGenerator::Minus Smt::operator-(void)
+	{
+		return CppGenerator::Minus(static_cast<std::string>(*this));
+	}
+
+	CppGenerator::Not Smt::operator!(void)
+	{
+		return CppGenerator::Not(static_cast<std::string>(*this));
+	}
+
+	CppGenerator::NotBin Smt::operator~(void)
+	{
+		return CppGenerator::NotBin(static_cast<std::string>(*this));
+	}
+
+	CppGenerator::Deref Smt::operator*(void)
+	{
+		return CppGenerator::Deref(static_cast<std::string>(*this));
+	}
+
+	CppGenerator::Address Smt::operator&(void)
+	{
+		return CppGenerator::Address(static_cast<std::string>(*this));
+	}
 
 	class Cast : public Smt
 	{
@@ -1346,6 +1516,180 @@ namespace CppGenerator {
 			AssociativeOp("|=", std::forward<Args>(args)...) {}
 	};
 
+	template <typename S>
+	CppGenerator::Add Smt::operator+(S &&smt)
+	{
+		return CppGenerator::Add(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::Sub Smt::operator-(S &&smt)
+	{
+		return CppGenerator::Sub(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::Mul Smt::operator*(S &&smt)
+	{
+		return CppGenerator::Mul(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::Div Smt::operator/(S &&smt)
+	{
+		return CppGenerator::Div(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::Rem Smt::operator%(S &&smt)
+	{
+		return CppGenerator::Rem(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::LShift Smt::operator<<(S &&smt)
+	{
+		return CppGenerator::LShift(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::RShift Smt::operator>>(S &&smt)
+	{
+		return CppGenerator::RShift(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::Less Smt::operator<(S &&smt)
+	{
+		return CppGenerator::Less(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::LessEq Smt::operator<=(S &&smt)
+	{
+		return CppGenerator::LessEq(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::Greater Smt::operator>(S &&smt)
+	{
+		return CppGenerator::Greater(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::GreaterEq Smt::operator>=(S &&smt)
+	{
+		return CppGenerator::GreaterEq(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::Eq Smt::operator==(S &&smt)
+	{
+		return CppGenerator::Eq(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::Dif Smt::operator!=(S &&smt)
+	{
+		return CppGenerator::Dif(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::AndBin Smt::operator&(S &&smt)
+	{
+		return CppGenerator::AndBin(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::XorBin Smt::operator^(S &&smt)
+	{
+		return CppGenerator::XorBin(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::OrBin Smt::operator|(S &&smt)
+	{
+		return CppGenerator::OrBin(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::And Smt::operator&&(S &&smt)
+	{
+		return CppGenerator::And(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::Or Smt::operator||(S &&smt)
+	{
+		return CppGenerator::Or(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::Assign Smt::operator=(S &&smt)
+	{
+		return CppGenerator::Assign(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::AssignAdd Smt::operator+=(S &&smt)
+	{
+		return CppGenerator::AssignAdd(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::AssignSub Smt::operator-=(S &&smt)
+	{
+		return CppGenerator::AssignSub(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::AssignMul Smt::operator*=(S &&smt)
+	{
+		return CppGenerator::AssignMul(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::AssignDiv Smt::operator/=(S &&smt)
+	{
+		return CppGenerator::AssignDiv(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::AssignRem Smt::operator%=(S &&smt)
+	{
+		return CppGenerator::AssignRem(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::AssignLShift Smt::operator<<=(S &&smt)
+	{
+		return CppGenerator::AssignLShift(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::AssignRShift Smt::operator>>=(S &&smt)
+	{
+		return CppGenerator::AssignRShift(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::AssignAndBin Smt::operator&=(S &&smt)
+	{
+		return CppGenerator::AssignAndBin(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::AssignXorBin Smt::operator^=(S &&smt)
+	{
+		return CppGenerator::AssignXorBin(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
+	template <typename S>
+	CppGenerator::AssignOrBin Smt::operator|=(S &&smt)
+	{
+		return CppGenerator::AssignOrBin(static_cast<std::string>(*this), std::forward<S>(smt));
+	}
+
 	class Comma : public AssociativeOp
 	{
 	public:
@@ -1502,6 +1846,28 @@ namespace CppGenerator {
 	Smt::Modifiers::MemberPtr Smt::MemberPtr(Args &&...args)
 	{
 		return Modifiers::MemberPtr(static_cast<std::string>(*this), std::forward<Args>(args)...);
+	}
+
+	Smt::Modifiers::Inc Smt::operator++(int)
+	{
+		return Inc();
+	}
+
+	Smt::Modifiers::Dec Smt::operator--(int)
+	{
+		return Dec();
+	}
+
+	template <typename ...Args>
+	Smt::Modifiers::Call Smt::operator()(Args &&...args)
+	{
+		return Call(std::forward<Args>(args)...);
+	}
+
+	template <typename T>
+	Smt::Modifiers::Array Smt::operator[](T &&smt)
+	{
+		return Array(std::forward<T>(smt));
 	}
 }
 
