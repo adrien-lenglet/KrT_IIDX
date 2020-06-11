@@ -450,6 +450,16 @@ namespace CppGenerator {
 		}
 	};
 
+	class Typename : public PrependKeyword
+	{
+	public:
+		template <typename T>
+		Typename(T &&type) :
+			PrependKeyword("typename", std::forward<T>(type))
+		{
+		}
+	};
+
 	class LRef : public Type
 	{
 	public:
