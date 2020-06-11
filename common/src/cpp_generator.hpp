@@ -172,13 +172,13 @@ namespace CppGenerator {
 		}
 	
 	protected:
-		const util::unique_set<Primitive>& getPrimitives(void) const
+		const util::unique_vector<Primitive>& getPrimitives(void) const
 		{
 			return m_primitives;
 		}
 
 	private:
-		util::unique_set<Primitive> m_primitives;
+		util::unique_vector<Primitive> m_primitives;
 	};
 
 	class Namespace : public Collection
@@ -342,6 +342,10 @@ namespace CppGenerator {
 		std::unique_ptr<HolderType> m_sub;
 	};
 
+	class LRef;
+	class RRef;
+	class Ptr;
+
 	class Type : public Writable
 	{
 		class String;
@@ -385,6 +389,19 @@ namespace CppGenerator {
 		void write(std::ostream &o) const override
 		{
 			write_sub(o);
+		}
+
+		CppGenerator::LRef LRef(void);
+		CppGenerator::RRef RRef(void);
+		CppGenerator::Ptr Ptr(void);
+
+	protected:
+		operator std::string(void) const
+		{
+			std::stringstream ss;
+
+			write(ss);
+			return ss.str();
 		}
 	};
 
@@ -507,6 +524,21 @@ namespace CppGenerator {
 			o << "*";
 		}
 	};
+
+	inline LRef Type::LRef(void)
+	{
+		return CppGenerator::LRef(static_cast<std::string>(*this));
+	}
+
+	inline RRef Type::RRef(void)
+	{
+		return CppGenerator::RRef(static_cast<std::string>(*this));
+	}
+
+	inline Ptr Type::Ptr(void)
+	{
+		return CppGenerator::Ptr(static_cast<std::string>(*this));
+	}
 
 	class Using : public Primitive::Named
 	{

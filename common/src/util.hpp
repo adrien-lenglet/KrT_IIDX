@@ -316,6 +316,133 @@ private:
 	Map m_map;
 };
 
+template<typename T>
+class unique_vector
+{
+	using Vector = std::vector<std::unique_ptr<T>>;
+
+public:
+	unique_vector(void)
+	{
+	}
+	~unique_vector(void)
+	{
+	}
+
+	class const_iterator : public Vector::const_iterator
+	{
+		using vector_const_iterator = typename Vector::const_iterator;
+
+	public:
+		using difference_type = std::ptrdiff_t;
+		using value_type = const T;
+		using pointer = const T*;
+		using reference = const T&;
+		using iterator_category = std::random_access_iterator_tag;
+
+		const_iterator(const vector_const_iterator &it) :
+			Vector::const_iterator(it)
+		{
+		}
+		~const_iterator(void)
+		{
+		}
+
+		reference operator*(void) const
+		{
+			return *(Vector::const_iterator::operator *());
+		}
+	};
+
+	const_iterator begin(void) const
+	{
+		return m_vec.cbegin();
+	}
+
+	const_iterator end(void) const
+	{
+		return m_vec.cend();
+	}
+
+	const_iterator cbegin(void) const
+	{
+		return begin();
+	}
+
+	const_iterator cend(void) const
+	{
+		return end();
+	}
+
+	class iterator : public Vector::iterator
+	{
+		using vector_iterator = typename Vector::iterator;
+
+	public:
+		using difference_type = std::ptrdiff_t;
+		using value_type = T;
+		using pointer = T*;
+		using reference = T&;
+		using iterator_category = std::bidirectional_iterator_tag;
+
+		iterator(const vector_iterator &it) :
+			Vector::iterator(it)
+		{
+		}
+		~iterator(void)
+		{
+		}
+
+		reference operator*(void) const
+		{
+			return *(Vector::const_iterator::operator *());
+		}
+	};
+
+	iterator begin(void)
+	{
+		return m_vec.begin();
+	}
+
+	iterator end(void)
+	{
+		return m_vec.end();
+	}
+
+	size_t size(void) const
+	{
+		return m_vec.size();
+	}
+
+	template <typename ...Args>
+	T& emplace(Args &&...args)
+	{
+		auto to_insert = new T(std::forward<Args>(args)...);
+
+		m_vec.emplace_back(to_insert);
+		return *to_insert;
+	}
+
+	template <typename TDerived, typename ...Args>
+	TDerived& emplace(Args &&...args)
+	{
+		static_assert(std::is_base_of<T, TDerived>::value, "Emplacing not derived type in unique_vector");
+
+		auto to_insert = new TDerived(std::forward<Args>(args)...);
+
+		m_vec.emplace_back(to_insert);
+		return *to_insert;
+	}
+
+	void clear(void)
+	{
+		m_vec.clear();
+	}
+
+private:
+	Vector m_vec;
+};
+
 template <typename T>
 class stack : public std::stack<T>
 {
