@@ -342,10 +342,6 @@ namespace CppGenerator {
 		std::unique_ptr<HolderType> m_sub;
 	};
 
-	class LRef;
-	class RRef;
-	class Ptr;
-
 	class Type : public Writable
 	{
 		class String;
@@ -391,9 +387,22 @@ namespace CppGenerator {
 			write_sub(o);
 		}
 
-		CppGenerator::LRef LRef(void);
-		CppGenerator::RRef RRef(void);
-		CppGenerator::Ptr Ptr(void);
+		struct Modifiers
+		{
+			class LRef;
+			class RRef;
+			class Ptr;
+			class ConstAhead;
+			class Array;
+		};
+
+		Modifiers::LRef LRef(void);
+		Modifiers::RRef RRef(void);
+		template <typename ...Args>
+		Modifiers::Ptr Ptr(Args &&...args);
+		Modifiers::ConstAhead Const(void);
+		template <typename ...Args>
+		Modifiers::Array Array(Args &&...args);
 
 	protected:
 		operator std::string(void) const
@@ -431,7 +440,7 @@ namespace CppGenerator {
 	{
 	public:
 		template <typename T>
-		PrependKeyword(const char *str, T &&type) :
+		PrependKeyword(T &&type, const char *str) :
 			Type(std::forward<T>(type)),
 			m_str(str)
 		{
@@ -452,7 +461,7 @@ namespace CppGenerator {
 	public:
 		template <typename T>
 		Const(T &&type) :
-			PrependKeyword("const", std::forward<T>(type))
+			PrependKeyword(std::forward<T>(type), "const")
 		{
 		}
 	};
@@ -462,7 +471,7 @@ namespace CppGenerator {
 	public:
 		template <typename T>
 		Volatile(T &&type) :
-			PrependKeyword("volatile", std::forward<T>(type))
+			PrependKeyword(std::forward<T>(type), "volatile")
 		{
 		}
 	};
@@ -472,12 +481,12 @@ namespace CppGenerator {
 	public:
 		template <typename T>
 		Typename(T &&type) :
-			PrependKeyword("typename", std::forward<T>(type))
+			PrependKeyword(std::forward<T>(type), "typename")
 		{
 		}
 	};
 
-	class LRef : public Type
+	class Type::Modifiers::LRef : public Type
 	{
 	public:
 		template <typename T>
@@ -493,7 +502,7 @@ namespace CppGenerator {
 		}
 	};
 
-	class RRef : public Type
+	class Type::Modifiers::RRef : public Type
 	{
 	public:
 		template <typename T>
@@ -509,11 +518,32 @@ namespace CppGenerator {
 		}
 	};
 
-	class Ptr : public Type
+	class Type::Modifiers::Ptr : public Type
 	{
 	public:
 		template <typename T>
-		Ptr(T &&type) :
+		Ptr(T &&type, size_t level = 1) :
+			Type(std::forward<T>(type)),
+			m_level(level)
+		{
+		}
+
+		void write(std::ostream &o) const override
+		{
+			write_sub(o);
+			for (size_t i = 0; i < m_level; i++)
+				o << "*";
+		}
+
+	private:
+		size_t m_level;
+	};
+
+	class Type::Modifiers::ConstAhead : public Type
+	{
+	public:
+		template <typename T>
+		ConstAhead(T &&type) :
 			Type(std::forward<T>(type))
 		{
 		}
@@ -521,23 +551,51 @@ namespace CppGenerator {
 		void write(std::ostream &o) const override
 		{
 			write_sub(o);
-			o << "*";
+			o << " const";
 		}
 	};
 
-	inline LRef Type::LRef(void)
+	class Type::Modifiers::Array : public Type
 	{
-		return CppGenerator::LRef(static_cast<std::string>(*this));
+	public:
+		template <typename T>
+		Array(T &&type) :
+			Type(std::forward<T>(type))
+		{
+		}
+
+		void write(std::ostream &o) const override
+		{
+			write_sub(o);
+			o << "[]";
+		}
+	};
+
+	inline Type::Modifiers::LRef Type::LRef(void)
+	{
+		return Modifiers::LRef(static_cast<std::string>(*this));
 	}
 
-	inline RRef Type::RRef(void)
+	inline Type::Modifiers::RRef Type::RRef(void)
 	{
-		return CppGenerator::RRef(static_cast<std::string>(*this));
+		return Modifiers::RRef(static_cast<std::string>(*this));
 	}
 
-	inline Ptr Type::Ptr(void)
+	template <typename ...Args>
+	Type::Modifiers::Ptr Type::Ptr(Args &&...args)
 	{
-		return CppGenerator::Ptr(static_cast<std::string>(*this));
+		return Modifiers::Ptr(static_cast<std::string>(*this), std::forward<Args>(args)...);
+	}
+
+	inline Type::Modifiers::ConstAhead Type::Const(void)
+	{
+		return Modifiers::ConstAhead(static_cast<std::string>(*this));
+	}
+
+	template <typename ...Args>
+	inline Type::Modifiers::Array Type::Array(Args &&...args)
+	{
+		return Modifiers::Array(static_cast<std::string>(*this), std::forward<Args>(args)...);
 	}
 
 	class Using : public Primitive::Named
