@@ -598,35 +598,10 @@ namespace CppGenerator {
 		return Modifiers::Array(static_cast<std::string>(*this), std::forward<Args>(args)...);
 	}
 
-	class Using : public Primitive::Named
+	class Class : public Collection, public Type
 	{
-	public:
-		template <typename T>
-		Using(const std::string &name, T &&type) :
-			Primitive::Named(name),
-			m_type(std::forward<T>(type))
-		{
-		}
-		~Using(void)
-		{
-		}
+		using Type::write;
 
-		void write(Writer &w) const
-		{
-			auto &decl = w.decl();
-
-			decl.new_line() << "using " << getName() << " = ";
-			m_type.write(w.decl());
-			decl << ";" << decl.end_line();
-		}
-
-	private:
-		const Type m_type;
-
-	};
-
-	class Class : public Collection
-	{
 	public:
 		enum class Visibility {
 			Public,
@@ -636,6 +611,7 @@ namespace CppGenerator {
 
 		Class(const std::string &name, Visibility base_visibility = Visibility::Public) :
 			Collection(name),
+			Type(getBaseName()),
 			m_base_visibility(base_visibility),
 			m_visibility(m_base_visibility)
 		{
@@ -724,11 +700,11 @@ namespace CppGenerator {
 					decl.unindent();
 					decl.new_line() << VisibilityToStr(mem) << ":" << decl.end_line();
 					decl.indent();
-					is_first = false;
 					cur_vis = vis;
 				}
 
 				p.write(w);
+				is_first = false;
 			}
 			decl.unindent();
 			decl.new_line() << "};" << decl.end_line();
@@ -766,21 +742,60 @@ namespace CppGenerator {
 		}
 	};
 
-	/*class Variable : public Primitive::Named
+	class Using : public Primitive::Named, public Type
+	{
+		using Type::write;
+
+	public:
+		template <typename T>
+		Using(const std::string &name, T &&type) :
+			Primitive::Named(name),
+			Type(getBaseName()),
+			m_type(std::forward<T>(type))
+		{
+		}
+		~Using(void)
+		{
+		}
+
+		void write(Writer &w) const
+		{
+			auto &decl = w.decl();
+
+			decl.new_line() << "using " << getName() << " = ";
+			m_type.write(w.decl());
+			decl << ";" << decl.end_line();
+		}
+
+	private:
+		const Type m_type;
+	};
+
+	class Variable : public Primitive::Named
 	{
 	public:
-		Variable(const Type &type, const std::string &name) :
+		template <typename T>
+		Variable(T &&type, const std::string &name) :
 			Primitive::Named(name),
-			m_type(type)
+			m_type(std::forward<T>(type))
 		{
 		}
 		~Variable(void)
 		{
 		}
 
+		void write(Writer &w) const
+		{
+			auto &decl = w.decl();
+
+			decl.new_line();
+			m_type.write(decl);
+			decl << " " << getName() << ";" << decl.end_line();
+		}
+
 	private:
-		const Type &m_type;
-	};*/
+		Type m_type;
+	};
 }
 
 namespace cppgen = CppGenerator;
