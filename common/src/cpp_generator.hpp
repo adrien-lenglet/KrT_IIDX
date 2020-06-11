@@ -942,6 +942,91 @@ namespace CppGenerator {
 			UnaryOp(std::forward<T>(smt), "--") {}
 	};
 
+	class Not : public UnaryOp
+	{
+	public:
+		template <typename T>
+		Not(T &&smt) :
+			UnaryOp(std::forward<T>(smt), "!") {}
+	};
+
+	class NotBin : public UnaryOp
+	{
+	public:
+		template <typename T>
+		NotBin(T &&smt) :
+			UnaryOp(std::forward<T>(smt), "~") {}
+	};
+
+	class Deref : public UnaryOp
+	{
+	public:
+		template <typename T>
+		Deref(T &&smt) :
+			UnaryOp(std::forward<T>(smt), "*") {}
+	};
+
+	class Address : public UnaryOp
+	{
+	public:
+		template <typename T>
+		Address(T &&smt) :
+			UnaryOp(std::forward<T>(smt), "&") {}
+	};
+
+	class Cast : public Smt
+	{
+	public:
+		template <typename T, typename S>
+		Cast(T &&type, S &&smt) :
+			m_type(std::forward<T>(type)),
+			m_smt(std::forward<S>(smt))
+		{
+		}
+
+		void write(std::ostream &o) const override
+		{
+			o << "(";
+			o << "(";
+			m_type.write(o);
+			o << ")";
+			m_smt.write(o);
+			o << ")";
+		}
+
+	private:
+		Type m_type;
+		Smt m_smt;
+	};
+
+	class Ternary : public Smt
+	{
+	public:
+		template <typename B, typename T, typename F>
+		Ternary(B &&predicate, T &&true_smt, F &&false_smt) :
+			m_predicate(std::forward<B>(predicate)),
+			m_true_smt(std::forward<T>(true_smt)),
+			m_false_smt(std::forward<F>(false_smt))
+		{
+		}
+
+		void write(std::ostream &o) const override
+		{
+			o << "(";
+			m_predicate.write(o);
+			o << " ? ";
+			m_true_smt.write(o);
+			o << " : ";
+			m_false_smt.write(o);
+			o << ")";
+		}
+
+	private:
+		Smt m_predicate;
+		Smt m_true_smt;
+		Smt m_false_smt;
+	};
+
 	class AssociativeOp : public Smt
 	{
 	public:
@@ -1292,6 +1377,14 @@ namespace CppGenerator {
 	{
 		return Modifiers::Call(static_cast<std::string>(*this), std::forward<Args>(args)...);
 	}
+
+	class Sizeof : public Smt::Modifiers::Call
+	{
+	public:
+		template <typename T>
+		Sizeof(T &&smt) :
+			Smt::Modifiers::Call("sizeof", std::forward<T>(smt)) {}
+	};
 
 	class Smt::Modifiers::Array : public Smt
 	{
