@@ -492,6 +492,22 @@ namespace CppGenerator {
 		}
 	};
 
+	class Ptr : public Type
+	{
+	public:
+		template <typename T>
+		Ptr(T &&type) :
+			Type(std::forward<T>(type))
+		{
+		}
+
+		void write(std::ostream &o) const override
+		{
+			write_sub(o);
+			o << "*";
+		}
+	};
+
 	class Using : public Primitive::Named
 	{
 	public:
