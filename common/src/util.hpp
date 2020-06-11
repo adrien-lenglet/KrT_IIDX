@@ -571,4 +571,14 @@ private:
 	T *m_data;
 };
 
+template<unsigned N>
+struct template_string {
+    char buf[N + 1]{};
+    constexpr template_string(char const* s) {
+        for (unsigned i = 0; i != N; ++i) buf[i] = s[i];
+    }
+    constexpr operator char const*() const { return buf; }
+};
+template<unsigned N> template_string(char const (&)[N]) -> template_string<N - 1>;
+
 }

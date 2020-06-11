@@ -338,6 +338,14 @@ namespace CppGenerator {
 				m_sub->get().write(o);
 		}
 
+		operator std::string(void) const
+		{
+			std::stringstream ss;
+
+			write(ss);
+			return ss.str();
+		}
+
 	private:
 		std::unique_ptr<HolderType> m_sub;
 	};
@@ -403,15 +411,6 @@ namespace CppGenerator {
 		Modifiers::ConstAhead Const(void);
 		template <typename ...Args>
 		Modifiers::Array Array(Args &&...args);
-
-	protected:
-		operator std::string(void) const
-		{
-			std::stringstream ss;
-
-			write(ss);
-			return ss.str();
-		}
 	};
 
 	class Type::String : public Type
@@ -795,6 +794,338 @@ namespace CppGenerator {
 
 	private:
 		Type m_type;
+	};
+
+	class Statement : public Writable
+	{
+		class String;
+
+		template <typename W>
+		static inline constexpr bool is_w_ok_v = std::is_base_of_v<Statement, std::remove_reference_t<W>> && !std::is_same_v<std::remove_reference_t<W>, Statement>;
+
+	public:
+		Statement(void)
+		{
+		}
+
+		Statement(Statement &other) :
+			Writable(other)
+		{
+		}
+		Statement(Statement&&) = default;
+
+		template <typename W, class = std::enable_if_t<is_w_ok_v<W> && std::is_rvalue_reference_v<W&&>>>
+		Statement(W &&sub) :
+			Writable(std::move(sub))
+		{
+		}
+
+		template <typename W, class = std::enable_if_t<is_w_ok_v<W>>>
+		Statement(W &sub) :
+			Writable(sub)
+		{
+		}
+
+		Statement(const std::string &str);
+
+		~Statement(void) override
+		{
+		}
+
+		void write(std::ostream &o) const override
+		{
+			write_sub(o);
+		}
+	};
+
+	using Smt = Statement;
+
+	class Statement::String : public Smt
+	{
+	public:
+		String(const std::string &str) :
+			m_str(str)
+		{
+		}
+
+		void write(std::ostream &o) const override
+		{
+			o << m_str;
+		}
+
+	private:
+		std::string m_str;
+	};
+
+	inline Statement::Statement(const std::string &str) :
+		Statement(static_cast<String&&>(String(str)))
+	{
+	}
+
+	class AssociativeOp : public Smt
+	{
+	public:
+		template <typename Ta, typename Tb>
+		AssociativeOp(Ta &&a, Tb &&b, const char *op) :
+			m_a(std::forward<Ta>(a)),
+			m_b(std::forward<Tb>(b)),
+			m_op(op)
+		{
+		}
+
+		void write(std::ostream &o) const override
+		{
+			o << "(";
+			m_a.write(o);
+			o << " " << m_op << " ";
+			m_b.write(o);
+			o << ")";
+		}
+
+	private:
+		Smt m_a;
+		Smt m_b;
+		const char *m_op;
+	};
+
+	class Add : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		Add(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "+") {}
+	};
+
+	class Sub : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		Sub(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "-") {}
+	};
+
+	class Mul : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		Mul(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "*") {}
+	};
+
+	class Div : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		Div(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "/") {}
+	};
+
+	class Rem : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		Rem(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "%") {}
+	};
+
+	class LShift : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		LShift(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "<<") {}
+	};
+
+	class RShift : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		RShift(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., ">>") {}
+	};
+
+	class Less : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		Less(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "<") {}
+	};
+
+	class LessEq : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		LessEq(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "<=") {}
+	};
+
+	class Greater : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		Greater(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., ">") {}
+	};
+
+	class GreaterEq : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		GreaterEq(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., ">=") {}
+	};
+
+	class Eq : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		Eq(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "==") {}
+	};
+
+	class Dif : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		Dif(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "!=") {}
+	};
+
+	class AndBin : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		AndBin(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "&") {}
+	};
+
+	class XorBin : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		XorBin(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "^") {}
+	};
+
+	class OrBin : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		OrBin(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "||") {}
+	};
+
+	class And : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		And(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "&&") {}
+	};
+
+	class Or : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		Or(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "||") {}
+	};
+
+	class Assign : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		Assign(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "=") {}
+	};
+
+	class AssignAdd : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		AssignAdd(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "+=") {}
+	};
+
+	class AssignSub : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		AssignSub(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "-=") {}
+	};
+
+	class AssignMul : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		AssignMul(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "*=") {}
+	};
+
+	class AssignDiv : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		AssignDiv(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "/=") {}
+	};
+
+	class AssignRem : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		AssignRem(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "%=") {}
+	};
+
+	class AssignLShift : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		AssignLShift(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "<<=") {}
+	};
+
+	class AssignRShift : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		AssignRShift(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., ">>=") {}
+	};
+
+	class AssignAndBin : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		AssignAndBin(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "&=") {}
+	};
+
+	class AssignXorBin : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		AssignXorBin(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "^=") {}
+	};
+
+	class AssignOrBin : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		AssignOrBin(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., "|=") {}
+	};
+
+	class Comma : public AssociativeOp
+	{
+	public:
+		template <typename ...Args>
+		Comma(Args &&...args) :
+			AssociativeOp(std::forward<Args>(args)..., ",") {}
 	};
 }
 
