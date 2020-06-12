@@ -412,6 +412,11 @@ namespace CppGenerator {
 		Modifiers::ConstAhead Const(void);
 		template <typename ...Args>
 		Modifiers::Array Array(Args &&...args);
+
+		template <typename ...Args>
+		Modifiers::Array operator[](Args &&...args);
+		Modifiers::Ptr operator*(void);
+		Modifiers::LRef operator&(void);
 	};
 
 	class Type::String : public Type
@@ -556,22 +561,6 @@ namespace CppGenerator {
 		}
 	};
 
-	class Type::Modifiers::Array : public Type
-	{
-	public:
-		template <typename T>
-		Array(T &&type) :
-			Type(std::forward<T>(type))
-		{
-		}
-
-		void write(std::ostream &o) const override
-		{
-			write_sub(o);
-			o << "[]";
-		}
-	};
-
 	inline Type::Modifiers::LRef Type::LRef(void)
 	{
 		return Modifiers::LRef(toString());
@@ -591,12 +580,6 @@ namespace CppGenerator {
 	inline Type::Modifiers::ConstAhead Type::Const(void)
 	{
 		return Modifiers::ConstAhead(toString());
-	}
-
-	template <typename ...Args>
-	inline Type::Modifiers::Array Type::Array(Args &&...args)
-	{
-		return Modifiers::Array(toString(), std::forward<Args>(args)...);
 	}
 
 	class Class : public Collection, public Type
@@ -988,26 +971,6 @@ namespace CppGenerator {
 		CppGenerator::AssignXorBin operator^=(S &&smt);
 		template <typename S>
 		CppGenerator::AssignOrBin operator|=(S &&smt);
-
-	private:
-		template <typename First, typename ...Args>
-		static void vectorizeArgsFirst(std::vector<Statement> &res, First &&first, Args &&...args)
-		{
-			res.emplace_back(std::forward<First>(first));
-			if constexpr (!util::are_args_empty_v<Args...>)
-				vectorizeArgsFirst(res, std::forward<Args>(args)...);
-		}
-
-	protected:
-		template <typename ...Args>
-		static std::vector<Statement> vectorizeArgs(Args &&...args)
-		{
-			std::vector<Statement> res;
-
-			if constexpr (!util::are_args_empty_v<Args...>)
-				vectorizeArgsFirst(res, std::forward<Args>(args)...);
-			return res;
-		}
 
 		String toString(void) const;
 
@@ -1503,7 +1466,7 @@ namespace CppGenerator {
 		template <typename Ta, typename Tb, typename ...Supp>
 		AssociativeOp(const char *op, Ta &&a, Tb &&b, Supp &&...supp) :
 			m_op(op),
-			m_args(vectorizeArgs(std::forward<Ta>(a), std::forward<Tb>(b), std::forward<Supp>(supp)...))
+			m_args(util::vectorize_args<Smt>(std::forward<Ta>(a), std::forward<Tb>(b), std::forward<Supp>(supp)...))
 		{
 		}
 
@@ -1994,7 +1957,7 @@ namespace CppGenerator {
 		template <typename T, typename ...Args>
 		Call(T &&smt, Args &&...args) :
 			m_fun_name(std::forward<T>(smt)),
-			m_args(vectorizeArgs(std::forward<Args>(args)...))
+			m_args(util::vectorize_args<Smt>(std::forward<Args>(args)...))
 		{
 		}
 
@@ -2036,7 +1999,7 @@ namespace CppGenerator {
 		template <typename A, typename S, typename ...Ss>
 		Array(A &&array, S &&subscript, Ss &&...additional_subscript) :
 			m_array(std::forward<A>(array)),
-			m_subscript(vectorizeArgs(std::forward<S>(subscript), std::forward<Ss>(additional_subscript)...))
+			m_subscript(util::vectorize_args<Smt>(std::forward<S>(subscript), std::forward<Ss>(additional_subscript)...))
 		{
 		}
 
@@ -2109,6 +2072,55 @@ namespace CppGenerator {
 	Smt::Modifiers::Array Smt::operator[](T &&smt)
 	{
 		return Array(std::forward<T>(smt));
+	}
+
+	class Type::Modifiers::Array : public Type
+	{
+	public:
+		template <typename T, typename ...Args>
+		Array(T &&type, Args &&...args) :
+			m_type(std::forward<T>(type)),
+			m_args(util::vectorize_args<Smt>(std::forward<Args>(args)...))
+		{
+			if (m_args.size() == 0)
+				m_args.emplace_back();
+		}
+
+		void write(std::ostream &o) const override
+		{
+			m_type.write(o);
+			for (auto &a : m_args) {
+				o << "[";
+				a.write(o);
+				o << "]";
+			}
+		}
+
+	private:
+		Type m_type;
+		std::vector<Smt> m_args;
+	};
+
+	template <typename ...Args>
+	inline Type::Modifiers::Array Type::Array(Args &&...args)
+	{
+		return Modifiers::Array(toString(), std::forward<Args>(args)...);
+	}
+
+	template <typename ...Args>
+	Type::Modifiers::Array Type::operator[](Args &&...args)
+	{
+		return Modifiers::Array(toString(), std::forward<Args>(args)...);
+	}
+
+	inline Type::Modifiers::Ptr Type::operator*(void)
+	{
+		return Modifiers::Ptr(toString());
+	}
+
+	inline Type::Modifiers::LRef Type::operator&(void)
+	{
+		return Modifiers::LRef(toString());
 	}
 }
 

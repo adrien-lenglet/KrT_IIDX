@@ -584,4 +584,22 @@ template<unsigned N> template_string(char const (&)[N]) -> template_string<N - 1
 template <typename ...Args>
 static inline constexpr bool are_args_empty_v = std::is_same_v<std::tuple<Args...>, std::tuple<>>;
 
+template <typename W, typename First, typename ...Args>
+void vectorize_args_first(std::vector<W> &res, First &&first, Args &&...args)
+{
+	res.emplace_back(std::forward<First>(first));
+	if constexpr (!util::are_args_empty_v<Args...>)
+		vectorize_args_first(res, std::forward<Args>(args)...);
+}
+
+template <typename W, typename ...Args>
+std::vector<W> vectorize_args(Args &&...args)
+{
+	std::vector<W> res;
+
+	if constexpr (!util::are_args_empty_v<Args...>)
+		vectorize_args_first(res, std::forward<Args>(args)...);
+	return res;
+}
+
 }
