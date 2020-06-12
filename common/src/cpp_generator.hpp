@@ -407,7 +407,7 @@ namespace CppGenerator {
 			class LRef;
 			class RRef;
 			class Ptr;
-			class ConstAhead;
+			class RConst;
 			class Array;
 		};
 
@@ -415,7 +415,7 @@ namespace CppGenerator {
 		Modifiers::RRef RRef(void);
 		template <typename ...Args>
 		Modifiers::Ptr Ptr(Args &&...args);
-		Modifiers::ConstAhead Const(void);
+		Modifiers::RConst RConst(void);
 		template <typename ...Args>
 		Modifiers::Array Array(Args &&...args);
 
@@ -551,11 +551,11 @@ namespace CppGenerator {
 		size_t m_level;
 	};
 
-	class Type::Modifiers::ConstAhead : public Type
+	class Type::Modifiers::RConst : public Type
 	{
 	public:
 		template <typename T>
-		ConstAhead(T &&type) :
+		RConst(T &&type) :
 			Type(std::forward<T>(type))
 		{
 		}
@@ -583,9 +583,9 @@ namespace CppGenerator {
 		return Modifiers::Ptr(toString(), std::forward<Args>(args)...);
 	}
 
-	inline Type::Modifiers::ConstAhead Type::Const(void)
+	inline Type::Modifiers::RConst Type::RConst(void)
 	{
-		return Modifiers::ConstAhead(toString());
+		return Modifiers::RConst(toString());
 	}
 
 	class Class : public Util::Collection, public Type
