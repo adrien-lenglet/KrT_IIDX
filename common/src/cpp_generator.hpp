@@ -111,9 +111,117 @@ namespace CppGenerator {
 
 			class Named;
 		};
+
+		class Collection;
+
+		class Writable
+		{
+			template <typename T>
+			class RefHolder
+			{
+			public:
+				virtual ~RefHolder(void) = default;
+
+				virtual operator bool(void) const = 0;
+				virtual T& get(void) = 0;
+
+				class Unique : public RefHolder
+				{
+				public:
+					template <typename W, class = std::enable_if_t<std::is_rvalue_reference_v<W&&>>>
+					Unique(W &&other) :
+						m_ref(new W(std::move(other)))
+					{
+					}
+
+					operator bool(void) const override
+					{
+						return static_cast<bool>(m_ref);
+					}
+
+					T& get(void) override
+					{
+						return *m_ref;
+					}
+
+				private:
+					std::unique_ptr<T> m_ref;
+				};
+
+				class Ref : public RefHolder
+				{
+				public:
+					Ref(T &other) :
+						m_ref(other)
+					{
+					}
+
+					operator bool(void) const override
+					{
+						return true;
+					}
+
+					T& get(void) override
+					{
+						return m_ref;
+					}
+
+				private:
+					T &m_ref;
+				};
+			};
+
+			using HolderType = RefHolder<Writable>;
+
+			template <typename W>
+			static inline constexpr bool is_w_ok_v = !std::is_same_v<std::remove_reference_t<W>, Writable>;
+
+		public:
+			Writable(void)
+			{
+			}
+
+			Writable(Writable&&) = default;
+
+			template <typename W, class = std::enable_if_t<is_w_ok_v<W> && std::is_rvalue_reference_v<W&&>>>
+			Writable(W &&sub) :
+				m_sub(new HolderType::Unique(std::move(sub)))
+			{
+			}
+			template <typename W, class = std::enable_if_t<is_w_ok_v<W>>>
+			Writable(W &sub) :
+				m_sub(new HolderType::Ref(sub))
+			{
+			}
+
+			virtual ~Writable(void)
+			{
+			}
+
+			virtual void write(std::ostream &o) const = 0;
+
+		protected:
+			void write_sub(std::ostream &o) const
+			{
+				if (m_sub)
+					m_sub->get().write(o);
+			}
+
+			std::string toString(void) const  // explicit name instead of conversion method to avoid unwanted conversions
+			{
+				std::stringstream ss;
+
+				write(ss);
+				return ss.str();
+			}
+
+		private:
+			std::unique_ptr<HolderType> m_sub;
+		};
+
+		class PrependKeyword;
 	}
 	
-	class Collection;
 	class Namespace;
 
 	class Util::Primitive::Named : public Util::Primitive
@@ -144,7 +252,7 @@ namespace CppGenerator {
 		Util::Primitive::Named *m_parent;
 		const std::string m_base_name;
 
-		friend Collection;
+		friend Util::Collection;
 		friend Namespace;
 		static std::stack<Util::Primitive::Named*>& getStack(void)
 		{
@@ -154,7 +262,7 @@ namespace CppGenerator {
 		}
 	};
 
-	class Collection : public Util::Primitive::Named
+	class Util::Collection : public Util::Primitive::Named
 	{
 	public:
 		Collection(const std::string &name) :
@@ -185,11 +293,11 @@ namespace CppGenerator {
 		util::unique_vector<Util::Primitive> m_primitives;
 	};
 
-	class Namespace : public Collection
+	class Namespace : public Util::Collection
 	{
 	public:
 		Namespace(const std::string &name) :
-			Collection(name)
+			Util::Collection(name)
 		{
 			if (name == "")
 				Util::Primitive::Named::getStack().pop();
@@ -249,112 +357,7 @@ namespace CppGenerator {
 		}
 	};
 
-	class Writable
-	{
-		template <typename T>
-		class RefHolder
-		{
-		public:
-			virtual ~RefHolder(void) = default;
-
-			virtual operator bool(void) const = 0;
-			virtual T& get(void) = 0;
-
-			class Unique : public RefHolder
-			{
-			public:
-				template <typename W, class = std::enable_if_t<std::is_rvalue_reference_v<W&&>>>
-				Unique(W &&other) :
-					m_ref(new W(std::move(other)))
-				{
-				}
-
-				operator bool(void) const override
-				{
-					return static_cast<bool>(m_ref);
-				}
-
-				T& get(void) override
-				{
-					return *m_ref;
-				}
-
-			private:
-				std::unique_ptr<T> m_ref;
-			};
-
-			class Ref : public RefHolder
-			{
-			public:
-				Ref(T &other) :
-					m_ref(other)
-				{
-				}
-
-				operator bool(void) const override
-				{
-					return true;
-				}
-
-				T& get(void) override
-				{
-					return m_ref;
-				}
-
-			private:
-				T &m_ref;
-			};
-		};
-		
-		using HolderType = RefHolder<Writable>;
-
-		template <typename W>
-		static inline constexpr bool is_w_ok_v = !std::is_same_v<std::remove_reference_t<W>, Writable>;
-
-	public:
-		Writable(void)
-		{
-		}
-
-		Writable(Writable&&) = default;
-
-		template <typename W, class = std::enable_if_t<is_w_ok_v<W> && std::is_rvalue_reference_v<W&&>>>
-		Writable(W &&sub) :
-			m_sub(new HolderType::Unique(std::move(sub)))
-		{
-		}
-		template <typename W, class = std::enable_if_t<is_w_ok_v<W>>>
-		Writable(W &sub) :
-			m_sub(new HolderType::Ref(sub))
-		{
-		}
-
-		virtual ~Writable(void)
-		{
-		}
-
-		virtual void write(std::ostream &o) const = 0;
-
-	protected:
-		void write_sub(std::ostream &o) const
-		{
-			if (m_sub)
-				m_sub->get().write(o);
-		}
-
-		std::string toString(void) const  // explicit name instead of conversion method to avoid unwanted conversions
-		{
-			std::stringstream ss;
-
-			write(ss);
-			return ss.str();
-		}
-
-	private:
-		std::unique_ptr<HolderType> m_sub;
-	};
-
-	class Type : public Writable
+	class Type : public Util::Writable
 	{
 		class String;
 
@@ -367,20 +370,20 @@ namespace CppGenerator {
 		}
 
 		Type(Type &other) :
-			Writable(other)
+			Util::Writable(other)
 		{
 		}
 		Type(Type&&) = default;
 
 		template <typename W, class = std::enable_if_t<is_w_ok_v<W> && std::is_rvalue_reference_v<W&&>>>
 		Type(W &&sub) :
-			Writable(std::move(sub))
+			Util::Writable(std::move(sub))
 		{
 		}
 
 		template <typename W, class = std::enable_if_t<is_w_ok_v<W>>>
 		Type(W &sub) :
-			Writable(sub)
+			Util::Writable(sub)
 		{
 		}
 
@@ -444,7 +447,7 @@ namespace CppGenerator {
 	{
 	}
 
-	class PrependKeyword : public Type
+	class Util::PrependKeyword : public Type
 	{
 	public:
 		template <typename T>
@@ -465,32 +468,32 @@ namespace CppGenerator {
 		const char *m_str;
 	};
 
-	class Const : public PrependKeyword
+	class Const : public Util::PrependKeyword
 	{
 	public:
 		template <typename T>
 		Const(T &&type) :
-			PrependKeyword(std::forward<T>(type), "const")
+			Util::PrependKeyword(std::forward<T>(type), "const")
 		{
 		}
 	};
 
-	class Volatile : public PrependKeyword
+	class Volatile : public Util::PrependKeyword
 	{
 	public:
 		template <typename T>
 		Volatile(T &&type) :
-			PrependKeyword(std::forward<T>(type), "volatile")
+			Util::PrependKeyword(std::forward<T>(type), "volatile")
 		{
 		}
 	};
 
-	class Typename : public PrependKeyword
+	class Typename : public Util::PrependKeyword
 	{
 	public:
 		template <typename T>
 		Typename(T &&type) :
-			PrependKeyword(std::forward<T>(type), "typename")
+			Util::PrependKeyword(std::forward<T>(type), "typename")
 		{
 		}
 	};
@@ -585,7 +588,7 @@ namespace CppGenerator {
 		return Modifiers::ConstAhead(toString());
 	}
 
-	class Class : public Collection, public Type
+	class Class : public Util::Collection, public Type
 	{
 		using Type::write;
 
@@ -597,7 +600,7 @@ namespace CppGenerator {
 		};
 
 		Class(const std::string &name, Visibility base_visibility = Visibility::Public) :
-			Collection(name),
+			Util::Collection(name),
 			Type(getBaseName()),
 			m_base_visibility(base_visibility),
 			m_visibility(m_base_visibility)
@@ -654,13 +657,13 @@ namespace CppGenerator {
 		};
 
 	private:
-		using Collection::add;
+		using Util::Collection::add;
 
 	public:
 		template <class PrimitiveType, typename ...Args>
 		PrimitiveType& add(Args &&...args)
 		{
-			return Collection::add<Memberize<PrimitiveType>>(m_visibility, std::forward<Args>(args)...);
+			return Util::Collection::add<Memberize<PrimitiveType>>(m_visibility, std::forward<Args>(args)...);
 		}
 
 		void set(Visibility visiblity)
@@ -825,7 +828,7 @@ namespace CppGenerator {
 		class AssignOrBin;
 	}
 
-	class Statement : public Writable
+	class Statement : public Util::Writable
 	{
 		class String;
 
@@ -838,20 +841,20 @@ namespace CppGenerator {
 		}
 
 		Statement(Statement &other) :
-			Writable(other)
+			Util::Writable(other)
 		{
 		}
 		Statement(Statement&&) = default;
 
 		template <typename W, class = std::enable_if_t<is_w_ok_v<W> && std::is_rvalue_reference_v<W&&>>>
 		Statement(W &&sub) :
-			Writable(std::move(sub))
+			Util::Writable(std::move(sub))
 		{
 		}
 
 		template <typename W, class = std::enable_if_t<is_w_ok_v<W>>>
 		Statement(W &sub) :
-			Writable(sub)
+			Util::Writable(sub)
 		{
 		}
 
@@ -1229,7 +1232,7 @@ namespace CppGenerator {
 
 	inline Statement::String Statement::toString(void) const
 	{
-		return Statement::String(Writable::toString());
+		return Statement::String(Util::Writable::toString());
 	}
 
 	namespace Op {
