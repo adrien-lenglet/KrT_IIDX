@@ -1020,7 +1020,7 @@ namespace CppGenerator {
 				o << "\\x" << std::hex << static_cast<size_t>(static_cast<uint8_t>(c));
 		}
 
-		std::string stringLitteral(const std::string &src)
+		std::string stringLiteral(const std::string &src)
 		{
 			std::stringstream ss;
 
@@ -1031,7 +1031,7 @@ namespace CppGenerator {
 			return ss.str();
 		}
 
-		std::string boolLitteral(bool b)
+		std::string boolLiteral(bool b)
 		{
 			std::stringstream ss;
 
@@ -1056,7 +1056,7 @@ namespace CppGenerator {
 			return raw.substr(0, raw.size() - z);
 		}
 
-		std::string floatLitteral(float f)
+		std::string floatLiteral(float f)
 		{
 			std::stringstream ss;
 
@@ -1064,7 +1064,7 @@ namespace CppGenerator {
 			return ss.str();
 		}
 
-		std::string doubleLitteral(double f)
+		std::string doubleLiteral(double f)
 		{
 			std::stringstream ss;
 
@@ -1072,7 +1072,7 @@ namespace CppGenerator {
 			return ss.str();
 		}
 
-		std::string longDoubleLitteral(long double f)
+		std::string longDoubleLiteral(long double f)
 		{
 			std::stringstream ss;
 
@@ -1102,52 +1102,52 @@ namespace CppGenerator {
 			return ss.str();
 		}
 
-		std::string unsignedCharLitteral(unsigned char u)
+		std::string unsignedCharLiteral(unsigned char u)
 		{
 			return convSingleChar(u);
 		}
 
-		std::string unsignedShortLitteral(unsigned short u)
+		std::string unsignedShortLiteral(unsigned short u)
 		{
 			return dummyConv(static_cast<max_unsigned>(u));
 		}
 
-		std::string unsignedIntLitteral(unsigned int u)
+		std::string unsignedIntLiteral(unsigned int u)
 		{
 			return dummyConv(static_cast<max_unsigned>(u), "U");
 		}
 
-		std::string unsignedLongLitteral(unsigned long u)
+		std::string unsignedLongLiteral(unsigned long u)
 		{
 			return dummyConv(static_cast<max_unsigned>(u), "UL");
 		}
 
-		std::string unsignedLongLongLitteral(unsigned long long u)
+		std::string unsignedLongLongLiteral(unsigned long long u)
 		{
 			return dummyConv(static_cast<max_unsigned>(u), "ULL");
 		}
 
-		std::string charLitteral(char i)
+		std::string charLiteral(char i)
 		{
 			return convSingleChar(i);
 		}
 
-		std::string shortLitteral(short i)
+		std::string shortLiteral(short i)
 		{
 			return dummyConv(static_cast<max_signed>(i));
 		}
 
-		std::string intLitteral(int i)
+		std::string intLiteral(int i)
 		{
 			return dummyConv(static_cast<max_signed>(i));
 		}
 
-		std::string longLitteral(long i)
+		std::string longLiteral(long i)
 		{
 			return dummyConv(static_cast<max_signed>(i), "L");
 		}
 
-		std::string longLongLitteral(long long i)
+		std::string longLongLiteral(long long i)
 		{
 			return dummyConv(static_cast<max_signed>(i), "LL");
 		}
@@ -1173,83 +1173,83 @@ namespace CppGenerator {
 	};
 
 	inline Statement::Statement(const std::string &str) :
-		Statement(String(stringLitteral(str)))
+		Statement(String(stringLiteral(str)))
 	{
 	}
 
 	inline Statement::Statement(const char str[]) :
-		Statement(String(stringLitteral(str)))
+		Statement(String(stringLiteral(str)))
 	{
 	}
 
 	inline Statement::Statement(bool b) :
-		Statement(String(boolLitteral(b)))
+		Statement(String(boolLiteral(b)))
 	{
 	}
 
 	inline Statement::Statement(float f) :
-		Statement(String(floatLitteral(f)))
+		Statement(String(floatLiteral(f)))
 	{
 	}
 
 	inline Statement::Statement(double f) :
-		Statement(String(doubleLitteral(f)))
+		Statement(String(doubleLiteral(f)))
 	{
 	}
 
 	inline Statement::Statement(long double f) :
-		Statement(String(longDoubleLitteral(f)))
+		Statement(String(longDoubleLiteral(f)))
 	{
 	}
 
 	inline Statement::Statement(unsigned char u) :
-		Statement(String(unsignedCharLitteral(u)))
+		Statement(String(unsignedCharLiteral(u)))
 	{
 	}
 
 	inline Statement::Statement(unsigned short u) :
-		Statement(String(unsignedShortLitteral(u)))
+		Statement(String(unsignedShortLiteral(u)))
 	{
 	}
 
 	inline Statement::Statement(unsigned int u) :
-		Statement(String(unsignedIntLitteral(u)))
+		Statement(String(unsignedIntLiteral(u)))
 	{
 	}
 
 	inline Statement::Statement(unsigned long u) :
-		Statement(String(unsignedLongLitteral(u)))
+		Statement(String(unsignedLongLiteral(u)))
 	{
 	}
 
 
 	inline Statement::Statement(unsigned long long u) :
-		Statement(String(unsignedLongLongLitteral(u)))
+		Statement(String(unsignedLongLongLiteral(u)))
 	{
 	}
 
 	inline Statement::Statement(char i) :
-		Statement(String(charLitteral(i)))
+		Statement(String(charLiteral(i)))
 	{
 	}
 
 	inline Statement::Statement(short i) :
-		Statement(String(shortLitteral(i)))
+		Statement(String(shortLiteral(i)))
 	{
 	}
 
 	inline Statement::Statement(int i) :
-		Statement(String(intLitteral(i)))
+		Statement(String(intLiteral(i)))
 	{
 	}
 
 	inline Statement::Statement(long i) :
-		Statement(String(longLitteral(i)))
+		Statement(String(longLiteral(i)))
 	{
 	}
 
 	inline Statement::Statement(long long i) :
-		Statement(String(longLongLitteral(i)))
+		Statement(String(longLongLiteral(i)))
 	{
 	}
 
