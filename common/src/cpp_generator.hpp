@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <iomanip>
 #include <sstream>
 #include "util.hpp"
 
@@ -338,7 +339,7 @@ namespace CppGenerator {
 				m_sub->get().write(o);
 		}
 
-		operator std::string(void) const
+		std::string toString(void) const  // explicit name instead of conversion method to avoid unwanted conversions
 		{
 			std::stringstream ss;
 
@@ -440,7 +441,7 @@ namespace CppGenerator {
 	public:
 		template <typename T>
 		PrependKeyword(T &&type, const char *str) :
-			Type(std::forward<T>(type)),
+			m_type(std::forward<T>(type)),
 			m_str(str)
 		{
 		}
@@ -448,10 +449,11 @@ namespace CppGenerator {
 		void write(std::ostream &o) const override
 		{
 			o << m_str << " ";
-			write_sub(o);
+			m_type.write(o);
 		}
 
 	private:
+		Type m_type;
 		const char *m_str;
 	};
 
@@ -572,29 +574,29 @@ namespace CppGenerator {
 
 	inline Type::Modifiers::LRef Type::LRef(void)
 	{
-		return Modifiers::LRef(static_cast<std::string>(*this));
+		return Modifiers::LRef(toString());
 	}
 
 	inline Type::Modifiers::RRef Type::RRef(void)
 	{
-		return Modifiers::RRef(static_cast<std::string>(*this));
+		return Modifiers::RRef(toString());
 	}
 
 	template <typename ...Args>
 	Type::Modifiers::Ptr Type::Ptr(Args &&...args)
 	{
-		return Modifiers::Ptr(static_cast<std::string>(*this), std::forward<Args>(args)...);
+		return Modifiers::Ptr(toString(), std::forward<Args>(args)...);
 	}
 
 	inline Type::Modifiers::ConstAhead Type::Const(void)
 	{
-		return Modifiers::ConstAhead(static_cast<std::string>(*this));
+		return Modifiers::ConstAhead(toString());
 	}
 
 	template <typename ...Args>
 	inline Type::Modifiers::Array Type::Array(Args &&...args)
 	{
-		return Modifiers::Array(static_cast<std::string>(*this), std::forward<Args>(args)...);
+		return Modifiers::Array(toString(), std::forward<Args>(args)...);
 	}
 
 	class Class : public Collection, public Type
@@ -866,6 +868,21 @@ namespace CppGenerator {
 		}
 
 		Statement(const std::string &str);
+		Statement(const char str[]);
+		Statement(bool b);
+		Statement(float f);
+		Statement(double f);
+		Statement(long double f);
+		Statement(unsigned char u);
+		Statement(unsigned short u);
+		Statement(unsigned int u);
+		Statement(unsigned long u);
+		Statement(unsigned long long u);
+		Statement(char i);
+		Statement(int i);
+		Statement(short s);
+		Statement(long i);
+		Statement(long long i);
 
 		~Statement(void) override
 		{
@@ -976,7 +993,7 @@ namespace CppGenerator {
 		template <typename First, typename ...Args>
 		static void vectorizeArgsFirst(std::vector<Statement> &res, First &&first, Args &&...args)
 		{
-			res.emplace_back(first);
+			res.emplace_back(std::forward<First>(first));
 			if constexpr (!util::are_args_empty_v<Args...>)
 				vectorizeArgsFirst(res, std::forward<Args>(args)...);
 		}
@@ -990,6 +1007,149 @@ namespace CppGenerator {
 			if constexpr (!util::are_args_empty_v<Args...>)
 				vectorizeArgsFirst(res, std::forward<Args>(args)...);
 			return res;
+		}
+
+		String toString(void) const;
+
+	private:
+		void writeChar(std::ostream &o, char c)
+		{
+			if (c >= 32 && c < 127)
+				o << c;
+			else
+				o << "\\x" << std::hex << static_cast<size_t>(static_cast<uint8_t>(c));
+		}
+
+		std::string stringLitteral(const std::string &src)
+		{
+			std::stringstream ss;
+
+			ss << "\"";
+			for (auto &c : src)
+				writeChar(ss, c);
+			ss << "\"";
+			return ss.str();
+		}
+
+		std::string boolLitteral(bool b)
+		{
+			std::stringstream ss;
+
+			ss << std::boolalpha << b;
+			return ss.str();
+		}
+
+		template <typename T>
+		std::string convertFloat(T f)
+		{
+			std::stringstream ss;
+
+			ss << std::fixed << std::setprecision(512) << f;
+			std::string raw = ss.str();
+
+			size_t z = 0;
+			for (auto it = raw.crbegin(); it != raw.crend(); it++) {
+				if (*it != '0')
+					break;
+				z++;
+			}
+			return raw.substr(0, raw.size() - z);
+		}
+
+		std::string floatLitteral(float f)
+		{
+			std::stringstream ss;
+
+			ss << convertFloat(f) << "f";
+			return ss.str();
+		}
+
+		std::string doubleLitteral(double f)
+		{
+			std::stringstream ss;
+
+			ss << convertFloat(f);
+			return ss.str();
+		}
+
+		std::string longDoubleLitteral(long double f)
+		{
+			std::stringstream ss;
+
+			ss << convertFloat(f) << "L";
+			return ss.str();
+		}
+
+		template <typename T>
+		std::string dummyConv(T val, const char *suffix = "")
+		{
+			std::stringstream ss;
+
+			ss << val << suffix;
+			return ss.str();
+		}
+
+		using max_unsigned = unsigned long long;
+		using max_signed = long long;
+
+		std::string convSingleChar(unsigned char u)
+		{
+			std::stringstream ss;
+
+			ss << "'";
+			writeChar(ss, u);
+			ss << "'";
+			return ss.str();
+		}
+
+		std::string unsignedCharLitteral(unsigned char u)
+		{
+			return convSingleChar(u);
+		}
+
+		std::string unsignedShortLitteral(unsigned short u)
+		{
+			return dummyConv(static_cast<max_unsigned>(u));
+		}
+
+		std::string unsignedIntLitteral(unsigned int u)
+		{
+			return dummyConv(static_cast<max_unsigned>(u), "U");
+		}
+
+		std::string unsignedLongLitteral(unsigned long u)
+		{
+			return dummyConv(static_cast<max_unsigned>(u), "UL");
+		}
+
+		std::string unsignedLongLongLitteral(unsigned long long u)
+		{
+			return dummyConv(static_cast<max_unsigned>(u), "ULL");
+		}
+
+		std::string charLitteral(char i)
+		{
+			return convSingleChar(i);
+		}
+
+		std::string shortLitteral(short i)
+		{
+			return dummyConv(static_cast<max_signed>(i));
+		}
+
+		std::string intLitteral(int i)
+		{
+			return dummyConv(static_cast<max_signed>(i));
+		}
+
+		std::string longLitteral(long i)
+		{
+			return dummyConv(static_cast<max_signed>(i), "L");
+		}
+
+		std::string longLongLitteral(long long i)
+		{
+			return dummyConv(static_cast<max_signed>(i), "LL");
 		}
 	};
 
@@ -1013,8 +1173,89 @@ namespace CppGenerator {
 	};
 
 	inline Statement::Statement(const std::string &str) :
-		Statement(static_cast<String&&>(String(str)))
+		Statement(String(stringLitteral(str)))
 	{
+	}
+
+	inline Statement::Statement(const char str[]) :
+		Statement(String(stringLitteral(str)))
+	{
+	}
+
+	inline Statement::Statement(bool b) :
+		Statement(String(boolLitteral(b)))
+	{
+	}
+
+	inline Statement::Statement(float f) :
+		Statement(String(floatLitteral(f)))
+	{
+	}
+
+	inline Statement::Statement(double f) :
+		Statement(String(doubleLitteral(f)))
+	{
+	}
+
+	inline Statement::Statement(long double f) :
+		Statement(String(longDoubleLitteral(f)))
+	{
+	}
+
+	inline Statement::Statement(unsigned char u) :
+		Statement(String(unsignedCharLitteral(u)))
+	{
+	}
+
+	inline Statement::Statement(unsigned short u) :
+		Statement(String(unsignedShortLitteral(u)))
+	{
+	}
+
+	inline Statement::Statement(unsigned int u) :
+		Statement(String(unsignedIntLitteral(u)))
+	{
+	}
+
+	inline Statement::Statement(unsigned long u) :
+		Statement(String(unsignedLongLitteral(u)))
+	{
+	}
+
+
+	inline Statement::Statement(unsigned long long u) :
+		Statement(String(unsignedLongLongLitteral(u)))
+	{
+	}
+
+	inline Statement::Statement(char i) :
+		Statement(String(charLitteral(i)))
+	{
+	}
+
+	inline Statement::Statement(short i) :
+		Statement(String(shortLitteral(i)))
+	{
+	}
+
+	inline Statement::Statement(int i) :
+		Statement(String(intLitteral(i)))
+	{
+	}
+
+	inline Statement::Statement(long i) :
+		Statement(String(longLitteral(i)))
+	{
+	}
+
+	inline Statement::Statement(long long i) :
+		Statement(String(longLongLitteral(i)))
+	{
+	}
+
+	inline Statement::String Statement::toString(void) const
+	{
+		return Statement::String(Writable::toString());
 	}
 
 	class UnaryOp : public Smt
@@ -1106,42 +1347,42 @@ namespace CppGenerator {
 
 	CppGenerator::Inc Smt::operator++(void)
 	{
-		return CppGenerator::Inc(static_cast<std::string>(*this));
+		return CppGenerator::Inc(toString());
 	}
 
 	CppGenerator::Dec Smt::operator--(void)
 	{
-		return CppGenerator::Dec(static_cast<std::string>(*this));
+		return CppGenerator::Dec(toString());
 	}
 
 	CppGenerator::Plus Smt::operator+(void)
 	{
-		return CppGenerator::Plus(static_cast<std::string>(*this));
+		return CppGenerator::Plus(toString());
 	}
 
 	CppGenerator::Minus Smt::operator-(void)
 	{
-		return CppGenerator::Minus(static_cast<std::string>(*this));
+		return CppGenerator::Minus(toString());
 	}
 
 	CppGenerator::Not Smt::operator!(void)
 	{
-		return CppGenerator::Not(static_cast<std::string>(*this));
+		return CppGenerator::Not(toString());
 	}
 
 	CppGenerator::NotBin Smt::operator~(void)
 	{
-		return CppGenerator::NotBin(static_cast<std::string>(*this));
+		return CppGenerator::NotBin(toString());
 	}
 
 	CppGenerator::Deref Smt::operator*(void)
 	{
-		return CppGenerator::Deref(static_cast<std::string>(*this));
+		return CppGenerator::Deref(toString());
 	}
 
 	CppGenerator::Address Smt::operator&(void)
 	{
-		return CppGenerator::Address(static_cast<std::string>(*this));
+		return CppGenerator::Address(toString());
 	}
 
 	class Cast : public Smt
@@ -1519,175 +1760,175 @@ namespace CppGenerator {
 	template <typename S>
 	CppGenerator::Add Smt::operator+(S &&smt)
 	{
-		return CppGenerator::Add(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::Add(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::Sub Smt::operator-(S &&smt)
 	{
-		return CppGenerator::Sub(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::Sub(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::Mul Smt::operator*(S &&smt)
 	{
-		return CppGenerator::Mul(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::Mul(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::Div Smt::operator/(S &&smt)
 	{
-		return CppGenerator::Div(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::Div(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::Rem Smt::operator%(S &&smt)
 	{
-		return CppGenerator::Rem(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::Rem(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::LShift Smt::operator<<(S &&smt)
 	{
-		return CppGenerator::LShift(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::LShift(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::RShift Smt::operator>>(S &&smt)
 	{
-		return CppGenerator::RShift(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::RShift(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::Less Smt::operator<(S &&smt)
 	{
-		return CppGenerator::Less(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::Less(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::LessEq Smt::operator<=(S &&smt)
 	{
-		return CppGenerator::LessEq(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::LessEq(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::Greater Smt::operator>(S &&smt)
 	{
-		return CppGenerator::Greater(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::Greater(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::GreaterEq Smt::operator>=(S &&smt)
 	{
-		return CppGenerator::GreaterEq(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::GreaterEq(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::Eq Smt::operator==(S &&smt)
 	{
-		return CppGenerator::Eq(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::Eq(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::Dif Smt::operator!=(S &&smt)
 	{
-		return CppGenerator::Dif(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::Dif(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::AndBin Smt::operator&(S &&smt)
 	{
-		return CppGenerator::AndBin(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::AndBin(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::XorBin Smt::operator^(S &&smt)
 	{
-		return CppGenerator::XorBin(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::XorBin(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::OrBin Smt::operator|(S &&smt)
 	{
-		return CppGenerator::OrBin(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::OrBin(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::And Smt::operator&&(S &&smt)
 	{
-		return CppGenerator::And(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::And(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::Or Smt::operator||(S &&smt)
 	{
-		return CppGenerator::Or(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::Or(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::Assign Smt::operator=(S &&smt)
 	{
-		return CppGenerator::Assign(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::Assign(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::AssignAdd Smt::operator+=(S &&smt)
 	{
-		return CppGenerator::AssignAdd(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::AssignAdd(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::AssignSub Smt::operator-=(S &&smt)
 	{
-		return CppGenerator::AssignSub(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::AssignSub(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::AssignMul Smt::operator*=(S &&smt)
 	{
-		return CppGenerator::AssignMul(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::AssignMul(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::AssignDiv Smt::operator/=(S &&smt)
 	{
-		return CppGenerator::AssignDiv(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::AssignDiv(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::AssignRem Smt::operator%=(S &&smt)
 	{
-		return CppGenerator::AssignRem(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::AssignRem(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::AssignLShift Smt::operator<<=(S &&smt)
 	{
-		return CppGenerator::AssignLShift(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::AssignLShift(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::AssignRShift Smt::operator>>=(S &&smt)
 	{
-		return CppGenerator::AssignRShift(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::AssignRShift(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::AssignAndBin Smt::operator&=(S &&smt)
 	{
-		return CppGenerator::AssignAndBin(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::AssignAndBin(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::AssignXorBin Smt::operator^=(S &&smt)
 	{
-		return CppGenerator::AssignXorBin(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::AssignXorBin(toString(), std::forward<S>(smt));
 	}
 
 	template <typename S>
 	CppGenerator::AssignOrBin Smt::operator|=(S &&smt)
 	{
-		return CppGenerator::AssignOrBin(static_cast<std::string>(*this), std::forward<S>(smt));
+		return CppGenerator::AssignOrBin(toString(), std::forward<S>(smt));
 	}
 
 	class Comma : public AssociativeOp
@@ -1739,12 +1980,12 @@ namespace CppGenerator {
 
 	inline Smt::Modifiers::Inc Smt::Inc(void)
 	{
-		return Modifiers::Inc(static_cast<std::string>(*this));
+		return Modifiers::Inc(toString());
 	}
 
 	inline Smt::Modifiers::Dec Smt::Dec(void)
 	{
-		return Modifiers::Dec(static_cast<std::string>(*this));
+		return Modifiers::Dec(toString());
 	}
 
 	class Smt::Modifiers::Call : public Smt
@@ -1778,7 +2019,7 @@ namespace CppGenerator {
 	template <typename ...Args>
 	Smt::Modifiers::Call Smt::Call(Args &&...args)
 	{
-		return Modifiers::Call(static_cast<std::string>(*this), std::forward<Args>(args)...);
+		return Modifiers::Call(toString(), std::forward<Args>(args)...);
 	}
 
 	class Sizeof : public Smt::Modifiers::Call
@@ -1817,7 +2058,7 @@ namespace CppGenerator {
 	template <typename ...Args>
 	Smt::Modifiers::Array Smt::Array(Args &&...args)
 	{
-		return Modifiers::Array(static_cast<std::string>(*this), std::forward<Args>(args)...);
+		return Modifiers::Array(toString(), std::forward<Args>(args)...);
 	}
 
 	class Smt::Modifiers::Member : public AssociativeOp
@@ -1831,7 +2072,7 @@ namespace CppGenerator {
 	template <typename ...Args>
 	Smt::Modifiers::Member Smt::Member(Args &&...args)
 	{
-		return Modifiers::Member(static_cast<std::string>(*this), std::forward<Args>(args)...);
+		return Modifiers::Member(toString(), std::forward<Args>(args)...);
 	}
 
 	class Smt::Modifiers::MemberPtr : public AssociativeOp
@@ -1845,7 +2086,7 @@ namespace CppGenerator {
 	template <typename ...Args>
 	Smt::Modifiers::MemberPtr Smt::MemberPtr(Args &&...args)
 	{
-		return Modifiers::MemberPtr(static_cast<std::string>(*this), std::forward<Args>(args)...);
+		return Modifiers::MemberPtr(toString(), std::forward<Args>(args)...);
 	}
 
 	Smt::Modifiers::Inc Smt::operator++(int)
