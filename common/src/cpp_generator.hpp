@@ -852,6 +852,7 @@ namespace CppGenerator {
 
 		Statement(const std::string &str);
 		Statement(const char str[]);
+		Statement(std::nullptr_t null);
 		Statement(bool b);
 		Statement(float f);
 		Statement(double f);
@@ -1142,6 +1143,11 @@ namespace CppGenerator {
 
 	inline Statement::Statement(const char str[]) :
 		Statement(String(stringLiteral(str)))
+	{
+	}
+
+	inline Statement::Statement(std::nullptr_t) :
+		Statement(String("nullptr"))
 	{
 	}
 
