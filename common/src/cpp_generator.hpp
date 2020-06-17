@@ -447,13 +447,34 @@ namespace CppGenerator {
 	{
 	}
 
+
+	static Type Auto("auto");
+	static Type Void("void");
+	static Type Char("char");
+	static Type Short("short");
+	static Type Int("int");
+	static Type Long_t("long");	// declare Long_t to not conflict with Long modifier
+	static Type Float("float");
+	static Type Double("double");
+	static Type Bool("bool");
+	static Type Nullptr_t("nullptr_t");
+	static Type Size_t("size_t");
+	static Type Int8_t("int8_t");
+	static Type Int16_t("int16_t");
+	static Type Int32_t("int32_t");
+	static Type Int64_t("int64_t");
+	static Type Uint8_t("uint8_t");
+	static Type Uint16_t("uint16_t");
+	static Type Uint32_t("uint32_t");
+	static Type Uint64_t("uint64_t");
+
 	class Util::PrependKeyword : public Type
 	{
 	public:
 		template <typename T>
-		PrependKeyword(T &&type, const char *str) :
-			m_type(std::forward<T>(type)),
-			m_str(str)
+		PrependKeyword(const char *str, T &&type) :
+			m_str(str),
+			m_type(std::forward<T>(type))
 		{
 		}
 
@@ -464,8 +485,8 @@ namespace CppGenerator {
 		}
 
 	private:
-		Type m_type;
 		const char *m_str;
+		Type m_type;
 	};
 
 	class Const : public Util::PrependKeyword
@@ -473,9 +494,7 @@ namespace CppGenerator {
 	public:
 		template <typename T>
 		Const(T &&type) :
-			Util::PrependKeyword(std::forward<T>(type), "const")
-		{
-		}
+			Util::PrependKeyword("const", std::forward<T>(type)) {}
 	};
 
 	class Volatile : public Util::PrependKeyword
@@ -483,9 +502,7 @@ namespace CppGenerator {
 	public:
 		template <typename T>
 		Volatile(T &&type) :
-			Util::PrependKeyword(std::forward<T>(type), "volatile")
-		{
-		}
+			Util::PrependKeyword("volatile", std::forward<T>(type)) {}
 	};
 
 	class Typename : public Util::PrependKeyword
@@ -493,9 +510,31 @@ namespace CppGenerator {
 	public:
 		template <typename T>
 		Typename(T &&type) :
-			Util::PrependKeyword(std::forward<T>(type), "typename")
-		{
-		}
+			Util::PrependKeyword("typename", std::forward<T>(type)) {}
+	};
+
+	class Long : public Util::PrependKeyword
+	{
+	public:
+		template <typename T>
+		Long(T &&type) :
+			Util::PrependKeyword("long", std::forward<T>(type)) {}
+	};
+
+	class Signed : public Util::PrependKeyword
+	{
+	public:
+		template <typename T>
+		Signed(T &&type) :
+			Util::PrependKeyword("signed", std::forward<T>(type)) {}
+	};
+
+	class Unsigned : public Util::PrependKeyword
+	{
+	public:
+		template <typename T>
+		Unsigned(T &&type) :
+			Util::PrependKeyword("unsigned", std::forward<T>(type)) {}
 	};
 
 	class Type::Modifiers::LRef : public Type
@@ -1143,6 +1182,8 @@ namespace CppGenerator {
 	private:
 		std::string m_str;
 	};
+
+	static Smt Nil;
 
 	inline Statement::Statement(const std::string &str) :
 		Statement(String(stringLiteral(str)))
