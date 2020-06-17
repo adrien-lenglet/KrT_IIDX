@@ -61,6 +61,61 @@ namespace CppGenerator {
 			size_t m_indent;
 		};
 
+		template <typename T>
+		class RefHolder
+		{
+		public:
+			virtual ~RefHolder(void) = default;
+
+			virtual operator bool(void) const = 0;
+			virtual T& get(void) = 0;
+
+			class Unique : public RefHolder
+			{
+			public:
+				template <typename W, class = std::enable_if_t<std::is_rvalue_reference_v<W&&>>>
+				Unique(W &&other) :
+					m_ref(new W(std::move(other)))
+				{
+				}
+
+				operator bool(void) const override
+				{
+					return static_cast<bool>(m_ref);
+				}
+
+				T& get(void) override
+				{
+					return *m_ref;
+				}
+
+			private:
+				std::unique_ptr<T> m_ref;
+			};
+
+			class Ref : public RefHolder
+			{
+			public:
+				Ref(T &other) :
+					m_ref(other)
+				{
+				}
+
+				operator bool(void) const override
+				{
+					return true;
+				}
+
+				T& get(void) override
+				{
+					return m_ref;
+				}
+
+			private:
+				T &m_ref;
+			};
+		};
+
 		class Primitive
 		{
 		public:
@@ -73,94 +128,40 @@ namespace CppGenerator {
 
 		class Collection;
 
-		class Writable
+		template <typename OType>
+		class GenWritable
 		{
-			template <typename T>
-			class RefHolder
-			{
-			public:
-				virtual ~RefHolder(void) = default;
-
-				virtual operator bool(void) const = 0;
-				virtual T& get(void) = 0;
-
-				class Unique : public RefHolder
-				{
-				public:
-					template <typename W, class = std::enable_if_t<std::is_rvalue_reference_v<W&&>>>
-					Unique(W &&other) :
-						m_ref(new W(std::move(other)))
-					{
-					}
-
-					operator bool(void) const override
-					{
-						return static_cast<bool>(m_ref);
-					}
-
-					T& get(void) override
-					{
-						return *m_ref;
-					}
-
-				private:
-					std::unique_ptr<T> m_ref;
-				};
-
-				class Ref : public RefHolder
-				{
-				public:
-					Ref(T &other) :
-						m_ref(other)
-					{
-					}
-
-					operator bool(void) const override
-					{
-						return true;
-					}
-
-					T& get(void) override
-					{
-						return m_ref;
-					}
-
-				private:
-					T &m_ref;
-				};
-			};
-
-			using HolderType = RefHolder<Writable>;
+			using HolderType = RefHolder<GenWritable>;
 
 			template <typename W>
-			static inline constexpr bool is_w_ok_v = !std::is_same_v<std::remove_reference_t<W>, Writable>;
+			static inline constexpr bool is_w_ok_v = !std::is_same_v<std::remove_reference_t<W>, GenWritable>;
 
 		public:
-			Writable(void)
+			GenWritable(void)
 			{
 			}
 
-			Writable(Writable&&) = default;
+			GenWritable(GenWritable&&) = default;
 
 			template <typename W, class = std::enable_if_t<is_w_ok_v<W> && std::is_rvalue_reference_v<W&&>>>
-			Writable(W &&sub) :
-				m_sub(new HolderType::Unique(std::move(sub)))
+			GenWritable(W &&sub) :
+				m_sub(new typename HolderType::Unique(std::move(sub)))
 			{
 			}
 			template <typename W, class = std::enable_if_t<is_w_ok_v<W>>>
-			Writable(W &sub) :
-				m_sub(new HolderType::Ref(sub))
+			GenWritable(W &sub) :
+				m_sub(new typename HolderType::Ref(sub))
 			{
 			}
 
-			virtual ~Writable(void)
+			virtual ~GenWritable(void)
 			{
 			}
 
-			virtual void write(std::ostream &o) const = 0;
+			virtual void write(OType &o) const = 0;
 
 		protected:
-			void write_sub(std::ostream &o) const
+			void write_sub(OType &o) const
 			{
 				if (m_sub)
 					m_sub->get().write(o);
@@ -177,6 +178,9 @@ namespace CppGenerator {
 		private:
 			std::unique_ptr<HolderType> m_sub;
 		};
+
+		using Writable = GenWritable<std::ostream>;
+		using FileWritable = GenWritable<File>;
 
 		class PrependKeyword;
 	}
@@ -320,9 +324,18 @@ namespace CppGenerator {
 
 		~Out(void)
 		{
+			flush();
+		}
+
+		void flush(void)
+		{
+			if (m_flushed)
+				return;
+
 			Util::File f(m_path);
 
 			Namespace::write(f);
+			m_flushed = true;
 		}
 
 		const std::string& getPath(void) const
@@ -332,6 +345,7 @@ namespace CppGenerator {
 
 	private:
 		const std::string m_path;
+		bool m_flushed = false;
 	};
 
 	class Type : public Util::Writable
@@ -647,56 +661,56 @@ namespace CppGenerator {
 
 	class Variable;
 
-	class Statement : public Util::Writable
+	class Value : public Util::Writable
 	{
 		friend Variable;
 		class String;
 
 		template <typename W>
-		static inline constexpr bool is_w_ok_v = std::is_base_of_v<Statement, std::remove_reference_t<W>> && !std::is_same_v<std::remove_reference_t<W>, Statement>;
+		static inline constexpr bool is_w_ok_v = std::is_base_of_v<Value, std::remove_reference_t<W>> && !std::is_same_v<std::remove_reference_t<W>, Value>;
 
 	public:
-		Statement(void)
+		Value(void)
 		{
 		}
 
-		Statement(Statement &other) :
+		Value(Value &other) :
 			Util::Writable(other)
 		{
 		}
-		Statement(Statement&&) = default;
+		Value(Value&&) = default;
 
 		template <typename W, class = std::enable_if_t<is_w_ok_v<W> && std::is_rvalue_reference_v<W&&>>>
-		Statement(W &&sub) :
+		Value(W &&sub) :
 			Util::Writable(std::move(sub))
 		{
 		}
 
 		template <typename W, class = std::enable_if_t<is_w_ok_v<W>>>
-		Statement(W &sub) :
+		Value(W &sub) :
 			Util::Writable(sub)
 		{
 		}
 
-		Statement(const std::string &str);
-		Statement(const char str[]);
-		Statement(std::nullptr_t null);
-		Statement(bool b);
-		Statement(float f);
-		Statement(double f);
-		Statement(long double f);
-		Statement(unsigned char u);
-		Statement(unsigned short u);
-		Statement(unsigned int u);
-		Statement(unsigned long u);
-		Statement(unsigned long long u);
-		Statement(char i);
-		Statement(int i);
-		Statement(short s);
-		Statement(long i);
-		Statement(long long i);
+		Value(const std::string &str);
+		Value(const char str[]);
+		Value(std::nullptr_t null);
+		Value(bool b);
+		Value(float f);
+		Value(double f);
+		Value(long double f);
+		Value(unsigned char u);
+		Value(unsigned short u);
+		Value(unsigned int u);
+		Value(unsigned long u);
+		Value(unsigned long long u);
+		Value(char i);
+		Value(int i);
+		Value(short s);
+		Value(long i);
+		Value(long long i);
 
-		~Statement(void) override
+		~Value(void) override
 		{
 		}
 
@@ -731,7 +745,7 @@ namespace CppGenerator {
 		template <typename ...Args>
 		Modifiers::Call operator ()(Args &&...args);
 		template <typename T>
-		Modifiers::Array operator[](T &&smt);
+		Modifiers::Array operator[](T &&val);
 
 		CppGenerator::Op::Inc operator++(void);
 		CppGenerator::Op::Dec operator--(void);
@@ -743,63 +757,63 @@ namespace CppGenerator {
 		CppGenerator::Op::Address operator&(void);
 
 		template <typename S>
-		CppGenerator::Op::Add operator+(S &&smt);
+		CppGenerator::Op::Add operator+(S &&val);
 		template <typename S>
-		CppGenerator::Op::Sub operator-(S &&smt);
+		CppGenerator::Op::Sub operator-(S &&val);
 		template <typename S>
-		CppGenerator::Op::Mul operator*(S &&smt);
+		CppGenerator::Op::Mul operator*(S &&val);
 		template <typename S>
-		CppGenerator::Op::Div operator/(S &&smt);
+		CppGenerator::Op::Div operator/(S &&val);
 		template <typename S>
-		CppGenerator::Op::Rem operator%(S &&smt);
+		CppGenerator::Op::Rem operator%(S &&val);
 		template <typename S>
-		CppGenerator::Op::LShift operator<<(S &&smt);
+		CppGenerator::Op::LShift operator<<(S &&val);
 		template <typename S>
-		CppGenerator::Op::RShift operator>>(S &&smt);
+		CppGenerator::Op::RShift operator>>(S &&val);
 		template <typename S>
-		CppGenerator::Op::Less operator<(S &&smt);
+		CppGenerator::Op::Less operator<(S &&val);
 		template <typename S>
-		CppGenerator::Op::LessEq operator<=(S &&smt);
+		CppGenerator::Op::LessEq operator<=(S &&val);
 		template <typename S>
-		CppGenerator::Op::Greater operator>(S &&smt);
+		CppGenerator::Op::Greater operator>(S &&val);
 		template <typename S>
-		CppGenerator::Op::GreaterEq operator>=(S &&smt);
+		CppGenerator::Op::GreaterEq operator>=(S &&val);
 		template <typename S>
-		CppGenerator::Op::Eq operator==(S &&smt);
+		CppGenerator::Op::Eq operator==(S &&val);
 		template <typename S>
-		CppGenerator::Op::Dif operator!=(S &&smt);
+		CppGenerator::Op::Dif operator!=(S &&val);
 		template <typename S>
-		CppGenerator::Op::AndBin operator&(S &&smt);
+		CppGenerator::Op::AndBin operator&(S &&val);
 		template <typename S>
-		CppGenerator::Op::XorBin operator^(S &&smt);
+		CppGenerator::Op::XorBin operator^(S &&val);
 		template <typename S>
-		CppGenerator::Op::OrBin operator|(S &&smt);
+		CppGenerator::Op::OrBin operator|(S &&val);
 		template <typename S>
-		CppGenerator::Op::And operator&&(S &&smt);
+		CppGenerator::Op::And operator&&(S &&val);
 		template <typename S>
-		CppGenerator::Op::Or operator||(S &&smt);
+		CppGenerator::Op::Or operator||(S &&val);
 		template <typename S>
-		CppGenerator::Op::Assign operator=(S &&smt);
+		CppGenerator::Op::Assign operator=(S &&val);
 		template <typename S>
-		CppGenerator::Op::AssignAdd operator+=(S &&smt);
+		CppGenerator::Op::AssignAdd operator+=(S &&val);
 		template <typename S>
-		CppGenerator::Op::AssignSub operator-=(S &&smt);
+		CppGenerator::Op::AssignSub operator-=(S &&val);
 		template <typename S>
-		CppGenerator::Op::AssignMul operator*=(S &&smt);
+		CppGenerator::Op::AssignMul operator*=(S &&val);
 		template <typename S>
-		CppGenerator::Op::AssignDiv operator/=(S &&smt);
+		CppGenerator::Op::AssignDiv operator/=(S &&val);
 		template <typename S>
-		CppGenerator::Op::AssignRem operator%=(S &&smt);
+		CppGenerator::Op::AssignRem operator%=(S &&val);
 		template <typename S>
-		CppGenerator::Op::AssignLShift operator<<=(S &&smt);
+		CppGenerator::Op::AssignLShift operator<<=(S &&val);
 		template <typename S>
-		CppGenerator::Op::AssignRShift operator>>=(S &&smt);
+		CppGenerator::Op::AssignRShift operator>>=(S &&val);
 		template <typename S>
-		CppGenerator::Op::AssignAndBin operator&=(S &&smt);
+		CppGenerator::Op::AssignAndBin operator&=(S &&val);
 		template <typename S>
-		CppGenerator::Op::AssignXorBin operator^=(S &&smt);
+		CppGenerator::Op::AssignXorBin operator^=(S &&val);
 		template <typename S>
-		CppGenerator::Op::AssignOrBin operator|=(S &&smt);
+		CppGenerator::Op::AssignOrBin operator|=(S &&val);
 
 		String toString(void) const;
 
@@ -945,9 +959,9 @@ namespace CppGenerator {
 		}
 	};
 
-	using Smt = Statement;
+	using Value = Value;
 
-	class Statement::String : public Smt
+	class Value::String : public Value
 	{
 	public:
 		String(const std::string &str) :
@@ -964,106 +978,106 @@ namespace CppGenerator {
 		std::string m_str;
 	};
 
-	static Smt Nil;
+	static Value Nil;
 
-	inline Statement::Statement(const std::string &str) :
-		Statement(String(stringLiteral(str)))
+	inline Value::Value(const std::string &str) :
+		Value(String(stringLiteral(str)))
 	{
 	}
 
-	inline Statement::Statement(const char str[]) :
-		Statement(String(stringLiteral(str)))
+	inline Value::Value(const char str[]) :
+		Value(String(stringLiteral(str)))
 	{
 	}
 
-	inline Statement::Statement(std::nullptr_t) :
-		Statement(String("nullptr"))
+	inline Value::Value(std::nullptr_t) :
+		Value(String("nullptr"))
 	{
 	}
 
-	inline Statement::Statement(bool b) :
-		Statement(String(boolLiteral(b)))
+	inline Value::Value(bool b) :
+		Value(String(boolLiteral(b)))
 	{
 	}
 
-	inline Statement::Statement(float f) :
-		Statement(String(floatLiteral(f)))
+	inline Value::Value(float f) :
+		Value(String(floatLiteral(f)))
 	{
 	}
 
-	inline Statement::Statement(double f) :
-		Statement(String(doubleLiteral(f)))
+	inline Value::Value(double f) :
+		Value(String(doubleLiteral(f)))
 	{
 	}
 
-	inline Statement::Statement(long double f) :
-		Statement(String(longDoubleLiteral(f)))
+	inline Value::Value(long double f) :
+		Value(String(longDoubleLiteral(f)))
 	{
 	}
 
-	inline Statement::Statement(unsigned char u) :
-		Statement(String(unsignedCharLiteral(u)))
+	inline Value::Value(unsigned char u) :
+		Value(String(unsignedCharLiteral(u)))
 	{
 	}
 
-	inline Statement::Statement(unsigned short u) :
-		Statement(String(unsignedShortLiteral(u)))
+	inline Value::Value(unsigned short u) :
+		Value(String(unsignedShortLiteral(u)))
 	{
 	}
 
-	inline Statement::Statement(unsigned int u) :
-		Statement(String(unsignedIntLiteral(u)))
+	inline Value::Value(unsigned int u) :
+		Value(String(unsignedIntLiteral(u)))
 	{
 	}
 
-	inline Statement::Statement(unsigned long u) :
-		Statement(String(unsignedLongLiteral(u)))
+	inline Value::Value(unsigned long u) :
+		Value(String(unsignedLongLiteral(u)))
 	{
 	}
 
 
-	inline Statement::Statement(unsigned long long u) :
-		Statement(String(unsignedLongLongLiteral(u)))
+	inline Value::Value(unsigned long long u) :
+		Value(String(unsignedLongLongLiteral(u)))
 	{
 	}
 
-	inline Statement::Statement(char i) :
-		Statement(String(charLiteral(i)))
+	inline Value::Value(char i) :
+		Value(String(charLiteral(i)))
 	{
 	}
 
-	inline Statement::Statement(short i) :
-		Statement(String(shortLiteral(i)))
+	inline Value::Value(short i) :
+		Value(String(shortLiteral(i)))
 	{
 	}
 
-	inline Statement::Statement(int i) :
-		Statement(String(intLiteral(i)))
+	inline Value::Value(int i) :
+		Value(String(intLiteral(i)))
 	{
 	}
 
-	inline Statement::Statement(long i) :
-		Statement(String(longLiteral(i)))
+	inline Value::Value(long i) :
+		Value(String(longLiteral(i)))
 	{
 	}
 
-	inline Statement::Statement(long long i) :
-		Statement(String(longLongLiteral(i)))
+	inline Value::Value(long long i) :
+		Value(String(longLongLiteral(i)))
 	{
 	}
 
-	inline Statement::String Statement::toString(void) const
+	inline Value::String Value::toString(void) const
 	{
-		return Statement::String(Util::Writable::toString());
+		return Value::String(Util::Writable::toString());
 	}
 
 	namespace Op {
-		class Unary : public Smt
+		class Unary : public Value
 		{
 		public:
 			template <typename T>
-			Unary(T &&smt, const char *op) :
-				m_smt(std::forward<T>(smt)),
+			Unary(T &&val, const char *op) :
+				m_smt(std::forward<T>(val)),
 				m_op(op)
 			{
 			}
@@ -1077,16 +1091,16 @@ namespace CppGenerator {
 			}
 
 		private:
-			Smt m_smt;
+			Value m_smt;
 			const char *m_op;
 		};
 
-		class PostfixUnary : public Smt
+		class PostfixUnary : public Value
 		{
 		public:
 			template <typename T>
-			PostfixUnary(T &&smt, const char *op) :
-				m_smt(std::forward<T>(smt)),
+			PostfixUnary(T &&val, const char *op) :
+				m_smt(std::forward<T>(val)),
 				m_op(op)
 			{
 			}
@@ -1100,7 +1114,7 @@ namespace CppGenerator {
 			}
 
 		private:
-			Smt m_smt;
+			Value m_smt;
 			const char *m_op;
 		};
 
@@ -1108,117 +1122,117 @@ namespace CppGenerator {
 		{
 		public:
 			template <typename T>
-			Inc(T &&smt) :
-				Unary(std::forward<T>(smt), "++") {}
+			Inc(T &&val) :
+				Unary(std::forward<T>(val), "++") {}
 		};
 
 		class Dec : public Unary
 		{
 		public:
 			template <typename T>
-			Dec(T &&smt) :
-				Unary(std::forward<T>(smt), "--") {}
+			Dec(T &&val) :
+				Unary(std::forward<T>(val), "--") {}
 		};
 
 		class Plus : public Unary
 		{
 		public:
 			template <typename T>
-			Plus(T &&smt) :
-				Unary(std::forward<T>(smt), "+") {}
+			Plus(T &&val) :
+				Unary(std::forward<T>(val), "+") {}
 		};
 
 		class Minus : public Unary
 		{
 		public:
 			template <typename T>
-			Minus(T &&smt) :
-				Unary(std::forward<T>(smt), "-") {}
+			Minus(T &&val) :
+				Unary(std::forward<T>(val), "-") {}
 		};
 
 		class Not : public Unary
 		{
 		public:
 			template <typename T>
-			Not(T &&smt) :
-				Unary(std::forward<T>(smt), "!") {}
+			Not(T &&val) :
+				Unary(std::forward<T>(val), "!") {}
 		};
 
 		class NotBin : public Unary
 		{
 		public:
 			template <typename T>
-			NotBin(T &&smt) :
-				Unary(std::forward<T>(smt), "~") {}
+			NotBin(T &&val) :
+				Unary(std::forward<T>(val), "~") {}
 		};
 
 		class Deref : public Unary
 		{
 		public:
 			template <typename T>
-			Deref(T &&smt) :
-				Unary(std::forward<T>(smt), "*") {}
+			Deref(T &&val) :
+				Unary(std::forward<T>(val), "*") {}
 		};
 
 		class Address : public Unary
 		{
 		public:
 			template <typename T>
-			Address(T &&smt) :
-				Unary(std::forward<T>(smt), "&") {}
+			Address(T &&val) :
+				Unary(std::forward<T>(val), "&") {}
 		};
 	}
 
-	CppGenerator::Op::Inc Smt::operator++(void)
+	CppGenerator::Op::Inc Value::operator++(void)
 	{
 		return CppGenerator::Op::Inc(toString());
 	}
 
-	CppGenerator::Op::Dec Smt::operator--(void)
+	CppGenerator::Op::Dec Value::operator--(void)
 	{
 		return CppGenerator::Op::Dec(toString());
 	}
 
-	CppGenerator::Op::Plus Smt::operator+(void)
+	CppGenerator::Op::Plus Value::operator+(void)
 	{
 		return CppGenerator::Op::Plus(toString());
 	}
 
-	CppGenerator::Op::Minus Smt::operator-(void)
+	CppGenerator::Op::Minus Value::operator-(void)
 	{
 		return CppGenerator::Op::Minus(toString());
 	}
 
-	CppGenerator::Op::Not Smt::operator!(void)
+	CppGenerator::Op::Not Value::operator!(void)
 	{
 		return CppGenerator::Op::Not(toString());
 	}
 
-	CppGenerator::Op::NotBin Smt::operator~(void)
+	CppGenerator::Op::NotBin Value::operator~(void)
 	{
 		return CppGenerator::Op::NotBin(toString());
 	}
 
-	CppGenerator::Op::Deref Smt::operator*(void)
+	CppGenerator::Op::Deref Value::operator*(void)
 	{
 		return CppGenerator::Op::Deref(toString());
 	}
 
-	CppGenerator::Op::Address Smt::operator&(void)
+	CppGenerator::Op::Address Value::operator&(void)
 	{
 		return CppGenerator::Op::Address(toString());
 	}
 
-	class Cast : public Smt
+	class Cast : public Value
 	{
-		class Cpp : public Smt
+		class Cpp : public Value
 		{
 		public:
 			template <typename T, typename S>
-			Cpp(const char *cast_type, T &&type, S &&smt) :
+			Cpp(const char *cast_type, T &&type, S &&val) :
 				m_cast_type(cast_type),
 				m_type(std::forward<T>(type)),
-				m_smt(std::forward<S>(smt))
+				m_smt(std::forward<S>(val))
 			{
 			}
 
@@ -1235,14 +1249,14 @@ namespace CppGenerator {
 		private:
 			const char *m_cast_type;
 			Type m_type;
-			Smt m_smt;
+			Value m_smt;
 		};
 
 	public:
 		template <typename T, typename S>
-		Cast(T &&type, S &&smt) :
+		Cast(T &&type, S &&val) :
 			m_type(std::forward<T>(type)),
-			m_smt(std::forward<S>(smt))
+			m_smt(std::forward<S>(val))
 		{
 		}
 
@@ -1290,10 +1304,10 @@ namespace CppGenerator {
 
 	private:
 		Type m_type;
-		Smt m_smt;
+		Value m_smt;
 	};
 
-	class Ternary : public Smt
+	class Ternary : public Value
 	{
 	public:
 		template <typename B, typename T, typename F>
@@ -1316,19 +1330,19 @@ namespace CppGenerator {
 		}
 
 	private:
-		Smt m_predicate;
-		Smt m_true_smt;
-		Smt m_false_smt;
+		Value m_predicate;
+		Value m_true_smt;
+		Value m_false_smt;
 	};
 
 	namespace Op {
-		class Associative : public Smt
+		class Associative : public Value
 		{
 		public:
 			template <typename Ta, typename Tb, typename ...Supp>
 			Associative(const char *op, Ta &&a, Tb &&b, Supp &&...supp) :
 				m_op(op),
-				m_args(util::vectorize_args<Smt>(std::forward<Ta>(a), std::forward<Tb>(b), std::forward<Supp>(supp)...))
+				m_args(util::vectorize_args<Value>(std::forward<Ta>(a), std::forward<Tb>(b), std::forward<Supp>(supp)...))
 			{
 			}
 
@@ -1347,7 +1361,7 @@ namespace CppGenerator {
 
 		private:
 			const char *m_op;
-			std::vector<Smt> m_args;
+			std::vector<Value> m_args;
 		};
 
 		class Add : public Associative
@@ -1584,177 +1598,177 @@ namespace CppGenerator {
 	}
 
 	template <typename S>
-	CppGenerator::Op::Add Smt::operator+(S &&smt)
+	CppGenerator::Op::Add Value::operator+(S &&val)
 	{
-		return CppGenerator::Op::Add(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::Add(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::Sub Smt::operator-(S &&smt)
+	CppGenerator::Op::Sub Value::operator-(S &&val)
 	{
-		return CppGenerator::Op::Sub(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::Sub(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::Mul Smt::operator*(S &&smt)
+	CppGenerator::Op::Mul Value::operator*(S &&val)
 	{
-		return CppGenerator::Op::Mul(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::Mul(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::Div Smt::operator/(S &&smt)
+	CppGenerator::Op::Div Value::operator/(S &&val)
 	{
-		return CppGenerator::Op::Div(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::Div(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::Rem Smt::operator%(S &&smt)
+	CppGenerator::Op::Rem Value::operator%(S &&val)
 	{
-		return CppGenerator::Op::Rem(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::Rem(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::LShift Smt::operator<<(S &&smt)
+	CppGenerator::Op::LShift Value::operator<<(S &&val)
 	{
-		return CppGenerator::Op::LShift(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::LShift(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::RShift Smt::operator>>(S &&smt)
+	CppGenerator::Op::RShift Value::operator>>(S &&val)
 	{
-		return CppGenerator::Op::RShift(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::RShift(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::Less Smt::operator<(S &&smt)
+	CppGenerator::Op::Less Value::operator<(S &&val)
 	{
-		return CppGenerator::Op::Less(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::Less(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::LessEq Smt::operator<=(S &&smt)
+	CppGenerator::Op::LessEq Value::operator<=(S &&val)
 	{
-		return CppGenerator::Op::LessEq(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::LessEq(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::Greater Smt::operator>(S &&smt)
+	CppGenerator::Op::Greater Value::operator>(S &&val)
 	{
-		return CppGenerator::Op::Greater(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::Greater(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::GreaterEq Smt::operator>=(S &&smt)
+	CppGenerator::Op::GreaterEq Value::operator>=(S &&val)
 	{
-		return CppGenerator::Op::GreaterEq(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::GreaterEq(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::Eq Smt::operator==(S &&smt)
+	CppGenerator::Op::Eq Value::operator==(S &&val)
 	{
-		return CppGenerator::Op::Eq(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::Eq(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::Dif Smt::operator!=(S &&smt)
+	CppGenerator::Op::Dif Value::operator!=(S &&val)
 	{
-		return CppGenerator::Op::Dif(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::Dif(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::AndBin Smt::operator&(S &&smt)
+	CppGenerator::Op::AndBin Value::operator&(S &&val)
 	{
-		return CppGenerator::Op::AndBin(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::AndBin(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::XorBin Smt::operator^(S &&smt)
+	CppGenerator::Op::XorBin Value::operator^(S &&val)
 	{
-		return CppGenerator::Op::XorBin(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::XorBin(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::OrBin Smt::operator|(S &&smt)
+	CppGenerator::Op::OrBin Value::operator|(S &&val)
 	{
-		return CppGenerator::Op::OrBin(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::OrBin(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::And Smt::operator&&(S &&smt)
+	CppGenerator::Op::And Value::operator&&(S &&val)
 	{
-		return CppGenerator::Op::And(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::And(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::Or Smt::operator||(S &&smt)
+	CppGenerator::Op::Or Value::operator||(S &&val)
 	{
-		return CppGenerator::Op::Or(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::Or(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::Assign Smt::operator=(S &&smt)
+	CppGenerator::Op::Assign Value::operator=(S &&val)
 	{
-		return CppGenerator::Op::Assign(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::Assign(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::AssignAdd Smt::operator+=(S &&smt)
+	CppGenerator::Op::AssignAdd Value::operator+=(S &&val)
 	{
-		return CppGenerator::Op::AssignAdd(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::AssignAdd(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::AssignSub Smt::operator-=(S &&smt)
+	CppGenerator::Op::AssignSub Value::operator-=(S &&val)
 	{
-		return CppGenerator::Op::AssignSub(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::AssignSub(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::AssignMul Smt::operator*=(S &&smt)
+	CppGenerator::Op::AssignMul Value::operator*=(S &&val)
 	{
-		return CppGenerator::Op::AssignMul(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::AssignMul(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::AssignDiv Smt::operator/=(S &&smt)
+	CppGenerator::Op::AssignDiv Value::operator/=(S &&val)
 	{
-		return CppGenerator::Op::AssignDiv(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::AssignDiv(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::AssignRem Smt::operator%=(S &&smt)
+	CppGenerator::Op::AssignRem Value::operator%=(S &&val)
 	{
-		return CppGenerator::Op::AssignRem(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::AssignRem(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::AssignLShift Smt::operator<<=(S &&smt)
+	CppGenerator::Op::AssignLShift Value::operator<<=(S &&val)
 	{
-		return CppGenerator::Op::AssignLShift(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::AssignLShift(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::AssignRShift Smt::operator>>=(S &&smt)
+	CppGenerator::Op::AssignRShift Value::operator>>=(S &&val)
 	{
-		return CppGenerator::Op::AssignRShift(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::AssignRShift(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::AssignAndBin Smt::operator&=(S &&smt)
+	CppGenerator::Op::AssignAndBin Value::operator&=(S &&val)
 	{
-		return CppGenerator::Op::AssignAndBin(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::AssignAndBin(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::AssignXorBin Smt::operator^=(S &&smt)
+	CppGenerator::Op::AssignXorBin Value::operator^=(S &&val)
 	{
-		return CppGenerator::Op::AssignXorBin(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::AssignXorBin(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::AssignOrBin Smt::operator|=(S &&smt)
+	CppGenerator::Op::AssignOrBin Value::operator|=(S &&val)
 	{
-		return CppGenerator::Op::AssignOrBin(toString(), std::forward<S>(smt));
+		return CppGenerator::Op::AssignOrBin(toString(), std::forward<S>(val));
 	}
 
 	class Comma : public Op::Associative
@@ -1765,39 +1779,39 @@ namespace CppGenerator {
 			Op::Associative(",", std::forward<Args>(args)...) {}
 	};
 
-	class Smt::Modifiers::Inc : public Op::PostfixUnary
+	class Value::Modifiers::Inc : public Op::PostfixUnary
 	{
 	public:
 		template <typename T>
-		Inc(T &&smt) :
-			Op::PostfixUnary(std::forward<T>(smt), "++") {}
+		Inc(T &&val) :
+			Op::PostfixUnary(std::forward<T>(val), "++") {}
 	};
 
-	class Smt::Modifiers::Dec : public Op::PostfixUnary
+	class Value::Modifiers::Dec : public Op::PostfixUnary
 	{
 	public:
 		template <typename T>
-		Dec(T &&smt) :
-			Op::PostfixUnary(std::forward<T>(smt), "--") {}
+		Dec(T &&val) :
+			Op::PostfixUnary(std::forward<T>(val), "--") {}
 	};
 
-	inline Smt::Modifiers::Inc Smt::Inc(void)
+	inline Value::Modifiers::Inc Value::Inc(void)
 	{
 		return Modifiers::Inc(toString());
 	}
 
-	inline Smt::Modifiers::Dec Smt::Dec(void)
+	inline Value::Modifiers::Dec Value::Dec(void)
 	{
 		return Modifiers::Dec(toString());
 	}
 
-	class Smt::Modifiers::Call : public Smt
+	class Value::Modifiers::Call : public Value
 	{
 	public:
 		template <typename T, typename ...Args>
-		Call(T &&smt, Args &&...args) :
-			m_fun_name(std::forward<T>(smt)),
-			m_args(util::vectorize_args<Smt>(std::forward<Args>(args)...))
+		Call(T &&val, Args &&...args) :
+			m_fun_name(std::forward<T>(val)),
+			m_args(util::vectorize_args<Value>(std::forward<Args>(args)...))
 		{
 		}
 
@@ -1815,31 +1829,31 @@ namespace CppGenerator {
 		}
 
 	private:
-		Smt m_fun_name;
-		std::vector<Smt> m_args;
+		Value m_fun_name;
+		std::vector<Value> m_args;
 	};
 
 	template <typename ...Args>
-	Smt::Modifiers::Call Smt::Call(Args &&...args)
+	Value::Modifiers::Call Value::Call(Args &&...args)
 	{
 		return Modifiers::Call(toString(), std::forward<Args>(args)...);
 	}
 
-	class Sizeof : public Smt::Modifiers::Call
+	class Sizeof : public Value::Modifiers::Call
 	{
 	public:
 		template <typename T>
-		Sizeof(T &&smt) :
-			Smt::Modifiers::Call("sizeof", std::forward<T>(smt)) {}
+		Sizeof(T &&val) :
+			Value::Modifiers::Call("sizeof", std::forward<T>(val)) {}
 	};
 
-	class Smt::Modifiers::Array : public Smt
+	class Value::Modifiers::Array : public Value
 	{
 	public:
 		template <typename A, typename S, typename ...Ss>
 		Array(A &&array, S &&subscript, Ss &&...additional_subscript) :
 			m_array(std::forward<A>(array)),
-			m_subscript(util::vectorize_args<Smt>(std::forward<S>(subscript), std::forward<Ss>(additional_subscript)...))
+			m_subscript(util::vectorize_args<Value>(std::forward<S>(subscript), std::forward<Ss>(additional_subscript)...))
 		{
 		}
 
@@ -1854,17 +1868,17 @@ namespace CppGenerator {
 		}
 
 	private:
-		Smt m_array;
-		std::vector<Smt> m_subscript;
+		Value m_array;
+		std::vector<Value> m_subscript;
 	};
 
 	template <typename ...Args>
-	Smt::Modifiers::Array Smt::Array(Args &&...args)
+	Value::Modifiers::Array Value::Array(Args &&...args)
 	{
 		return Modifiers::Array(toString(), std::forward<Args>(args)...);
 	}
 
-	class Smt::Modifiers::Member : public Op::Associative
+	class Value::Modifiers::Member : public Op::Associative
 	{
 	public:
 		template <typename ...Args>
@@ -1873,12 +1887,12 @@ namespace CppGenerator {
 	};
 
 	template <typename ...Args>
-	Smt::Modifiers::Member Smt::Member(Args &&...args)
+	Value::Modifiers::Member Value::Member(Args &&...args)
 	{
 		return Modifiers::Member(toString(), std::forward<Args>(args)...);
 	}
 
-	class Smt::Modifiers::MemberPtr : public Op::Associative
+	class Value::Modifiers::MemberPtr : public Op::Associative
 	{
 	public:
 		template <typename ...Args>
@@ -1887,31 +1901,31 @@ namespace CppGenerator {
 	};
 
 	template <typename ...Args>
-	Smt::Modifiers::MemberPtr Smt::MemberPtr(Args &&...args)
+	Value::Modifiers::MemberPtr Value::MemberPtr(Args &&...args)
 	{
 		return Modifiers::MemberPtr(toString(), std::forward<Args>(args)...);
 	}
 
-	Smt::Modifiers::Inc Smt::operator++(int)
+	Value::Modifiers::Inc Value::operator++(int)
 	{
 		return Inc();
 	}
 
-	Smt::Modifiers::Dec Smt::operator--(int)
+	Value::Modifiers::Dec Value::operator--(int)
 	{
 		return Dec();
 	}
 
 	template <typename ...Args>
-	Smt::Modifiers::Call Smt::operator()(Args &&...args)
+	Value::Modifiers::Call Value::operator()(Args &&...args)
 	{
 		return Call(std::forward<Args>(args)...);
 	}
 
 	template <typename T>
-	Smt::Modifiers::Array Smt::operator[](T &&smt)
+	Value::Modifiers::Array Value::operator[](T &&val)
 	{
-		return Array(std::forward<T>(smt));
+		return Array(std::forward<T>(val));
 	}
 
 	class Type::Modifiers::Array : public Type
@@ -1920,7 +1934,7 @@ namespace CppGenerator {
 		template <typename T, typename ...Args>
 		Array(T &&type, Args &&...args) :
 			m_type(std::forward<T>(type)),
-			m_args(util::vectorize_args<Smt>(std::forward<Args>(args)...))
+			m_args(util::vectorize_args<Value>(std::forward<Args>(args)...))
 		{
 			if (m_args.size() == 0)
 				m_args.emplace_back();
@@ -1938,7 +1952,7 @@ namespace CppGenerator {
 
 	private:
 		Type m_type;
-		std::vector<Smt> m_args;
+		std::vector<Value> m_args;
 	};
 
 	template <typename ...Args>
@@ -2132,12 +2146,51 @@ namespace CppGenerator {
 		const Type m_type;
 	};
 
-	class Variable : public Smt
+
+	class Statement : public Util::FileWritable
+	{
+		template <typename W>
+		static inline constexpr bool is_w_ok_v = std::is_base_of_v<Statement, std::remove_reference_t<W>> && !std::is_same_v<std::remove_reference_t<W>, Statement>;
+
+	public:
+		Statement(void)
+		{
+		}
+
+		Statement(Statement &other) :
+			Util::FileWritable(other)
+		{
+		}
+		Statement(Statement&&) = default;
+
+		template <typename W, class = std::enable_if_t<is_w_ok_v<W> && std::is_rvalue_reference_v<W&&>>>
+		Statement(W &&sub) :
+			Util::FileWritable(std::move(sub))
+		{
+		}
+
+		template <typename W, class = std::enable_if_t<is_w_ok_v<W>>>
+		Statement(W &sub) :
+			Util::FileWritable(sub)
+		{
+		}
+
+		~Statement(void) override
+		{
+		}
+
+		void write(Util::File &o) const override
+		{
+			write_sub(o);
+		}
+	};
+
+	class Variable : public Value
 	{
 	public:
 		template <typename T>
 		Variable(T &&type, const std::string &name) :
-			Smt(Smt::String(name)),
+			Value(Value::String(name)),
 			m_type(std::forward<T>(type))
 		{
 		}
@@ -2149,7 +2202,7 @@ namespace CppGenerator {
 		{
 			m_type.write(o);
 			o << " ";
-			Smt::write(o);
+			Value::write(o);
 		}
 
 	private:
@@ -2176,7 +2229,7 @@ namespace CppGenerator {
 		}
 
 		template <typename ...Args>
-		Smt& add(Args &&...args)
+		Statement& add(Args &&...args)
 		{
 			return m_smts.emplace(std::forward<Args>(args)...);
 		}
@@ -2197,7 +2250,7 @@ namespace CppGenerator {
 			o.new_line() << "{" << o.end_line();
 			o.indent();
 			for (auto &s : m_smts)
-				o.new_line() << s << ";" << o.end_line();
+				s.write(o);
 			o.unindent();
 			o.new_line() << "}" << o.end_line();
 		}
@@ -2205,31 +2258,43 @@ namespace CppGenerator {
 	private:
 		Type m_return_type;
 		util::unique_vector<Variable> m_args;
-		util::unique_vector<Smt> m_smts;
+		util::unique_vector<Statement> m_smts;
 	};
 
-	class Return : public Smt
+	class Return : public Statement
 	{
 	public:
 		Return(void) :
-			Smt()
+			Statement(),
+			m_empty(true)
 		{
 		}
 
-		template <typename S>
-		Return(S &&smt) :
-			m_value(std::forward<S>(smt))
+		template <typename V>
+		Return(V &&val) :
+			m_value(std::forward<V>(val))
 		{
 		}
 
-		void write(std::ostream &o) const override
+		void write(Util::File &o) const override
 		{
-			o << "return " << m_value;
+			o.new_line() << "return";
+			if (!m_empty)
+				o << " ";
+			o << m_value << ";" << o.end_line();
 		}
 
 	private:
-		Smt m_value;
+		Value m_value;
+		bool m_empty = false;
 	};
+
+	/*class If : public Statement
+	{
+	public:
+		template <typename >
+		If()
+	};*/
 }
 
 namespace cppgen = CppGenerator;
