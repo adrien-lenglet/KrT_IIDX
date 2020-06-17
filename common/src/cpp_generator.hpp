@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <sstream>
 #include "util.hpp"
+#include "util/sstream.hpp"
 
 namespace CppGenerator {
 	namespace Util
@@ -165,14 +166,6 @@ namespace CppGenerator {
 			{
 				if (m_sub)
 					m_sub->get().write(o);
-			}
-
-			std::string toString(void) const  // explicit name instead of conversion method to avoid unwanted conversions
-			{
-				std::stringstream ss;
-
-				write(ss);
-				return ss.str();
 			}
 
 		private:
@@ -365,7 +358,7 @@ namespace CppGenerator {
 		bool m_flushed = false;
 	};
 
-	class Variable;
+	class VariableDecl;
 
 	class Type : public Util::Writable
 	{
@@ -434,7 +427,10 @@ namespace CppGenerator {
 		Modifiers::Ptr operator*(void);
 		Modifiers::LRef operator&(void);
 
-		Variable operator-(const std::string &name);
+		VariableDecl operator-(const std::string &name);
+
+	protected:
+		String toString(void) const;
 	};
 
 	class Type::String : public Type
@@ -459,6 +455,10 @@ namespace CppGenerator {
 	{
 	}
 
+	inline Type::String Type::toString(void) const
+	{
+		return String(util::sstream_str(*this));
+	}
 
 	static Type Auto("auto");
 	static Type Void("void");
@@ -620,23 +620,23 @@ namespace CppGenerator {
 
 	inline Type::Modifiers::LRef Type::LRef(void)
 	{
-		return Modifiers::LRef(toString());
+		return Modifiers::LRef(util::sstream_str(*this));
 	}
 
 	inline Type::Modifiers::RRef Type::RRef(void)
 	{
-		return Modifiers::RRef(toString());
+		return Modifiers::RRef(util::sstream_str(*this));
 	}
 
 	template <typename ...Args>
 	Type::Modifiers::Ptr Type::Ptr(Args &&...args)
 	{
-		return Modifiers::Ptr(toString(), std::forward<Args>(args)...);
+		return Modifiers::Ptr(util::sstream_str(*this), std::forward<Args>(args)...);
 	}
 
 	inline Type::Modifiers::RConst Type::RConst(void)
 	{
-		return Modifiers::RConst(toString());
+		return Modifiers::RConst(util::sstream_str(*this));
 	}
 
 	namespace Op {
@@ -680,9 +680,13 @@ namespace CppGenerator {
 		class AssignOrBin;
 	}
 
+	class Variable;
+	class VariableDeclValue;
+
 	class Value : public Util::Writable
 	{
 		friend Variable;
+		friend VariableDeclValue;
 		class String;
 
 		template <typename W>
@@ -1087,7 +1091,7 @@ namespace CppGenerator {
 
 	inline Value::String Value::toString(void) const
 	{
-		return Value::String(Util::Writable::toString());
+		return Value::String(util::sstream_str(*this));
 	}
 
 	namespace Op {
@@ -2212,14 +2216,13 @@ namespace CppGenerator {
 		{
 		}
 
-		template <typename T>
-		void declare(T &o) const
-		{
-			o << m_type << " ";
-			o << static_cast<const Value&>(*this);
-		}
-
 		using Value::write;
+
+		template <typename O>
+		void declare(O &o) const
+		{
+			decl(m_type, static_cast<const Value&>(*this), o);
+		}
 
 		void write(Util::File &o) const override
 		{
@@ -2228,13 +2231,92 @@ namespace CppGenerator {
 			o << ";" << o.end_line();
 		}
 
-	private:
+		template <typename T, typename Str, typename O>
+		static void decl(T &&type, Str &&name, O &o)
+		{
+			auto s = util::sstream_str(type);
+
+			auto size = countArrSize(s);
+			auto t = s.substr(0, s.size() - size);
+			auto arr = s.substr(s.size() - size, size);
+			o << t << " " << name << arr;
+		}
+
+	protected:
 		Type m_type;
+
+	private:
+		static size_t countArrSize(const std::string &inputType)
+		{
+			size_t res = 0;
+
+			size_t depth = 0;
+			auto end = inputType.rend();
+			for (auto it = inputType.rbegin(); it != end; it++) {
+				auto c = *it;
+				if (c == ']')
+					depth++;
+				else if (c == '[')
+					depth--;
+				else if (depth == 0)
+					break;
+				res++;
+			}
+			return res;
+		}
 	};
 
-	Variable Type::operator-(const std::string &name)
+	class VariableDeclValue : public Value, public Statement
 	{
-		return Variable(toString(), name);
+	public:
+		template <typename T, typename V>
+		VariableDeclValue(T &&type, const std::string &name, V &&value) :
+			Value(Value::String(name)),
+			m_type(std::forward<T>(type)),
+			m_name(name),
+			m_value(std::forward<V>(value))
+		{
+		}
+
+		using Value::write;
+
+		void write(Util::File &o) const override
+		{
+			o.new_line();
+			Variable::decl(m_type, m_name, o);
+			o << m_value << ";" << o.end_line();
+		}
+
+	private:
+		Type m_type;
+		std::string m_name;
+		Value m_value;
+	};
+
+	class VariableDecl : public Variable
+	{
+		using Variable::Value::operator-;
+
+	public:
+		template <typename ...Args>
+		VariableDecl(Args &&...args) :
+			Variable(std::forward<Args>(args)...)
+		{
+		}
+
+		template <typename V>
+		VariableDeclValue operator-(V &&value)
+		{
+			std::stringstream ss;
+
+			ss << static_cast<const Value&>(*this);
+			return VariableDeclValue(std::move(m_type), ss.str(), std::forward<V>(value));
+		}
+	};
+
+	VariableDecl Type::operator-(const std::string &name)
+	{
+		return VariableDecl(util::sstream_str(*this), name);
 	}
 
 	class Function : public Util::Primitive::Named
