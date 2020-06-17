@@ -51,14 +51,14 @@ namespace CppGenerator {
 				return *this;
 			}
 
+		private:
+			std::ofstream m_stream;
+			size_t m_indent;
+
 			operator std::ostream&(void)
 			{
 				return m_stream;
 			}
-
-		private:
-			std::ofstream m_stream;
-			size_t m_indent;
 		};
 
 		template <typename T>
@@ -231,6 +231,8 @@ namespace CppGenerator {
 		}
 	};
 
+	class Function;
+
 	class Util::Collection : public Util::Primitive::Named
 	{
 	public:
@@ -250,6 +252,21 @@ namespace CppGenerator {
 			auto &res = m_primitives.emplace<PrimitiveType>(std::forward<Args>(args)...);
 			s.pop();
 			return res;
+		}
+
+		template <typename T, typename ...Args>
+		auto addFunction(T &&type, const std::string &name, Args &&...args)
+		{
+			auto &s = Util::Primitive::Named::getStack();
+			s.emplace(this);
+			auto &func = m_primitives.emplace<Function>(std::forward<T>(type), name);
+			s.pop();
+
+			auto res = std::tie(func);
+			if constexpr (!util::are_args_empty_v<Args...>)
+				return func.popArg(res, std::forward<Args>(args)...);
+			else
+				return res;
 		}
 	
 	protected:
@@ -2137,9 +2154,7 @@ namespace CppGenerator {
 
 		void write(Util::File &o) const
 		{
-			o.new_line() << "using " << getName() << " = ";
-			m_type.write(o);
-			o << ";" << o.end_line();
+			o.new_line() << "using " << getName() << " = " << m_type << ";" << o.end_line();
 		}
 
 	private:
@@ -2185,7 +2200,7 @@ namespace CppGenerator {
 		}
 	};
 
-	class Variable : public Value
+	class Variable : public Value, public Statement
 	{
 	public:
 		template <typename T>
@@ -2198,11 +2213,20 @@ namespace CppGenerator {
 		{
 		}
 
-		void declare(std::ostream &o) const
+		template <typename T>
+		void declare(T &o) const
 		{
-			m_type.write(o);
-			o << " ";
-			Value::write(o);
+			o << m_type << " ";
+			o << static_cast<const Value&>(*this);
+		}
+
+		using Value::write;
+
+		void write(Util::File &o) const override
+		{
+			o.new_line();
+			declare(o);
+			o << ";" << o.end_line();
 		}
 
 	private:
@@ -2213,7 +2237,7 @@ namespace CppGenerator {
 	{
 	public:
 		template <typename RetType>
-		Function(const std::string &name, RetType &&return_type) :
+		Function(RetType &&return_type, const std::string &name) :
 			Util::Primitive::Named(name),
 			m_return_type(std::forward<RetType>(return_type))
 		{
@@ -2232,6 +2256,12 @@ namespace CppGenerator {
 		Statement& add(Args &&...args)
 		{
 			return m_smts.emplace(std::forward<Args>(args)...);
+		}
+
+		template <typename Type, typename ...Args>
+		Type& add(Args &&...args)
+		{
+			return m_smts.emplace<Type>(std::forward<Args>(args)...);
 		}
 
 		void write(Util::File &o) const
@@ -2259,6 +2289,19 @@ namespace CppGenerator {
 		Type m_return_type;
 		util::unique_vector<Variable> m_args;
 		util::unique_vector<Statement> m_smts;
+
+		friend Util::Collection;
+		template <typename Sf, typename First, typename Second, typename ...Args>
+		auto popArg(Sf &&sf, First &&first, Second &&second, Args &&...args)
+		{
+			auto &to_add = addArg(std::forward<First>(first), std::forward<Second>(second));
+
+			auto res = std::tuple_cat(std::forward<Sf>(sf), std::tuple<Variable&>(to_add));
+			if constexpr (!util::are_args_empty_v<Args...>)
+				return popArg(res, std::forward<Args>(args)...);
+			else
+				return res;
+		}
 	};
 
 	class Return : public Statement
