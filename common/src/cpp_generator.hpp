@@ -180,7 +180,13 @@ namespace CppGenerator {
 
 		class PrependKeyword;
 	}
-	
+
+	std::ostream& operator<<(std::ostream &o, const Util::Writable &value)
+	{
+		value.write(o);
+		return o;
+	}
+
 	class Namespace;
 
 	class Util::Primitive::Named : public Util::Primitive
@@ -598,199 +604,6 @@ namespace CppGenerator {
 		return Modifiers::RConst(toString());
 	}
 
-	class Class : public Util::Collection, public Type
-	{
-		using Type::write;
-
-	public:
-		enum class Visibility {
-			Public,
-			Protected,
-			Private
-		};
-
-		Class(const std::string &name, Visibility base_visibility = Visibility::Public) :
-			Util::Collection(name),
-			Type(getBaseName()),
-			m_base_visibility(base_visibility),
-			m_visibility(m_base_visibility)
-		{
-		}
-		~Class(void)
-		{
-		}
-
-		static const std::string& VisibilityToStr(const Visibility &visibility)
-		{
-			static const std::map<Visibility, std::string> table = {
-				{Visibility::Public, "public"},
-				{Visibility::Protected, "protected"},
-				{Visibility::Private, "private"}
-			};
-
-			return table.at(visibility);
-		}
-
-		class Member
-		{
-		public:
-			Member(Visibility visibility) :
-				m_visibility(visibility)
-			{
-			}
-			~Member(void)
-			{
-			}
-
-			operator Visibility(void) const
-			{
-				return m_visibility;
-			}
-
-		private:
-			Visibility m_visibility;
-		};
-
-		template <typename Membered>
-		class Memberize : public Membered, public Member
-		{
-		public:
-			template <typename ...Args>
-			Memberize(Visibility visibility, Args &&...args) :
-				Membered(std::forward<Args>(args)...),
-				Member(visibility)
-			{
-			}
-			~Memberize(void) override
-			{
-			}
-		};
-
-	private:
-		using Util::Collection::add;
-
-	public:
-		template <class PrimitiveType, typename ...Args>
-		PrimitiveType& add(Args &&...args)
-		{
-			return Util::Collection::add<Memberize<PrimitiveType>>(m_visibility, std::forward<Args>(args)...);
-		}
-
-		void set(Visibility visiblity)
-		{
-			m_visibility = visiblity;
-		}
-
-		void write(Util::File &o) const override
-		{
-			o.new_line() << getPrimType() << " " << getName() << o.end_line();
-			o.new_line() << "{" << o.end_line();
-			o.indent();
-			bool is_first = true;
-			Visibility cur_vis = m_base_visibility;
-			for (auto &p : getPrimitives()) {
-				auto &mem = dynamic_cast<const Member&>(p);
-
-				Visibility vis(mem);
-				if (vis != cur_vis) {
-					if (!is_first)
-						o << o.end_line();
-					o.unindent();
-					o.new_line() << VisibilityToStr(mem) << ":" << o.end_line();
-					o.indent();
-					cur_vis = vis;
-				}
-
-				p.write(o);
-				is_first = false;
-			}
-			o.unindent();
-			o.new_line() << "};" << o.end_line();
-		}
-
-	protected:
-		virtual const std::string& getPrimType(void) const
-		{
-			static const std::string res("class");
-
-			return res;
-		}
-
-	private:
-		Visibility m_base_visibility;
-		Visibility m_visibility;
-	};
-
-	class Struct : public Class
-	{
-	public:
-		Struct(const std::string &name) :
-			Class(name, Visibility::Public)
-		{
-		}
-		~Struct(void)
-		{
-		}
-
-		const std::string& getPrimType(void) const override
-		{
-			static const std::string res("struct");
-
-			return res;
-		}
-	};
-
-	class Using : public Util::Primitive::Named, public Type
-	{
-		using Type::write;
-
-	public:
-		template <typename T>
-		Using(const std::string &name, T &&type) :
-			Util::Primitive::Named(name),
-			Type(getBaseName()),
-			m_type(std::forward<T>(type))
-		{
-		}
-		~Using(void)
-		{
-		}
-
-		void write(Util::File &o) const
-		{
-			o.new_line() << "using " << getName() << " = ";
-			m_type.write(o);
-			o << ";" << o.end_line();
-		}
-
-	private:
-		const Type m_type;
-	};
-
-	class Variable : public Util::Primitive::Named
-	{
-	public:
-		template <typename T>
-		Variable(T &&type, const std::string &name) :
-			Util::Primitive::Named(name),
-			m_type(std::forward<T>(type))
-		{
-		}
-		~Variable(void)
-		{
-		}
-
-		void write(Util::File &o) const
-		{
-			o.new_line();
-			m_type.write(o);
-			o << " " << getName() << ";" << o.end_line();
-		}
-
-	private:
-		Type m_type;
-	};
-
 	namespace Op {
 		class Inc;
 		class Dec;
@@ -832,8 +645,11 @@ namespace CppGenerator {
 		class AssignOrBin;
 	}
 
+	class Variable;
+
 	class Statement : public Util::Writable
 	{
+		friend Variable;
 		class String;
 
 		template <typename W>
@@ -2146,6 +1962,274 @@ namespace CppGenerator {
 	{
 		return Modifiers::LRef(toString());
 	}
+
+	class Class : public Util::Collection, public Type
+	{
+		using Type::write;
+
+	public:
+		enum class Visibility {
+			Public,
+			Protected,
+			Private
+		};
+
+		Class(const std::string &name, Visibility base_visibility = Visibility::Public) :
+			Util::Collection(name),
+			Type(getBaseName()),
+			m_base_visibility(base_visibility),
+			m_visibility(m_base_visibility)
+		{
+		}
+		~Class(void)
+		{
+		}
+
+		static const std::string& VisibilityToStr(const Visibility &visibility)
+		{
+			static const std::map<Visibility, std::string> table = {
+				{Visibility::Public, "public"},
+				{Visibility::Protected, "protected"},
+				{Visibility::Private, "private"}
+			};
+
+			return table.at(visibility);
+		}
+
+		class Member
+		{
+		public:
+			Member(Visibility visibility) :
+				m_visibility(visibility)
+			{
+			}
+			~Member(void)
+			{
+			}
+
+			operator Visibility(void) const
+			{
+				return m_visibility;
+			}
+
+		private:
+			Visibility m_visibility;
+		};
+
+		template <typename Membered>
+		class Memberize : public Membered, public Member
+		{
+		public:
+			template <typename ...Args>
+			Memberize(Visibility visibility, Args &&...args) :
+				Membered(std::forward<Args>(args)...),
+				Member(visibility)
+			{
+			}
+			~Memberize(void) override
+			{
+			}
+		};
+
+	private:
+		using Util::Collection::add;
+
+	public:
+		template <class PrimitiveType, typename ...Args>
+		PrimitiveType& add(Args &&...args)
+		{
+			return Util::Collection::add<Memberize<PrimitiveType>>(m_visibility, std::forward<Args>(args)...);
+		}
+
+		void set(Visibility visiblity)
+		{
+			m_visibility = visiblity;
+		}
+
+		void write(Util::File &o) const override
+		{
+			o.new_line() << getPrimType() << " " << getName() << o.end_line();
+			o.new_line() << "{" << o.end_line();
+			o.indent();
+			bool is_first = true;
+			Visibility cur_vis = m_base_visibility;
+			for (auto &p : getPrimitives()) {
+				auto &mem = dynamic_cast<const Member&>(p);
+
+				Visibility vis(mem);
+				if (vis != cur_vis) {
+					if (!is_first)
+						o << o.end_line();
+					o.unindent();
+					o.new_line() << VisibilityToStr(mem) << ":" << o.end_line();
+					o.indent();
+					cur_vis = vis;
+				}
+
+				p.write(o);
+				is_first = false;
+			}
+			o.unindent();
+			o.new_line() << "};" << o.end_line();
+		}
+
+	protected:
+		virtual const std::string& getPrimType(void) const
+		{
+			static const std::string res("class");
+
+			return res;
+		}
+
+	private:
+		Visibility m_base_visibility;
+		Visibility m_visibility;
+	};
+
+	class Struct : public Class
+	{
+	public:
+		Struct(const std::string &name) :
+			Class(name, Visibility::Public)
+		{
+		}
+		~Struct(void)
+		{
+		}
+
+		const std::string& getPrimType(void) const override
+		{
+			static const std::string res("struct");
+
+			return res;
+		}
+	};
+
+	class Using : public Util::Primitive::Named, public Type
+	{
+		using Type::write;
+
+	public:
+		template <typename T>
+		Using(const std::string &name, T &&type) :
+			Util::Primitive::Named(name),
+			Type(getBaseName()),
+			m_type(std::forward<T>(type))
+		{
+		}
+		~Using(void)
+		{
+		}
+
+		void write(Util::File &o) const
+		{
+			o.new_line() << "using " << getName() << " = ";
+			m_type.write(o);
+			o << ";" << o.end_line();
+		}
+
+	private:
+		const Type m_type;
+	};
+
+	class Variable : public Smt
+	{
+	public:
+		template <typename T>
+		Variable(T &&type, const std::string &name) :
+			Smt(Smt::String(name)),
+			m_type(std::forward<T>(type))
+		{
+		}
+		~Variable(void)
+		{
+		}
+
+		void declare(std::ostream &o) const
+		{
+			m_type.write(o);
+			o << " ";
+			Smt::write(o);
+		}
+
+	private:
+		Type m_type;
+	};
+
+	class Function : public Util::Primitive::Named
+	{
+	public:
+		template <typename RetType>
+		Function(const std::string &name, RetType &&return_type) :
+			Util::Primitive::Named(name),
+			m_return_type(std::forward<RetType>(return_type))
+		{
+		}
+		~Function(void)
+		{
+		}
+
+		template <typename ...Args>
+		Variable& addArg(Args &&...args)
+		{
+			return m_args.emplace(std::forward<Args>(args)...);
+		}
+
+		template <typename ...Args>
+		Smt& add(Args &&...args)
+		{
+			return m_smts.emplace(std::forward<Args>(args)...);
+		}
+
+		void write(Util::File &o) const
+		{
+			o.new_line() << m_return_type << " " << getName() << "(";
+
+			auto comma = "";
+			for (auto &a : m_args) {
+				o << comma;
+				a.declare(o);
+				comma = ", ";
+			}
+			if (m_args.size() == 0)
+				o << "void";
+			o << ")" << o.end_line();
+			o.new_line() << "{" << o.end_line();
+			o.indent();
+			for (auto &s : m_smts)
+				o.new_line() << s << ";" << o.end_line();
+			o.unindent();
+			o.new_line() << "}" << o.end_line();
+		}
+
+	private:
+		Type m_return_type;
+		util::unique_vector<Variable> m_args;
+		util::unique_vector<Smt> m_smts;
+	};
+
+	class Return : public Smt
+	{
+	public:
+		Return(void) :
+			Smt()
+		{
+		}
+
+		template <typename S>
+		Return(S &&smt) :
+			m_value(std::forward<S>(smt))
+		{
+		}
+
+		void write(std::ostream &o) const override
+		{
+			o << "return " << m_value;
+		}
+
+	private:
+		Smt m_value;
+	};
 }
 
 namespace cppgen = CppGenerator;
