@@ -6,9 +6,8 @@
 #include "util.hpp"
 
 namespace CppGenerator {
-	class Writer
+	namespace Util
 	{
-	public:
 		class File
 		{
 		public:
@@ -62,52 +61,12 @@ namespace CppGenerator {
 			size_t m_indent;
 		};
 
-		Writer(const std::string &path, const std::string &basename) :
-			m_filepath(path + std::string("/")),
-			m_basedecl(basename + std::string(".hpp")),
-			m_baseimpl(basename + std::string(".cpp")),
-			m_decl(m_filepath + m_basedecl),
-			m_impl(m_filepath + m_baseimpl)
-		{
-			m_decl.new_line() << "#pragma once" << m_decl.end_line() << m_decl.end_line();
-			m_impl.new_line() << "#include \"" << m_basedecl << "\"" << m_decl.end_line() << m_decl.end_line();
-		}
-		~Writer(void)
-		{
-		}
-
-		File& decl(void)
-		{
-			return m_decl;
-		}
-
-		File& impl(void)
-		{
-			return m_impl;
-		}
-
-		template <typename T>
-		void write(T &&writable)
-		{
-			writable.write(*this);
-		}
-
-	private:
-		const std::string m_filepath;
-		const std::string m_basedecl;
-		const std::string m_baseimpl;
-		File m_decl;
-		File m_impl;
-	};
-
-	namespace Util
-	{
 		class Primitive
 		{
 		public:
 			virtual ~Primitive(void) = default;
 
-			virtual void write(Writer &w) const = 0;
+			virtual void write(Util::File &o) const = 0;
 
 			class Named;
 		};
@@ -293,6 +252,8 @@ namespace CppGenerator {
 		util::unique_vector<Util::Primitive> m_primitives;
 	};
 
+	class Out;
+
 	class Namespace : public Util::Collection
 	{
 	public:
@@ -306,55 +267,65 @@ namespace CppGenerator {
 		{
 		}
 
-		static Namespace global(void)
-		{
-			auto &s = Util::Primitive::Named::getStack();
-
-			s.emplace(nullptr);
-			return Namespace("");
-		}
-
-		void write(Writer &w) const override
+		void write(Util::File &o) const override
 		{
 			auto isMain = getName() == "";
 
 			if (!isMain) {
-				writePrologue(w.decl());
-				writePrologue(w.impl());
+				o.new_line() << "namespace " << getName() << o.end_line();
+				o.new_line() << "{" << o.end_line();
+				o.indent();
 			}
 			auto is_first = true;
 			for (auto &p : getPrimitives()) {
-				if (!is_first) {
-					writeSep(w.decl());
-					writeSep(w.impl());
-				}
+				if (!is_first)
+					o << o.end_line();
 				is_first = false;
-				p.write(w);
+				p.write(o);
 			}
 			if (!isMain) {
-				writeEpilogue(w.decl());
-				writeEpilogue(w.impl());
+				o.unindent();
+				o.new_line() << "}" << o.end_line();
 			}
 		}
 
 	private:
-		void writePrologue(Writer::File &f) const
+		friend Out;
+
+		class NullPlacer
 		{
-			f.new_line() << "namespace " << getName() << f.end_line();
-			f.new_line() << "{" << f.end_line();
-			f.indent();
+		public:
+			NullPlacer(void)
+			{
+				auto &s = Util::Primitive::Named::getStack();
+				s.emplace(nullptr);
+			}
+		};
+	};
+
+	class Out : Namespace::NullPlacer, public Namespace
+	{
+	public:
+		Out(const std::string &path) :
+			Namespace(""),
+			m_path(path)
+		{
 		}
 
-		void writeSep(Writer::File &f) const
+		~Out(void)
 		{
-			f << f.end_line();
+			Util::File f(m_path);
+
+			Namespace::write(f);
 		}
 
-		void writeEpilogue(Writer::File &f) const
+		const std::string& getPath(void) const
 		{
-			f.unindent();
-			f.new_line() << "}" << f.end_line();
+			return m_path;
 		}
+
+	private:
+		const std::string m_path;
 	};
 
 	class Type : public Util::Writable
@@ -710,13 +681,11 @@ namespace CppGenerator {
 			m_visibility = visiblity;
 		}
 
-		void write(Writer &w) const override
+		void write(Util::File &o) const override
 		{
-			auto &decl = w.decl();
-
-			decl.new_line() << getPrimType() << " " << getName() << decl.end_line();
-			decl.new_line() << "{" << decl.end_line();
-			decl.indent();
+			o.new_line() << getPrimType() << " " << getName() << o.end_line();
+			o.new_line() << "{" << o.end_line();
+			o.indent();
 			bool is_first = true;
 			Visibility cur_vis = m_base_visibility;
 			for (auto &p : getPrimitives()) {
@@ -725,18 +694,18 @@ namespace CppGenerator {
 				Visibility vis(mem);
 				if (vis != cur_vis) {
 					if (!is_first)
-						decl << decl.end_line();
-					decl.unindent();
-					decl.new_line() << VisibilityToStr(mem) << ":" << decl.end_line();
-					decl.indent();
+						o << o.end_line();
+					o.unindent();
+					o.new_line() << VisibilityToStr(mem) << ":" << o.end_line();
+					o.indent();
 					cur_vis = vis;
 				}
 
-				p.write(w);
+				p.write(o);
 				is_first = false;
 			}
-			decl.unindent();
-			decl.new_line() << "};" << decl.end_line();
+			o.unindent();
+			o.new_line() << "};" << o.end_line();
 		}
 
 	protected:
@@ -787,13 +756,11 @@ namespace CppGenerator {
 		{
 		}
 
-		void write(Writer &w) const
+		void write(Util::File &o) const
 		{
-			auto &decl = w.decl();
-
-			decl.new_line() << "using " << getName() << " = ";
-			m_type.write(w.decl());
-			decl << ";" << decl.end_line();
+			o.new_line() << "using " << getName() << " = ";
+			m_type.write(o);
+			o << ";" << o.end_line();
 		}
 
 	private:
@@ -813,13 +780,11 @@ namespace CppGenerator {
 		{
 		}
 
-		void write(Writer &w) const
+		void write(Util::File &o) const
 		{
-			auto &decl = w.decl();
-
-			decl.new_line();
-			m_type.write(decl);
-			decl << " " << getName() << ";" << decl.end_line();
+			o.new_line();
+			m_type.write(o);
+			o << " " << getName() << ";" << o.end_line();
 		}
 
 	private:
