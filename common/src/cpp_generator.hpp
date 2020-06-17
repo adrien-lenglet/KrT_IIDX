@@ -376,6 +376,8 @@ namespace CppGenerator {
 		bool m_flushed = false;
 	};
 
+	class Value;
+
 	class Type : public Util::Writable
 	{
 		class String;
@@ -445,6 +447,11 @@ namespace CppGenerator {
 
 		Util::VariableDecl operator-(const char *name);
 		Util::VariableDecl operator-(const Bind &bind);
+
+		template <typename V, class = std::enable_if_t<!std::is_same_v<std::decay_t<V>, Bind> && !std::is_same_v<std::decay_t<V>, const char*>>>
+		Value operator-(V &&val);
+		template <typename ...Values>
+		Value operator()(Values &&...val);
 
 	protected:
 		String toString(void) const;
@@ -849,6 +856,7 @@ namespace CppGenerator {
 		CppGenerator::Op::AssignOrBin operator|=(S &&val);
 
 	protected:
+		friend Type;
 		class String;
 
 		String toString(void) const;
@@ -2259,7 +2267,11 @@ namespace CppGenerator {
 			auto size = countArrSize(s);
 			auto t = s.substr(0, s.size() - size);
 			auto arr = s.substr(s.size() - size, size);
-			o << t << " " << name << arr;
+			o << t;
+			auto s_name = util::sstream_str(std::forward<Str>(name));
+			if (s_name.size() > 0)
+				o << " " << s_name;
+			o << arr;
 		}
 
 	protected:
@@ -2358,6 +2370,28 @@ namespace CppGenerator {
 	Util::VariableDecl Type::operator-(const Bind &bind)
 	{
 		return Util::VariableDecl(util::sstream_str(*this), bind);
+	}
+
+	template <typename V, class>
+	Value Type::operator-(V &&val)
+	{
+		return Value::String(util::sstream_str(*this) + std::string(" ") + util::sstream_str(std::forward<V>(val)));
+	}
+
+	template <typename ...Values>
+	Value Type::operator()(Values &&...val)
+	{
+		std::stringstream ss;
+
+		ss << *this << "(";
+		auto values = util::vectorize_args<Value>(std::forward<Values>(val)...);
+		auto comma = "";
+		for (auto &v : values) {
+			ss << comma << v;
+			comma = ", ";
+		}
+		ss << ")";
+		return Value::String(ss.str());
 	}
 
 	class Function : public Util::Primitive::Named
