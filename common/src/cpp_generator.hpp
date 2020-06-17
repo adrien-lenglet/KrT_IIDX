@@ -365,6 +365,8 @@ namespace CppGenerator {
 		bool m_flushed = false;
 	};
 
+	class Variable;
+
 	class Type : public Util::Writable
 	{
 		class String;
@@ -431,6 +433,8 @@ namespace CppGenerator {
 		Modifiers::Array operator[](Args &&...args);
 		Modifiers::Ptr operator*(void);
 		Modifiers::LRef operator&(void);
+
+		Variable operator-(const std::string &name);
 	};
 
 	class Type::String : public Type
@@ -675,8 +679,6 @@ namespace CppGenerator {
 		class AssignXorBin;
 		class AssignOrBin;
 	}
-
-	class Variable;
 
 	class Value : public Util::Writable
 	{
@@ -2209,9 +2211,6 @@ namespace CppGenerator {
 			m_type(std::forward<T>(type))
 		{
 		}
-		~Variable(void)
-		{
-		}
 
 		template <typename T>
 		void declare(T &o) const
@@ -2233,6 +2232,11 @@ namespace CppGenerator {
 		Type m_type;
 	};
 
+	Variable Type::operator-(const std::string &name)
+	{
+		return Variable(toString(), name);
+	}
+
 	class Function : public Util::Primitive::Named
 	{
 	public:
@@ -2252,10 +2256,15 @@ namespace CppGenerator {
 			return m_args.emplace(std::forward<Args>(args)...);
 		}
 
-		template <typename ...Args>
-		Statement& add(Args &&...args)
+		template <typename First, typename ...Args>
+		Statement& add(First &&first, Args &&...args)
 		{
-			return m_smts.emplace(std::forward<Args>(args)...);
+			auto &res = m_smts.emplace(std::forward<First>(first));
+
+			if constexpr (util::are_args_empty_v<Args...>)
+				return res;
+			else
+				return add(std::forward<Args>(args)...);
 		}
 
 		template <typename Type, typename ...Args>
@@ -2291,10 +2300,10 @@ namespace CppGenerator {
 		util::unique_vector<Statement> m_smts;
 
 		friend Util::Collection;
-		template <typename Sf, typename First, typename Second, typename ...Args>
-		auto popArg(Sf &&sf, First &&first, Second &&second, Args &&...args)
+		template <typename Sf, typename First, typename ...Args>
+		auto popArg(Sf &&sf, First &&first, Args &&...args)
 		{
-			auto &to_add = addArg(std::forward<First>(first), std::forward<Second>(second));
+			auto &to_add = addArg(std::forward<First>(first));
 
 			auto res = std::tuple_cat(std::forward<Sf>(sf), std::tuple<Variable&>(to_add));
 			if constexpr (!util::are_args_empty_v<Args...>)
@@ -2330,6 +2339,30 @@ namespace CppGenerator {
 	private:
 		Value m_value;
 		bool m_empty = false;
+	};
+
+	class Brace : public Value
+	{
+	public:
+		template<typename ...Args>
+		Brace(Args &&...args) :
+			m_values(util::vectorize_args<Value>(std::forward<Args>(args)...))
+		{
+		}
+
+		void write(std::ostream &o) const override
+		{
+			o << "{";
+			auto comma = "";
+			for (auto &v : m_values) {
+				o << comma << v;
+				comma = ", ";
+			}
+			o << "}";
+		}
+
+	private:
+		std::vector<Value> m_values;
 	};
 
 	/*class If : public Statement
