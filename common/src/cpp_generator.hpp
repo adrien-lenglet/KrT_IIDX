@@ -176,6 +176,7 @@ namespace CppGenerator {
 		using FileWritable = GenWritable<File>;
 
 		class PrependKeyword;
+		class VariableDecl;
 	}
 
 	std::ostream& operator<<(std::ostream &o, const Util::Writable &value)
@@ -358,8 +359,6 @@ namespace CppGenerator {
 		bool m_flushed = false;
 	};
 
-	class VariableDecl;
-
 	class Type : public Util::Writable
 	{
 		class String;
@@ -427,7 +426,7 @@ namespace CppGenerator {
 		Modifiers::Ptr operator*(void);
 		Modifiers::LRef operator&(void);
 
-		VariableDecl operator-(const std::string &name);
+		Util::VariableDecl operator-(const std::string &name);
 
 	protected:
 		String toString(void) const;
@@ -680,15 +679,8 @@ namespace CppGenerator {
 		class AssignOrBin;
 	}
 
-	class Variable;
-	class VariableDeclValue;
-
 	class Value : public Util::Writable
 	{
-		friend Variable;
-		friend VariableDeclValue;
-		class String;
-
 		template <typename W>
 		static inline constexpr bool is_w_ok_v = std::is_base_of_v<Value, std::remove_reference_t<W>> && !std::is_same_v<std::remove_reference_t<W>, Value>;
 
@@ -837,6 +829,9 @@ namespace CppGenerator {
 		CppGenerator::Op::AssignXorBin operator^=(S &&val);
 		template <typename S>
 		CppGenerator::Op::AssignOrBin operator|=(S &&val);
+
+	protected:
+		class String;
 
 		String toString(void) const;
 
@@ -2266,36 +2261,10 @@ namespace CppGenerator {
 		}
 	};
 
-	class VariableDeclValue : public Value, public Statement
-	{
-	public:
-		template <typename T, typename V>
-		VariableDeclValue(T &&type, const std::string &name, V &&value) :
-			Value(Value::String(name)),
-			m_type(std::forward<T>(type)),
-			m_name(name),
-			m_value(std::forward<V>(value))
-		{
-		}
-
-		using Value::write;
-
-		void write(Util::File &o) const override
-		{
-			o.new_line();
-			Variable::decl(m_type, m_name, o);
-			o << m_value << ";" << o.end_line();
-		}
-
-	private:
-		Type m_type;
-		std::string m_name;
-		Value m_value;
-	};
-
-	class VariableDecl : public Variable
+	class Util::VariableDecl : public Variable
 	{
 		using Variable::Value::operator-;
+		using Variable::Value::operator=;
 
 	public:
 		template <typename ...Args>
@@ -2304,19 +2273,59 @@ namespace CppGenerator {
 		{
 		}
 
+		class WithValue : public Value, public Statement
+		{
+		public:
+			template <typename T, typename V>
+			WithValue(T &&type, const std::string &name, V &&value, bool is_equal = false) :
+				Value(Value::String(name)),
+				m_type(std::forward<T>(type)),
+				m_name(name),
+				m_value(std::forward<V>(value)),
+				m_is_equal(is_equal)
+			{
+			}
+
+			using Value::write;
+
+			void write(Util::File &o) const override
+			{
+				o.new_line();
+				Variable::decl(m_type, m_name, o);
+				if (m_is_equal)
+					o << " = ";
+				o << m_value << ";" << o.end_line();
+			}
+
+		private:
+			Type m_type;
+			std::string m_name;
+			Value m_value;
+			bool m_is_equal;
+		};
+
 		template <typename V>
-		VariableDeclValue operator-(V &&value)
+		WithValue operator-(V &&value)
 		{
 			std::stringstream ss;
 
 			ss << static_cast<const Value&>(*this);
-			return VariableDeclValue(std::move(m_type), ss.str(), std::forward<V>(value));
+			return WithValue(std::move(m_type), ss.str(), std::forward<V>(value));
+		}
+
+		template <typename V>
+		WithValue operator=(V &&value)
+		{
+			std::stringstream ss;
+
+			ss << static_cast<const Value&>(*this);
+			return WithValue(std::move(m_type), ss.str(), std::forward<V>(value), true);
 		}
 	};
 
-	VariableDecl Type::operator-(const std::string &name)
+	Util::VariableDecl Type::operator-(const std::string &name)
 	{
-		return VariableDecl(util::sstream_str(*this), name);
+		return Util::VariableDecl(util::sstream_str(*this), name);
 	}
 
 	class Function : public Util::Primitive::Named
