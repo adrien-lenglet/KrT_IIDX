@@ -188,6 +188,16 @@ namespace CppGenerator {
 		using FileWritable = GenWritable<File>;
 
 		class PrependKeyword;
+
+		class Long_t;
+		class Long_m;
+
+		class IdentifierName;
+		template <typename TupleType>
+		class IdentifierBind;
+
+		template <typename IdType>
+		class Variable;
 		template <typename IdType>
 		class VariableDecl;
 		template <typename IdType>
@@ -384,12 +394,12 @@ namespace CppGenerator {
 
 	class Type : public Util::Writable
 	{
-		class String;
-
 		template <typename W>
 		static inline constexpr bool is_w_ok_v = std::is_base_of_v<Type, std::remove_reference_t<W>> && !std::is_same_v<std::remove_reference_t<W>, Type>;
 
 	public:
+		class Direct;
+
 		Type(void)
 		{
 		}
@@ -452,20 +462,33 @@ namespace CppGenerator {
 		auto operator-(const char *name);
 		template <typename BindType>
 		auto operator-(const BindType &bind);
+		auto operator|(const char *name);
+		template <typename BindType>
+		auto operator|(const BindType &bind);
 
-		template <typename V, class = std::enable_if_t<!util::is_instance_of_template<V, std::tuple>{} && !std::is_same_v<std::decay_t<V>, const char*>>>
+	private:
+		template <typename V>
+		static inline constexpr bool is_identifier_v = util::is_instance_of_template<V, std::tuple>{} || std::is_same_v<std::decay_t<V>, const char*>;
+
+	public:
+		template <typename V, class = std::enable_if_t<!is_identifier_v<V>>>
 		Value operator-(V &&val);
+		template <typename V, class = std::enable_if_t<!is_identifier_v<V>>>
+		Value operator|(V &&val);
 		template <typename ...Values>
 		Value operator()(Values &&...val);
 
+		auto operator>>(const Type &other);
+		auto operator%(const Type &other);
+
 	protected:
-		String toString(void) const;
+		Direct toString(void) const;
 	};
 
-	class Type::String : public Type
+	class Type::Direct : public Type
 	{
 	public:
-		String(const std::string &str) :
+		Direct(const std::string &str) :
 			m_str(str)
 		{
 		}
@@ -479,14 +502,24 @@ namespace CppGenerator {
 		std::string m_str;
 	};
 
+	auto operator ""_t(const char *str, size_t size)
+	{
+		std::string s;
+
+		s.reserve(size);
+		for (size_t i = 0; i < size; i++)
+			s.push_back(str[i]);
+		return Type::Direct(str);
+	}
+
 	inline Type::Type(const std::string &str) :
-		Type(static_cast<String&&>(String(str)))
+		Type(static_cast<Direct&&>(Direct(str)))
 	{
 	}
 
-	inline Type::String Type::toString(void) const
+	inline Type::Direct Type::toString(void) const
 	{
-		return String(util::sstream_str(*this));
+		return Direct(util::sstream_str(*this));
 	}
 
 	static Type Auto("auto");
@@ -494,7 +527,6 @@ namespace CppGenerator {
 	static Type Char("char");
 	static Type Short("short");
 	static Type Int("int");
-	static Type Long_t("long");	// declare Long_t to not conflict with Long modifier
 	static Type Float("float");
 	static Type Double("double");
 	static Type Bool("bool");
@@ -554,13 +586,31 @@ namespace CppGenerator {
 			Util::PrependKeyword("typename", std::forward<T>(type)) {}
 	};
 
-	class Long : public Util::PrependKeyword
+	class Util::Long_m : public Util::PrependKeyword
 	{
 	public:
 		template <typename T>
-		Long(T &&type) :
+		Long_m(T &&type) :
 			Util::PrependKeyword("long", std::forward<T>(type)) {}
 	};
+
+	class Util::Long_t : public Type
+	{
+	public:
+		template <typename ...Args>
+		Long_t(Args &&...args) :
+			Type(std::forward<Args>(args)...)
+		{
+		}
+
+		template <typename T>
+		auto operator()(T &&type)
+		{
+			return Util::Long_m(std::forward<T>(type));
+		}
+	};
+
+	static Util::Long_t Long("long");
 
 	class Signed : public Util::PrependKeyword
 	{
@@ -576,6 +626,14 @@ namespace CppGenerator {
 		template <typename T>
 		Unsigned(T &&type) :
 			Util::PrependKeyword("unsigned", std::forward<T>(type)) {}
+	};
+
+	class Constexpr : public Util::PrependKeyword
+	{
+	public:
+		template <typename T>
+		Constexpr(T &&type) :
+			Util::PrependKeyword("constexpr", std::forward<T>(type)) {}
 	};
 
 	class Type::Modifiers::LRef : public Type
@@ -785,6 +843,18 @@ namespace CppGenerator {
 		template <typename ...Args>
 		Modifiers::MemberPtr MemberPtr(Args &&...args);
 
+		template <typename ...Args>
+		decltype(auto) M(Args &&...args)
+		{
+			return Member(std::forward<Args>(args)...);
+		}
+
+		template <typename ...Args>
+		decltype(auto) Mp(Args &&...args)
+		{
+			return MemberPtr(std::forward<Args>(args)...);
+		}
+
 		Modifiers::Inc operator ++(int);
 		Modifiers::Dec operator --(int);
 		template <typename ...Args>
@@ -860,12 +930,10 @@ namespace CppGenerator {
 		template <typename S>
 		CppGenerator::Op::AssignOrBin operator|=(S &&val);
 
-	protected:
-		friend Type;
-		friend Function;
-		class String;
+		class Direct;
 
-		String toString(void) const;
+	protected:
+		Direct toString(void) const;
 
 	private:
 		void writeChar(std::ostream &o, char c)
@@ -1009,12 +1077,10 @@ namespace CppGenerator {
 		}
 	};
 
-	using Value = Value;
-
-	class Value::String : public Value
+	class Value::Direct : public Value
 	{
 	public:
-		String(const std::string &str) :
+		Direct(const std::string &str) :
 			m_str(str)
 		{
 		}
@@ -1028,97 +1094,107 @@ namespace CppGenerator {
 		std::string m_str;
 	};
 
+	auto operator ""_v(const char *str, size_t size)
+	{
+		std::string s;
+
+		s.reserve(size);
+		for (size_t i = 0; i < size; i++)
+			s.push_back(str[i]);
+		return Value::Direct(str);
+	}
+
 	static Value Nil;
 
 	inline Value::Value(const std::string &str) :
-		Value(String(stringLiteral(str)))
+		Value(Direct(stringLiteral(str)))
 	{
 	}
 
 	inline Value::Value(const char str[]) :
-		Value(String(stringLiteral(str)))
+		Value(Direct(stringLiteral(str)))
 	{
 	}
 
 	inline Value::Value(std::nullptr_t) :
-		Value(String("nullptr"))
+		Value(Direct("nullptr"))
 	{
 	}
 
 	inline Value::Value(bool b) :
-		Value(String(boolLiteral(b)))
+		Value(Direct(boolLiteral(b)))
 	{
 	}
 
 	inline Value::Value(float f) :
-		Value(String(floatLiteral(f)))
+		Value(Direct(floatLiteral(f)))
 	{
 	}
 
 	inline Value::Value(double f) :
-		Value(String(doubleLiteral(f)))
+		Value(Direct(doubleLiteral(f)))
 	{
 	}
 
 	inline Value::Value(long double f) :
-		Value(String(longDoubleLiteral(f)))
+		Value(Direct(longDoubleLiteral(f)))
 	{
 	}
 
 	inline Value::Value(unsigned char u) :
-		Value(String(unsignedCharLiteral(u)))
+		Value(Direct(unsignedCharLiteral(u)))
 	{
 	}
 
 	inline Value::Value(unsigned short u) :
-		Value(String(unsignedShortLiteral(u)))
+		Value(Direct(unsignedShortLiteral(u)))
 	{
 	}
 
 	inline Value::Value(unsigned int u) :
-		Value(String(unsignedIntLiteral(u)))
+		Value(Direct(unsignedIntLiteral(u)))
 	{
 	}
 
 	inline Value::Value(unsigned long u) :
-		Value(String(unsignedLongLiteral(u)))
+		Value(Direct(unsignedLongLiteral(u)))
 	{
 	}
 
 
 	inline Value::Value(unsigned long long u) :
-		Value(String(unsignedLongLongLiteral(u)))
+		Value(Direct(unsignedLongLongLiteral(u)))
 	{
 	}
 
 	inline Value::Value(char i) :
-		Value(String(charLiteral(i)))
+		Value(Direct(charLiteral(i)))
 	{
 	}
 
 	inline Value::Value(short i) :
-		Value(String(shortLiteral(i)))
+		Value(Direct(shortLiteral(i)))
 	{
 	}
 
 	inline Value::Value(int i) :
-		Value(String(intLiteral(i)))
+		Value(Direct(intLiteral(i)))
 	{
 	}
 
 	inline Value::Value(long i) :
-		Value(String(longLiteral(i)))
+		Value(Direct(longLiteral(i)))
 	{
 	}
 
 	inline Value::Value(long long i) :
-		Value(String(longLongLiteral(i)))
+		Value(Direct(longLongLiteral(i)))
 	{
 	}
 
-	inline Value::String Value::toString(void) const
+	inline Value::Direct Value::toString(void) const
 	{
-		return Value::String(util::sstream_str(*this));
+		return Direct(util::sstream_str(*this));
 	}
 
 	namespace Op {
@@ -1383,6 +1459,24 @@ namespace CppGenerator {
 		Value m_predicate;
 		Value m_true_smt;
 		Value m_false_smt;
+	};
+
+	class Paren : public Value
+	{
+	public:
+		template <typename V>
+		Paren(V &&value) :
+			m_value(std::forward<V>(value))
+		{
+		}
+
+		void write(std::ostream &o) const override
+		{
+			o << "(" << m_value << ")";
+		}
+
+	private:
+		Value m_value;
 	};
 
 	namespace Op {
@@ -2233,7 +2327,7 @@ namespace CppGenerator {
 		}
 	};
 
-	class IdentifierName : public Value
+	class Util::IdentifierName : public Value
 	{
 	public:
 		IdentifierName(const char *name) :
@@ -2256,7 +2350,7 @@ namespace CppGenerator {
 	};
 
 	template <typename TupleType>
-	class IdentifierBind : public Value
+	class Util::IdentifierBind : public Value
 	{
 	public:
 		IdentifierBind(const TupleType &bind) :
@@ -2297,7 +2391,7 @@ namespace CppGenerator {
 	};
 
 	template <typename IdentifierType>
-	class Variable : public IdentifierType, public Statement
+	class Util::Variable : public IdentifierType, public Statement
 	{
 	public:
 		template <typename T, typename Id>
@@ -2379,7 +2473,7 @@ namespace CppGenerator {
 		void write(Util::File &o) const override
 		{
 			o.new_line();
-			Variable<IdType>::decl(m_type, util::sstream_str(static_cast<const Value&>(*this)), o);
+			Util::Variable<IdType>::decl(m_type, util::sstream_str(static_cast<const Value&>(*this)), o);
 			if (m_is_equal)
 				o << " = ";
 			else
@@ -2394,15 +2488,16 @@ namespace CppGenerator {
 	};
 
 	template <typename IdType>
-	class Util::VariableDecl : public Variable<IdType>
+	class Util::VariableDecl : public Util::Variable<IdType>
 	{
-		using Variable<IdType>::Value::operator-;
-		using Variable<IdType>::Value::operator=;
+		using Util::Variable<IdType>::Value::operator-;
+		using Util::Variable<IdType>::Value::operator|;
+		using Util::Variable<IdType>::Value::operator=;
 
 	public:
 		template <typename ...Args>
 		VariableDecl(Args &&...args) :
-			Variable<IdType>(std::forward<Args>(args)...)
+			Util::Variable<IdType>(std::forward<Args>(args)...)
 		{
 		}
 
@@ -2410,6 +2505,12 @@ namespace CppGenerator {
 		VariableDeclWithValue<IdType> operator-(V &&value)
 		{
 			return VariableDeclWithValue<IdType>(std::move(this->m_type), static_cast<const IdType&>(*this), std::forward<V>(value));
+		}
+
+		template <typename V>
+		VariableDeclWithValue<IdType> operator|(V &&value)
+		{
+			return *this - value;
 		}
 
 		template <typename V>
@@ -2427,19 +2528,36 @@ namespace CppGenerator {
 
 	auto Type::operator-(const char *name)
 	{
-		return Util::VariableDecl<IdentifierName>(util::sstream_str(*this), name);
+		return Util::VariableDecl<Util::IdentifierName>(util::sstream_str(*this), name);
 	}
 
 	template <typename BindType>
 	auto Type::operator-(const BindType &bind)
 	{
-		return Util::VariableDecl<IdentifierBind<BindType>>(util::sstream_str(*this), bind);
+		return Util::VariableDecl<Util::IdentifierBind<BindType>>(util::sstream_str(*this), bind);
+	}
+
+	auto Type::operator|(const char *name)
+	{
+		return *this - name;
+	}
+
+	template <typename BindType>
+	auto Type::operator|(const BindType &bind)
+	{
+		return *this - bind;
 	}
 
 	template <typename V, class>
 	Value Type::operator-(V &&val)
 	{
-		return Value::String(util::sstream_str(*this) + std::string(" ") + util::sstream_str(std::forward<V>(val)));
+		return Value::Direct(util::sstream_str(*this) + std::string(" ") + util::sstream_str(std::forward<V>(val)));
+	}
+
+	template <typename V, class>
+	Value Type::operator|(V &&val)
+	{
+		return *this - std::forward<V>(val);
 	}
 
 	template <typename ...Values>
@@ -2455,7 +2573,20 @@ namespace CppGenerator {
 			comma = ", ";
 		}
 		ss << ")";
-		return Value::String(ss.str());
+		return Value::Direct(ss.str());
+	}
+
+	auto Type::operator%(const Type &other)
+	{
+		std::stringstream ss;
+
+		ss << *this << "::" << other;
+		return Direct(ss.str());
+	}
+
+	auto Type::operator>>(const Type &other)
+	{
+		return *this % other;
 	}
 
 	class Function : public Util::Primitive::Named
@@ -2517,7 +2648,7 @@ namespace CppGenerator {
 
 	private:
 		Type m_return_type;
-		util::unique_vector<Variable<IdentifierName>> m_args;
+		util::unique_vector<Util::Variable<Util::IdentifierName>> m_args;
 		util::unique_vector<Statement> m_smts;
 		util::unique_vector<Value> m_values;
 
@@ -2527,7 +2658,7 @@ namespace CppGenerator {
 		{
 			auto &to_add = addArg(std::forward<First>(first));
 
-			auto res = std::tuple_cat(std::forward<Sf>(sf), std::tuple<Variable<IdentifierName>&>(to_add));
+			auto res = std::tuple_cat(std::forward<Sf>(sf), std::tuple<Util::Variable<Util::IdentifierName>&>(to_add));
 			if constexpr (!util::are_args_empty_v<Args...>)
 				return popArg(res, std::forward<Args>(args)...);
 			else
@@ -2538,7 +2669,7 @@ namespace CppGenerator {
 		decltype(auto) genBindValues(const std::tuple<Types...> &tup)
 		{
 			if constexpr (I < sizeof...(Types)) {
-				auto &res = m_values.emplace(Value::String(std::get<I>(tup)));
+				auto &res = m_values.emplace(Value::Direct(std::get<I>(tup)));
 				return std::tuple_cat(std::tuple<Value&>(res), genBindValues<I + 1>(tup));
 			} else
 				return std::make_tuple();
@@ -2549,10 +2680,10 @@ namespace CppGenerator {
 		{
 			using SrcNoRef = std::remove_reference_t<Src>;
 
-			if constexpr (util::is_base_of_template_v<IdentifierBind, SrcNoRef>)
+			if constexpr (util::is_base_of_template_v<Util::IdentifierBind, SrcNoRef>)
 				return genBindValues<0>(src.getTuple());
 			else
-				return m_values.emplace(Value::String(util::sstream_str(std::forward<Src>(src))));
+				return m_values.emplace(Value::Direct(util::sstream_str(std::forward<Src>(src))));
 		}
 
 		template <typename Src>
@@ -2560,7 +2691,7 @@ namespace CppGenerator {
 		{
 			using SrcNoRef = std::remove_reference_t<Src>;
 
-			if constexpr (util::is_base_of_template_v<Variable, SrcNoRef> || util::is_base_of_template_v<Util::VariableDeclWithValue, SrcNoRef>) {
+			if constexpr (util::is_base_of_template_v<Util::Variable, SrcNoRef> || util::is_base_of_template_v<Util::VariableDeclWithValue, SrcNoRef>) {
 				decltype(auto) res = getDecl(std::forward<Src>(src));
 				m_smts.emplace(std::forward<Src>(src));
 				return res;
@@ -2634,6 +2765,70 @@ namespace CppGenerator {
 	};
 
 	using B = Brace;
+
+	namespace Pp {
+		class Include : public Util::Primitive
+		{
+		public:
+			Include(const std::string &file) :
+				m_file(file)
+			{
+			}
+			~Include(void) override
+			{
+			}
+
+			void write(Util::File &o) const override
+			{
+				o.new_line() << "#include " << lquote() << m_file << rquote() << o.end_line();
+			}
+
+			class Std;
+
+		protected:
+			virtual const std::string& lquote(void) const
+			{
+				static const std::string res("\"");
+
+				return res;
+			}
+
+			virtual const std::string& rquote(void) const
+			{
+				static const std::string res("\"");
+
+				return res;
+			}
+
+		private:
+			const std::string m_file;
+		};
+
+		class Include::Std : public Include
+		{
+		public:
+			template <typename ...Args>
+			Std(Args &&...args) :
+				Include(std::forward<Args>(args)...)
+			{
+			}
+
+		protected:
+			const std::string& lquote(void) const override
+			{
+				static const std::string res("<");
+
+				return res;
+			}
+
+			const std::string& rquote(void) const override
+			{
+				static const std::string res(">");
+
+				return res;
+			}
+		};
+	}
 
 	/*class If : public Statement
 	{
