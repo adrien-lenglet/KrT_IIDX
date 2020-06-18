@@ -447,18 +447,18 @@ namespace CppGenerator {
 			class Template;
 		};
 
-		Modifiers::LRef LRef(void);
-		Modifiers::RRef RRef(void);
+		auto LRef(void);
+		auto RRef(void);
 		template <typename ...Args>
-		Modifiers::Ptr Ptr(Args &&...args);
-		Modifiers::RConst RConst(void);
+		auto Ptr(Args &&...args);
+		auto RConst(void);
 		template <typename ...Args>
-		Modifiers::Array Array(Args &&...args);
+		auto Array(Args &&...args);
 
 		template <typename ...Args>
-		Modifiers::Array operator[](Args &&...args);
-		Modifiers::Ptr operator*(void);
-		Modifiers::LRef operator&(void);
+		auto operator[](Args &&...args);
+		auto operator*(void);
+		auto operator&(void);
 
 		auto operator|(const char *name);
 		template <typename BindType>
@@ -711,23 +711,23 @@ namespace CppGenerator {
 		}
 	};
 
-	inline Type::Modifiers::LRef Type::LRef(void)
+	inline auto Type::LRef(void)
 	{
 		return Modifiers::LRef(util::sstream_str(*this));
 	}
 
-	inline Type::Modifiers::RRef Type::RRef(void)
+	inline auto Type::RRef(void)
 	{
 		return Modifiers::RRef(util::sstream_str(*this));
 	}
 
 	template <typename ...Args>
-	Type::Modifiers::Ptr Type::Ptr(Args &&...args)
+	auto Type::Ptr(Args &&...args)
 	{
 		return Modifiers::Ptr(util::sstream_str(*this), std::forward<Args>(args)...);
 	}
 
-	inline Type::Modifiers::RConst Type::RConst(void)
+	inline auto Type::RConst(void)
 	{
 		return Modifiers::RConst(util::sstream_str(*this));
 	}
@@ -768,47 +768,6 @@ namespace CppGenerator {
 	auto Type::T(Args &&...args)
 	{
 		return Template(std::forward<Args>(args)...);
-	}
-
-	namespace Op {
-		class Inc;
-		class Dec;
-		class Plus;
-		class Minus;
-		class Not;
-		class NotBin;
-		class Deref;
-		class Address;
-
-		class Add;
-		class Sub;
-		class Mul;
-		class Div;
-		class Rem;
-		class LShift;
-		class RShift;
-		class Less;
-		class LessEq;
-		class Greater;
-		class GreaterEq;
-		class Eq;
-		class Dif;
-		class AndBin;
-		class XorBin;
-		class OrBin;
-		class And;
-		class Or;
-		class Assign;
-		class AssignAdd;
-		class AssignSub;
-		class AssignMul;
-		class AssignDiv;
-		class AssignRem;
-		class AssignLShift;
-		class AssignRShift;
-		class AssignAndBin;
-		class AssignXorBin;
-		class AssignOrBin;
 	}
 
 	class Value : public Util::Writable
@@ -877,16 +836,16 @@ namespace CppGenerator {
 			class Template;
 		};
 
-		Modifiers::Inc Inc(void);
-		Modifiers::Dec Dec(void);
+		auto Inc(void);
+		auto Dec(void);
 		template <typename ...Args>
-		Modifiers::Call Call(Args &&...args);
+		auto Call(Args &&...args);
 		template <typename ...Args>
-		Modifiers::Array Array(Args &&...args);
+		auto Array(Args &&...args);
 		template <typename ...Args>
-		Modifiers::Member Member(Args &&...args);
+		auto Member(Args &&...args);
 		template <typename ...Args>
-		Modifiers::MemberPtr MemberPtr(Args &&...args);
+		auto MemberPtr(Args &&...args);
 
 		template <typename ...Args>
 		decltype(auto) M(Args &&...args)
@@ -900,80 +859,80 @@ namespace CppGenerator {
 			return MemberPtr(std::forward<Args>(args)...);
 		}
 
-		Modifiers::Inc operator ++(int);
-		Modifiers::Dec operator --(int);
+		auto operator ++(int);
+		auto operator --(int);
 		template <typename ...Args>
-		Modifiers::Call operator ()(Args &&...args);
+		auto operator ()(Args &&...args);
 		template <typename V>
-		Modifiers::Array operator[](V &&val);
+		auto operator[](V &&val);
 
-		CppGenerator::Op::Inc operator++(void);
-		CppGenerator::Op::Dec operator--(void);
-		CppGenerator::Op::Plus operator+(void);
-		CppGenerator::Op::Minus operator-(void);
-		CppGenerator::Op::Not operator!(void);
-		CppGenerator::Op::NotBin operator~(void);
-		CppGenerator::Op::Deref operator*(void);
-		CppGenerator::Op::Address operator&(void);
+		auto operator++(void);
+		auto operator--(void);
+		auto operator+(void);
+		auto operator-(void);
+		auto operator!(void);
+		auto operator~(void);
+		auto operator*(void);
+		auto operator&(void);
 
 		template <typename S>
-		CppGenerator::Op::Add operator+(S &&val);
+		auto operator+(S &&val);
 		template <typename S>
-		CppGenerator::Op::Sub operator-(S &&val);
+		auto operator-(S &&val);
 		template <typename S>
-		CppGenerator::Op::Mul operator*(S &&val);
+		auto operator*(S &&val);
 		template <typename S>
-		CppGenerator::Op::Div operator/(S &&val);
+		auto operator/(S &&val);
 		template <typename S>
-		CppGenerator::Op::Rem operator%(S &&val);
+		auto operator%(S &&val);
 		template <typename S>
-		CppGenerator::Op::LShift operator<<(S &&val);
+		auto operator<<(S &&val);
 		template <typename S>
-		CppGenerator::Op::RShift operator>>(S &&val);
+		auto operator>>(S &&val);
 		template <typename S>
-		CppGenerator::Op::Less operator<(S &&val);
+		auto operator<(S &&val);
 		template <typename S>
-		CppGenerator::Op::LessEq operator<=(S &&val);
+		auto operator<=(S &&val);
 		template <typename S>
-		CppGenerator::Op::Greater operator>(S &&val);
+		auto operator>(S &&val);
 		template <typename S>
-		CppGenerator::Op::GreaterEq operator>=(S &&val);
+		auto operator>=(S &&val);
 		template <typename S>
-		CppGenerator::Op::Eq operator==(S &&val);
+		auto operator==(S &&val);
 		template <typename S>
-		CppGenerator::Op::Dif operator!=(S &&val);
+		auto operator!=(S &&val);
 		template <typename S>
-		CppGenerator::Op::AndBin operator&(S &&val);
+		auto operator&(S &&val);
 		template <typename S>
-		CppGenerator::Op::XorBin operator^(S &&val);
+		auto operator^(S &&val);
 		template <typename S>
-		CppGenerator::Op::OrBin operator|(S &&val);
+		auto operator|(S &&val);
 		template <typename S>
-		CppGenerator::Op::And operator&&(S &&val);
+		auto operator&&(S &&val);
 		template <typename S>
-		CppGenerator::Op::Or operator||(S &&val);
+		auto operator||(S &&val);
 		template <typename S>
-		CppGenerator::Op::Assign operator=(S &&val);
+		auto operator=(S &&val);
 		template <typename S>
-		CppGenerator::Op::AssignAdd operator+=(S &&val);
+		auto operator+=(S &&val);
 		template <typename S>
-		CppGenerator::Op::AssignSub operator-=(S &&val);
+		auto operator-=(S &&val);
 		template <typename S>
-		CppGenerator::Op::AssignMul operator*=(S &&val);
+		auto operator*=(S &&val);
 		template <typename S>
-		CppGenerator::Op::AssignDiv operator/=(S &&val);
+		auto operator/=(S &&val);
 		template <typename S>
-		CppGenerator::Op::AssignRem operator%=(S &&val);
+		auto operator%=(S &&val);
 		template <typename S>
-		CppGenerator::Op::AssignLShift operator<<=(S &&val);
+		auto operator<<=(S &&val);
 		template <typename S>
-		CppGenerator::Op::AssignRShift operator>>=(S &&val);
+		auto operator>>=(S &&val);
 		template <typename S>
-		CppGenerator::Op::AssignAndBin operator&=(S &&val);
+		auto operator&=(S &&val);
 		template <typename S>
-		CppGenerator::Op::AssignXorBin operator^=(S &&val);
+		auto operator^=(S &&val);
 		template <typename S>
-		CppGenerator::Op::AssignOrBin operator|=(S &&val);
+		auto operator|=(S &&val);
 		template <typename S>
 		auto operator,(S &&val);
 
@@ -1361,44 +1320,44 @@ namespace CppGenerator {
 		};
 	}
 
-	CppGenerator::Op::Inc Value::operator++(void)
+	auto Value::operator++(void)
 	{
-		return CppGenerator::Op::Inc(toString());
+		return Op::Inc(toString());
 	}
 
-	CppGenerator::Op::Dec Value::operator--(void)
+	auto Value::operator--(void)
 	{
-		return CppGenerator::Op::Dec(toString());
+		return Op::Dec(toString());
 	}
 
-	CppGenerator::Op::Plus Value::operator+(void)
+	auto Value::operator+(void)
 	{
-		return CppGenerator::Op::Plus(toString());
+		return Op::Plus(toString());
 	}
 
-	CppGenerator::Op::Minus Value::operator-(void)
+	auto Value::operator-(void)
 	{
-		return CppGenerator::Op::Minus(toString());
+		return Op::Minus(toString());
 	}
 
-	CppGenerator::Op::Not Value::operator!(void)
+	auto Value::operator!(void)
 	{
-		return CppGenerator::Op::Not(toString());
+		return Op::Not(toString());
 	}
 
-	CppGenerator::Op::NotBin Value::operator~(void)
+	auto Value::operator~(void)
 	{
-		return CppGenerator::Op::NotBin(toString());
+		return Op::NotBin(toString());
 	}
 
-	CppGenerator::Op::Deref Value::operator*(void)
+	auto Value::operator*(void)
 	{
-		return CppGenerator::Op::Deref(toString());
+		return Op::Deref(toString());
 	}
 
-	CppGenerator::Op::Address Value::operator&(void)
+	auto Value::operator&(void)
 	{
-		return CppGenerator::Op::Address(toString());
+		return Op::Address(toString());
 	}
 
 	class Cast : public Value
@@ -1810,177 +1769,177 @@ namespace CppGenerator {
 	}
 
 	template <typename S>
-	CppGenerator::Op::Add Value::operator+(S &&val)
+	auto Value::operator+(S &&val)
 	{
-		return CppGenerator::Op::Add(toString(), std::forward<S>(val));
+		return Op::Add(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::Sub Value::operator-(S &&val)
+	auto Value::operator-(S &&val)
 	{
-		return CppGenerator::Op::Sub(toString(), std::forward<S>(val));
+		return Op::Sub(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::Mul Value::operator*(S &&val)
+	auto Value::operator*(S &&val)
 	{
-		return CppGenerator::Op::Mul(toString(), std::forward<S>(val));
+		return Op::Mul(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::Div Value::operator/(S &&val)
+	auto Value::operator/(S &&val)
 	{
-		return CppGenerator::Op::Div(toString(), std::forward<S>(val));
+		return Op::Div(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::Rem Value::operator%(S &&val)
+	auto Value::operator%(S &&val)
 	{
-		return CppGenerator::Op::Rem(toString(), std::forward<S>(val));
+		return Op::Rem(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::LShift Value::operator<<(S &&val)
+	auto Value::operator<<(S &&val)
 	{
-		return CppGenerator::Op::LShift(toString(), std::forward<S>(val));
+		return Op::LShift(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::RShift Value::operator>>(S &&val)
+	auto Value::operator>>(S &&val)
 	{
-		return CppGenerator::Op::RShift(toString(), std::forward<S>(val));
+		return Op::RShift(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::Less Value::operator<(S &&val)
+	auto Value::operator<(S &&val)
 	{
-		return CppGenerator::Op::Less(toString(), std::forward<S>(val));
+		return Op::Less(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::LessEq Value::operator<=(S &&val)
+	auto Value::operator<=(S &&val)
 	{
-		return CppGenerator::Op::LessEq(toString(), std::forward<S>(val));
+		return Op::LessEq(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::Greater Value::operator>(S &&val)
+	auto Value::operator>(S &&val)
 	{
-		return CppGenerator::Op::Greater(toString(), std::forward<S>(val));
+		return Op::Greater(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::GreaterEq Value::operator>=(S &&val)
+	auto Value::operator>=(S &&val)
 	{
-		return CppGenerator::Op::GreaterEq(toString(), std::forward<S>(val));
+		return Op::GreaterEq(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::Eq Value::operator==(S &&val)
+	auto Value::operator==(S &&val)
 	{
-		return CppGenerator::Op::Eq(toString(), std::forward<S>(val));
+		return Op::Eq(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::Dif Value::operator!=(S &&val)
+	auto Value::operator!=(S &&val)
 	{
-		return CppGenerator::Op::Dif(toString(), std::forward<S>(val));
+		return Op::Dif(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::AndBin Value::operator&(S &&val)
+	auto Value::operator&(S &&val)
 	{
-		return CppGenerator::Op::AndBin(toString(), std::forward<S>(val));
+		return Op::AndBin(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::XorBin Value::operator^(S &&val)
+	auto Value::operator^(S &&val)
 	{
-		return CppGenerator::Op::XorBin(toString(), std::forward<S>(val));
+		return Op::XorBin(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::OrBin Value::operator|(S &&val)
+	auto Value::operator|(S &&val)
 	{
-		return CppGenerator::Op::OrBin(toString(), std::forward<S>(val));
+		return Op::OrBin(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::And Value::operator&&(S &&val)
+	auto Value::operator&&(S &&val)
 	{
-		return CppGenerator::Op::And(toString(), std::forward<S>(val));
+		return Op::And(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::Or Value::operator||(S &&val)
+	auto Value::operator||(S &&val)
 	{
-		return CppGenerator::Op::Or(toString(), std::forward<S>(val));
+		return Op::Or(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::Assign Value::operator=(S &&val)
+	auto Value::operator=(S &&val)
 	{
-		return CppGenerator::Op::Assign(toString(), std::forward<S>(val));
+		return Op::Assign(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::AssignAdd Value::operator+=(S &&val)
+	auto Value::operator+=(S &&val)
 	{
-		return CppGenerator::Op::AssignAdd(toString(), std::forward<S>(val));
+		return Op::AssignAdd(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::AssignSub Value::operator-=(S &&val)
+	auto Value::operator-=(S &&val)
 	{
-		return CppGenerator::Op::AssignSub(toString(), std::forward<S>(val));
+		return Op::AssignSub(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::AssignMul Value::operator*=(S &&val)
+	auto Value::operator*=(S &&val)
 	{
-		return CppGenerator::Op::AssignMul(toString(), std::forward<S>(val));
+		return Op::AssignMul(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::AssignDiv Value::operator/=(S &&val)
+	auto Value::operator/=(S &&val)
 	{
-		return CppGenerator::Op::AssignDiv(toString(), std::forward<S>(val));
+		return Op::AssignDiv(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::AssignRem Value::operator%=(S &&val)
+	auto Value::operator%=(S &&val)
 	{
-		return CppGenerator::Op::AssignRem(toString(), std::forward<S>(val));
+		return Op::AssignRem(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::AssignLShift Value::operator<<=(S &&val)
+	auto Value::operator<<=(S &&val)
 	{
-		return CppGenerator::Op::AssignLShift(toString(), std::forward<S>(val));
+		return Op::AssignLShift(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::AssignRShift Value::operator>>=(S &&val)
+	auto Value::operator>>=(S &&val)
 	{
-		return CppGenerator::Op::AssignRShift(toString(), std::forward<S>(val));
+		return Op::AssignRShift(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::AssignAndBin Value::operator&=(S &&val)
+	auto Value::operator&=(S &&val)
 	{
-		return CppGenerator::Op::AssignAndBin(toString(), std::forward<S>(val));
+		return Op::AssignAndBin(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::AssignXorBin Value::operator^=(S &&val)
+	auto Value::operator^=(S &&val)
 	{
-		return CppGenerator::Op::AssignXorBin(toString(), std::forward<S>(val));
+		return Op::AssignXorBin(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
-	CppGenerator::Op::AssignOrBin Value::operator|=(S &&val)
+	auto Value::operator|=(S &&val)
 	{
-		return CppGenerator::Op::AssignOrBin(toString(), std::forward<S>(val));
+		return Op::AssignOrBin(toString(), std::forward<S>(val));
 	}
 
 	template <typename S>
@@ -2025,12 +1984,12 @@ namespace CppGenerator {
 			Op::PostfixUnary(std::forward<T>(val), "--") {}
 	};
 
-	inline Value::Modifiers::Inc Value::Inc(void)
+	inline auto Value::Inc(void)
 	{
 		return Modifiers::Inc(toString());
 	}
 
-	inline Value::Modifiers::Dec Value::Dec(void)
+	inline auto Value::Dec(void)
 	{
 		return Modifiers::Dec(toString());
 	}
@@ -2064,7 +2023,7 @@ namespace CppGenerator {
 	};
 
 	template <typename ...Args>
-	Value::Modifiers::Call Value::Call(Args &&...args)
+	auto Value::Call(Args &&...args)
 	{
 		return Modifiers::Call(toString(), std::forward<Args>(args)...);
 	}
@@ -2103,7 +2062,7 @@ namespace CppGenerator {
 	};
 
 	template <typename ...Args>
-	Value::Modifiers::Array Value::Array(Args &&...args)
+	auto Value::Array(Args &&...args)
 	{
 		return Modifiers::Array(toString(), std::forward<Args>(args)...);
 	}
@@ -2117,7 +2076,7 @@ namespace CppGenerator {
 	};
 
 	template <typename ...Args>
-	Value::Modifiers::Member Value::Member(Args &&...args)
+	auto Value::Member(Args &&...args)
 	{
 		return Modifiers::Member(toString(), std::forward<Args>(args)...);
 	}
@@ -2131,29 +2090,29 @@ namespace CppGenerator {
 	};
 
 	template <typename ...Args>
-	Value::Modifiers::MemberPtr Value::MemberPtr(Args &&...args)
+	auto Value::MemberPtr(Args &&...args)
 	{
 		return Modifiers::MemberPtr(toString(), std::forward<Args>(args)...);
 	}
 
-	Value::Modifiers::Inc Value::operator++(int)
+	auto Value::operator++(int)
 	{
 		return Inc();
 	}
 
-	Value::Modifiers::Dec Value::operator--(int)
+	auto Value::operator--(int)
 	{
 		return Dec();
 	}
 
 	template <typename ...Args>
-	Value::Modifiers::Call Value::operator()(Args &&...args)
+	auto Value::operator()(Args &&...args)
 	{
 		return Call(std::forward<Args>(args)...);
 	}
 
 	template <typename V>
-	Value::Modifiers::Array Value::operator[](V &&val)
+	auto Value::operator[](V &&val)
 	{
 		return Array(std::forward<V>(val));
 	}
@@ -2230,23 +2189,23 @@ namespace CppGenerator {
 	};
 
 	template <typename ...Args>
-	inline Type::Modifiers::Array Type::Array(Args &&...args)
+	auto Type::Array(Args &&...args)
 	{
 		return Modifiers::Array(toString(), std::forward<Args>(args)...);
 	}
 
 	template <typename ...Args>
-	Type::Modifiers::Array Type::operator[](Args &&...args)
+	auto Type::operator[](Args &&...args)
 	{
 		return Modifiers::Array(toString(), std::forward<Args>(args)...);
 	}
 
-	inline Type::Modifiers::Ptr Type::operator*(void)
+	inline auto Type::operator*(void)
 	{
 		return Modifiers::Ptr(toString());
 	}
 
-	inline Type::Modifiers::LRef Type::operator&(void)
+	inline auto Type::operator&(void)
 	{
 		return Modifiers::LRef(toString());
 	}
