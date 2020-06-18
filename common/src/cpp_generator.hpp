@@ -2427,17 +2427,6 @@ namespace CppGenerator {
 			return m_args.emplace(std::forward<Args>(args)...);
 		}
 
-		template <typename Src>
-		decltype(auto) emplaceValSmt(Src &&src)
-		{
-			if constexpr (std::is_convertible_v<std::remove_reference_t<Src>, Value>) {
-				auto &res = m_values.emplace(Value::String(util::sstream_str(std::forward<Src>(src))));
-				m_smts.emplace(std::forward<Src>(src));
-				return res;
-			} else
-				return m_smts.emplace(std::forward<Src>(src));
-		}
-
 		template <typename First, typename ...Args>
 		decltype(auto) add(First &&first, Args &&...args)
 		{
@@ -2446,7 +2435,7 @@ namespace CppGenerator {
 			if constexpr (util::are_args_empty_v<Args...>)
 				return res;
 			else
-				return add(std::forward<Args>(args)...);
+				return std::tuple_cat(std::tuple<decltype(res)>(res), addMul(std::forward<Args>(args)...));
 		}
 
 		template <typename Type, typename ...Args>
@@ -2493,6 +2482,29 @@ namespace CppGenerator {
 				return popArg(res, std::forward<Args>(args)...);
 			else
 				return res;
+		}
+
+		template <typename Src>
+		decltype(auto) emplaceValSmt(Src &&src)
+		{
+			if constexpr (std::is_convertible_v<std::remove_reference_t<Src>, Value>) {
+				auto &res = m_values.emplace(Value::String(util::sstream_str(std::forward<Src>(src))));
+				m_smts.emplace(std::forward<Src>(src));
+				return res;
+			} else
+				return m_smts.emplace(std::forward<Src>(src));
+		}
+
+		template <typename First, typename ...Args>
+		decltype(auto) addMul(First &&first, Args &&...args)
+		{
+			decltype(auto) res = emplaceValSmt(std::forward<First>(first));
+
+			auto tup = std::tuple<decltype(res)>(res);
+			if constexpr (util::are_args_empty_v<Args...>)
+				return tup;
+			else
+				return std::tuple_cat(tup, addMul(std::forward<Args>(args)...));
 		}
 	};
 
