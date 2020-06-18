@@ -459,9 +459,6 @@ namespace CppGenerator {
 		Modifiers::Ptr operator*(void);
 		Modifiers::LRef operator&(void);
 
-		auto operator-(const char *name);
-		template <typename BindType>
-		auto operator-(const BindType &bind);
 		auto operator|(const char *name);
 		template <typename BindType>
 		auto operator|(const BindType &bind);
@@ -472,14 +469,11 @@ namespace CppGenerator {
 
 	public:
 		template <typename V, class = std::enable_if_t<!is_identifier_v<V>>>
-		Value operator-(V &&val);
-		template <typename V, class = std::enable_if_t<!is_identifier_v<V>>>
-		Value operator|(V &&val);
+		auto operator|(V &&val);
 		template <typename ...Values>
 		Value operator()(Values &&...val);
 
 		auto operator>>(const Type &other);
-		auto operator%(const Type &other);
 
 	protected:
 		Direct toString(void) const;
@@ -2490,7 +2484,6 @@ namespace CppGenerator {
 	template <typename IdType>
 	class Util::VariableDecl : public Util::Variable<IdType>
 	{
-		using Util::Variable<IdType>::Value::operator-;
 		using Util::Variable<IdType>::Value::operator|;
 		using Util::Variable<IdType>::Value::operator=;
 
@@ -2502,15 +2495,9 @@ namespace CppGenerator {
 		}
 
 		template <typename V>
-		VariableDeclWithValue<IdType> operator-(V &&value)
+		auto operator|(V &&value)
 		{
 			return VariableDeclWithValue<IdType>(std::move(this->m_type), static_cast<const IdType&>(*this), std::forward<V>(value));
-		}
-
-		template <typename V>
-		VariableDeclWithValue<IdType> operator|(V &&value)
-		{
-			return *this - value;
 		}
 
 		template <typename V>
@@ -2526,38 +2513,21 @@ namespace CppGenerator {
 		}*/
 	};
 
-	auto Type::operator-(const char *name)
+	auto Type::operator|(const char *name)
 	{
 		return Util::VariableDecl<Util::IdentifierName>(util::sstream_str(*this), name);
 	}
 
 	template <typename BindType>
-	auto Type::operator-(const BindType &bind)
+	auto Type::operator|(const BindType &bind)
 	{
 		return Util::VariableDecl<Util::IdentifierBind<BindType>>(util::sstream_str(*this), bind);
 	}
 
-	auto Type::operator|(const char *name)
-	{
-		return *this - name;
-	}
-
-	template <typename BindType>
-	auto Type::operator|(const BindType &bind)
-	{
-		return *this - bind;
-	}
-
 	template <typename V, class>
-	Value Type::operator-(V &&val)
+	auto Type::operator|(V &&val)
 	{
 		return Value::Direct(util::sstream_str(*this) + std::string(" ") + util::sstream_str(std::forward<V>(val)));
-	}
-
-	template <typename V, class>
-	Value Type::operator|(V &&val)
-	{
-		return *this - std::forward<V>(val);
 	}
 
 	template <typename ...Values>
@@ -2576,17 +2546,12 @@ namespace CppGenerator {
 		return Value::Direct(ss.str());
 	}
 
-	auto Type::operator%(const Type &other)
+	auto Type::operator>>(const Type &other)
 	{
 		std::stringstream ss;
 
 		ss << *this << "::" << other;
 		return Direct(ss.str());
-	}
-
-	auto Type::operator>>(const Type &other)
-	{
-		return *this % other;
 	}
 
 	class Function : public Util::Primitive::Named
