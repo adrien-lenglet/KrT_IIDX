@@ -7,8 +7,17 @@
 #include "util/sstream.hpp"
 
 namespace CppGenerator {
-	using Bind = std::initializer_list<const char*>;
-	using S = Bind;
+	template <typename ...Args>
+	decltype(auto) Bind(Args &&...args)
+	{
+		return std::make_tuple(std::forward<Args>(args)...);
+	}
+
+	template <typename ...Args>
+	decltype(auto) S(Args &&...args)
+	{
+		return Bind(std::forward<Args>(args)...);
+	}
 
 	namespace Util
 	{
@@ -179,22 +188,10 @@ namespace CppGenerator {
 		using FileWritable = GenWritable<File>;
 
 		class PrependKeyword;
+		template <typename IdType>
 		class VariableDecl;
+		template <typename IdType>
 		class VariableDeclWithValue;
-
-		std::string bindToString(const Bind &bind)
-		{
-			std::stringstream ss;
-
-			ss << "[";
-			auto comma = "";
-			for (auto &b : bind) {
-				ss << comma << b;
-				comma = ", ";
-			}
-			ss << "]";
-			return ss.str();
-		}
 	}
 
 	std::ostream& operator<<(std::ostream &o, const Util::Writable &value)
@@ -452,10 +449,11 @@ namespace CppGenerator {
 		Modifiers::Ptr operator*(void);
 		Modifiers::LRef operator&(void);
 
-		Util::VariableDecl operator-(const char *name);
-		Util::VariableDecl operator-(const Bind &bind);
+		auto operator-(const char *name);
+		template <typename BindType>
+		auto operator-(const BindType &bind);
 
-		template <typename V, class = std::enable_if_t<!std::is_same_v<std::decay_t<V>, Bind> && !std::is_same_v<std::decay_t<V>, const char*>>>
+		template <typename V, class = std::enable_if_t<!util::is_instance_of_template<V, std::tuple>{} && !std::is_same_v<std::decay_t<V>, const char*>>>
 		Value operator-(V &&val);
 		template <typename ...Values>
 		Value operator()(Values &&...val);
@@ -2235,19 +2233,76 @@ namespace CppGenerator {
 		}
 	};
 
-	class Variable : public Value, public Statement
+	class IdentifierName : public Value
 	{
 	public:
-		template <typename T>
-		Variable(T &&type, const char *name) :
-			Value(Value::String(name)),
-			m_type(std::forward<T>(type))
+		IdentifierName(const char *name) :
+			m_name(name)
 		{
 		}
 
-		template <typename T>
-		Variable(T &&type, const Bind &bind) :
-			Value(Value::String(Util::bindToString(bind))),
+		IdentifierName(const IdentifierName &other) :
+			m_name(other.m_name)
+		{
+		}
+
+		void write(std::ostream &o) const override
+		{
+			o << m_name;
+		}
+
+	private:
+		const char *m_name;
+	};
+
+	template <typename TupleType>
+	class IdentifierBind : public Value
+	{
+	public:
+		IdentifierBind(const TupleType &bind) :
+			m_bind(bind)
+		{
+		}
+
+		IdentifierBind(const IdentifierBind &other) :
+			m_bind(other.m_bind)
+		{
+		}
+
+		void write(std::ostream &o) const override
+		{
+			o << "[";
+			writeIter(o, m_bind);
+			o << "]";
+		}
+
+		const TupleType& getTuple(void) const
+		{
+			return m_bind;
+		}
+
+	private:
+		TupleType m_bind;
+
+		template <size_t I = 0, typename ...Types>
+		void writeIter(std::ostream &o, const std::tuple<Types...> &tup) const
+		{
+			if constexpr (I < sizeof...(Types)) {
+				if (I > 0)
+					o << ", ";
+				o << std::get<I>(tup);
+				writeIter<I + 1>(o, tup);
+			}
+		}
+	};
+
+	template <typename IdentifierType>
+	class Variable : public IdentifierType, public Statement
+	{
+	public:
+		template <typename T, typename Id>
+		Variable(T &&type, const Id &id) :
+			IdentifierType(id),
 			m_type(std::forward<T>(type))
 		{
 		}
@@ -2306,14 +2361,14 @@ namespace CppGenerator {
 		}
 	};
 
-	class Util::VariableDeclWithValue : public Value, public Statement
+	template <typename IdType>
+	class Util::VariableDeclWithValue : public IdType, public Statement
 	{
 	public:
-		template <typename T, typename V>
-		VariableDeclWithValue(T &&type, const std::string &name, V &&value, bool is_equal = false) :
-			Value(Value::String(name)),
+		template <typename T, typename Id, typename V>
+		VariableDeclWithValue(T &&type, const Id &id, V &&value, bool is_equal = false) :
+			IdType(id),
 			m_type(std::forward<T>(type)),
-			m_name(name),
 			m_value(std::forward<V>(value)),
 			m_is_equal(is_equal)
 		{
@@ -2324,7 +2379,7 @@ namespace CppGenerator {
 		void write(Util::File &o) const override
 		{
 			o.new_line();
-			Variable::decl(m_type, m_name, o);
+			Variable<IdType>::decl(m_type, util::sstream_str(static_cast<const Value&>(*this)), o);
 			if (m_is_equal)
 				o << " = ";
 			else
@@ -2334,39 +2389,33 @@ namespace CppGenerator {
 
 	private:
 		Type m_type;
-		std::string m_name;
 		Value m_value;
 		bool m_is_equal;
 	};
 
-	class Util::VariableDecl : public Variable
+	template <typename IdType>
+	class Util::VariableDecl : public Variable<IdType>
 	{
-		using Variable::Value::operator-;
-		using Variable::Value::operator=;
+		using Variable<IdType>::Value::operator-;
+		using Variable<IdType>::Value::operator=;
 
 	public:
 		template <typename ...Args>
 		VariableDecl(Args &&...args) :
-			Variable(std::forward<Args>(args)...)
+			Variable<IdType>(std::forward<Args>(args)...)
 		{
 		}
 
 		template <typename V>
-		VariableDeclWithValue operator-(V &&value)
+		VariableDeclWithValue<IdType> operator-(V &&value)
 		{
-			std::stringstream ss;
-
-			ss << static_cast<const Value&>(*this);
-			return VariableDeclWithValue(std::move(m_type), ss.str(), std::forward<V>(value));
+			return VariableDeclWithValue<IdType>(std::move(this->m_type), static_cast<const IdType&>(*this), std::forward<V>(value));
 		}
 
 		template <typename V>
-		VariableDeclWithValue operator=(V &&value)
+		VariableDeclWithValue<IdType> operator=(V &&value)
 		{
-			std::stringstream ss;
-
-			ss << static_cast<const Value&>(*this);
-			return VariableDeclWithValue(std::move(m_type), ss.str(), std::forward<V>(value), true);
+			return VariableDeclWithValue<IdType>(std::move(this->m_type), static_cast<IdType&>(*this), std::forward<V>(value), true);
 		}
 
 		/*template <typename ...Args>
@@ -2376,14 +2425,15 @@ namespace CppGenerator {
 		}*/
 	};
 
-	Util::VariableDecl Type::operator-(const char *name)
+	auto Type::operator-(const char *name)
 	{
-		return Util::VariableDecl(util::sstream_str(*this), name);
+		return Util::VariableDecl<IdentifierName>(util::sstream_str(*this), name);
 	}
 
-	Util::VariableDecl Type::operator-(const Bind &bind)
+	template <typename BindType>
+	auto Type::operator-(const BindType &bind)
 	{
-		return Util::VariableDecl(util::sstream_str(*this), bind);
+		return Util::VariableDecl<IdentifierBind<BindType>>(util::sstream_str(*this), bind);
 	}
 
 	template <typename V, class>
@@ -2422,7 +2472,7 @@ namespace CppGenerator {
 		}
 
 		template <typename ...Args>
-		Variable& addArg(Args &&...args)
+		decltype(auto) addArg(Args &&...args)
 		{
 			return m_args.emplace(std::forward<Args>(args)...);
 		}
@@ -2467,7 +2517,7 @@ namespace CppGenerator {
 
 	private:
 		Type m_return_type;
-		util::unique_vector<Variable> m_args;
+		util::unique_vector<Variable<IdentifierName>> m_args;
 		util::unique_vector<Statement> m_smts;
 		util::unique_vector<Value> m_values;
 
@@ -2477,18 +2527,41 @@ namespace CppGenerator {
 		{
 			auto &to_add = addArg(std::forward<First>(first));
 
-			auto res = std::tuple_cat(std::forward<Sf>(sf), std::tuple<Variable&>(to_add));
+			auto res = std::tuple_cat(std::forward<Sf>(sf), std::tuple<Variable<IdentifierName>&>(to_add));
 			if constexpr (!util::are_args_empty_v<Args...>)
 				return popArg(res, std::forward<Args>(args)...);
 			else
 				return res;
 		}
 
+		template <size_t I, typename ...Types>
+		decltype(auto) genBindValues(const std::tuple<Types...> &tup)
+		{
+			if constexpr (I < sizeof...(Types)) {
+				auto &res = m_values.emplace(Value::String(std::get<I>(tup)));
+				return std::tuple_cat(std::tuple<Value&>(res), genBindValues<I + 1>(tup));
+			} else
+				return std::make_tuple();
+		}
+
+		template <typename Src>
+		decltype(auto) getDecl(Src &&src)
+		{
+			using SrcNoRef = std::remove_reference_t<Src>;
+
+			if constexpr (util::is_base_of_template_v<IdentifierBind, SrcNoRef>)
+				return genBindValues<0>(src.getTuple());
+			else
+				return m_values.emplace(Value::String(util::sstream_str(std::forward<Src>(src))));
+		}
+
 		template <typename Src>
 		decltype(auto) emplaceValSmt(Src &&src)
 		{
-			if constexpr (std::is_convertible_v<std::remove_reference_t<Src>, Value>) {
-				auto &res = m_values.emplace(Value::String(util::sstream_str(std::forward<Src>(src))));
+			using SrcNoRef = std::remove_reference_t<Src>;
+
+			if constexpr (util::is_base_of_template_v<Variable, SrcNoRef> || util::is_base_of_template_v<Util::VariableDeclWithValue, SrcNoRef>) {
+				decltype(auto) res = getDecl(std::forward<Src>(src));
 				m_smts.emplace(std::forward<Src>(src));
 				return res;
 			} else

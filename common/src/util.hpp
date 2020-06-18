@@ -602,4 +602,30 @@ std::vector<W> vectorize_args(Args &&...args)
 	return res;
 }
 
+template <template <typename...> class base,typename derived>
+struct is_base_of_template
+{
+    template<typename... Ts>
+    static constexpr std::true_type  test(const base<Ts...> *);
+    static constexpr std::false_type test(...);
+    using type = decltype(test(std::declval<derived*>()));
+};
+
+template <template <typename...> class base, typename derived>
+using is_base_of_template_t = typename is_base_of_template<base,derived>::type;
+
+template <template <typename...> class base,typename derived>
+static inline constexpr bool is_base_of_template_v = std::is_same_v<is_base_of_template_t<base, derived>, std::true_type>;
+
+namespace
+{
+    template <typename, template <typename...> typename>
+    struct is_instance_of_template_impl : public std::false_type {};
+
+    template <template <typename...> typename U, typename...Ts>
+    struct is_instance_of_template_impl<U<Ts...>, U> : public std::true_type {};
+}
+
+template <typename T, template <typename ...> typename U>
+using is_instance_of_template = is_instance_of_template_impl<std::decay_t<T>, U>;
 }
