@@ -8,6 +8,7 @@
 
 namespace CppGenerator {
 	using Bind = std::initializer_list<const char*>;
+	using S = Bind;
 
 	namespace Util
 	{
@@ -255,31 +256,16 @@ namespace CppGenerator {
 		{
 		}
 
-		template <class PrimitiveType, typename ...Args>
-		PrimitiveType& add(Args &&...args)
+		template <typename PrimitiveType, typename ...Args>
+		decltype(auto) add(Args &&...args)
 		{
 			auto &s = Util::Primitive::Named::getStack();
 			s.emplace(this);
-			auto &res = m_primitives.emplace<PrimitiveType>(std::forward<Args>(args)...);
+			decltype(auto) res = addActual<PrimitiveType>(std::forward<Args>(args)...);
 			s.pop();
 			return res;
 		}
 
-		template <typename T, typename ...Args>
-		auto addFunction(T &&type, const std::string &name, Args &&...args)
-		{
-			auto &s = Util::Primitive::Named::getStack();
-			s.emplace(this);
-			auto &func = m_primitives.emplace<Function>(std::forward<T>(type), name);
-			s.pop();
-
-			auto res = std::tie(func);
-			if constexpr (!util::are_args_empty_v<Args...>)
-				return func.popArg(res, std::forward<Args>(args)...);
-			else
-				return res;
-		}
-	
 	protected:
 		const util::unique_vector<Util::Primitive>& getPrimitives(void) const
 		{
@@ -288,6 +274,27 @@ namespace CppGenerator {
 
 	private:
 		util::unique_vector<Util::Primitive> m_primitives;
+
+		template <typename PrimitiveType, typename ...Args>
+		decltype(auto) addActual(Args &&...args)
+		{
+			if constexpr (std::is_base_of_v<Function, PrimitiveType>)
+				return addFunction(std::forward<Args>(args)...);
+			else
+				return m_primitives.emplace<PrimitiveType>(std::forward<Args>(args)...);
+		}
+
+		template <typename T, typename ...Args>
+		decltype(auto) addFunction(T &&type, const std::string &name, Args &&...args)
+		{
+			auto &func = m_primitives.emplace<Function>(std::forward<T>(type), name);
+
+			auto res = std::tie(func);
+			if constexpr (!util::are_args_empty_v<Args...>)
+				return func.popArg(res, std::forward<Args>(args)...);
+			else
+				return func;
+		}
 	};
 
 	class Out;
@@ -857,6 +864,7 @@ namespace CppGenerator {
 
 	protected:
 		friend Type;
+		friend Function;
 		class String;
 
 		String toString(void) const;
@@ -2360,6 +2368,12 @@ namespace CppGenerator {
 			ss << static_cast<const Value&>(*this);
 			return VariableDeclWithValue(std::move(m_type), ss.str(), std::forward<V>(value), true);
 		}
+
+		/*template <typename ...Args>
+		VariableDeclCtor operator()(Args &&...args)
+		{
+
+		}*/
 	};
 
 	Util::VariableDecl Type::operator-(const char *name)
@@ -2413,10 +2427,21 @@ namespace CppGenerator {
 			return m_args.emplace(std::forward<Args>(args)...);
 		}
 
-		template <typename First, typename ...Args>
-		Statement& add(First &&first, Args &&...args)
+		template <typename Src>
+		decltype(auto) emplaceValSmt(Src &&src)
 		{
-			auto &res = m_smts.emplace(std::forward<First>(first));
+			if constexpr (std::is_convertible_v<std::remove_reference_t<Src>, Value>) {
+				auto &res = m_values.emplace(Value::String(util::sstream_str(std::forward<Src>(src))));
+				m_smts.emplace(std::forward<Src>(src));
+				return res;
+			} else
+				return m_smts.emplace(std::forward<Src>(src));
+		}
+
+		template <typename First, typename ...Args>
+		decltype(auto) add(First &&first, Args &&...args)
+		{
+			decltype(auto) res = emplaceValSmt(std::forward<First>(first));
 
 			if constexpr (util::are_args_empty_v<Args...>)
 				return res;
@@ -2455,6 +2480,7 @@ namespace CppGenerator {
 		Type m_return_type;
 		util::unique_vector<Variable> m_args;
 		util::unique_vector<Statement> m_smts;
+		util::unique_vector<Value> m_values;
 
 		friend Util::Collection;
 		template <typename Sf, typename First, typename ...Args>
@@ -2521,6 +2547,8 @@ namespace CppGenerator {
 	private:
 		std::vector<Value> m_values;
 	};
+
+	using B = Brace;
 
 	/*class If : public Statement
 	{
