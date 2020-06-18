@@ -444,6 +444,7 @@ namespace CppGenerator {
 			class Ptr;
 			class RConst;
 			class Array;
+			class Template;
 		};
 
 		Modifiers::LRef LRef(void);
@@ -473,7 +474,18 @@ namespace CppGenerator {
 		template <typename ...Values>
 		Value operator()(Values &&...val);
 
-		auto operator>>(const Type &other);
+		template <typename O>
+		auto operator>>(O &&other);
+
+		template <typename ...Args>
+		auto Template(Args &&...args);
+		template <typename ...Args>
+		auto T(Args &&...args);
+
+		template <typename O>
+		auto operator/(O &&other);
+		template <typename O>
+		auto operator<<(O &&other);
 
 	protected:
 		Direct toString(void) const;
@@ -720,6 +732,44 @@ namespace CppGenerator {
 		return Modifiers::RConst(util::sstream_str(*this));
 	}
 
+	class Type::Modifiers::Template : public Type
+	{
+	public:
+		template <typename T, typename ...Args>
+		Template(T &&type, Args &&...args) :
+			m_base(std::forward<T>(type)),
+			m_args(util::vectorize_args<Type>(std::forward<Args>(args)...))
+		{
+		}
+
+		void write(std::ostream &o) const override
+		{
+			o << m_base << "<";
+			auto comma = "";
+			for (auto &a : m_args) {
+				o << comma << a;
+				comma = ", ";
+			}
+			o << ">";
+		}
+
+	private:
+		Type m_base;
+		std::vector<Type> m_args;
+	};
+
+	template <typename ...Args>
+	auto Type::Template(Args &&...args)
+	{
+		return Modifiers::Template(toString(), std::forward<Args>(args)...);
+	}
+
+	template <typename ...Args>
+	auto Type::T(Args &&...args)
+	{
+		return Template(std::forward<Args>(args)...);
+	}
+
 	namespace Op {
 		class Inc;
 		class Dec;
@@ -824,6 +874,7 @@ namespace CppGenerator {
 			class Array;
 			class Member;
 			class MemberPtr;
+			class Template;
 		};
 
 		Modifiers::Inc Inc(void);
@@ -853,8 +904,8 @@ namespace CppGenerator {
 		Modifiers::Dec operator --(int);
 		template <typename ...Args>
 		Modifiers::Call operator ()(Args &&...args);
-		template <typename T>
-		Modifiers::Array operator[](T &&val);
+		template <typename V>
+		Modifiers::Array operator[](V &&val);
 
 		CppGenerator::Op::Inc operator++(void);
 		CppGenerator::Op::Dec operator--(void);
@@ -923,8 +974,15 @@ namespace CppGenerator {
 		CppGenerator::Op::AssignXorBin operator^=(S &&val);
 		template <typename S>
 		CppGenerator::Op::AssignOrBin operator|=(S &&val);
+		template <typename S>
+		auto operator,(S &&val);
 
 		class Direct;
+
+		template <typename ...Args>
+		auto Template(Args &&...args);
+		template <typename ...Args>
+		auto T(Args &&...args);
 
 	protected:
 		Direct toString(void) const;
@@ -957,8 +1015,8 @@ namespace CppGenerator {
 			return ss.str();
 		}
 
-		template <typename T>
-		std::string convertFloat(T f)
+		template <typename V>
+		std::string convertFloat(V f)
 		{
 			std::stringstream ss;
 
@@ -998,8 +1056,8 @@ namespace CppGenerator {
 			return ss.str();
 		}
 
-		template <typename T>
-		std::string dummyConv(T val, const char *suffix = "")
+		template <typename V>
+		std::string dummyConv(V val, const char *suffix = "")
 		{
 			std::stringstream ss;
 
@@ -1348,10 +1406,10 @@ namespace CppGenerator {
 		class Cpp : public Value
 		{
 		public:
-			template <typename T, typename S>
-			Cpp(const char *cast_type, T &&type, S &&val) :
+			template <typename Tp, typename S>
+			Cpp(const char *cast_type, Tp &&type, S &&val) :
 				m_cast_type(cast_type),
-				m_type(std::forward<T>(type)),
+				m_type(std::forward<Tp>(type)),
 				m_smt(std::forward<S>(val))
 			{
 			}
@@ -1474,11 +1532,12 @@ namespace CppGenerator {
 	};
 
 	namespace Op {
-		class Associative : public Value
+		template <bool do_space>
+		class GenAssociative : public Value
 		{
 		public:
 			template <typename Ta, typename Tb, typename ...Supp>
-			Associative(const char *op, Ta &&a, Tb &&b, Supp &&...supp) :
+			GenAssociative(const char *op, Ta &&a, Tb &&b, Supp &&...supp) :
 				m_op(op),
 				m_args(util::vectorize_args<Value>(std::forward<Ta>(a), std::forward<Tb>(b), std::forward<Supp>(supp)...))
 			{
@@ -1489,8 +1548,12 @@ namespace CppGenerator {
 				o << "(";
 				auto first = true;
 				for (auto &a : m_args) {
-					if (!first)
-						o << " " << m_op << " ";
+					if (!first) {
+						if constexpr (do_space)
+							o << " " << m_op << " ";
+						else
+							o << m_op;
+					}
 					first = false;
 					a.write(o);
 				}
@@ -1501,6 +1564,9 @@ namespace CppGenerator {
 			const char *m_op;
 			std::vector<Value> m_args;
 		};
+
+		using Associative = GenAssociative<true>;
+		using AssociativeNoSpace = GenAssociative<false>;
 
 		class Add : public Associative
 		{
@@ -1733,6 +1799,14 @@ namespace CppGenerator {
 			AssignOrBin(Args &&...args) :
 				Associative("|=", std::forward<Args>(args)...) {}
 		};
+
+		class Comma : public AssociativeNoSpace
+		{
+		public:
+			template <typename ...Args>
+			Comma(Args &&...args) :
+				AssociativeNoSpace(", ", std::forward<Args>(args)...) {}
+		};
 	}
 
 	template <typename S>
@@ -1909,6 +1983,24 @@ namespace CppGenerator {
 		return CppGenerator::Op::AssignOrBin(toString(), std::forward<S>(val));
 	}
 
+	template <typename S>
+	auto Value::operator,(S &&val)
+	{
+		return CppGenerator::Op::Comma(toString(), std::forward<S>(val));
+	}
+
+	template <typename ...Args>
+	auto Value::Template(Args &&...args)
+	{
+		return CppGenerator::Value::Modifiers::Template(toString(), std::forward<Args>(args)...);
+	}
+
+	template <typename ...Args>
+	auto Value::T(Args &&...args)
+	{
+		return Template(std::forward<Args>(args)...);
+	}
+
 	class Comma : public Op::Associative
 	{
 	public:
@@ -2016,12 +2108,12 @@ namespace CppGenerator {
 		return Modifiers::Array(toString(), std::forward<Args>(args)...);
 	}
 
-	class Value::Modifiers::Member : public Op::Associative
+	class Value::Modifiers::Member : public Op::AssociativeNoSpace
 	{
 	public:
 		template <typename ...Args>
 		Member(Args &&...args) :
-			Op::Associative(".", std::forward<Args>(args)...) {}
+			Op::AssociativeNoSpace(".", std::forward<Args>(args)...) {}
 	};
 
 	template <typename ...Args>
@@ -2030,12 +2122,12 @@ namespace CppGenerator {
 		return Modifiers::Member(toString(), std::forward<Args>(args)...);
 	}
 
-	class Value::Modifiers::MemberPtr : public Op::Associative
+	class Value::Modifiers::MemberPtr : public Op::AssociativeNoSpace
 	{
 	public:
 		template <typename ...Args>
 		MemberPtr(Args &&...args) :
-			Op::Associative("->", std::forward<Args>(args)...) {}
+			Op::AssociativeNoSpace("->", std::forward<Args>(args)...) {}
 	};
 
 	template <typename ...Args>
@@ -2060,11 +2152,55 @@ namespace CppGenerator {
 		return Call(std::forward<Args>(args)...);
 	}
 
-	template <typename T>
-	Value::Modifiers::Array Value::operator[](T &&val)
+	template <typename V>
+	Value::Modifiers::Array Value::operator[](V &&val)
 	{
-		return Array(std::forward<T>(val));
+		return Array(std::forward<V>(val));
 	}
+
+	class Value::Modifiers::Template : public Value
+	{
+	public:
+		template <typename V, typename ...Args>
+		Template(V &&val, Args &&...args) :
+			m_base(std::forward<V>(val)),
+			m_args(util::vectorize_args<Type>(std::forward<Args>(args)...))
+		{
+		}
+
+		void write(std::ostream &o) const override
+		{
+			o << m_base << "<";
+			auto comma = "";
+			for (auto &a : m_args) {
+				o << comma << a;
+				comma = ", ";
+			}
+			o << ">";
+		}
+
+	private:
+		Value m_base;
+		std::vector<Type> m_args;
+	};
+
+	class Template : public Value
+	{
+	public:
+		template <typename V>
+		Template(V &&value) :
+			m_value(std::forward<V>(value))
+		{
+		}
+
+		void write(std::ostream &o) const override
+		{
+			o << "template " << m_value;
+		}
+
+	private:
+		Value m_value;
+	};
 
 	class Type::Modifiers::Array : public Type
 	{
@@ -2546,12 +2682,28 @@ namespace CppGenerator {
 		return Value::Direct(ss.str());
 	}
 
-	auto Type::operator>>(const Type &other)
+	template <typename O>
+	auto Type::operator>>(O &&other)
 	{
 		std::stringstream ss;
 
 		ss << *this << "::" << other;
 		return Direct(ss.str());
+	}
+
+	template <typename O>
+	auto Type::operator/(O &&other)
+	{
+		std::stringstream ss;
+
+		ss << *this << ", " << other;
+		return Direct(ss.str());
+	}
+
+	template <typename O>
+	auto Type::operator<<(O &&other)
+	{
+		return Modifiers::Template(toString(), std::forward<O>(other));
 	}
 
 	class Function : public Util::Primitive::Named
