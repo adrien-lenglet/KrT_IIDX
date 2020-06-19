@@ -2905,6 +2905,62 @@ namespace CppGenerator {
 		};
 	}
 
+	class For : public Statement
+	{
+	public:
+		class Range : public Statement
+		{
+		public:
+			template <typename Decl, typename Expr, typename ...Loop>
+			Range(Decl &&decl, Expr &&expr, Loop &&...loop) :
+				m_decl(std::forward<Decl>(decl)),
+				m_expr(std::forward<Expr>(expr)),
+				m_loop(util::vectorize_args<Statement>(std::forward<Loop>(loop)...))
+			{
+			}
+
+			void write(Util::File &o) const override
+			{
+				o.new_line() << "for (" << m_decl << " : " << m_expr << ") {" << o.end_line();
+				o.indent();
+				for (auto &s : m_loop)
+					s.write(o);
+				o.unindent();
+				o.new_line() << "}" << o.end_line();
+			}
+
+		private:
+			Value m_decl;
+			Value m_expr;
+			std::vector<Statement> m_loop;
+		};
+
+		template <typename Decl, typename Cond, typename End, typename ...Loop>
+		For(Decl &&decl, Cond &&cond, End &&end, Loop &&...loop) :
+			m_decl(std::forward<Decl>(decl)),
+			m_cond(std::forward<Cond>(cond)),
+			m_end(std::forward<End>(end)),
+			m_loop(util::vectorize_args<Statement>(std::forward<Loop>(loop)...))
+		{
+		}
+
+		void write(Util::File &o) const override
+		{
+			o.new_line() << "for (" << m_decl << "; " << m_cond << "; " << m_end << ") {" << o.end_line();
+			o.indent();
+			for (auto &s : m_loop)
+				s.write(o);
+			o.unindent();
+			o.new_line() << "}" << o.end_line();
+		}
+
+	private:
+		Value m_decl;
+		Value m_cond;
+		Value m_end;
+		std::vector<Statement> m_loop;
+	};
+
 	/*class If : public Statement
 	{
 	public:
