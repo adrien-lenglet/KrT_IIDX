@@ -2380,6 +2380,8 @@ namespace CppGenerator {
 
 	class Statement : public Util::FileWritable
 	{
+		class Direct;
+
 		template <typename W>
 		static inline constexpr bool is_w_ok_v = std::is_base_of_v<Statement, std::remove_reference_t<W>> && !std::is_same_v<std::remove_reference_t<W>, Statement>;
 
@@ -2406,6 +2408,9 @@ namespace CppGenerator {
 		{
 		}
 
+		Statement(Value &val);
+		Statement(Value &&val);
+
 		~Statement(void) override
 		{
 		}
@@ -2415,6 +2420,34 @@ namespace CppGenerator {
 			write_sub(o);
 		}
 	};
+
+	class Statement::Direct : public Statement
+	{
+	public:
+		template <typename V>
+		Direct(V &&value) :
+			m_value(Value::Direct(util::sstream_str(std::forward<V>(value))))
+		{
+		}
+
+		void write(Util::File &o) const override
+		{
+			o.new_line() << m_value << ";" << o.end_line();
+		}
+
+	private:
+		Value m_value;
+	};
+
+	Statement::Statement(Value &val) :
+		Statement(Statement::Direct(val))
+	{
+	}
+
+	Statement::Statement(Value &&val) :
+		Statement(Statement::Direct(std::move(val)))
+	{
+	}
 
 	class Util::IdentifierName : public Value
 	{
@@ -2647,7 +2680,11 @@ namespace CppGenerator {
 		std::stringstream ss;
 
 		ss << *this << "::" << other;
-		return Direct(ss.str());
+
+		if constexpr (std::is_base_of_v<Type, std::remove_reference_t<O>>)
+			return Direct(ss.str());
+		else
+			return Value::Direct(ss.str());
 	}
 
 	template <typename O>
