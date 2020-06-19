@@ -2961,6 +2961,56 @@ namespace CppGenerator {
 		std::vector<Statement> m_loop;
 	};
 
+	class While : public Statement
+	{
+	public:
+		class Do : public Statement
+		{
+		public:
+			template <typename Cond, typename ...Loop>
+			Do(Cond &&cond, Loop &&...loop) :
+				m_cond(std::forward<Cond>(cond)),
+				m_loop(util::vectorize_args<Statement>(std::forward<Loop>(loop)...))
+			{
+			}
+
+			void write(Util::File &o) const override
+			{
+				o.new_line() << "do {" << o.end_line();
+				o.indent();
+				for (auto &s : m_loop)
+					s.write(o);
+				o.unindent();
+				o.new_line() << "} while (" << m_cond << ");" << o.end_line();
+			}
+
+		private:
+			Value m_cond;
+			std::vector<Statement> m_loop;
+		};
+
+		template <typename Cond, typename ...Loop>
+		While(Cond &&cond, Loop &&...loop) :
+			m_cond(std::forward<Cond>(cond)),
+			m_loop(util::vectorize_args<Statement>(std::forward<Loop>(loop)...))
+		{
+		}
+
+		void write(Util::File &o) const override
+		{
+			o.new_line() << "while (" << m_cond << ") {" << o.end_line();
+			o.indent();
+			for (auto &s : m_loop)
+				s.write(o);
+			o.unindent();
+			o.new_line() << "}" << o.end_line();
+		}
+
+	private:
+		Value m_cond;
+		std::vector<Statement> m_loop;
+	};
+
 	/*class If : public Statement
 	{
 	public:
