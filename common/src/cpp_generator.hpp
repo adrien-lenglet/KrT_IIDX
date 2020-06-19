@@ -296,11 +296,9 @@ namespace CppGenerator {
 		{
 			auto &func = m_primitives.emplace<Function>(std::forward<T>(type), name);
 
-			auto res = std::tie(func);
 			if constexpr (!util::are_args_empty_v<Args...>)
-				return func.popArg(res, std::forward<Args>(args)...);
-			else
-				return func;
+				func.popArg(std::forward<Args>(args)...);
+			return func;
 		}
 	};
 
@@ -2512,14 +2510,14 @@ namespace CppGenerator {
 		}
 	};
 
-	template <typename IdentifierType>
-	class Util::Variable : public IdentifierType, public Statement
+	template <typename IdType>
+	class Util::Variable : public Value
 	{
 	public:
 		template <typename T, typename Id>
 		Variable(T &&type, const Id &id) :
-			IdentifierType(id),
-			m_type(std::forward<T>(type))
+			m_type(std::forward<T>(type)),
+			m_id(id)
 		{
 		}
 
@@ -2528,14 +2526,12 @@ namespace CppGenerator {
 		template <typename O>
 		void declare(O &o) const
 		{
-			decl(m_type, static_cast<const Value&>(*this), o);
+			decl(m_type, static_cast<const Value&>(m_id), o);
 		}
 
-		void write(Util::File &o) const override
+		void write(std::ostream &o) const override
 		{
-			o.new_line();
 			declare(o);
-			o << ";" << o.end_line();
 		}
 
 		template <typename T, typename Str, typename O>
@@ -2555,6 +2551,7 @@ namespace CppGenerator {
 
 	protected:
 		Type m_type;
+		IdType m_id;
 
 	private:
 		static size_t countArrSize(const std::string &inputType)
@@ -2578,33 +2575,31 @@ namespace CppGenerator {
 	};
 
 	template <typename IdType>
-	class Util::VariableDeclWithValue : public IdType, public Statement
+	class Util::VariableDeclWithValue : public Value
 	{
 	public:
 		template <typename T, typename Id, typename V>
 		VariableDeclWithValue(T &&type, const Id &id, V &&value, bool is_equal = false) :
-			IdType(id),
 			m_type(std::forward<T>(type)),
+			m_id(id),
 			m_value(std::forward<V>(value)),
 			m_is_equal(is_equal)
 		{
 		}
 
-		using Value::write;
-
-		void write(Util::File &o) const override
+		void write(std::ostream &o) const override
 		{
-			o.new_line();
-			Util::Variable<IdType>::decl(m_type, util::sstream_str(static_cast<const Value&>(*this)), o);
+			Util::Variable<IdType>::decl(m_type, util::sstream_str(static_cast<const Value&>(m_id)), o);
 			if (m_is_equal)
 				o << " = ";
 			else
 				o << " ";
-			o << m_value << ";" << o.end_line();
+			o << m_value;
 		}
 
 	private:
 		Type m_type;
+		IdType m_id;
 		Value m_value;
 		bool m_is_equal;
 	};
@@ -2625,13 +2620,13 @@ namespace CppGenerator {
 		template <typename V>
 		auto operator|(V &&value)
 		{
-			return VariableDeclWithValue<IdType>(std::move(this->m_type), static_cast<const IdType&>(*this), std::forward<V>(value));
+			return VariableDeclWithValue<IdType>(std::move(this->m_type), this->m_id, std::forward<V>(value));
 		}
 
 		template <typename V>
 		VariableDeclWithValue<IdType> operator=(V &&value)
 		{
-			return VariableDeclWithValue<IdType>(std::move(this->m_type), static_cast<IdType&>(*this), std::forward<V>(value), true);
+			return VariableDeclWithValue<IdType>(std::move(this->m_type), this->m_id, std::forward<V>(value), true);
 		}
 
 		/*template <typename ...Args>
@@ -2766,50 +2761,22 @@ namespace CppGenerator {
 		util::unique_vector<Value> m_values;
 
 		friend Util::Collection;
-		template <typename Sf, typename First, typename ...Args>
-		auto popArg(Sf &&sf, First &&first, Args &&...args)
+		template <typename First, typename ...Args>
+		decltype(auto) popArg(First &&first, Args &&...args)
 		{
 			auto &to_add = addArg(std::forward<First>(first));
 
-			auto res = std::tuple_cat(std::forward<Sf>(sf), std::tuple<Util::Variable<Util::IdentifierName>&>(to_add));
+			auto res = std::tuple<Util::Variable<Util::IdentifierName>&>(to_add);
 			if constexpr (!util::are_args_empty_v<Args...>)
-				return popArg(res, std::forward<Args>(args)...);
+				return std::tuple_cat(res, popArg(std::forward<Args>(args)...));
 			else
 				return res;
-		}
-
-		template <size_t I, typename ...Types>
-		decltype(auto) genBindValues(const std::tuple<Types...> &tup)
-		{
-			if constexpr (I < sizeof...(Types)) {
-				auto &res = m_values.emplace(Value::Direct(std::get<I>(tup)));
-				return std::tuple_cat(std::tuple<Value&>(res), genBindValues<I + 1>(tup));
-			} else
-				return std::make_tuple();
-		}
-
-		template <typename Src>
-		decltype(auto) getDecl(Src &&src)
-		{
-			using SrcNoRef = std::remove_reference_t<Src>;
-
-			if constexpr (util::is_base_of_template_v<Util::IdentifierBind, SrcNoRef>)
-				return genBindValues<0>(src.getTuple());
-			else
-				return m_values.emplace(Value::Direct(util::sstream_str(std::forward<Src>(src))));
 		}
 
 		template <typename Src>
 		decltype(auto) emplaceValSmt(Src &&src)
 		{
-			using SrcNoRef = std::remove_reference_t<Src>;
-
-			if constexpr (util::is_base_of_template_v<Util::Variable, SrcNoRef> || util::is_base_of_template_v<Util::VariableDeclWithValue, SrcNoRef>) {
-				decltype(auto) res = getDecl(std::forward<Src>(src));
-				m_smts.emplace(std::forward<Src>(src));
-				return res;
-			} else
-				return m_smts.emplace(std::forward<Src>(src));
+			return m_smts.emplace(std::forward<Src>(src));
 		}
 
 		template <typename First, typename ...Args>
