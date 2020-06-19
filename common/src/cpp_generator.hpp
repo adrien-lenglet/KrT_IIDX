@@ -1437,6 +1437,11 @@ namespace CppGenerator {
 		Value m_smt;
 	};
 
+	using StaticCast = Cast::Static;
+	using DynamicCast = Cast::Dynamic;
+	using ConstCast = Cast::Const;
+	using ReinterpretCast = Cast::Reinterpret;
+
 	class Ternary : public Value
 	{
 	public:
@@ -2373,8 +2378,6 @@ namespace CppGenerator {
 
 	class Statement : public Util::FileWritable
 	{
-		class Direct;
-
 		template <typename W>
 		static inline constexpr bool is_w_ok_v = std::is_base_of_v<Statement, std::remove_reference_t<W>> && !std::is_same_v<std::remove_reference_t<W>, Statement>;
 
@@ -2412,6 +2415,8 @@ namespace CppGenerator {
 		{
 			write_sub(o);
 		}
+
+		class Direct;
 	};
 
 	class Statement::Direct : public Statement
@@ -2441,6 +2446,9 @@ namespace CppGenerator {
 		Statement(Statement::Direct(std::move(val)))
 	{
 	}
+
+	static Statement::Direct Break("break"_v);
+	static Statement::Direct Continue("continue"_v);
 
 	class Util::IdentifierName : public Value
 	{
