@@ -3011,12 +3011,166 @@ namespace CppGenerator {
 		std::vector<Statement> m_loop;
 	};
 
-	/*class If : public Statement
+	class If : public Statement
+	{
+	protected:
+		class Payload
+		{
+		public:
+			template <typename Cond, typename ...Smts>
+			Payload(Cond &&cond, Smts &&...smts) :
+				m_cond(std::forward<Cond>(cond)),
+				m_smts(util::vectorize_args<Statement>(std::forward<Smts>(smts)...))
+			{
+			}
+
+			void write(Util::File &o) const
+			{
+				o << "if (" << m_cond << ") {" << o.end_line();
+				o.indent();
+				for (auto &s : m_smts)
+					s.write(o);
+				o.unindent();
+				o.new_line() << "}";
+			}
+
+		private:
+			Value m_cond;
+			std::vector<Statement> m_smts;
+		};
+
+	public:
+		template <typename Cond, typename ...Smts>
+		If(Cond &&cond, Smts &&...smts) :
+			m_payload(std::forward<Cond>(cond), std::forward<Smts>(smts)...)
+		{
+		}
+
+		void write(Util::File &o) const override
+		{
+			o.new_line();
+			m_payload.write(o);
+			o << o.end_line();
+		}
+
+		template <typename Cond, typename ...Smts>
+		auto ElseIf(Cond &&cond, Smts &&...smts);
+
+		template <typename ...Smts>
+		auto Else(Smts &&...smts);
+
+	protected:
+		Payload m_payload;
+
+	private:
+		class CElseIf;
+		class CElse;
+		friend CElseIf;
+		friend CElse;
+	};
+
+	class If::CElseIf : public Statement
 	{
 	public:
-		template <typename >
-		If()
-	};*/
+		template <typename Cond, typename ...Smts>
+		CElseIf(If &&f, Cond &&cond, Smts &&...smts) :
+			m_base_payload(std::move(f.m_payload))
+		{
+			m_payloads.emplace_back(std::forward<Cond>(cond), std::forward<Smts>(smts)...);
+		}
+
+		template <typename Cond, typename ...Smts>
+		CElseIf(CElseIf &&f, Cond &&cond, Smts &&...smts) :
+			m_base_payload(std::move(f.m_base_payload)),
+			m_payloads(std::move(f.m_payloads))
+		{
+			m_payloads.emplace_back(std::forward<Cond>(cond), std::forward<Smts>(smts)...);
+		}
+
+		void write(Util::File &o) const override
+		{
+			o.new_line();
+			m_base_payload.write(o);
+			for (auto &p : m_payloads) {
+				o << " else ";
+				p.write(o);
+			}
+			o << o.end_line();
+		}
+
+		template <typename Cond, typename ...Smts>
+		auto ElseIf(Cond &&cond, Smts &&...smts)
+		{
+			return CElseIf(std::move(*this), std::forward<Cond>(cond), std::forward<Smts>(smts)...);
+		}
+
+		template <typename ...Smts>
+		auto Else(Smts &&...smts);
+
+	private:
+		friend CElse;
+
+		Payload m_base_payload;
+		std::vector<Payload> m_payloads;
+	};
+
+	template <typename Cond, typename ...Smts>
+	auto If::ElseIf(Cond &&cond, Smts &&...smts)
+	{
+		return CElseIf(std::move(*this), std::forward<Cond>(cond), std::forward<Smts>(smts)...);
+	}
+
+	class If::CElse : public Statement
+	{
+	public:
+		template <typename ...Smts>
+		CElse(If &&f, Smts &&...smts) :
+			m_base_payload(std::move(f.m_payload)),
+			m_smts(util::vectorize_args<Statement>(std::forward<Smts>(smts)...))
+		{
+		}
+
+		template <typename ...Smts>
+		CElse(CElseIf &&f, Smts &&...smts) :
+			m_base_payload(std::move(f.m_base_payload)),
+			m_payloads(std::move(f.m_payloads)),
+			m_smts(util::vectorize_args<Statement>(std::forward<Smts>(smts)...))
+		{
+		}
+
+		void write(Util::File &o) const override
+		{
+			o.new_line();
+			m_base_payload.write(o);
+			for (auto &p : m_payloads) {
+				o << " else ";
+				p.write(o);
+			}
+			o << " else {" << o.end_line();
+			o.indent();
+			for (auto &s : m_smts)
+				s.write(o);
+			o.unindent();
+			o.new_line() << "}" << o.end_line();
+		}
+
+	private:
+		Payload m_base_payload;
+		std::vector<Payload> m_payloads;
+		std::vector<Statement> m_smts;
+	};
+
+	template <typename ...Smts>
+	auto If::Else(Smts &&...smts)
+	{
+		return CElse(std::move(*this), std::forward<Smts>(smts)...);
+	}
+
+	template <typename ...Smts>
+	auto If::CElseIf::Else(Smts &&...smts)
+	{
+		return CElse(std::move(*this), std::forward<Smts>(smts)...);
+	}
 }
 
 namespace cppgen = CppGenerator;
