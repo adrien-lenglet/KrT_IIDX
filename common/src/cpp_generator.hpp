@@ -326,13 +326,8 @@ namespace CppGenerator {
 				o.new_line() << "{" << o.end_line();
 				o.indent();
 			}
-			auto is_first = true;
-			for (auto &p : getPrimitives()) {
-				if (!is_first)
-					o << o.end_line();
-				is_first = false;
+			for (auto &p : getPrimitives())
 				p.write(o);
-			}
 			if (!isMain) {
 				o.unindent();
 				o.new_line() << "}" << o.end_line();
