@@ -83,50 +83,55 @@ namespace CppGenerator {
 			virtual operator bool(void) const = 0;
 			virtual T& get(void) = 0;
 
-			class Unique : public RefHolder
+			class Unique;
+			class Ref;
+		};
+
+		template <typename T>
+		class RefHolder<T>::Unique : public RefHolder<T>
+		{
+		public:
+			template <typename W, class = std::enable_if_t<std::is_rvalue_reference_v<W&&>>>
+			Unique(W &&other) :
+				m_ref(new W(std::move(other)))
 			{
-			public:
-				template <typename W, class = std::enable_if_t<std::is_rvalue_reference_v<W&&>>>
-				Unique(W &&other) :
-					m_ref(new W(std::move(other)))
-				{
-				}
+			}
 
-				operator bool(void) const override
-				{
-					return static_cast<bool>(m_ref);
-				}
-
-				T& get(void) override
-				{
-					return *m_ref;
-				}
-
-			private:
-				std::unique_ptr<T> m_ref;
-			};
-
-			class Ref : public RefHolder
+			operator bool(void) const override
 			{
-			public:
-				Ref(T &other) :
-					m_ref(other)
-				{
-				}
+				return static_cast<bool>(m_ref);
+			}
 
-				operator bool(void) const override
-				{
-					return true;
-				}
+			T& get(void) override
+			{
+				return *m_ref;
+			}
 
-				T& get(void) override
-				{
-					return m_ref;
-				}
+		private:
+			std::unique_ptr<T> m_ref;
+		};
 
-			private:
-				T &m_ref;
-			};
+		template <typename T>
+		class RefHolder<T>::Ref : public RefHolder<T>
+		{
+		public:
+			Ref(T &other) :
+				m_ref(other)
+			{
+			}
+
+			operator bool(void) const override
+			{
+				return true;
+			}
+
+			T& get(void) override
+			{
+				return m_ref;
+			}
+
+		private:
+			T &m_ref;
 		};
 
 		class Primitive
@@ -2459,6 +2464,7 @@ namespace CppGenerator {
 		}
 
 		IdentifierName(const IdentifierName &other) :
+			Value(),
 			m_name(other.m_name)
 		{
 		}
