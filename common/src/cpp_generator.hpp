@@ -14,7 +14,7 @@ namespace CppGenerator {
 	}
 
 	template <typename ...Args>
-	decltype(auto) S(Args &&...args)
+	decltype(auto) Sb(Args &&...args)
 	{
 		return Bind(std::forward<Args>(args)...);
 	}
@@ -204,7 +204,9 @@ namespace CppGenerator {
 		template <typename IdType>
 		class VariableDecl;
 		template <typename IdType>
-		class VariableDeclWithValue;
+		class VariableDeclValue;
+		template <typename IdType>
+		class VariableDeclCtor;
 
 		class Collection;
 	}
@@ -213,6 +215,30 @@ namespace CppGenerator {
 	{
 		value.write(o);
 		return o;
+	}
+
+	class Type;
+
+	class IdentifierCtor;
+	class Identifier
+	{
+	public:
+		Identifier(const char *name) :
+			m_name(name)
+		{
+		}
+
+		template <typename ...Args>
+		auto operator()(Args &&...args);
+
+	private:
+		friend Type;
+		const char *m_name;
+	};
+
+	auto operator ""_id(const char *str, size_t)
+	{
+		return Identifier(str);
 	}
 
 	class Value;
@@ -282,6 +308,8 @@ namespace CppGenerator {
 		auto operator&(void);
 
 		auto operator|(const char *name);
+		auto operator|(Identifier &&id);
+		auto operator|(IdentifierCtor &&id);
 		template <typename BindType>
 		auto operator|(const BindType &bind);
 
@@ -908,6 +936,28 @@ namespace CppGenerator {
 			return dummyConv(static_cast<max_signed>(i), "LL");
 		}
 	};
+
+	class IdentifierCtor
+	{
+	public:
+		template <typename ...Args>
+		IdentifierCtor(const char *name, Args &&...args) :
+			m_name(name),
+			m_args(util::vectorize_args<Value>(std::forward<Args>(args)...))
+		{
+		}
+
+	private:
+		friend Type;
+		const char *m_name;
+		std::vector<Value> m_args;
+	};
+
+	template <typename ...Args>
+	auto Identifier::operator()(Args &&...args)
+	{
+		return IdentifierCtor(m_name, std::forward<Args>(args)...);
+	}
 
 	class Value::Direct : public Value
 	{
@@ -2239,11 +2289,11 @@ namespace CppGenerator {
 	};
 
 	template <typename IdType>
-	class Util::VariableDeclWithValue : public Value
+	class Util::VariableDeclValue : public Value
 	{
 	public:
 		template <typename T, typename Id, typename V>
-		VariableDeclWithValue(T &&type, const Id &id, V &&value, bool is_equal = false) :
+		VariableDeclValue(T &&type, const Id &id, V &&value, bool is_equal = false) :
 			m_type(std::forward<T>(type)),
 			m_id(id),
 			m_value(std::forward<V>(value)),
@@ -2269,6 +2319,44 @@ namespace CppGenerator {
 	};
 
 	template <typename IdType>
+	class Util::VariableDeclCtor : public Value
+	{
+	public:
+		template <typename T, typename Id, typename ...Args>
+		VariableDeclCtor(T &&type, const Id &id, Args &&...args) :
+			m_type(std::forward<T>(type)),
+			m_id(id),
+			m_args(util::vectorize_args<Value>(std::forward<Args>(args)...))
+		{
+		}
+
+		template <typename T, typename Id>
+		VariableDeclCtor(T &&type, const Id &id, std::vector<Value> &&args) :
+			m_type(std::forward<T>(type)),
+			m_id(id),
+			m_args(std::move(args))
+		{
+		}
+
+		void write(std::ostream &o) const override
+		{
+			Util::Variable<IdType>::decl(m_type, util::sstream_str(static_cast<const Value&>(m_id)), o);
+			o << "(";
+			auto comma = "";
+			for (auto &a : m_args) {
+				o << comma << a;
+				comma = ", ";
+			}
+			o << ")";
+		}
+
+	private:
+		Type m_type;
+		IdType m_id;
+		std::vector<Value> m_args;
+	};
+
+	template <typename IdType>
 	class Util::VariableDecl : public Util::Variable<IdType>
 	{
 		using Util::Variable<IdType>::Value::operator|;
@@ -2284,25 +2372,35 @@ namespace CppGenerator {
 		template <typename V>
 		auto operator|(V &&value)
 		{
-			return VariableDeclWithValue<IdType>(std::move(this->m_type), this->m_id, std::forward<V>(value));
+			return VariableDeclValue<IdType>(std::move(this->m_type), this->m_id, std::forward<V>(value));
 		}
 
 		template <typename V>
-		VariableDeclWithValue<IdType> operator=(V &&value)
+		auto operator=(V &&value)
 		{
-			return VariableDeclWithValue<IdType>(std::move(this->m_type), this->m_id, std::forward<V>(value), true);
+			return VariableDeclValue<IdType>(std::move(this->m_type), this->m_id, std::forward<V>(value), true);
 		}
 
-		/*template <typename ...Args>
-		VariableDeclCtor operator()(Args &&...args)
+		template <typename ...Args>
+		auto operator()(Args &&...args)
 		{
-
-		}*/
+			return VariableDeclCtor<IdType>(std::move(this->m_type), this->m_id, std::forward<Args>(args)...);
+		}
 	};
 
 	auto Type::operator|(const char *name)
 	{
 		return Util::VariableDecl<Util::IdentifierName>(util::sstream_str(*this), name);
+	}
+
+	auto Type::operator|(Identifier &&id)
+	{
+		return Util::VariableDecl<Util::IdentifierName>(util::sstream_str(*this), id.m_name);
+	}
+
+	auto Type::operator|(IdentifierCtor &&id)
+	{
+		return Util::VariableDeclCtor<Util::IdentifierName>(util::sstream_str(*this), id.m_name, std::move(id.m_args));
 	}
 
 	template <typename BindType>
