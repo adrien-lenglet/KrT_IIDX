@@ -325,9 +325,6 @@ public:
 	unique_vector(void)
 	{
 	}
-	~unique_vector(void)
-	{
-	}
 
 	class const_iterator : public Vector::const_iterator
 	{

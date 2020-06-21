@@ -195,18 +195,14 @@ namespace CppGenerator {
 		class Long_t;
 		class Long_m;
 
+		class Storage;
+
 		class IdentifierName;
 		template <typename TupleType>
 		class IdentifierBind;
 
 		template <typename IdType>
 		class Variable;
-		template <typename IdType>
-		class VariableDecl;
-		template <typename IdType>
-		class VariableDeclValue;
-		template <typename IdType>
-		class VariableDeclCtor;
 
 		class Collection;
 	}
@@ -2160,6 +2156,34 @@ namespace CppGenerator {
 	static Statement::Direct Break("break"_v);
 	static Statement::Direct Continue("continue"_v);
 
+	class Util::Storage
+	{
+	public:
+		Storage(const char *quali) :
+			m_qualifiers({quali})
+		{
+		}
+		Storage(const Storage &base, const Storage &add) :
+			m_qualifiers(base.m_qualifiers)
+		{
+			for (auto &a : add.m_qualifiers)
+				m_qualifiers.emplace_back(a);
+		}
+
+		auto operator|(const Storage &other)
+		{
+			return Storage(*this, other);
+		}
+
+	private:
+		std::vector<const char*> m_qualifiers;
+	};
+
+	static Util::Storage Static("static");
+	static Util::Storage Extern("extern");
+	static Util::Storage ThreadLocal("thread_local");
+	static Util::Storage Mutable("mutable");
+
 	class Util::IdentifierName : public Value
 	{
 	public:
@@ -2235,39 +2259,109 @@ namespace CppGenerator {
 		{
 		}
 
-		using Value::write;
-
-		template <typename O>
-		void declare(O &o) const
-		{
-			decl(m_type, static_cast<const Value&>(m_id), o);
-		}
-
 		void write(std::ostream &o) const override
 		{
 			declare(o);
 		}
 
-		template <typename T, typename Str, typename O>
-		static void decl(T &&type, Str &&name, O &o)
+	protected:
+		template <typename O>
+		void declare(O &o) const
 		{
-			auto s = util::sstream_str(type);
+			auto s = util::sstream_str(m_type);
 
 			auto size = countArrSize(s);
 			auto t = s.substr(0, s.size() - size);
 			auto arr = s.substr(s.size() - size, size);
 			o << t;
-			auto s_name = util::sstream_str(std::forward<Str>(name));
+			auto s_name = util::sstream_str(static_cast<const Value&>(m_id));
 			if (s_name.size() > 0)
 				o << " " << s_name;
 			o << arr;
 		}
 
-	protected:
+	public:
+		class DeclValue : public Variable
+		{
+		public:
+			template <typename T, typename Id, typename V>
+			DeclValue(T &&type, const Id &id, V &&value, bool is_equal = false) :
+				Variable(std::forward<T>(type), id),
+				m_value(std::forward<V>(value)),
+				m_is_equal(is_equal)
+			{
+			}
+
+			void write(std::ostream &o) const override
+			{
+				declare(o);
+				if (m_is_equal)
+					o << " = ";
+				else
+					o << " ";
+				o << m_value;
+			}
+
+		private:
+			Value m_value;
+			bool m_is_equal;
+		};
+
+		class DeclCtor : public Variable
+		{
+		public:
+			template <typename T, typename Id, typename ...Args>
+			DeclCtor(T &&type, const Id &id, Args &&...args) :
+				Variable(std::forward<T>(type), id),
+				m_args(util::vectorize_args<Value>(std::forward<Args>(args)...))
+			{
+			}
+
+			template <typename T, typename Id>
+			DeclCtor(T &&type, const Id &id, std::vector<Value> &&args) :
+				Variable(std::forward<T>(type), id),
+				m_args(std::move(args))
+			{
+			}
+
+			void write(std::ostream &o) const override
+			{
+				declare(o);
+				o << "(";
+				auto comma = "";
+				for (auto &a : m_args) {
+					o << comma << a;
+					comma = ", ";
+				}
+				o << ")";
+			}
+
+		private:
+			std::vector<Value> m_args;
+		};
+
+		template <typename V>
+		auto operator|(V &&value)
+		{
+			return DeclValue(std::move(this->m_type), this->m_id, std::forward<V>(value));
+		}
+
+		template <typename V>
+		auto operator=(V &&value)
+		{
+			return DeclValue(std::move(this->m_type), this->m_id, std::forward<V>(value), true);
+		}
+
+		template <typename ...Args>
+		auto operator()(Args &&...args)
+		{
+			return DeclCtor(std::move(this->m_type), this->m_id, std::forward<Args>(args)...);
+		}
+
+	private:
 		Type m_type;
 		IdType m_id;
 
-	private:
 		static size_t countArrSize(const std::string &inputType)
 		{
 			size_t res = 0;
@@ -2288,125 +2382,25 @@ namespace CppGenerator {
 		}
 	};
 
-	template <typename IdType>
-	class Util::VariableDeclValue : public Value
-	{
-	public:
-		template <typename T, typename Id, typename V>
-		VariableDeclValue(T &&type, const Id &id, V &&value, bool is_equal = false) :
-			m_type(std::forward<T>(type)),
-			m_id(id),
-			m_value(std::forward<V>(value)),
-			m_is_equal(is_equal)
-		{
-		}
-
-		void write(std::ostream &o) const override
-		{
-			Util::Variable<IdType>::decl(m_type, util::sstream_str(static_cast<const Value&>(m_id)), o);
-			if (m_is_equal)
-				o << " = ";
-			else
-				o << " ";
-			o << m_value;
-		}
-
-	private:
-		Type m_type;
-		IdType m_id;
-		Value m_value;
-		bool m_is_equal;
-	};
-
-	template <typename IdType>
-	class Util::VariableDeclCtor : public Value
-	{
-	public:
-		template <typename T, typename Id, typename ...Args>
-		VariableDeclCtor(T &&type, const Id &id, Args &&...args) :
-			m_type(std::forward<T>(type)),
-			m_id(id),
-			m_args(util::vectorize_args<Value>(std::forward<Args>(args)...))
-		{
-		}
-
-		template <typename T, typename Id>
-		VariableDeclCtor(T &&type, const Id &id, std::vector<Value> &&args) :
-			m_type(std::forward<T>(type)),
-			m_id(id),
-			m_args(std::move(args))
-		{
-		}
-
-		void write(std::ostream &o) const override
-		{
-			Util::Variable<IdType>::decl(m_type, util::sstream_str(static_cast<const Value&>(m_id)), o);
-			o << "(";
-			auto comma = "";
-			for (auto &a : m_args) {
-				o << comma << a;
-				comma = ", ";
-			}
-			o << ")";
-		}
-
-	private:
-		Type m_type;
-		IdType m_id;
-		std::vector<Value> m_args;
-	};
-
-	template <typename IdType>
-	class Util::VariableDecl : public Util::Variable<IdType>
-	{
-		using Util::Variable<IdType>::Value::operator|;
-		using Util::Variable<IdType>::Value::operator=;
-
-	public:
-		template <typename ...Args>
-		VariableDecl(Args &&...args) :
-			Util::Variable<IdType>(std::forward<Args>(args)...)
-		{
-		}
-
-		template <typename V>
-		auto operator|(V &&value)
-		{
-			return VariableDeclValue<IdType>(std::move(this->m_type), this->m_id, std::forward<V>(value));
-		}
-
-		template <typename V>
-		auto operator=(V &&value)
-		{
-			return VariableDeclValue<IdType>(std::move(this->m_type), this->m_id, std::forward<V>(value), true);
-		}
-
-		template <typename ...Args>
-		auto operator()(Args &&...args)
-		{
-			return VariableDeclCtor<IdType>(std::move(this->m_type), this->m_id, std::forward<Args>(args)...);
-		}
-	};
-
 	auto Type::operator|(const char *name)
 	{
-		return Util::VariableDecl<Util::IdentifierName>(util::sstream_str(*this), name);
+		return Util::Variable<Util::IdentifierName>(util::sstream_str(*this), name);
 	}
 
 	auto Type::operator|(Identifier &&id)
 	{
-		return Util::VariableDecl<Util::IdentifierName>(util::sstream_str(*this), id.m_name);
+		return Util::Variable<Util::IdentifierName>(util::sstream_str(*this), id.m_name);
 	}
 
 	auto Type::operator|(IdentifierCtor &&id)
 	{
-		return Util::VariableDeclCtor<Util::IdentifierName>(util::sstream_str(*this), id.m_name, std::move(id.m_args));
+		return Util::Variable<Util::IdentifierName>::DeclCtor(util::sstream_str(*this), id.m_name, std::move(id.m_args));
 	}
 
 	template <typename BindType>
 	auto Type::operator|(const BindType &bind)
 	{
-		return Util::VariableDecl<Util::IdentifierBind<BindType>>(util::sstream_str(*this), bind);
+		return Util::Variable<Util::IdentifierBind<BindType>>(util::sstream_str(*this), bind);
 	}
 
 	template <typename V, class>
@@ -2458,101 +2452,6 @@ namespace CppGenerator {
 	{
 		return Modifiers::Template(toString(), std::forward<O>(other));
 	}
-
-	class Function : public Statement
-	{
-	public:
-		template <typename RetType>
-		Function(RetType &&return_type, const std::string &name) :
-			m_return_type(std::forward<RetType>(return_type)),
-			m_name(name)
-		{
-		}
-		~Function(void)
-		{
-		}
-
-		template <typename ...Args>
-		decltype(auto) addArg(Args &&...args)
-		{
-			return m_args.emplace(std::forward<Args>(args)...);
-		}
-
-		template <typename First, typename ...Args>
-		decltype(auto) add(First &&first, Args &&...args)
-		{
-			decltype(auto) res = emplaceValSmt(std::forward<First>(first));
-
-			if constexpr (util::are_args_empty_v<Args...>)
-				return res;
-			else
-				return std::tuple_cat(std::tuple<decltype(res)>(res), addMul(std::forward<Args>(args)...));
-		}
-
-		template <typename Type, typename ...Args>
-		Type& add(Args &&...args)
-		{
-			return m_smts.emplace<Type>(std::forward<Args>(args)...);
-		}
-
-		void write(Util::File &o) const
-		{
-			o.new_line() << m_return_type << " " << m_name << "(";
-
-			auto comma = "";
-			for (auto &a : m_args) {
-				o << comma;
-				a.declare(o);
-				comma = ", ";
-			}
-			if (m_args.size() == 0)
-				o << "void";
-			o << ")" << o.end_line();
-			o.new_line() << "{" << o.end_line();
-			o.indent();
-			for (auto &s : m_smts)
-				s.write(o);
-			o.unindent();
-			o.new_line() << "}" << o.end_line();
-		}
-
-	private:
-		Type m_return_type;
-		std::string m_name;
-		util::unique_vector<Util::Variable<Util::IdentifierName>> m_args;
-		util::unique_vector<Statement> m_smts;
-		util::unique_vector<Value> m_values;
-
-		template <typename First, typename ...Args>
-		decltype(auto) popArg(First &&first, Args &&...args)
-		{
-			auto &to_add = addArg(std::forward<First>(first));
-
-			auto res = std::tuple<Util::Variable<Util::IdentifierName>&>(to_add);
-			if constexpr (!util::are_args_empty_v<Args...>)
-				return std::tuple_cat(res, popArg(std::forward<Args>(args)...));
-			else
-				return res;
-		}
-
-		template <typename Src>
-		decltype(auto) emplaceValSmt(Src &&src)
-		{
-			return m_smts.emplace(std::forward<Src>(src));
-		}
-
-		template <typename First, typename ...Args>
-		decltype(auto) addMul(First &&first, Args &&...args)
-		{
-			decltype(auto) res = emplaceValSmt(std::forward<First>(first));
-
-			auto tup = std::tuple<decltype(res)>(res);
-			if constexpr (util::are_args_empty_v<Args...>)
-				return tup;
-			else
-				return std::tuple_cat(tup, addMul(std::forward<Args>(args)...));
-		}
-	};
 
 	class Return : public Statement
 	{
@@ -2885,10 +2784,10 @@ namespace CppGenerator {
 		}
 
 		template <typename ...Args>
-		void add(Args &&...args)
+		decltype(auto) add(Args &&...args)
 		{
 			if constexpr (!util::are_args_empty_v<Args...>)
-				addMul(std::forward<Args>(args)...);
+				return addMul(std::forward<Args>(args)...);
 		}
 
 	protected:
@@ -2903,21 +2802,24 @@ namespace CppGenerator {
 		}
 
 	private:
-		std::vector<Statement> m_smts;
+		util::unique_vector<Statement> m_smts;
 
 		template <typename Src>
-		auto emplaceValSmt(Src &&src)
+		decltype(auto) emplaceValSmt(Src &&src)
 		{
-			m_smts.emplace_back(std::forward<Src>(src));
+			m_smts.emplace(std::move(src));
 		}
 
 		template <typename First, typename ...Args>
-		auto addMul(First &&first, Args &&...args)
+		decltype(auto) addMul(First &&first, Args &&...args)
 		{
 			emplaceValSmt(std::forward<First>(first));
 
+			auto res = std::make_tuple();
 			if constexpr (!util::are_args_empty_v<Args...>)
-				addMul(std::forward<Args>(args)...);
+				return std::tuple_cat(res, addMul(std::forward<Args>(args)...));
+			else
+				return res;
 		}
 	};
 
