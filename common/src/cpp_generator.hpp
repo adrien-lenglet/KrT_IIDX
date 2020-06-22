@@ -205,9 +205,11 @@ namespace CppGenerator {
 		template <typename IdType>
 		class Variable;
 
-		class Collection;
+		class Function;
 
+		class Collection;
 		class NilClass;
+		class VoidClass;
 	}
 
 	std::ostream& operator<<(std::ostream &o, const Util::Writable &value)
@@ -219,6 +221,7 @@ namespace CppGenerator {
 	class Type;
 
 	class IdentifierCtor;
+	class IdentifierFunArgs;
 	class Identifier
 	{
 	public:
@@ -230,9 +233,49 @@ namespace CppGenerator {
 		template <typename ...Args>
 		auto operator()(Args &&...args);
 
+		template <typename ...Args>
+		static constexpr bool isFunction(void)
+		{
+			if constexpr (util::are_args_empty_v<Args...>)
+				return true;
+			else if constexpr (isVoidOnly<Args...>())
+				return true;
+			else
+				return areArgsFunction<Args...>();
+		}
+
+		template <typename ...Args>
+		static auto vectorizeVariables(Args &&...args)
+		{
+			if constexpr (util::are_args_empty_v<Args...>)
+				return util::vectorize_args<Util::Variable<Util::IdentifierName>>();
+			else if constexpr (isVoidOnly<Args...>())
+				return util::vectorize_args<Util::Variable<Util::IdentifierName>>();
+			else
+				return util::vectorize_args<Util::Variable<Util::IdentifierName>>(std::forward<Args>(args)...);
+		}
+
 	private:
 		friend Type;
 		const char *m_name;
+
+		template <typename First, typename ...Args>
+		static constexpr bool areArgsFunction(void)
+		{
+			if (!std::is_same_v<First, Util::Variable<Util::IdentifierName>>)
+				return false;
+
+			if constexpr (!util::are_args_empty_v<Args...>)
+				return true;
+			else
+				return areArgsFunction<Args...>();
+		}
+
+		template <typename First, typename ...Args>
+		static constexpr bool isVoidOnly(void)
+		{
+			return std::is_same_v<std::remove_reference_t<First>, Util::VoidClass> && util::are_args_empty_v<Args...>;
+		}
 	};
 
 	auto operator ""_id(const char *str, size_t)
@@ -281,6 +324,7 @@ namespace CppGenerator {
 		auto operator|(const char *name);
 		auto operator|(Identifier &&id);
 		auto operator|(IdentifierCtor &&id);
+		auto operator|(IdentifierFunArgs &&id);
 		template <typename BindType>
 		auto operator|(const BindType &bind);
 
@@ -324,8 +368,18 @@ namespace CppGenerator {
 		return Type(str);
 	}
 
+	class Util::VoidClass : public Type
+	{
+	public:
+		template <typename ...Args>
+		VoidClass(Args &&...args) :
+			Type(std::forward<Args>(args)...)
+		{
+		}
+	};
+
 	static Type Auto("auto");
-	static Type Void("void");
+	static Util::VoidClass Void("void");
 	static Type Char("char");
 	static Type Short("short");
 	static Type Int("int");
@@ -741,10 +795,29 @@ namespace CppGenerator {
 		std::vector<Value> m_args;
 	};
 
+	class IdentifierFunArgs
+	{
+	public:
+		template <typename ...Args>
+		IdentifierFunArgs(const char *name, Args &&...args) :
+			m_name(name),
+			m_args(Identifier::vectorizeVariables(std::forward<Args>(args)...))
+		{
+		}
+
+	private:
+		friend Type;
+		const char *m_name;
+		std::vector<Util::Variable<Util::IdentifierName>> m_args;
+	};
+
 	template <typename ...Args>
 	auto Identifier::operator()(Args &&...args)
 	{
-		return IdentifierCtor(m_name, std::forward<Args>(args)...);
+		if constexpr (isFunction<Args...>())
+			return IdentifierFunArgs(m_name, std::forward<Args>(args)...);
+		else
+			return IdentifierCtor(m_name, std::forward<Args>(args)...);
 	}
 
 	class Value::Direct : public Value
@@ -1992,6 +2065,7 @@ namespace CppGenerator {
 		std::vector<const char*> m_qualifiers;
 	};
 
+	static Util::Storage Inline("inline");
 	static Util::Storage Static("static");
 	static Util::Storage Extern("extern");
 	static Util::Storage ThreadLocal("thread_local");
@@ -2208,7 +2282,10 @@ namespace CppGenerator {
 		template <typename ...Args>
 		auto operator()(Args &&...args)
 		{
-			return DeclCtor(this->m_storage, this->m_type, this->m_id, std::forward<Args>(args)...);
+			if constexpr (Identifier::isFunction<Args...>())
+				return Function(this->m_storage, this->m_type, this->m_id, Identifier::vectorizeVariables(std::forward<Args>(args)...));
+			else
+				return DeclCtor(this->m_storage, this->m_type, this->m_id, std::forward<Args>(args)...);
 		}
 
 	private:
@@ -2305,6 +2382,38 @@ namespace CppGenerator {
 	auto Type::operator<<(O &&other)
 	{
 		return Modifiers::Template(*this, std::forward<O>(other));
+	}
+
+	class Util::Function : public Util::Variable<Util::IdentifierName>
+	{
+	public:
+		Function(const Storage &storage, const Type &type, const Util::IdentifierName &id, std::vector<Variable> &&args) :
+			Util::Variable<Util::IdentifierName>(storage, type, id),
+			m_args(std::move(args))
+		{
+		}
+
+		void write(std::ostream &o) const override
+		{
+			declare(o);
+			o << "(";
+			auto comma = "";
+			for (auto &a : m_args) {
+				o << comma << a;
+				comma = ", ";
+			}
+			if (m_args.size() == 0)
+				o << Void;
+			o << ")";
+		}
+
+	private:
+		std::vector<Variable> m_args;
+	};
+
+	auto Type::operator|(IdentifierFunArgs &&id)
+	{
+		return Util::Function(getStorage(), util::sstream_str(*this), id.m_name, std::move(id.m_args));
 	}
 
 	class Return : public Statement
