@@ -625,4 +625,16 @@ namespace
 
 template <typename T, template <typename ...> typename U>
 using is_instance_of_template = is_instance_of_template_impl<std::decay_t<T>, U>;
+
+template <template <typename ...> typename Cont, typename T>
+auto initializer_list_move(std::initializer_list<T> &&list)
+{
+	Cont<T> res;
+
+	res.resize(list.size());
+	for (auto &el : list)
+		res.emplace_back(std::move(const_cast<T&>(el)));
+	return res;
+}
+
 }

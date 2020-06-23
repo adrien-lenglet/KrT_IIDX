@@ -64,14 +64,14 @@ namespace CppGenerator {
 				return *this;
 			}
 
-		private:
-			std::ofstream m_stream;
-			size_t m_indent;
-
 			operator std::ostream&(void)
 			{
 				return m_stream;
 			}
+
+		private:
+			std::ofstream m_stream;
+			size_t m_indent;
 		};
 
 		template <typename T>
@@ -170,9 +170,7 @@ namespace CppGenerator {
 			{
 			}
 
-			virtual ~GenWritable(void)
-			{
-			}
+			virtual ~GenWritable(void) = default;
 
 			virtual void write(OType &o) const = 0;
 
@@ -205,7 +203,10 @@ namespace CppGenerator {
 		template <typename IdType>
 		class Variable;
 
+		class Block;
+
 		class Function;
+		class FunctionImpl;
 
 		class Collection;
 		class NilClass;
@@ -471,12 +472,6 @@ namespace CppGenerator {
 		{
 		}
 
-		Value(Value &other) :
-			Util::Writable(other)
-		{
-		}
-		Value(Value&&) = default;
-
 		template <typename W, class = std::enable_if_t<is_w_ok_v<W> && std::is_rvalue_reference_v<W&&>>>
 		Value(W &&sub) :
 			Util::Writable(std::move(sub))
@@ -506,10 +501,6 @@ namespace CppGenerator {
 		Value(short s);
 		Value(long i);
 		Value(long long i);
-
-		~Value(void) override
-		{
-		}
 
 		void write(std::ostream &o) const override
 		{
@@ -1967,12 +1958,6 @@ namespace CppGenerator {
 		{
 		}
 
-		Statement(Statement &other) :
-			Util::FileWritable(other)
-		{
-		}
-		Statement(Statement&&) = default;
-
 		template <typename W, class = std::enable_if_t<is_w_ok_v<W> && std::is_rvalue_reference_v<W&&>>>
 		Statement(W &&sub) :
 			Util::FileWritable(std::move(sub))
@@ -1987,10 +1972,6 @@ namespace CppGenerator {
 
 		Statement(Value &val);
 		Statement(Value &&val);
-
-		~Statement(void) override
-		{
-		}
 
 		void write(Util::File &o) const override
 		{
@@ -2384,38 +2365,6 @@ namespace CppGenerator {
 		return Modifiers::Template(*this, std::forward<O>(other));
 	}
 
-	class Util::Function : public Util::Variable<Util::IdentifierName>
-	{
-	public:
-		Function(const Storage &storage, const Type &type, const Util::IdentifierName &id, std::vector<Variable> &&args) :
-			Util::Variable<Util::IdentifierName>(storage, type, id),
-			m_args(std::move(args))
-		{
-		}
-
-		void write(std::ostream &o) const override
-		{
-			declare(o);
-			o << "(";
-			auto comma = "";
-			for (auto &a : m_args) {
-				o << comma << a;
-				comma = ", ";
-			}
-			if (m_args.size() == 0)
-				o << Void;
-			o << ")";
-		}
-
-	private:
-		std::vector<Variable> m_args;
-	};
-
-	auto Type::operator|(IdentifierFunArgs &&id)
-	{
-		return Util::Function(getStorage(), util::sstream_str(*this), id.m_name, std::move(id.m_args));
-	}
-
 	class Return : public Statement
 	{
 	public:
@@ -2469,6 +2418,8 @@ namespace CppGenerator {
 	};
 
 	using B = Brace;
+	using Statements = std::initializer_list<Statement>;
+	using S = Statements;
 
 	class For : public Statement
 	{
@@ -2735,6 +2686,89 @@ namespace CppGenerator {
 	auto If::CElseIf::Else(Smts &&...smts)
 	{
 		return CElse(std::move(*this), std::forward<Smts>(smts)...);
+	}
+
+	class Util::Block : public Statement
+	{
+	public:
+		Block(Statements &&smts) :
+			m_smts(util::initializer_list_move<std::vector>(std::move(smts)))
+		{
+		}
+
+		void write(Util::File &o) const override
+		{
+			o.new_line() << "{" << o.end_line();
+			o.indent();
+			for (auto &s : m_smts)
+				s.write(o);
+			o.unindent();
+			o.new_line() << "}" << o.end_line();
+		}
+
+	private:
+		std::vector<Statement> m_smts;
+	};
+
+	class Util::Function : public Util::Variable<Util::IdentifierName>
+	{
+	public:
+		Function(const Storage &storage, const Type &type, const Util::IdentifierName &id, std::vector<Variable> &&args) :
+			Util::Variable<Util::IdentifierName>(storage, type, id),
+			m_args(std::move(args))
+		{
+		}
+
+		void write(std::ostream &o) const override
+		{
+			declare(o);
+			o << "(";
+			auto comma = "";
+			for (auto &a : m_args) {
+				o << comma << a;
+				comma = ", ";
+			}
+			if (m_args.size() == 0)
+				o << Void;
+			o << ")";
+		}
+
+		auto operator|(Block &&blk) &&;
+
+	private:
+		std::vector<Variable> m_args;
+	};
+
+	class Util::FunctionImpl : public Statement
+	{
+	public:
+		FunctionImpl(Util::Function &&func, Util::Block &&blk) :
+			m_func(std::move(func)),
+			m_blk(std::move(blk))
+		{
+		}
+
+		void write(Util::File &o) const override
+		{
+			o.new_line();
+			m_func.write(o);
+			o << o.end_line();
+			m_blk.write(o);
+		}
+
+	private:
+		Function m_func;
+		Block m_blk;
+	};
+
+	auto Util::Function::operator|(Util::Block &&blk) &&
+	{
+		return FunctionImpl(std::move(*this), std::move(blk));
+	}
+
+	auto Type::operator|(IdentifierFunArgs &&id)
+	{
+		return Util::Function(getStorage(), util::sstream_str(*this), id.m_name, std::move(id.m_args));
 	}
 
 	class Util::Collection
