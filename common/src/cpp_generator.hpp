@@ -204,13 +204,14 @@ namespace CppGenerator {
 		class Variable;
 
 		class Block;
+		class Else_t {};
 
 		class Function;
 		class FunctionImpl;
 
 		class Collection;
-		class NilClass;
-		class VoidClass;
+		class Nil_t;
+		class Void_t;
 	}
 
 	std::ostream& operator<<(std::ostream &o, const Util::Writable &value)
@@ -275,7 +276,7 @@ namespace CppGenerator {
 		template <typename First, typename ...Args>
 		static constexpr bool isVoidOnly(void)
 		{
-			return std::is_same_v<std::remove_reference_t<First>, Util::VoidClass> && util::are_args_empty_v<Args...>;
+			return std::is_same_v<std::remove_reference_t<First>, Util::Void_t> && util::are_args_empty_v<Args...>;
 		}
 	};
 
@@ -369,18 +370,18 @@ namespace CppGenerator {
 		return Type(str);
 	}
 
-	class Util::VoidClass : public Type
+	class Util::Void_t : public Type
 	{
 	public:
 		template <typename ...Args>
-		VoidClass(Args &&...args) :
+		Void_t(Args &&...args) :
 			Type(std::forward<Args>(args)...)
 		{
 		}
 	};
 
 	static Type Auto("auto");
-	static Util::VoidClass Void("void");
+	static Util::Void_t Void("void");
 	static Type Char("char");
 	static Type Short("short");
 	static Type Int("int");
@@ -838,10 +839,10 @@ namespace CppGenerator {
 		return Value::Direct(str);
 	}
 
-	class Util::NilClass : public Type
+	class Util::Nil_t : public Type
 	{
 	public:
-		NilClass(void) :
+		Nil_t(void) :
 			Type("")
 		{
 		}
@@ -852,7 +853,7 @@ namespace CppGenerator {
 		}
 	};
 
-	static Util::NilClass N;
+	static Util::Nil_t N;
 
 	inline Value::Value(const std::string &str) :
 		Value(Direct(stringLiteral(str)))
@@ -2673,30 +2674,171 @@ namespace CppGenerator {
 
 	class If : public Statement
 	{
+	public:
+		template <typename Cond>
+		If(Cond &&cond) :
+			m_cond(cond)
+		{
+		}
+
+		void write(Util::File &o) const override
+		{
+			declare(o);
+			o << o.end_line();
+		}
+
+		void declare(Util::File &o) const
+		{
+			declare_part(o);
+			o << ";";
+		}
+
+		auto operator|(Util::Block &&blk);
+		auto operator|(Util::Else_t &e);
+
+	protected:
+		using has_blk = std::false_type;
+
+		void declare_part(Util::File &o) const
+		{
+			o.new_line() << "if (" << m_cond << ")";
+		}
+
+	private:
+		Value m_cond;
+
+		class Blk;
+		template <typename IfType>
+		class CElse;
+	};
+
+	class If::Blk : public If
+	{
+	public:
+		Blk(If &&f, Util::Block &&blk) :
+			If(std::move(f)),
+			m_blk(std::move(blk))
+		{
+		}
+
+		void write(Util::File &o) const override
+		{
+			declare(o);
+			o << o.end_line();
+		}
+
+		auto operator|(Util::Else_t &e);
+
+	protected:
+		using has_blk = std::true_type;
+
+		void declare(Util::File &o) const
+		{
+			If::declare_part(o);
+			o << " ";
+			m_blk.write(o);			
+		}
+
+	private:
+		Util::Block m_blk;
+	};
+
+	auto If::operator|(Util::Block &&blk)
+	{
+		return Blk(std::move(*this), std::move(blk));
+	}
+
+	template <typename IfType>
+	class If::CElse : public IfType
+	{
+	public:
+		CElse(IfType &&f) :
+			IfType(std::move(f))
+		{
+		}
+
+		void write(Util::File &o) const override
+		{
+			declare(o);
+			o << ";" << o.end_line();
+		}
+
+		auto operator|(Util::Block &&blk)
+		{
+			return Blk(std::move(*this), std::move(blk));
+		}
+
+	protected:
+		void declare(Util::File &o) const
+		{
+			IfType::declare(o);
+			if constexpr (IfType::has_blk::value)
+				o << " ";
+			else {
+				o << o.end_line();
+				o.new_line();
+			}
+			o << "else";
+		}
+
+	private:
+		class Blk : public CElse
+		{
+		public:
+			Blk(CElse &&e, Util::Block &&blk) :
+				CElse(std::move(e)),
+				m_blk(std::move(blk))
+			{
+			}
+
+			void write(Util::File &o) const override
+			{
+				CElse::declare(o);
+				o << " ";
+				m_blk.write(o);
+				o << o.end_line();
+			}
+
+		private:
+			Util::Block m_blk;
+		};
+	};
+
+	auto If::operator|(Util::Else_t&)
+	{
+		return CElse<If>(std::move(*this));
+	}
+
+	auto If::Blk::operator|(Util::Else_t&)
+	{
+		return CElse<If::Blk>(std::move(*this));
+	}
+
+	static Util::Else_t Else;
+
+	/*class If : public Statement
+	{
 	protected:
 		class Payload
 		{
 		public:
-			template <typename Cond, typename ...Smts>
-			Payload(Cond &&cond, Smts &&...smts) :
+			template <typename Cond>
+			Payload(Cond &&cond, Util::Block &&blk) :
 				m_cond(std::forward<Cond>(cond)),
-				m_smts(util::vectorize_args<Statement>(std::forward<Smts>(smts)...))
+				m_blk(std::move(blk))
 			{
 			}
 
 			void write(Util::File &o) const
 			{
-				o << "if (" << m_cond << ") {" << o.end_line();
-				o.indent();
-				for (auto &s : m_smts)
-					s.write(o);
-				o.unindent();
-				o.new_line() << "}";
+				o << "if (" << m_cond << ") ";
+				m_blk.write(o);
+				o << o.end_line();
 			}
 
 		private:
 			Value m_cond;
-			std::vector<Statement> m_smts;
+			Util::Block m_blk;
 		};
 
 	public:
@@ -2830,7 +2972,7 @@ namespace CppGenerator {
 	auto If::CElseIf::Else(Smts &&...smts)
 	{
 		return CElse(std::move(*this), std::forward<Smts>(smts)...);
-	}
+	}*/
 
 	class Util::Function : public Util::Variable<Util::IdentifierName>
 	{
