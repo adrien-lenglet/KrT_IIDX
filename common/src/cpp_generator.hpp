@@ -2383,7 +2383,7 @@ namespace CppGenerator {
 			for (auto &s : m_smts)
 				s.write(o);
 			o.unindent();
-			o.new_line() << "}" << o.end_line();
+			o.new_line() << "}";
 		}
 
 	private:
@@ -2522,6 +2522,7 @@ namespace CppGenerator {
 			For::declare(o);
 			o << " ";
 			m_loop.write(o);
+			o << o.end_line();
 		}
 
 		Util::Block m_loop;
@@ -2546,6 +2547,7 @@ namespace CppGenerator {
 			Range::declare(o);
 			o << " ";
 			m_loop.write(o);
+			o << o.end_line();
 		}
 
 		Util::Block m_loop;
@@ -2562,49 +2564,112 @@ namespace CppGenerator {
 		class Do : public Statement
 		{
 		public:
-			template <typename Cond, typename ...Loop>
-			Do(Cond &&cond, Loop &&...loop) :
-				m_cond(std::forward<Cond>(cond)),
-				m_loop(util::vectorize_args<Statement>(std::forward<Loop>(loop)...))
+			template <typename Cond>
+			Do(Cond &&cond) :
+				m_cond(std::forward<Cond>(cond))
 			{
 			}
 
 			void write(Util::File &o) const override
 			{
-				o.new_line() << "do {" << o.end_line();
-				o.indent();
-				for (auto &s : m_loop)
-					s.write(o);
-				o.unindent();
-				o.new_line() << "} while (" << m_cond << ");" << o.end_line();
+				declare_prologue(o);
+				o << "{}";
+				declare_epilogue(o);
+			}
+
+			auto operator|(Util::Block &&blk) &&;
+
+		protected:
+			void declare_prologue(Util::File &o) const
+			{
+				o.new_line() << "do ";
+			}
+
+			void declare_epilogue(Util::File &o) const
+			{
+				o << " while (" << m_cond << ");" << o.end_line();
 			}
 
 		private:
 			Value m_cond;
-			std::vector<Statement> m_loop;
+
+			class Loop;
 		};
 
-		template <typename Cond, typename ...Loop>
-		While(Cond &&cond, Loop &&...loop) :
-			m_cond(std::forward<Cond>(cond)),
-			m_loop(util::vectorize_args<Statement>(std::forward<Loop>(loop)...))
+		template <typename Cond>
+		While(Cond &&cond) :
+			m_cond(std::forward<Cond>(cond))
 		{
 		}
 
 		void write(Util::File &o) const override
 		{
-			o.new_line() << "while (" << m_cond << ") {" << o.end_line();
-			o.indent();
-			for (auto &s : m_loop)
-				s.write(o);
-			o.unindent();
-			o.new_line() << "}" << o.end_line();
+			declare(o);
+			o << ";" << o.end_line();
+		}
+
+		auto operator|(Util::Block &&blk) &&;
+
+	protected:
+		void declare(Util::File &o) const
+		{
+			o.new_line() << "while (" << m_cond << ")";
 		}
 
 	private:
 		Value m_cond;
-		std::vector<Statement> m_loop;
+
+		class Loop;
 	};
+
+	class While::Loop : public While
+	{
+	public:
+		Loop(While &&f, Util::Block &&loop) :
+			While(std::move(f)),
+			m_loop(std::move(loop))
+		{
+		}
+
+		void write(Util::File &o) const override
+		{
+			While::declare(o);
+			o << " ";
+			m_loop.write(o);
+			o << o.end_line();
+		}
+
+		Util::Block m_loop;
+	};
+
+	auto While::operator|(Util::Block &&blk) &&
+	{
+		return Loop(std::move(*this), std::move(blk));
+	}
+
+	class While::Do::Loop : public While::Do
+	{
+	public:
+		Loop(Do &&f, Util::Block &&loop) :
+			Do(std::move(f)),
+			m_loop(std::move(loop))
+		{
+		}
+
+		void write(Util::File &o) const override
+		{
+			Do::declare_prologue(o);
+			m_loop.write(o);
+			Do::declare_epilogue(o);
+		}
+
+		Util::Block m_loop;
+	};
+
+	auto While::Do::operator|(Util::Block &&blk) &&
+	{
+		return Loop(std::move(*this), std::move(blk));
+	}
 
 	class If : public Statement
 	{
@@ -2812,6 +2877,7 @@ namespace CppGenerator {
 			o << o.end_line();
 			o.new_line();
 			m_blk.write(o);
+			o << o.end_line();
 		}
 
 	private:
