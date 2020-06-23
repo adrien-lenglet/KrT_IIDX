@@ -215,6 +215,11 @@ namespace CppGenerator {
 		class Collection;
 		class Nil_t;
 		class Void_t;
+
+		namespace Pp {
+			class Include;
+			class CInclude;
+		}
 	}
 
 	std::ostream& operator<<(std::ostream &o, const Util::Writable &value)
@@ -831,6 +836,8 @@ namespace CppGenerator {
 	private:
 		std::string m_str;
 	};
+
+	static Value::Direct This("this");
 
 	auto operator ""_v(const char *str, size_t size)
 	{
@@ -2196,9 +2203,9 @@ namespace CppGenerator {
 		class DeclValue : public Variable
 		{
 		public:
-			template <typename Id, typename V>
-			DeclValue(const Storage &storage, const Type &type, const Id &id, V &&value, bool is_equal = false) :
-				Variable(storage, type, id),
+			template <typename V>
+			DeclValue(Variable &&base, V &&value, bool is_equal = false) :
+				Variable(std::move(base)),
 				m_value(std::forward<V>(value)),
 				m_is_equal(is_equal)
 			{
@@ -2222,16 +2229,15 @@ namespace CppGenerator {
 		class DeclCtor : public Variable
 		{
 		public:
-			template <typename Id, typename ...Args>
-			DeclCtor(const Storage &storage, const Type &type, const Id &id, Args &&...args) :
-				Variable(storage, type, id),
+			template <typename ...Args>
+			DeclCtor(Variable &&base, Args &&...args) :
+				Variable(std::move(base)),
 				m_args(util::vectorize_args<Value>(std::forward<Args>(args)...))
 			{
 			}
 
-			template <typename Id>
-			DeclCtor(const Storage &storage, const Type &type, const Id &id, std::vector<Value> &&args) :
-				Variable(storage, type, id),
+			DeclCtor(Variable &&base, std::vector<Value> &&args) :
+				Variable(std::move(base)),
 				m_args(std::move(args))
 			{
 			}
@@ -2255,13 +2261,13 @@ namespace CppGenerator {
 		template <typename V>
 		auto operator|(V &&value)
 		{
-			return DeclValue(this->m_storage, this->m_type, this->m_id, std::forward<V>(value));
+			return DeclValue(std::move(*this), std::forward<V>(value));
 		}
 
 		template <typename V>
 		auto operator=(V &&value)
 		{
-			return DeclValue(this->m_storage, this->m_type, this->m_id, std::forward<V>(value), true);
+			return DeclValue(std::move(*this), std::forward<V>(value), true);
 		}
 
 		template <typename ...Args>
@@ -2270,7 +2276,7 @@ namespace CppGenerator {
 			if constexpr (Identifier::isFunction<Args...>())
 				return Function(this->m_storage, this->m_type, this->m_id, Identifier::vectorizeVariables(std::forward<Args>(args)...));
 			else
-				return DeclCtor(this->m_storage, this->m_type, this->m_id, std::forward<Args>(args)...);
+				return DeclCtor(std::move(*this), std::forward<Args>(args)...);
 		}
 
 	private:
@@ -2310,7 +2316,7 @@ namespace CppGenerator {
 
 	auto Type::operator|(IdentifierCtor &&id)
 	{
-		return Util::Variable<Util::IdentifierName>::DeclCtor(getStorage(), util::sstream_str(*this), id.m_name, std::move(id.m_args));
+		return Util::Variable<Util::IdentifierName>::DeclCtor(Util::Variable<Util::IdentifierName>(getStorage(), util::sstream_str(*this), id.m_name), std::move(id.m_args));
 	}
 
 	template <typename BindType>
@@ -3402,65 +3408,87 @@ namespace CppGenerator {
 		bool m_flushed = false;
 	};
 
+	class Util::Pp::CInclude : public Statement
+	{
+	public:
+		CInclude(const std::string &file) :
+			m_file(file)
+		{
+		}
+
+		void write(Util::File &o) const override
+		{
+			o.new_line() << "#include " << lquote() << m_file << rquote() << o.end_line();
+		}
+
+		class Std;
+
+	protected:
+		virtual const std::string& lquote(void) const
+		{
+			static const std::string res("\"");
+
+			return res;
+		}
+
+		virtual const std::string& rquote(void) const
+		{
+			static const std::string res("\"");
+
+			return res;
+		}
+
+	private:
+		const std::string m_file;
+	};
+
+	class Util::Pp::CInclude::Std : public CInclude
+	{
+	public:
+		template <typename ...Args>
+		Std(Args &&...args) :
+			CInclude(std::forward<Args>(args)...)
+		{
+		}
+
+	protected:
+		const std::string& lquote(void) const override
+		{
+			static const std::string res("<");
+
+			return res;
+		}
+
+		const std::string& rquote(void) const override
+		{
+			static const std::string res(">");
+
+			return res;
+		}
+	};
+
+	class Util::Pp::Include
+	{
+	public:
+		Include(void)
+		{
+		}
+
+		template <typename T>
+		auto operator|(T &&t)
+		{
+			return CInclude(std::forward<T>(t));
+		}
+
+		template <typename T>
+		auto operator<<(T &&t)
+		{
+			return CInclude::Std(std::forward<T>(t));
+		}
+	};
+
 	namespace Pp {
-		class Include : public Statement
-		{
-		public:
-			Include(const std::string &file) :
-				m_file(file)
-			{
-			}
-
-			void write(Util::File &o) const override
-			{
-				o.new_line() << "#include " << lquote() << m_file << rquote() << o.end_line();
-			}
-
-			class Std;
-
-		protected:
-			virtual const std::string& lquote(void) const
-			{
-				static const std::string res("\"");
-
-				return res;
-			}
-
-			virtual const std::string& rquote(void) const
-			{
-				static const std::string res("\"");
-
-				return res;
-			}
-
-		private:
-			const std::string m_file;
-		};
-
-		class Include::Std : public Include
-		{
-		public:
-			template <typename ...Args>
-			Std(Args &&...args) :
-				Include(std::forward<Args>(args)...)
-			{
-			}
-
-		protected:
-			const std::string& lquote(void) const override
-			{
-				static const std::string res("<");
-
-				return res;
-			}
-
-			const std::string& rquote(void) const override
-			{
-				static const std::string res(">");
-
-				return res;
-			}
-		};
+		static Util::Pp::Include Include;
 	}
 }
 
