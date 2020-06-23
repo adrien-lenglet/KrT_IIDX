@@ -2676,8 +2676,8 @@ namespace CppGenerator {
 	{
 	public:
 		template <typename Cond>
-		If(Cond &&cond) :
-			m_cond(cond)
+		explicit If(Cond &&cond) :
+			m_cond(std::forward<Cond>(cond))
 		{
 		}
 
@@ -2710,6 +2710,8 @@ namespace CppGenerator {
 		class Blk;
 		template <typename IfType>
 		class CElse;
+		template <typename IfType>
+		class CElseIf;
 	};
 
 	class If::Blk : public If
@@ -2740,6 +2742,8 @@ namespace CppGenerator {
 		}
 
 	private:
+		template <typename IfType>
+		friend class If::CElseIf;
 		Util::Block m_blk;
 	};
 
@@ -2768,7 +2772,11 @@ namespace CppGenerator {
 			return Blk(std::move(*this), std::move(blk));
 		}
 
+		auto operator|(If &&f);
+
 	protected:
+		using has_blk = std::false_type;
+
 		void declare(Util::File &o) const
 		{
 			IfType::declare(o);
@@ -2798,6 +2806,8 @@ namespace CppGenerator {
 				m_blk.write(o);
 				o << o.end_line();
 			}
+		protected:
+			using has_blk = std::true_type;
 
 		private:
 			Util::Block m_blk;
@@ -2814,165 +2824,92 @@ namespace CppGenerator {
 		return CElse<If::Blk>(std::move(*this));
 	}
 
-	static Util::Else_t Else;
-
-	/*class If : public Statement
+	template <typename IfType>
+	class If::CElseIf : public IfType
 	{
+	public:
+		CElseIf(IfType &&f, If &&cond) :
+			IfType(std::move(f)),
+			m_cond(std::move(cond.m_cond))
+		{
+		}
+
+		void write(Util::File &o) const override
+		{
+			declare(o);
+			o << o.end_line();
+		}
+
+		auto operator|(Util::Block &&blk)
+		{
+			return Blk(std::move(*this), std::move(blk));
+		}
+
+		auto operator|(Util::Else_t&)
+		{
+			return CElse<CElseIf<IfType>>(std::move(*this));
+		}
+
 	protected:
-		class Payload
+		using has_blk = std::false_type;
+
+		void declare_part(Util::File &o) const
+		{
+			IfType::declare(o);
+			o << " if (" << m_cond << ")";
+		}
+
+		void declare(Util::File &o) const
+		{
+			declare_part(o);
+			o << ";";
+		}
+
+	private:
+		Value m_cond;
+
+		class Blk : public CElseIf
 		{
 		public:
-			template <typename Cond>
-			Payload(Cond &&cond, Util::Block &&blk) :
-				m_cond(std::forward<Cond>(cond)),
+			Blk(CElseIf &&e, Util::Block &&blk) :
+				CElseIf(std::move(e)),
 				m_blk(std::move(blk))
 			{
 			}
 
-			void write(Util::File &o) const
+			void write(Util::File &o) const override
 			{
-				o << "if (" << m_cond << ") ";
-				m_blk.write(o);
+				declare(o);
 				o << o.end_line();
 			}
 
+			auto operator|(Util::Else_t&)
+			{
+				return CElse<CElseIf<IfType>::Blk>(std::move(*this));
+			}
+
+		protected:
+			using has_blk = std::true_type;
+
+			void declare(Util::File &o) const
+			{
+				CElseIf::declare_part(o);
+				o << " ";
+				m_blk.write(o);
+			}
+
 		private:
-			Value m_cond;
 			Util::Block m_blk;
 		};
-
-	public:
-		template <typename Cond, typename ...Smts>
-		If(Cond &&cond, Smts &&...smts) :
-			m_payload(std::forward<Cond>(cond), std::forward<Smts>(smts)...)
-		{
-		}
-
-		void write(Util::File &o) const override
-		{
-			o.new_line();
-			m_payload.write(o);
-			o << o.end_line();
-		}
-
-		template <typename Cond, typename ...Smts>
-		auto ElseIf(Cond &&cond, Smts &&...smts);
-
-		template <typename ...Smts>
-		auto Else(Smts &&...smts);
-
-	protected:
-		Payload m_payload;
-
-	private:
-		class CElseIf;
-		class CElse;
-		friend CElseIf;
-		friend CElse;
 	};
 
-	class If::CElseIf : public Statement
+	template <typename IfType>
+	auto If::CElse<IfType>::operator|(If &&f)
 	{
-	public:
-		template <typename Cond, typename ...Smts>
-		CElseIf(If &&f, Cond &&cond, Smts &&...smts) :
-			m_base_payload(std::move(f.m_payload))
-		{
-			m_payloads.emplace_back(std::forward<Cond>(cond), std::forward<Smts>(smts)...);
-		}
-
-		template <typename Cond, typename ...Smts>
-		CElseIf(CElseIf &&f, Cond &&cond, Smts &&...smts) :
-			m_base_payload(std::move(f.m_base_payload)),
-			m_payloads(std::move(f.m_payloads))
-		{
-			m_payloads.emplace_back(std::forward<Cond>(cond), std::forward<Smts>(smts)...);
-		}
-
-		void write(Util::File &o) const override
-		{
-			o.new_line();
-			m_base_payload.write(o);
-			for (auto &p : m_payloads) {
-				o << " else ";
-				p.write(o);
-			}
-			o << o.end_line();
-		}
-
-		template <typename Cond, typename ...Smts>
-		auto ElseIf(Cond &&cond, Smts &&...smts)
-		{
-			return CElseIf(std::move(*this), std::forward<Cond>(cond), std::forward<Smts>(smts)...);
-		}
-
-		template <typename ...Smts>
-		auto Else(Smts &&...smts);
-
-	private:
-		friend CElse;
-
-		Payload m_base_payload;
-		std::vector<Payload> m_payloads;
-	};
-
-	template <typename Cond, typename ...Smts>
-	auto If::ElseIf(Cond &&cond, Smts &&...smts)
-	{
-		return CElseIf(std::move(*this), std::forward<Cond>(cond), std::forward<Smts>(smts)...);
+		return CElseIf<CElse<IfType>>(std::move(*this), std::move(f));
 	}
 
-	class If::CElse : public Statement
-	{
-	public:
-		template <typename ...Smts>
-		CElse(If &&f, Smts &&...smts) :
-			m_base_payload(std::move(f.m_payload)),
-			m_smts(util::vectorize_args<Statement>(std::forward<Smts>(smts)...))
-		{
-		}
-
-		template <typename ...Smts>
-		CElse(CElseIf &&f, Smts &&...smts) :
-			m_base_payload(std::move(f.m_base_payload)),
-			m_payloads(std::move(f.m_payloads)),
-			m_smts(util::vectorize_args<Statement>(std::forward<Smts>(smts)...))
-		{
-		}
-
-		void write(Util::File &o) const override
-		{
-			o.new_line();
-			m_base_payload.write(o);
-			for (auto &p : m_payloads) {
-				o << " else ";
-				p.write(o);
-			}
-			o << " else {" << o.end_line();
-			o.indent();
-			for (auto &s : m_smts)
-				s.write(o);
-			o.unindent();
-			o.new_line() << "}" << o.end_line();
-		}
-
-	private:
-		Payload m_base_payload;
-		std::vector<Payload> m_payloads;
-		std::vector<Statement> m_smts;
-	};
-
-	template <typename ...Smts>
-	auto If::Else(Smts &&...smts)
-	{
-		return CElse(std::move(*this), std::forward<Smts>(smts)...);
-	}
-
-	template <typename ...Smts>
-	auto If::CElseIf::Else(Smts &&...smts)
-	{
-		return CElse(std::move(*this), std::forward<Smts>(smts)...);
-	}*/
+	static Util::Else_t Else;
 
 	class Util::Function : public Util::Variable<Util::IdentifierName>
 	{
