@@ -2696,7 +2696,6 @@ namespace CppGenerator {
 		auto operator|(Util::Block &&blk);
 		auto operator|(Util::Else_t &e);
 
-	protected:
 		using has_blk = std::false_type;
 
 		void declare_part(Util::File &o) const
@@ -2714,11 +2713,11 @@ namespace CppGenerator {
 		class CElseIf;
 	};
 
-	class If::Blk : public If
+	class If::Blk : public Statement
 	{
 	public:
 		Blk(If &&f, Util::Block &&blk) :
-			If(std::move(f)),
+			m_base(std::move(f)),
 			m_blk(std::move(blk))
 		{
 		}
@@ -2731,12 +2730,11 @@ namespace CppGenerator {
 
 		auto operator|(Util::Else_t &e);
 
-	protected:
 		using has_blk = std::true_type;
 
 		void declare(Util::File &o) const
 		{
-			If::declare_part(o);
+			m_base.declare_part(o);
 			o << " ";
 			m_blk.write(o);			
 		}
@@ -2744,6 +2742,7 @@ namespace CppGenerator {
 	private:
 		template <typename IfType>
 		friend class If::CElseIf;
+		If m_base;
 		Util::Block m_blk;
 	};
 
@@ -2753,11 +2752,11 @@ namespace CppGenerator {
 	}
 
 	template <typename IfType>
-	class If::CElse : public IfType
+	class If::CElse : public Statement
 	{
 	public:
 		CElse(IfType &&f) :
-			IfType(std::move(f))
+			m_base(std::move(f))
 		{
 		}
 
@@ -2774,12 +2773,11 @@ namespace CppGenerator {
 
 		auto operator|(If &&f);
 
-	protected:
 		using has_blk = std::false_type;
 
 		void declare(Util::File &o) const
 		{
-			IfType::declare(o);
+			m_base.declare(o);
 			if constexpr (IfType::has_blk::value)
 				o << " ";
 			else {
@@ -2790,26 +2788,29 @@ namespace CppGenerator {
 		}
 
 	private:
-		class Blk : public CElse
+		IfType m_base;
+
+		class Blk : public Statement
 		{
 		public:
 			Blk(CElse &&e, Util::Block &&blk) :
-				CElse(std::move(e)),
+				m_base(std::move(e)),
 				m_blk(std::move(blk))
 			{
 			}
 
 			void write(Util::File &o) const override
 			{
-				CElse::declare(o);
+				m_base.declare(o);
 				o << " ";
 				m_blk.write(o);
 				o << o.end_line();
 			}
-		protected:
+
 			using has_blk = std::true_type;
 
 		private:
+			CElse m_base;
 			Util::Block m_blk;
 		};
 	};
@@ -2825,11 +2826,11 @@ namespace CppGenerator {
 	}
 
 	template <typename IfType>
-	class If::CElseIf : public IfType
+	class If::CElseIf : public Statement
 	{
 	public:
 		CElseIf(IfType &&f, If &&cond) :
-			IfType(std::move(f)),
+			m_base(std::move(f)),
 			m_cond(std::move(cond.m_cond))
 		{
 		}
@@ -2850,12 +2851,11 @@ namespace CppGenerator {
 			return CElse<CElseIf<IfType>>(std::move(*this));
 		}
 
-	protected:
 		using has_blk = std::false_type;
 
 		void declare_part(Util::File &o) const
 		{
-			IfType::declare(o);
+			m_base.declare(o);
 			o << " if (" << m_cond << ")";
 		}
 
@@ -2866,13 +2866,14 @@ namespace CppGenerator {
 		}
 
 	private:
+		IfType m_base;
 		Value m_cond;
 
-		class Blk : public CElseIf
+		class Blk : public Statement
 		{
 		public:
 			Blk(CElseIf &&e, Util::Block &&blk) :
-				CElseIf(std::move(e)),
+				m_base(std::move(e)),
 				m_blk(std::move(blk))
 			{
 			}
@@ -2888,17 +2889,17 @@ namespace CppGenerator {
 				return CElse<CElseIf<IfType>::Blk>(std::move(*this));
 			}
 
-		protected:
 			using has_blk = std::true_type;
 
 			void declare(Util::File &o) const
 			{
-				CElseIf::declare_part(o);
+				m_base.declare_part(o);
 				o << " ";
 				m_blk.write(o);
 			}
 
 		private:
+			CElseIf m_base;
 			Util::Block m_blk;
 		};
 	};
