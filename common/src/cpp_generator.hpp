@@ -3094,10 +3094,13 @@ namespace CppGenerator {
 
 	static Util::Case Case;
 
-	class CDefault : public Statement, public Switch::Casable<CDefault>
+	class Util::Default : public Statement, public Switch::Casable<Default>
 	{
 	public:
-		CDefault(void)
+		template <typename Base>
+		class Stacked;
+
+		Default(void)
 		{
 		}
 
@@ -3107,66 +3110,10 @@ namespace CppGenerator {
 			o.new_line() << "default:" << o.end_line();
 			o.indent();
 		}
-
-		template <typename Base>
-		class Stacked;
-
-	private:
-		Statement m_smt;
-	};
-
-	class Util::Default
-	{
-	public:
-		template <typename Base>
-		class Stacked
-		{
-		public:
-			Stacked(Base &&base) :
-				m_base(std::move(base))
-			{
-			}
-
-			void write(Util::File &o) const
-			{
-				m_base.write(o);
-			}
-
-			template <typename V>
-			auto operator||(V &&val)
-			{
-				return CDefault::Stacked<Stacked<Base>>(std::move(*this), std::forward<V>(val));
-			}
-
-		private:
-			Base m_base;
-		};
-
-		Default(void)
-		{
-		}
-
-		template <typename S, class = std::enable_if_t<!std::is_same_v<Util::Case, std::remove_reference_t<S>>>>
-		auto operator||(S &&smt)
-		{
-			return CDefault(std::forward<S>(smt));
-		}
-
-		template <typename Type>
-		auto operator||(Util::Case&)
-		{
-			return Util::Case::Stacked<CDefault>(std::move(CDefault()));
-		}
-
-		template <typename Type>
-		auto operator||(Util::Default&)
-		{
-			return Util::Default::Stacked<CDefault>(std::move(CDefault()));
-		}
 	};
 
 	template <typename Base>
-	class CDefault::Stacked : public Statement, public Switch::Casable<CDefault>
+	class Util::Default::Stacked : public Statement, public Switch::Casable<Stacked<Base>>
 	{
 	public:
 		template <typename ...Args>
@@ -3184,7 +3131,7 @@ namespace CppGenerator {
 
 	private:
 		Base m_base;
-		CDefault m_default;
+		Default m_default;
 	};
 
 	static Util::Default Default;
