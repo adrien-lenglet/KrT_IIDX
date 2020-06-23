@@ -2365,6 +2365,31 @@ namespace CppGenerator {
 		return Modifiers::Template(*this, std::forward<O>(other));
 	}
 
+	using Statements = std::initializer_list<Statement>;
+	using S = Statements;
+
+	class Util::Block : public Statement
+	{
+	public:
+		Block(Statements &&smts) :
+			m_smts(util::initializer_list_move<std::vector>(std::move(smts)))
+		{
+		}
+
+		void write(Util::File &o) const override
+		{
+			o << "{" << o.end_line();
+			o.indent();
+			for (auto &s : m_smts)
+				s.write(o);
+			o.unindent();
+			o.new_line() << "}" << o.end_line();
+		}
+
+	private:
+		std::vector<Statement> m_smts;
+	};
+
 	class Return : public Statement
 	{
 	public:
@@ -2418,8 +2443,6 @@ namespace CppGenerator {
 	};
 
 	using B = Brace;
-	using Statements = std::initializer_list<Statement>;
-	using S = Statements;
 
 	class For : public Statement
 	{
@@ -2427,55 +2450,111 @@ namespace CppGenerator {
 		class Range : public Statement
 		{
 		public:
-			template <typename Decl, typename Expr, typename ...Loop>
-			Range(Decl &&decl, Expr &&expr, Loop &&...loop) :
+			template <typename Decl, typename Expr>
+			Range(Decl &&decl, Expr &&expr) :
 				m_decl(std::forward<Decl>(decl)),
-				m_expr(std::forward<Expr>(expr)),
-				m_loop(util::vectorize_args<Statement>(std::forward<Loop>(loop)...))
+				m_expr(std::forward<Expr>(expr))
 			{
 			}
 
 			void write(Util::File &o) const override
 			{
-				o.new_line() << "for (" << m_decl << " : " << m_expr << ") {" << o.end_line();
-				o.indent();
-				for (auto &s : m_loop)
-					s.write(o);
-				o.unindent();
-				o.new_line() << "}" << o.end_line();
+				declare(o);
+				o << ";" << o.end_line();
+			}
+
+			auto operator|(Util::Block &&blk) &&;
+
+		protected:
+			void declare(Util::File &o) const
+			{
+				o.new_line() << "for (" << m_decl << " : " << m_expr << ")";
 			}
 
 		private:
 			Value m_decl;
 			Value m_expr;
-			std::vector<Statement> m_loop;
+
+			class Loop;
 		};
 
-		template <typename Decl, typename Cond, typename End, typename ...Loop>
-		For(Decl &&decl, Cond &&cond, End &&end, Loop &&...loop) :
+		template <typename Decl, typename Cond, typename End>
+		For(Decl &&decl, Cond &&cond, End &&end) :
 			m_decl(std::forward<Decl>(decl)),
 			m_cond(std::forward<Cond>(cond)),
-			m_end(std::forward<End>(end)),
-			m_loop(util::vectorize_args<Statement>(std::forward<Loop>(loop)...))
+			m_end(std::forward<End>(end))
 		{
 		}
 
 		void write(Util::File &o) const override
 		{
-			o.new_line() << "for (" << m_decl << "; " << m_cond << "; " << m_end << ") {" << o.end_line();
-			o.indent();
-			for (auto &s : m_loop)
-				s.write(o);
-			o.unindent();
-			o.new_line() << "}" << o.end_line();
+			declare(o);
+			o << ";" << o.end_line();
+		}
+
+		auto operator|(Util::Block &&blk) &&;
+
+	protected:
+		void declare(Util::File &o) const
+		{
+			o.new_line() << "for (" << m_decl << "; " << m_cond << "; " << m_end << ")";
 		}
 
 	private:
 		Value m_decl;
 		Value m_cond;
 		Value m_end;
-		std::vector<Statement> m_loop;
+
+		class Loop;
 	};
+
+	class For::Loop : public For
+	{
+	public:
+		Loop(For &&f, Util::Block &&loop) :
+			For(std::move(f)),
+			m_loop(std::move(loop))
+		{
+		}
+
+		void write(Util::File &o) const override
+		{
+			For::declare(o);
+			o << " ";
+			m_loop.write(o);
+		}
+
+		Util::Block m_loop;
+	};
+
+	auto For::operator|(Util::Block &&blk) &&
+	{
+		return Loop(std::move(*this), std::move(blk));
+	}
+
+	class For::Range::Loop : public For::Range
+	{
+	public:
+		Loop(Range &&f, Util::Block &&loop) :
+			Range(std::move(f)),
+			m_loop(std::move(loop))
+		{
+		}
+
+		void write(Util::File &o) const override
+		{
+			Range::declare(o);
+			o << " ";
+			m_loop.write(o);
+		}
+
+		Util::Block m_loop;
+	};
+
+	auto For::Range::operator|(Util::Block &&blk) &&
+	{
+		return Loop(std::move(*this), std::move(blk));
+	}
 
 	class While : public Statement
 	{
@@ -2688,28 +2767,6 @@ namespace CppGenerator {
 		return CElse(std::move(*this), std::forward<Smts>(smts)...);
 	}
 
-	class Util::Block : public Statement
-	{
-	public:
-		Block(Statements &&smts) :
-			m_smts(util::initializer_list_move<std::vector>(std::move(smts)))
-		{
-		}
-
-		void write(Util::File &o) const override
-		{
-			o.new_line() << "{" << o.end_line();
-			o.indent();
-			for (auto &s : m_smts)
-				s.write(o);
-			o.unindent();
-			o.new_line() << "}" << o.end_line();
-		}
-
-	private:
-		std::vector<Statement> m_smts;
-	};
-
 	class Util::Function : public Util::Variable<Util::IdentifierName>
 	{
 	public:
@@ -2753,6 +2810,7 @@ namespace CppGenerator {
 			o.new_line();
 			m_func.write(o);
 			o << o.end_line();
+			o.new_line();
 			m_blk.write(o);
 		}
 
