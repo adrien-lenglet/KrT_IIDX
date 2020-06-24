@@ -2598,6 +2598,11 @@ namespace CppGenerator {
 				o.new_line() << "}";
 			}
 
+			std::vector<Statement>& getSmts(void)
+			{
+				return m_smts;
+			}
+
 		private:
 			std::vector<Statement> m_smts;
 		};
@@ -3450,17 +3455,16 @@ namespace CppGenerator {
 		class Collection
 		{
 		public:
-			template <typename ...Args>
-			Collection(Args &&...args)
+			Collection(void)
 			{
-				add(std::forward<Args>(args)...);
 			}
 
-			template <typename ...Args>
-			decltype(auto) add(Args &&...args)
+		protected:
+			Collection(Collection &&former, Block &&blk) :
+				m_smts(std::move(former.m_smts))
 			{
-				if constexpr (!util::are_args_empty_v<Args...>)
-					return addMul(std::forward<Args>(args)...);
+				for (auto &b : blk.getSmts())
+					m_smts.emplace(std::move(b));
 			}
 
 		protected:
@@ -3474,141 +3478,175 @@ namespace CppGenerator {
 					o.unindent();
 			}
 
+			util::unique_vector<Statement>& getSmts(void)
+			{
+				return m_smts;
+			}
+
 		private:
 			util::unique_vector<Statement> m_smts;
-
-			template <typename Src>
-			decltype(auto) emplaceValSmt(Src &&src)
-			{
-				m_smts.emplace(std::move(src));
-			}
-
-			template <typename First, typename ...Args>
-			decltype(auto) addMul(First &&first, Args &&...args)
-			{
-				emplaceValSmt(std::forward<First>(first));
-
-				auto res = std::make_tuple();
-				if constexpr (!util::are_args_empty_v<Args...>)
-					return std::tuple_cat(res, addMul(std::forward<Args>(args)...));
-				else
-					return res;
-			}
 		};
 	}
 
 	class Out;
 
-	class Namespace : public Util::Collection, public Statement
-	{
-		friend Out;
-
-		struct main_t {};
-
-		template <typename ...Args>
-		Namespace(const main_t&, Args &&...args) :
-			Util::Collection(std::forward<Args>(args)...),
-			m_is_main(true)
+	namespace Util {
+		class Namespace : public Collection, public Statement
 		{
-		}
+			friend Out;
 
-	public:
-		template <typename ...Args>
-		Namespace(const std::string &name, Args &&...args) :
-			Util::Collection(std::forward<Args>(args)...),
-			m_name(name)
-		{
-		}
+			struct main_t {};
 
-		void write(Util::File &o) const final
-		{
-			if (!m_is_main) {
-				o.new_line() << "namespace " << m_name << o.end_line();
-				o.new_line() << "{" << o.end_line();
+			template <typename ...Args>
+			Namespace(const main_t&) :
+				m_is_main(true)
+			{
 			}
-			write_collection(o, !m_is_main);
-			if (!m_is_main)
-				o.new_line() << "}" << o.end_line();
-		}
 
-	private:
-		std::string m_name;
-		bool m_is_main = false;
-	};
+			Namespace(Namespace &&former, Block &&blk) :
+				Collection(std::move(static_cast<Collection&>(former)), std::move(blk)),
+				m_name(std::move(former.m_name)),
+				m_is_main(std::move(former.m_is_main))
+			{
+			}
 
-	class Class : public Util::Collection, public Statement
+		public:
+			template <typename ...Args>
+			Namespace(const std::string &name) :
+				m_name(name)
+			{
+			}
+
+			auto operator|(Block &&blk)
+			{
+				return Namespace(std::move(*this), std::move(blk));
+			}
+
+			void write(Util::File &o) const final
+			{
+				if (!m_is_main) {
+					o.new_line() << "namespace " << m_name << o.end_line();
+					o.new_line() << "{" << o.end_line();
+				}
+				write_collection(o, !m_is_main);
+				if (!m_is_main)
+					o.new_line() << "}" << o.end_line();
+			}
+
+		private:
+			std::string m_name;
+			bool m_is_main = false;
+		};
+
+		class Class : public Collection, public Statement
+		{
+			Class(Class &&base, Block &&blk) :
+				Collection(std::move(static_cast<Collection&>(base)), std::move(blk)),
+				m_name(std::move(base.m_name))
+			{
+			}
+
+		public:
+			Class(const std::string &name) :
+				m_name(name)
+			{
+			}
+
+			void write(Util::File &o) const final
+			{
+				o.new_line() << "class " << m_name << o.end_line();
+				o.new_line() << "{" << o.end_line();
+				write_collection(o);
+				o.new_line() << "};" << o.end_line();
+			}
+
+			auto operator|(Block &&blk)
+			{
+				return Class(std::move(*this), std::move(blk));
+			}
+
+		private:
+			std::string m_name;
+		};
+
+		class Struct : public Util::Collection, public Statement
+		{
+			Struct(Struct &&base, Block &&blk) :
+				Collection(std::move(static_cast<Collection&>(base)), std::move(blk)),
+				m_name(std::move(base.m_name))
+			{
+			}
+
+		public:
+			Struct(const std::string &name) :
+				m_name(name)
+			{
+			}
+
+			void write(Util::File &o) const final
+			{
+				o.new_line() << "struct " << m_name << o.end_line();
+				o.new_line() << "{" << o.end_line();
+				write_collection(o);
+				o.new_line() << "};" << o.end_line();
+			}
+
+			auto operator|(Block &&blk)
+			{
+				return Struct(std::move(*this), std::move(blk));
+			}
+
+		private:
+			std::string m_name;
+		};
+
+		class Visibility : public Statement
+		{
+		public:
+			Visibility(const std::string &name) :
+				m_name(name)
+			{
+			}
+
+			void write(Util::File &o) const final
+			{
+				o.unindent();
+				o.new_line() << m_name << ":" << o.end_line();
+				o.indent();
+			}
+
+		private:
+			std::string m_name;
+		};
+
+		template <typename FinalType>
+		class ContainerProxy
+		{
+		public:
+			ContainerProxy(void)
+			{
+			}
+
+			auto operator|(const std::string &name)
+			{
+				return FinalType(name);
+			}
+		};
+	}
+
+	static Util::ContainerProxy<Util::Namespace> Namespace;
+	static Util::ContainerProxy<Util::Class> Class;
+	static Util::ContainerProxy<Util::Struct> Struct;
+
+	static Util::Visibility Public("public");
+	static Util::Visibility Protected("protected");
+	static Util::Visibility Private("private");
+
+	class Out : public Util::Namespace
 	{
 	public:
-		template <typename ...Args>
-		Class(const std::string &name, Args &&...args) :
-			Util::Collection(std::forward<Args>(args)...),
-			m_name(name)
-		{
-		}
-
-		void write(Util::File &o) const final
-		{
-			o.new_line() << "class " << m_name << o.end_line();
-			o.new_line() << "{" << o.end_line();
-			write_collection(o);
-			o.new_line() << "};" << o.end_line();
-		}
-
-	private:
-		std::string m_name;
-	};
-
-	class Struct : public Util::Collection, public Statement
-	{
-	public:
-		template <typename ...Args>
-		Struct(const std::string &name, Args &&...args) :
-			Util::Collection(std::forward<Args>(args)...),
-			m_name(name)
-		{
-		}
-
-		void write(Util::File &o) const final
-		{
-			o.new_line() << "struct " << m_name << o.end_line();
-			o.new_line() << "{" << o.end_line();
-			write_collection(o);
-			o.new_line() << "};" << o.end_line();
-		}
-
-	private:
-		std::string m_name;
-	};
-
-	class Visibility : public Statement
-	{
-	public:
-		Visibility(const std::string &name) :
-			m_name(name)
-		{
-		}
-
-		void write(Util::File &o) const final
-		{
-			o.unindent();
-			o.new_line() << m_name << ":" << o.end_line();
-			o.indent();
-		}
-
-	private:
-		std::string m_name;
-	};
-
-	static Visibility Public("public");
-	static Visibility Protected("protected");
-	static Visibility Private("private");
-
-	class Out : public Namespace
-	{
-	public:
-		template <typename ...Args>
-		Out(const std::string &path, Args &&...args) :
-			Namespace(main_t(), std::forward<Args>(args)...),
+		Out(const std::string &path) :
+			Namespace(main_t()),
 			m_path(path)
 		{
 		}
@@ -3616,6 +3654,12 @@ namespace CppGenerator {
 		~Out(void)
 		{
 			flush();
+		}
+
+		void operator|(Util::Block &&blk)
+		{
+			for (auto &b : blk.getSmts())
+				getSmts().emplace(std::move(b));
 		}
 
 		void flush(void)
