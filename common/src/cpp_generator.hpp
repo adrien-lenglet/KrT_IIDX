@@ -2610,33 +2610,46 @@ namespace CppGenerator {
 		class Else_t {};
 	}
 
-	class Return : public Statement
-	{
-	public:
-		Return(void) :
-			Statement(),
-			m_empty(true)
+	namespace Util {
+		class CReturn : public Statement
 		{
-		}
+		public:
+			template <typename V>
+			CReturn(V &&val) :
+				m_value(std::forward<V>(val))
+			{
+			}
 
-		template <typename V>
-		Return(V &&val) :
-			m_value(std::forward<V>(val))
+			void write(File &o) const override
+			{
+				o.new_line() << "return " << m_value << ";" << o.end_line();
+			}
+
+		private:
+			Value m_value;
+		};
+
+		class Return : public Statement
 		{
-		}
+		public:
+			Return(void)
+			{
+			}
 
-		void write(Util::File &o) const override
-		{
-			o.new_line() << "return";
-			if (!m_empty)
-				o << " ";
-			o << m_value << ";" << o.end_line();
-		}
+			void write(File &o) const override
+			{
+				o.new_line() << "return;" << o.end_line();
+			}
 
-	private:
-		Value m_value;
-		bool m_empty = false;
-	};
+			template <typename V>
+			auto operator|(V &&value)
+			{
+				return CReturn(std::forward<V>(value));
+			}
+		};
+	}
+
+	static Util::Return Return;
 
 	class Brace : public Value
 	{
@@ -3343,66 +3356,41 @@ namespace CppGenerator {
 	}
 
 	namespace Util {
-		class Collection
+		template <typename Base>
+		class Collection : public Statement
 		{
 		public:
-			Collection(void)
+			Collection(Base &&base, Block &&blk) :
+				m_base(std::move(base)),
+				m_blk(std::move(blk))
 			{
 			}
 
-		protected:
-			Collection(Collection &&former, Block &&blk) :
-				m_smts(std::move(former.m_smts))
+			void write(Util::File &o) const
 			{
-				for (auto &b : blk.getSmts())
-					m_smts.emplace(std::move(b));
-			}
-
-		protected:
-			void write_collection(Util::File &o, bool indent = true) const
-			{
-				if (indent)
-					o.indent();
-				for (auto &s : m_smts)
-					s.write(o);
-				if (indent)
-					o.unindent();
-			}
-
-			util::unique_vector<Statement>& getSmts(void)
-			{
-				return m_smts;
+				m_base.declare(o);
+				o << o.end_line();
+				o.new_line();
+				m_blk.write(o);
+				if constexpr (Base::has_semicolon::value)
+					o << ";";
+				o << o.end_line();
 			}
 
 		private:
-			util::unique_vector<Statement> m_smts;
+			Base m_base;
+			Block m_blk;
 		};
 	}
 
 	class Out;
 
 	namespace Util {
-		class Namespace : public Collection, public Statement
+		class Namespace : public Statement
 		{
-			friend Out;
-
-			struct main_t {};
-
-			template <typename ...Args>
-			Namespace(const main_t&) :
-				m_is_main(true)
-			{
-			}
-
-			Namespace(Namespace &&former, Block &&blk) :
-				Collection(std::move(static_cast<Collection&>(former)), std::move(blk)),
-				m_name(std::move(former.m_name)),
-				m_is_main(std::move(former.m_is_main))
-			{
-			}
-
 		public:
-			template <typename ...Args>
+			using has_semicolon = std::false_type;
+
 			Namespace(const std::string &name) :
 				m_name(name)
 			{
@@ -3410,81 +3398,78 @@ namespace CppGenerator {
 
 			auto operator|(Block &&blk)
 			{
-				return Namespace(std::move(*this), std::move(blk));
+				return Collection<Namespace>(std::move(*this), std::move(blk));
 			}
 
-			void write(Util::File &o) const final
+			void declare(File &o) const
 			{
-				if (!m_is_main) {
-					o.new_line() << "namespace " << m_name << o.end_line();
-					o.new_line() << "{" << o.end_line();
-				}
-				write_collection(o, !m_is_main);
-				if (!m_is_main)
-					o.new_line() << "}" << o.end_line();
+				o.new_line() << "namespace " << m_name;
+			}
+
+			void write(File &o) const
+			{
+				declare(o);
+				o << " {}" << o.end_line();
 			}
 
 		private:
 			std::string m_name;
-			bool m_is_main = false;
 		};
 
-		class Class : public Collection, public Statement
+		class Class : public Statement
 		{
-			Class(Class &&base, Block &&blk) :
-				Collection(std::move(static_cast<Collection&>(base)), std::move(blk)),
-				m_name(std::move(base.m_name))
-			{
-			}
-
 		public:
+			using has_semicolon = std::true_type;
+
 			Class(const std::string &name) :
 				m_name(name)
 			{
 			}
 
-			void write(Util::File &o) const final
-			{
-				o.new_line() << "class " << m_name << o.end_line();
-				o.new_line() << "{" << o.end_line();
-				write_collection(o);
-				o.new_line() << "};" << o.end_line();
-			}
-
 			auto operator|(Block &&blk)
 			{
-				return Class(std::move(*this), std::move(blk));
+				return Collection<Class>(std::move(*this), std::move(blk));
+			}
+
+			void declare(File &o) const
+			{
+				o.new_line() << "class " << m_name;
+			}
+
+			void write(File &o) const
+			{
+				declare(o);
+				o << " {}" << o.end_line();
 			}
 
 		private:
 			std::string m_name;
 		};
 
-		class Struct : public Util::Collection, public Statement
+		class Struct : public Statement
 		{
-			Struct(Struct &&base, Block &&blk) :
-				Collection(std::move(static_cast<Collection&>(base)), std::move(blk)),
-				m_name(std::move(base.m_name))
-			{
-			}
-
 		public:
+			using has_semicolon = std::true_type;
+
 			Struct(const std::string &name) :
 				m_name(name)
 			{
 			}
 
-			void write(Util::File &o) const final
-			{
-				o.new_line() << "struct " << m_name << o.end_line();
-				o.new_line() << "{" << o.end_line();
-				write_collection(o);
-				o.new_line() << "};" << o.end_line();
-			}
-
 			auto operator|(Block &&blk)
 			{
-				return Struct(std::move(*this), std::move(blk));
+				return Collection<Struct>(std::move(*this), std::move(blk));
+			}
+
+			void declare(File &o) const
+			{
+				o.new_line() << "struct " << m_name;
+			}
+
+			void write(File &o) const
+			{
+				declare(o);
+				o << " {}" << o.end_line();
 			}
 
 		private:
@@ -3533,11 +3518,10 @@ namespace CppGenerator {
 	static Util::Visibility Protected("protected");
 	static Util::Visibility Private("private");
 
-	class Out : public Util::Namespace
+	class Out
 	{
 	public:
 		Out(const std::string &path) :
-			Namespace(main_t()),
 			m_path(path)
 		{
 		}
@@ -3550,7 +3534,7 @@ namespace CppGenerator {
 		void operator|(Util::Block &&blk)
 		{
 			for (auto &b : blk.getSmts())
-				getSmts().emplace(std::move(b));
+				m_smts.emplace_back(std::move(b));
 		}
 
 		void flush(void)
@@ -3560,7 +3544,8 @@ namespace CppGenerator {
 
 			Util::File f(m_path);
 
-			Namespace::write(f);
+			for (auto &s : m_smts)
+				s.write(f);
 			m_flushed = true;
 		}
 
@@ -3572,6 +3557,7 @@ namespace CppGenerator {
 	private:
 		const std::string m_path;
 		bool m_flushed = false;
+		std::vector<Statement> m_smts;
 	};
 
 	namespace Util {
