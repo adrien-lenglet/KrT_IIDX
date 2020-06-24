@@ -3385,6 +3385,57 @@ namespace CppGenerator {
 
 	class Out;
 
+	class Colon : public Statement
+	{
+	public:
+		template <typename ...Args>
+		explicit Colon(Args &&...args) :
+			m_args(getArgs(std::forward<Args>(args)...))
+		{
+		}
+
+		void write(Util::File &o) const override
+		{
+			if (m_args.size() == 0)
+				return;
+			o << ":" << o.end_line();
+			o.indent();
+			size_t i = 0;
+			for (auto &a : m_args) {
+				o.new_line() << a;
+				if (++i < m_args.size())
+					o << "," << o.end_line();;
+			}
+			o.unindent();
+		}
+
+	private:
+		std::vector<Value> m_args;
+
+		template <typename First, typename ...Args>
+		void argAppend(std::vector<Value> &res, First &&first, Args &&...args)
+		{
+			if constexpr (std::is_base_of_v<Type, std::remove_reference_t<First>>)
+				res.emplace_back(Value::Direct(util::sstream_str(first)));
+			else
+				res.emplace_back(std::forward<First>(first));
+			if constexpr (sizeof... (Args) > 0)
+				argAppend(res, std::forward<Args>(args)...);
+		}
+
+		template <typename ...Args>
+		auto getArgs(Args &&...args)
+		{
+			std::vector<Value> res;
+
+			if constexpr (sizeof... (Args) > 0)
+				argAppend(res, std::forward<Args>(args)...);
+			return res;
+		}
+	};
+
+	using C = Colon;
+
 	namespace Util {
 		class Namespace : public Statement
 		{
@@ -3416,6 +3467,118 @@ namespace CppGenerator {
 			std::string m_name;
 		};
 
+		class Visibility : public Statement
+		{
+			class Inherit : public Value
+			{
+			public:
+				Inherit(const std::string &name, const Type &type) :
+					m_name(name),
+					m_type(type)
+				{
+				}
+
+				void write(std::ostream &o) const override
+				{
+					o << m_name << " " << m_type;
+				}
+
+			private:
+				const std::string &m_name;
+				Type m_type;
+			};
+
+		public:
+			Visibility(const std::string &name) :
+				m_name(name)
+			{
+			}
+
+			void write(File &o) const final
+			{
+				o.unindent();
+				o.new_line() << m_name << ":" << o.end_line();
+				o.indent();
+			}
+
+			auto operator|(const Type &type)
+			{
+				return Inherit(m_name, type);
+			}
+
+		private:
+			std::string m_name;
+		};
+
+
+		template <typename Base>
+		class ClassColon
+		{
+		public:
+			using has_semicolon = typename Base::has_semicolon;
+
+			ClassColon(Base &&base, Colon &&colon) :
+				m_base(std::move(base)),
+				m_colon(std::move(colon))
+			{
+			}
+
+			auto operator|(Block &&blk)
+			{
+				return Collection<ClassColon<Base>>(std::move(*this), std::move(blk));
+			}
+
+			void declare(File &o) const
+			{
+				m_base.declare(o);
+				o << " ";
+				m_colon.write(o);
+			}
+
+		private:
+			Base m_base;
+			Colon m_colon;
+		};
+
+		template <typename Base>
+		class ClassFinal
+		{
+		public:
+			using has_semicolon = typename Base::has_semicolon;
+
+			ClassFinal(Base &&base) :
+				m_base(std::move(base))
+			{
+			}
+
+			auto operator|(Block &&blk)
+			{
+				return Collection<ClassFinal<Base>>(std::move(*this), std::move(blk));
+			}
+
+			auto operator|(Colon &&c)
+			{
+				return ClassColon<ClassFinal<Base>>(std::move(*this), std::move(c));
+			}
+
+			void declare(File &o) const
+			{
+				m_base.declare(o);
+				o << " final";
+			}
+
+		private:
+			Base m_base;
+		};
+
+		class Final
+		{
+		public:
+			Final(void)
+			{
+			}
+		};
+
 		class Class : public Statement
 		{
 		public:
@@ -3431,6 +3594,16 @@ namespace CppGenerator {
 				return Collection<Class>(std::move(*this), std::move(blk));
 			}
 
+			auto operator|(const Final&)
+			{
+				return ClassFinal<Class>(std::move(*this));
+			}
+
+			auto operator|(Colon &&c)
+			{
+				return ClassColon<Class>(std::move(*this), std::move(c));
+			}
+
 			void declare(File &o) const
 			{
 				o.new_line() << "class " << m_name;
@@ -3439,7 +3612,7 @@ namespace CppGenerator {
 			void write(File &o) const
 			{
 				declare(o);
-				o << " {}" << o.end_line();
+				o << ";" << o.end_line();
 			}
 
 		private:
@@ -3461,6 +3634,16 @@ namespace CppGenerator {
 				return Collection<Struct>(std::move(*this), std::move(blk));
 			}
 
+			auto operator|(const Final&)
+			{
+				return ClassFinal<Struct>(std::move(*this));
+			}
+
+			auto operator|(Colon &&c)
+			{
+				return ClassColon<Struct>(std::move(*this), std::move(c));
+			}
+
 			void declare(File &o) const
 			{
 				o.new_line() << "struct " << m_name;
@@ -3469,26 +3652,7 @@ namespace CppGenerator {
 			void write(File &o) const
 			{
 				declare(o);
-				o << " {}" << o.end_line();
-			}
-
-		private:
-			std::string m_name;
-		};
-
-		class Visibility : public Statement
-		{
-		public:
-			Visibility(const std::string &name) :
-				m_name(name)
-			{
-			}
-
-			void write(Util::File &o) const final
-			{
-				o.unindent();
-				o.new_line() << m_name << ":" << o.end_line();
-				o.indent();
+				o << ";" << o.end_line();
 			}
 
 		private:
@@ -3513,6 +3677,8 @@ namespace CppGenerator {
 	static Util::ContainerProxy<Util::Namespace> Namespace;
 	static Util::ContainerProxy<Util::Class> Class;
 	static Util::ContainerProxy<Util::Struct> Struct;
+
+	static Util::Final Final;
 
 	static Util::Visibility Public("public");
 	static Util::Visibility Protected("protected");
