@@ -226,7 +226,7 @@ namespace CppGenerator {
 		class Identifier
 		{
 		public:
-			Identifier(const char *name) :
+			Identifier(const std::string &name) :
 				m_name(name)
 			{
 			}
@@ -261,7 +261,7 @@ namespace CppGenerator {
 
 		private:
 			friend Type;
-			const char *m_name;
+			std::string m_name;
 
 			template <typename First, typename ...Args>
 			static constexpr bool areArgsFunction(void)
@@ -286,9 +286,11 @@ namespace CppGenerator {
 		};
 	}
 
+	using Id = Util::Identifier;
+
 	auto operator ""_id(const char *str, size_t)
 	{
-		return Util::Identifier(str);
+		return Id(str);
 	}
 
 	class Value;
@@ -800,7 +802,7 @@ namespace CppGenerator {
 		{
 		public:
 			template <typename ...Args>
-			IdentifierCtor(const char *name, Args &&...args) :
+			IdentifierCtor(const std::string &name, Args &&...args) :
 				m_name(name),
 				m_args(util::vectorize_args<Value>(std::forward<Args>(args)...))
 			{
@@ -808,7 +810,7 @@ namespace CppGenerator {
 
 		private:
 			friend Type;
-			const char *m_name;
+			std::string m_name;
 			std::vector<Value> m_args;
 		};
 
@@ -817,7 +819,7 @@ namespace CppGenerator {
 		{
 		public:
 			template <typename ...Args>
-			IdentifierFunArgs(const char *name, ArgsType &&args) :
+			IdentifierFunArgs(const std::string &name, ArgsType &&args) :
 				m_name(name),
 				m_args(std::move(args))
 			{
@@ -825,7 +827,7 @@ namespace CppGenerator {
 
 		private:
 			friend Type;
-			const char *m_name;
+			std::string m_name;
 			ArgsType m_args;
 		};
 
@@ -2022,39 +2024,41 @@ namespace CppGenerator {
 	static Statement::Direct Break("break"_v);
 	static Statement::Direct Continue("continue"_v);
 
-	class Util::Storage
-	{
-	public:
-		Storage(void)
+	namespace Util {
+		class Storage
 		{
-		}
-		Storage(const char *quali) :
-			m_qualifiers({quali})
-		{
-		}
-		Storage(const Storage &base, const Storage &add) :
-			m_qualifiers(base.m_qualifiers)
-		{
-			for (auto &a : add.m_qualifiers)
-				m_qualifiers.emplace_back(a);
-		}
+		public:
+			Storage(void)
+			{
+			}
+			Storage(const char *quali) :
+				m_qualifiers({quali})
+			{
+			}
+			Storage(const Storage &base, const Storage &add) :
+				m_qualifiers(base.m_qualifiers)
+			{
+				for (auto &a : add.m_qualifiers)
+					m_qualifiers.emplace_back(a);
+			}
 
-		auto operator-(const Storage &other)
-		{
-			return Storage(*this, other);
-		}
+			auto operator-(const Storage &other)
+			{
+				return Storage(*this, other);
+			}
 
-		auto operator|(const Type &type);
+			auto operator|(const Type &type);
 
-		void write(std::ostream &o) const
-		{
-			for (auto &q : m_qualifiers)
-				o << q << " ";
-		}
+			void write(std::ostream &o) const
+			{
+				for (auto &q : m_qualifiers)
+					o << q << " ";
+			}
 
-	private:
-		std::vector<const char*> m_qualifiers;
-	};
+		private:
+			std::vector<const char*> m_qualifiers;
+		};
+	}
 
 	static Util::Storage Inline("inline");
 	static Util::Storage Static("static");
@@ -2063,6 +2067,7 @@ namespace CppGenerator {
 	static Util::Storage Register("register");
 	static Util::Storage Mutable("mutable");
 	static Util::Storage Virtual("virtual");
+	static Util::Storage Explicit("explicit");
 
 	auto& operator<<(std::ostream &o, const Util::Storage &storage)
 	{
@@ -2106,7 +2111,7 @@ namespace CppGenerator {
 		class IdentifierName : public Value
 		{
 		public:
-			IdentifierName(const char *name) :
+			IdentifierName(const std::string &name) :
 				m_name(name)
 			{
 			}
@@ -2123,7 +2128,7 @@ namespace CppGenerator {
 			}
 
 		private:
-			const char *m_name;
+			std::string m_name;
 		};
 
 		template <typename TupleType>
@@ -2183,7 +2188,6 @@ namespace CppGenerator {
 				declare(o);
 			}
 
-		protected:
 			template <typename O>
 			void declare(O &o) const
 			{
@@ -3363,11 +3367,11 @@ namespace CppGenerator {
 
 	namespace Util {
 		template <typename ArgsType>
-		class Function : public Variable<IdentifierName>
+		class Function : public Statement
 		{
 		public:
 			Function(const StorageType &stype, const IdentifierName &id, ArgsType &&args) :
-				Variable<IdentifierName>(stype, id),
+				m_base(stype, id),
 				m_args(std::move(args))
 			{
 			}
@@ -3384,15 +3388,22 @@ namespace CppGenerator {
 			}
 
 		public:
-			void write(std::ostream &o) const override
+			void declare(File &o) const
 			{
-				declare(o);
+				o.new_line();
+				m_base.declare(o);
 				o << "(";
 				auto comma = "";
 				write_next_arg(o, m_args, comma);
 				if constexpr (std::is_same_v<ArgsType, std::tuple<>>)
 					o << Void;
 				o << ")";
+			}
+
+			void write(File &o) const override
+			{
+				declare(o);
+				o << ";" << o.end_line();
 			}
 
 			class Impl : public Statement
@@ -3406,8 +3417,7 @@ namespace CppGenerator {
 
 				void write(File &o) const override
 				{
-					o.new_line();
-					m_func.write(o);
+					m_func.declare(o);
 					o << o.end_line();
 					o.new_line();
 					m_blk.write(o);
@@ -3425,6 +3435,7 @@ namespace CppGenerator {
 			}
 
 		private:
+			Variable<IdentifierName> m_base;
 			ArgsType m_args;
 		};
 	}
