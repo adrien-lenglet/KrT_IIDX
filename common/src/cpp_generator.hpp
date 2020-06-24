@@ -256,6 +256,9 @@ namespace CppGenerator {
 					return util::tupleize_args(std::forward<Args>(args)...);
 			}
 
+			template <typename Arg>
+			static inline constexpr bool is_arg_variable_v = std::is_same_v<Arg, Util::Variable<IdentifierName>> || std::is_base_of_v<Type, Arg>;
+
 		private:
 			friend Type;
 			const char *m_name;
@@ -265,13 +268,14 @@ namespace CppGenerator {
 			{
 				using Arg = std::remove_reference_t<First>;
 
-				if (std::is_same_v<Arg, Util::Variable<IdentifierName>> || std::is_base_of_v<Type, Arg>) {
-					if constexpr (!util::are_args_empty_v<Args...>)
-						return true;
-					else
+				if constexpr (util::are_args_empty_v<Args...>)
+					return true;
+				else {
+					if constexpr (is_arg_variable_v<Arg>) {
 						return areArgsFunction<Args...>();
-				} else
-					return false;
+					} else
+						return false;
+				}
 			}
 
 			template <typename First, typename ...Args>
@@ -1909,87 +1913,6 @@ namespace CppGenerator {
 		std::vector<Type> m_args;
 	};
 
-	namespace Util {
-		class VTemplate : public Value
-		{
-		public:
-			template <typename V>
-			VTemplate(V &&value) :
-				m_value(std::forward<V>(value))
-			{
-			}
-
-			void write(std::ostream &o) const override
-			{
-				o << "template " << m_value;
-			}
-
-		private:
-			Value m_value;
-		};
-
-		template <typename ArgsType>
-		class TTemplate : public Type
-		{
-		public:
-			TTemplate(ArgsType &&args) :
-				Type(""),
-				m_args(std::move(args))
-			{
-			}
-
-			void write(std::ostream &o) const override
-			{
-				o << "template <";
-				auto comma = "";
-				write_next_arg(o, m_args, comma);
-				o << ">";
-			}
-
-		private:
-			ArgsType m_args;
-
-			template <size_t I = 0, typename ...Args>
-			void write_next_arg(std::ostream &o, const std::tuple<Args...> &tup, const char *&comma) const
-			{
-				if constexpr (I < sizeof... (Args)) {
-					o << comma << std::get<I>(tup);
-					comma = ", ";
-					write_next_arg<I + 1>(o, tup, comma);
-				}
-			}
-		};
-
-		class Template
-		{
-		public:
-			Template(void)
-			{
-			}
-
-			template <typename ...Args>
-			auto operator()(Args &&...args)
-			{
-				if constexpr (sizeof... (Args) == 1) {
-					if constexpr (!std::is_base_of_v<Type, Args...>)
-						return VTemplate(std::forward<Args>(args)...);
-					else
-						return make_ttemplate(std::forward<Args>(args)...);
-				} else
-					return make_ttemplate(std::forward<Args>(args)...);
-			}
-
-			template <typename ...Args>
-			auto make_ttemplate(Args &&...args)
-			{
-				auto params = Identifier::tupleizeVariables(std::forward<Args>(args)...);
-				return TTemplate<decltype(params)>(std::move(params));
-			}
-		};
-	}
-
-	static Util::Template Template;
-
 	class Type::Modifiers::Array : public Type
 	{
 	public:
@@ -2534,6 +2457,123 @@ namespace CppGenerator {
 
 	using Statements = std::initializer_list<Statement>;
 	using S = Statements;
+
+	namespace Util {
+		class VTemplate : public Value
+		{
+		public:
+			template <typename V>
+			VTemplate(V &&value) :
+				m_value(std::forward<V>(value))
+			{
+			}
+
+			void write(std::ostream &o) const override
+			{
+				o << "template " << m_value;
+			}
+
+		private:
+			Value m_value;
+		};
+
+		template <typename ArgsType>
+		class TTemplate : public Type
+		{
+			template <typename Prim>
+			class Combined : public Statement
+			{
+			public:
+				template <typename Other>
+				Combined(TTemplate &&base, Other &&prim) :
+					m_base(std::move(base)),
+					m_prim(std::move(prim))
+				{
+				}
+
+				void write(File &o) const override
+				{
+					o.new_line() << m_base << o.end_line();
+					m_prim.write(o);
+				}
+
+			private:
+				TTemplate m_base;
+				Prim m_prim;
+			};
+
+		public:
+			TTemplate(ArgsType &&args) :
+				Type(toString(args)),
+				m_args(std::move(args))
+			{
+			}
+
+			template <typename Other>
+			auto operator||(Other &&other)
+			{
+				return Combined<std::remove_reference_t<Other>>(std::move(*this), std::forward<Other>(other));
+			}
+
+		private:
+			ArgsType m_args;
+
+			template <size_t I = 0, typename ...Args>
+			void write_next_arg(std::ostream &o, const std::tuple<Args...> &tup, const char *&comma) const
+			{
+				if constexpr (I < sizeof... (Args)) {
+					o << comma << std::get<I>(tup);
+					comma = ", ";
+					write_next_arg<I + 1>(o, tup, comma);
+				}
+			}
+
+			void write_args(std::ostream &o, const ArgsType &args) const
+			{
+				o << "template <";
+				auto comma = "";
+				write_next_arg(o, args, comma);
+				o << ">";
+			}
+
+			std::string toString(const ArgsType &args) const
+			{
+				std::stringstream ss;
+
+				write_args(ss, args);
+				return ss.str();
+			}
+		};
+
+		class Template
+		{
+		public:
+			Template(void)
+			{
+			}
+
+			template <typename ...Args>
+			auto operator()(Args &&...args)
+			{
+				if constexpr (sizeof... (Args) == 1) {
+					if constexpr (!Identifier::is_arg_variable_v<Args...>)
+						return VTemplate(std::forward<Args>(args)...);
+					else
+						return make_ttemplate(std::forward<Args>(args)...);
+				} else
+					return make_ttemplate(std::forward<Args>(args)...);
+			}
+
+			template <typename ...Args>
+			auto make_ttemplate(Args &&...args)
+			{
+				auto params = Identifier::tupleizeVariables(std::forward<Args>(args)...);
+				return TTemplate<decltype(params)>(std::move(params));
+			}
+		};
+	}
+
+	static Util::Template Template;
 
 	namespace Util {
 		class Block : public Statement
