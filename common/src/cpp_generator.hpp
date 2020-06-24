@@ -297,12 +297,17 @@ namespace CppGenerator {
 		{
 		}
 
+		Type(const Type&) = default;
+		Type(Type&&) = default;
+
 		virtual void write(std::ostream &o) const
 		{
 			o << m_value;
 		}
 
 		virtual const Util::Storage& getStorage(void) const;
+
+		virtual ~Type(void) = default;
 
 	protected:
 		const std::string m_value;
@@ -341,7 +346,7 @@ namespace CppGenerator {
 	public:
 		template <typename BindType, class = std::enable_if<is_bind_v<BindType>>>
 		auto operator|(const BindType &bind);
-		template <typename V, class = std::enable_if_t<!is_identifier_v<V>>>
+		template <typename V, class = std::enable_if_t<!is_identifier_v<V> && !std::is_base_of_v<Type, std::remove_reference_t<V>>>>
 		auto operator|(V &&val);
 
 		class DeclType;
@@ -1904,23 +1909,86 @@ namespace CppGenerator {
 		std::vector<Type> m_args;
 	};
 
-	class Template : public Value
-	{
-	public:
-		template <typename V>
-		Template(V &&value) :
-			m_value(std::forward<V>(value))
+	namespace Util {
+		class VTemplate : public Value
 		{
-		}
+		public:
+			template <typename V>
+			VTemplate(V &&value) :
+				m_value(std::forward<V>(value))
+			{
+			}
 
-		void write(std::ostream &o) const override
+			void write(std::ostream &o) const override
+			{
+				o << "template " << m_value;
+			}
+
+		private:
+			Value m_value;
+		};
+
+		template <typename ArgsType>
+		class TTemplate : public Type
 		{
-			o << "template " << m_value;
-		}
+		public:
+			TTemplate(ArgsType &&args) :
+				Type(""),
+				m_args(std::move(args))
+			{
+			}
 
-	private:
-		Value m_value;
-	};
+			void write(std::ostream &o) const override
+			{
+				o << "template <";
+				auto comma = "";
+				write_next_arg(o, m_args, comma);
+				o << ">";
+			}
+
+		private:
+			ArgsType m_args;
+
+			template <size_t I = 0, typename ...Args>
+			void write_next_arg(std::ostream &o, const std::tuple<Args...> &tup, const char *&comma) const
+			{
+				if constexpr (I < sizeof... (Args)) {
+					o << comma << std::get<I>(tup);
+					comma = ", ";
+					write_next_arg<I + 1>(o, tup, comma);
+				}
+			}
+		};
+
+		class Template
+		{
+		public:
+			Template(void)
+			{
+			}
+
+			template <typename ...Args>
+			auto operator()(Args &&...args)
+			{
+				if constexpr (sizeof... (Args) == 1) {
+					if constexpr (!std::is_base_of_v<Type, Args...>)
+						return VTemplate(std::forward<Args>(args)...);
+					else
+						return make_ttemplate(std::forward<Args>(args)...);
+				} else
+					return make_ttemplate(std::forward<Args>(args)...);
+			}
+
+			template <typename ...Args>
+			auto make_ttemplate(Args &&...args)
+			{
+				auto params = Identifier::tupleizeVariables(std::forward<Args>(args)...);
+				return TTemplate<decltype(params)>(std::move(params));
+			}
+		};
+	}
+
+	static Util::Template Template;
 
 	class Type::Modifiers::Array : public Type
 	{
