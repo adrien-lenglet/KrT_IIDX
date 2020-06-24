@@ -3208,101 +3208,14 @@ namespace CppGenerator {
 	}
 
 	namespace Util {
-		class Case
-		{
-			class CCase : public Statement, public Switch::Casable<CCase>
-			{
-			public:
-
-				template <typename V>
-				CCase(V &&val) :
-					m_value(std::forward<V>(val))
-				{
-				}
-
-				void write(Util::File &o) const override
-				{
-					o.unindent();
-					o.new_line() << "case " << m_value << ":" << o.end_line();
-					o.indent();
-				}
-
-				template <typename Base>
-				class Stacked;
-
-			private:
-				Value m_value;
-			};
-
-		public:
-			Case(void)
-			{
-			}
-
-			template <typename V>
-			auto operator||(V &&val)
-			{
-				return CCase(std::forward<V>(val));
-			}
-
-			template <typename Base>
-			class Stacked
-			{
-			public:
-				Stacked(Base &&base) :
-					m_base(std::move(base))
-				{
-				}
-
-				void write(Util::File &o) const
-				{
-					m_base.write(o);
-				}
-
-				template <typename V>
-				auto operator||(V &&val)
-				{
-					return CCase::Stacked<Stacked<Base>>(std::move(*this), std::forward<V>(val));
-				}
-
-			private:
-				Base m_base;
-			};
-		};
-
-		template <typename Base>
-		class Case::CCase::Stacked : public Statement, public Switch::Casable<Stacked<Base>>
+		class Default : public Statement
 		{
 		public:
-			template <typename ...Args>
-			Stacked(Base &&base, Args &&...args) :
-				m_base(std::move(base)),
-				m_case(std::forward<Args>(args)...)
-			{
-			}
-
-			void write(Util::File &o) const override
-			{
-				m_base.write(o);
-				m_case.write(o);
-			}
-
-		private:
-			Base m_base;
-			Case::CCase m_case;
-		};
-
-		class Default : public Statement, public Switch::Casable<Default>
-		{
-		public:
-			template <typename Base>
-			class Stacked;
-
 			Default(void)
 			{
 			}
 
-			void write(Util::File &o) const override
+			void write(File &o) const override
 			{
 				o.unindent();
 				o.new_line() << "default:" << o.end_line();
@@ -3310,65 +3223,43 @@ namespace CppGenerator {
 			}
 		};
 
-		template <typename Base>
-		class Default::Stacked : public Statement, public Switch::Casable<Stacked<Base>>
+		class Case
 		{
 		public:
-			template <typename ...Args>
-			Stacked(Base &&base, Args &&...args) :
-				m_base(std::move(base)),
-				m_default(std::forward<Args>(args)...)
+			Case(void)
 			{
 			}
 
-			void write(Util::File &o) const override
+			class Smt : public Statement
 			{
-				m_base.write(o);
-				m_default.write(o);
-			}
+			public:
+				template <typename V>
+				Smt(V &&value) :
+					m_value(std::forward<V>(value))
+				{
+				}
 
-		private:
-			Base m_base;
-			Default m_default;
+				void write(File &o) const override
+				{
+					o.unindent();
+					o.new_line() << "case " << m_value << ":" << o.end_line();
+					o.indent();
+				}
+
+			private:
+				Value m_value;
+			};
+
+			template <typename V>
+			auto operator|(V &&v)
+			{
+				return Smt(std::forward<V>(v));
+			}
 		};
 	}
 
-	template <typename Base>
-	class Switch::Smt : public Statement
-	{
-	public:
-		template <typename S>
-		Smt(Base &&base, S &&smt) :
-			m_base(std::move(base)),
-			m_smt(std::move(smt))
-		{
-		}
-
-		void write(Util::File &o) const override
-		{
-			m_base.write(o);
-			m_smt.write(o);
-		}
-
-	private:
-		Base m_base;
-		Statement m_smt;
-	};
-
 	static Util::Case Case;
 	static Util::Default Default;
-
-	template <typename Type>
-	auto Switch::Casable<Type>::operator||(Util::Case&)
-	{
-		return Util::Case::Stacked<Type>(std::move(static_cast<Type&>(*this)));
-	}
-
-	template <typename Type>
-	auto Switch::Casable<Type>::operator||(Util::Default&)
-	{
-		return Util::Default::Stacked<Type>(std::move(static_cast<Type&>(*this)));
-	}
 
 	namespace Util {
 		template <typename ArgsType>
