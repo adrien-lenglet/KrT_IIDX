@@ -2,6 +2,7 @@
 
 #include <cstdlib>
 #include <map>
+#include <vector>
 #include <memory>
 #include <algorithm>
 #include <functional>
@@ -635,6 +636,26 @@ auto initializer_list_move(std::initializer_list<T> &&list)
 	for (auto &el : list)
 		res.emplace_back(std::move(const_cast<T&>(el)));
 	return res;
+}
+
+template <typename First, typename ...Args>
+auto tupleize_args_first(First &&first, Args &&...args)
+{
+	std::tuple<std::remove_reference_t<First>> cur(std::move(first));
+
+	if constexpr (util::are_args_empty_v<Args...>)
+		return cur;
+	else
+		return std::tuple_cat(std::move(cur), tupleize_args_first(std::forward<Args>(args)...));
+}
+
+template <typename ...Args>
+auto tupleize_args(Args &&...args)
+{
+	if constexpr (util::are_args_empty_v<Args...>)
+		return std::make_tuple();
+	else
+		return tupleize_args_first(std::forward<Args>(args)...);
 }
 
 }
