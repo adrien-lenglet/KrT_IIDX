@@ -3449,7 +3449,8 @@ namespace CppGenerator {
 			template <typename P>
 			void expandId(P &&p)
 			{
-				p.expandName(colGetId());
+				if (colGetId().size() > 0)
+					p.expandName(colGetId());
 				if (m_parent)
 					return m_parent->expandId(p);
 			}
