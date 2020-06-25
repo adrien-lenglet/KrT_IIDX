@@ -226,9 +226,19 @@ namespace CppGenerator {
 		class Identifier
 		{
 		public:
+			Identifier(const char *name) :
+				m_name(name)
+			{
+			}
+
 			Identifier(const std::string &name) :
 				m_name(name)
 			{
+			}
+
+			const std::string& getName(void) const
+			{
+				return m_name;
 			}
 
 			template <typename ...Args>
@@ -337,20 +347,20 @@ namespace CppGenerator {
 			return Type(m_value + std::string(" ") + other.m_value);
 		}
 
-		auto operator|(const char *name);
-		auto operator|(Util::Identifier &&id);
+		auto operator|(const char *id);
+		auto operator|(const Util::Identifier &id);
 		auto operator|(Util::IdentifierCtor &&id);
 		template <typename ArgsType>
 		auto operator|(Util::IdentifierFunArgs<ArgsType> &&id);
 
 	private:
 		template <typename V>
-		static inline constexpr bool is_bind_v = util::is_instance_of_template<V, Util::Bind>{};
+		static inline constexpr bool is_bind_v = util::is_instance_of_template<std::remove_reference_t<V>, Util::Bind>{};
 		template <typename V>
-		static inline constexpr bool is_identifier_v = is_bind_v<V> || std::is_same_v<std::decay_t<V>, const char*>;
+		static inline constexpr bool is_identifier_v = std::is_same_v<std::remove_reference_t<V>, Util::Identifier> || is_bind_v<std::remove_reference_t<V>>;
 
 	public:
-		template <typename BindType, class = std::enable_if<is_bind_v<BindType>>>
+		template <typename BindType, class = std::enable_if_t<is_bind_v<BindType>>>
 		auto operator|(const BindType &bind);
 		template <typename V, class = std::enable_if_t<!is_identifier_v<V> && !std::is_base_of_v<Type, std::remove_reference_t<V>>>>
 		auto operator|(V &&val);
@@ -2300,9 +2310,9 @@ namespace CppGenerator {
 				o << arr;
 			}
 
-			Identifier toId(void) const override
+			auto isStatic(void) const
 			{
-				return Identifier(m_stype.getStorage().isStatic() ? this->getId() : this->getName());
+				return m_stype.getStorage().isStatic();
 			}
 
 		public:
@@ -2481,14 +2491,14 @@ namespace CppGenerator {
 		return res;
 	}
 
-	auto Type::operator|(const char *name)
-	{
-		return Util::Variable<Util::IdentifierName>(Util::StorageType(getStorage(), *this), name);
-	}
-
-	auto Type::operator|(Util::Identifier &&id)
+	auto Type::operator|(const Util::Identifier &id)
 	{
 		return Util::Variable<Util::IdentifierName>(Util::StorageType(getStorage(), *this), id.m_name);
+	}
+
+	auto Type::operator|(const char *id)
+	{
+		return *this | Id(id);
 	}
 
 	auto Type::operator|(Util::IdentifierCtor &&id)
@@ -3311,14 +3321,20 @@ namespace CppGenerator {
 		class CollectionBase
 		{
 		public:
+			CollectionBase(void) :
+				m_parent(nullptr)
+			{
+			}
 			virtual ~CollectionBase(void) = default;
 
 			virtual void expandPrimNames(const std::string &to_add) = 0;
-			virtual Identifier primId(void) const = 0;
+			virtual const std::string& getIdName(void) const = 0;
 
 			template <typename P>
 			decltype(auto) operator+=(P &&prim)
 			{
+				decltype(auto) id = extractId(std::forward<P>(prim));
+
 				auto &emplaced = getSmts().emplace_back(std::forward<P>(prim));
 
 				if constexpr (std::is_base_of_v<CollectionBase, std::remove_reference_t<P>>) {
@@ -3328,15 +3344,45 @@ namespace CppGenerator {
 					auto col = dynamic_cast<CollectionBase*>(sub);
 					if (!col)
 						throw std::runtime_error("Can't get collection");
-						return static_cast<CollectionBase&>(*col);
-				} else if constexpr (std::is_base_of_v<Primitive::DerivedBase, std::remove_reference_t<P>>) {
-					return prim.toId();
-				} else
+					auto &res = *col;
+					res.m_parent = this;
+					return res;
+				} else if constexpr (std::is_same_v<decltype(id), Identifier>)
+					return id;
+				else
 					return;
 			}
 
 		private:
+			CollectionBase *m_parent;
 			virtual std::vector<Statement>& getSmts(void) = 0;
+
+			template <typename P>
+			decltype(auto) extractId(P &&p)
+			{
+				using Pnoref = std::remove_reference_t<P>;
+
+				if constexpr (std::is_base_of_v<Primitive::DerivedBase, Pnoref> || std::is_base_of_v<Primitive, Pnoref>) {
+					auto id = p.toId();
+
+					if constexpr (util::is_instance_of_template<std::remove_reference_t<P>, Variable>{})
+						if (!p.isStatic())
+							return id;
+					return expandId(id);
+				} else
+					return nullptr;
+			}
+
+			Identifier expandId(const Identifier &id)
+			{
+				static const std::string scp("::");
+
+				auto cur = getIdName() + scp + id.getName();
+				if (m_parent)
+					return m_parent->expandId(cur);
+				else
+					return cur;
+			}
 		};
 
 		template <typename Base>
@@ -3366,16 +3412,16 @@ namespace CppGenerator {
 				o << o.end_line();
 			}
 
-			Identifier primId(void) const override
-			{
-				return this->toId();
-			}
-
 		private:
 			template <typename>
 			friend class Primitive::Derived;
 			Base m_base;
 			Block m_blk;
+
+			const std::string& getIdName(void) const override
+			{
+				return this->getId();
+			}
 
 			void expandPrimNames(const std::string &to_add) override
 			{
@@ -3666,8 +3712,8 @@ namespace CppGenerator {
 		public:
 			using has_semicolon = std::false_type;
 
-			Namespace(const std::string &name) :
-				Primitive(name)
+			Namespace(const Identifier &id) :
+				Primitive(id.getName())
 			{
 			}
 
@@ -3809,8 +3855,8 @@ namespace CppGenerator {
 		public:
 			using has_semicolon = std::true_type;
 
-			Class(const std::string &name) :
-				Primitive(name)
+			Class(const Identifier &id) :
+				Primitive(id.getName())
 			{
 			}
 
@@ -3846,8 +3892,8 @@ namespace CppGenerator {
 		public:
 			using has_semicolon = std::true_type;
 
-			Struct(const std::string &name) :
-				Primitive(name)
+			Struct(const Identifier &id) :
+				Primitive(id.getName())
 			{
 			}
 
@@ -3886,9 +3932,9 @@ namespace CppGenerator {
 			{
 			}
 
-			auto operator|(const std::string &name)
+			auto operator|(const Identifier &id)
 			{
-				return FinalType(name);
+				return FinalType(id);
 			}
 		};
 	}
