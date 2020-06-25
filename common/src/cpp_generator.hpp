@@ -226,6 +226,8 @@ namespace CppGenerator {
 		class Identifier
 		{
 		public:
+			class Typed;
+
 			Identifier(const std::string &name) :
 				m_name(name)
 			{
@@ -721,6 +723,17 @@ namespace CppGenerator {
 		auto operator/(O &&other);
 		template <typename O>
 		auto operator<<(O &&other);
+	};
+
+	class Util::Identifier::Typed : public Util::Identifier, public Type
+	{
+	public:
+		template <typename ...Args>
+		Typed(Args &&...args) :
+			Util::Identifier(std::forward<Args>(args)...),
+			Type(getName())
+		{
+		}
 	};
 
 	auto& operator<<(std::ostream &o, const Type &type)
@@ -2093,6 +2106,9 @@ namespace CppGenerator {
 	static Util::Storage Mutable("mutable");
 	static Util::Storage Virtual("virtual");
 	static Util::Storage Explicit("explicit");
+	static Util::Storage Public("public");
+	static Util::Storage Protected("protected");
+	static Util::Storage Private("private");
 
 	auto& operator<<(std::ostream &o, const Util::Storage &storage)
 	{
@@ -3327,13 +3343,21 @@ namespace CppGenerator {
 		{
 		public:
 			CollectionBase(void) :
-				m_parent(nullptr)
+				m_parent(nullptr),
+				m_id("")
 			{
 			}
 			virtual ~CollectionBase(void) = default;
 
-			virtual void expandPrimNames(const std::string &to_add) = 0;
-			virtual const std::string& getIdName(void) const = 0;
+			operator Identifier(void) const
+			{
+				return m_id;
+			}
+
+			operator Type(void) const
+			{
+				return Type(m_id.getName());
+			}
 
 			template <typename P, class = std::enable_if_t<!std::is_same_v<std::remove_reference_t<P>, Statements>>>
 			decltype(auto) operator+=(P &&prim)
@@ -3351,8 +3375,9 @@ namespace CppGenerator {
 						throw std::runtime_error("Can't get collection");
 					auto &res = *col;
 					res.m_parent = this;
+					res.updateId();
 					return res;
-				} else if constexpr (std::is_same_v<decltype(id), Identifier>)
+				} else if constexpr (!std::is_same_v<decltype(id), decltype(nullptr)>)
 					return id;
 				else
 					return;
@@ -3364,9 +3389,41 @@ namespace CppGenerator {
 					getSmts().emplace_back(std::move(s));
 			}
 
+		protected:
+			void expandPrimNames(const std::string &to_add)
+			{
+				for (auto &s : getSmts()) {
+					auto sub = s.getSub();
+					if (sub)
+						expandSub(sub, to_add);
+				}
+			}
+
+			template <typename T>
+			void expandSub(T sub, const std::string &to_add)
+			{
+				auto got = dynamic_cast<Primitive::DerivedBase*>(sub);
+				if (got)
+					got->expandName(to_add);
+				auto col = dynamic_cast<CollectionBase*>(sub);
+				if (col)
+					col->expandPrimNames(to_add);
+			}
+
 		private:
 			CollectionBase *m_parent;
+			Identifier m_id;
+
 			virtual std::vector<Statement>& getSmts(void) = 0;
+
+			virtual const std::string& colGetId(void) const = 0;
+			virtual const std::string& colGetName(void) const = 0;
+			virtual const Identifier& getIdComplete(void) const = 0;
+
+			void updateId(void)
+			{
+				m_id = Identifier(colGetName());
+			}
 
 			template <typename P>
 			decltype(auto) extractId(P &&p)
@@ -3374,25 +3431,27 @@ namespace CppGenerator {
 				using Pnoref = std::remove_reference_t<P>;
 
 				if constexpr (std::is_base_of_v<Primitive::DerivedBase, Pnoref> || std::is_base_of_v<Primitive, Pnoref>) {
-					auto id = p.toId();
-
+					updateId();
 					if constexpr (util::is_instance_of_template<std::remove_reference_t<P>, Variable>{})
 						if (!p.isStatic())
-							return id;
-					return expandId(id);
+							return p.toId();
+					expandId(std::forward<P>(p));
+					updateId();
+					auto res = p.toId();
+					if constexpr (std::is_base_of_v<Type, Pnoref>)
+						return Identifier::Typed(res);
+					else
+						return res;
 				} else
 					return nullptr;
 			}
 
-			Identifier expandId(const Identifier &id)
+			template <typename P>
+			void expandId(P &&p)
 			{
-				static const std::string scp("::");
-
-				auto cur = getIdName() + scp + id.getName();
+				p.expandName(colGetId());
 				if (m_parent)
-					return m_parent->expandId(cur);
-				else
-					return cur;
+					return m_parent->expandId(p);
 			}
 		};
 
@@ -3402,7 +3461,8 @@ namespace CppGenerator {
 		public:
 			Collection(Base &&base, Block &&blk) :
 				m_base(std::move(base)),
-				m_blk(std::move(blk))
+				m_blk(std::move(blk)),
+				m_id("")
 			{
 				expandPrimNames(this->getId());
 			}
@@ -3428,30 +3488,21 @@ namespace CppGenerator {
 			friend class Primitive::Derived;
 			Base m_base;
 			Block m_blk;
+			Identifier m_id;
 
-			const std::string& getIdName(void) const override
+			const std::string& colGetId(void) const override
 			{
 				return this->getId();
 			}
 
-			void expandPrimNames(const std::string &to_add) override
+			const std::string& colGetName(void) const override
 			{
-				for (auto &s : m_blk.getSmts()) {
-					auto sub = s.getSub();
-					if (sub)
-						expandSub(sub, to_add);
-				}
+				return this->getName();
 			}
 
-			template <typename T>
-			void expandSub(T sub, const std::string &to_add)
+			const Identifier& getIdComplete(void) const override
 			{
-				auto got = dynamic_cast<Primitive::DerivedBase*>(sub);
-				if (got)
-					got->expandName(to_add);
-				auto col = dynamic_cast<CollectionBase*>(sub);
-				if (col)
-					col->expandPrimNames(to_add);
+				return m_id;
 			}
 
 			std::vector<Statement>& getSmts(void) override
@@ -3467,6 +3518,8 @@ namespace CppGenerator {
 			friend class Primitive::Derived;
 
 		public:
+			using has_semicolon = std::false_type;
+
 			Function(const StorageType &stype, const IdentifierName &id, ArgsType &&args) :
 				m_base(stype, id),
 				m_args(std::move(args))
@@ -3503,35 +3556,9 @@ namespace CppGenerator {
 				o << ";" << o.end_line();
 			}
 
-			class Impl : public Statement, public Primitive::Derived<Impl>
+			auto operator|(Util::Block &&blk)
 			{
-				template <typename>
-				friend class Primitive::Derived;
-
-			public:
-				Impl(Function &&func, Block &&blk) :
-					m_base(std::move(func)),
-					m_blk(std::move(blk))
-				{
-				}
-
-				void write(File &o) const override
-				{
-					m_base.declare(o);
-					o << o.end_line();
-					o.new_line();
-					m_blk.write(o);
-					o << o.end_line();
-				}
-
-			private:
-				Function m_base;
-				Block m_blk;
-			};
-
-			auto operator|(Util::Block &&blk) &&
-			{
-				return Impl(std::move(*this), std::move(blk));
+				return Collection<Function>(std::move(*this), std::move(blk));
 			}
 
 		private:
@@ -3745,50 +3772,6 @@ namespace CppGenerator {
 			}
 		};
 
-		class Visibility : public Statement
-		{
-			class Inherit : public Value
-			{
-			public:
-				Inherit(const std::string &name, const Type &type) :
-					m_name(name),
-					m_type(type)
-				{
-				}
-
-				void write(std::ostream &o) const override
-				{
-					o << m_name << " " << m_type;
-				}
-
-			private:
-				const std::string &m_name;
-				Type m_type;
-			};
-
-		public:
-			Visibility(const std::string &name) :
-				m_name(name)
-			{
-			}
-
-			void write(File &o) const final
-			{
-				o.unindent();
-				o.new_line() << m_name << ":" << o.end_line();
-				o.indent();
-			}
-
-			auto operator|(const Type &type)
-			{
-				return Inherit(m_name, type);
-			}
-
-		private:
-			std::string m_name;
-		};
-
-
 		template <typename Base>
 		class ClassColon : public Primitive::Derived<ClassColon<Base>>
 		{
@@ -3803,7 +3786,7 @@ namespace CppGenerator {
 
 			auto operator|(Block &&blk)
 			{
-				return Collection<ClassColon<Base>>(std::move(*this), std::move(blk));
+				return Collection<ClassColon>(std::move(*this), std::move(blk));
 			}
 
 			void declare(File &o) const
@@ -3833,12 +3816,12 @@ namespace CppGenerator {
 
 			auto operator|(Block &&blk)
 			{
-				return Collection<ClassFinal<Base>>(std::move(*this), std::move(blk));
+				return Collection<ClassFinal>(std::move(*this), std::move(blk));
 			}
 
 			auto operator|(Colon &&c)
 			{
-				return ClassColon<ClassFinal<Base>>(std::move(*this), std::move(c));
+				return ClassColon<ClassFinal>(std::move(*this), std::move(c));
 			}
 
 			void declare(File &o) const
@@ -3861,13 +3844,14 @@ namespace CppGenerator {
 			}
 		};
 
-		class Class : public Statement, public Primitive
+		class Class : public Statement, public Primitive, public Type
 		{
 		public:
 			using has_semicolon = std::true_type;
 
 			Class(const Identifier &id) :
-				Primitive(id.getName())
+				Primitive(id.getName()),
+				Type(getName())
 			{
 			}
 
@@ -3891,6 +3875,8 @@ namespace CppGenerator {
 				o.new_line() << "class " << getId();
 			}
 
+			using Type::write;
+
 			void write(File &o) const
 			{
 				declare(o);
@@ -3898,13 +3884,14 @@ namespace CppGenerator {
 			}
 		};
 
-		class Struct : public Statement, public Primitive
+		class Struct : public Statement, public Primitive, public Type
 		{
 		public:
 			using has_semicolon = std::true_type;
 
 			Struct(const Identifier &id) :
-				Primitive(id.getName())
+				Primitive(id.getName()),
+				Type(getName())
 			{
 			}
 
@@ -3927,6 +3914,8 @@ namespace CppGenerator {
 			{
 				o.new_line() << "struct " << getId();
 			}
+
+			using Type::write;
 
 			void write(File &o) const
 			{
@@ -3955,10 +3944,6 @@ namespace CppGenerator {
 	static Util::ContainerProxy<Util::Struct> Struct;
 
 	static Util::Final Final;
-
-	static Util::Visibility Public("public");
-	static Util::Visibility Protected("protected");
-	static Util::Visibility Private("private");
 
 	namespace Util {
 		class Out : public Primitive
