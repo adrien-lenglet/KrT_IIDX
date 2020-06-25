@@ -226,13 +226,13 @@ namespace CppGenerator {
 		class Identifier
 		{
 		public:
-			Identifier(const char *name) :
+			Identifier(const std::string &name) :
 				m_name(name)
 			{
 			}
 
-			Identifier(const std::string &name) :
-				m_name(name)
+			Identifier(const char *name) :
+				Identifier(std::string(name))
 			{
 			}
 
@@ -303,202 +303,6 @@ namespace CppGenerator {
 		return Id(str);
 	}
 
-	class Value;
-
-	class Type
-	{
-	public:
-		Type(const std::string &str) :
-			m_value(str)
-		{
-		}
-
-		Type(const Type&) = default;
-		Type(Type&&) = default;
-
-		virtual void write(std::ostream &o) const
-		{
-			o << m_value;
-		}
-
-		virtual const Util::Storage& getStorage(void) const;
-
-		virtual ~Type(void) = default;
-
-	protected:
-		const std::string m_value;
-
-	public:
-		struct Modifiers
-		{
-			class Ref;
-			class Ptr;
-			class Array;
-			class Template;
-		};
-
-		template <typename ...Args>
-		auto operator[](Args &&...args);
-		auto operator*(void);
-		auto operator&(void);
-
-		auto operator-(const Type &other)
-		{
-			return Type(m_value + std::string(" ") + other.m_value);
-		}
-
-		auto operator|(const char *id);
-		auto operator|(const Util::Identifier &id);
-		auto operator|(Util::IdentifierCtor &&id);
-		template <typename ArgsType>
-		auto operator|(Util::IdentifierFunArgs<ArgsType> &&id);
-
-	private:
-		template <typename V>
-		static inline constexpr bool is_bind_v = util::is_instance_of_template<std::remove_reference_t<V>, Util::Bind>{};
-		template <typename V>
-		static inline constexpr bool is_identifier_v = std::is_same_v<std::remove_reference_t<V>, Util::Identifier> || is_bind_v<std::remove_reference_t<V>>;
-
-	public:
-		template <typename BindType, class = std::enable_if_t<is_bind_v<BindType>>>
-		auto operator|(const BindType &bind);
-		template <typename V, class = std::enable_if_t<!is_identifier_v<V> && !std::is_base_of_v<Type, std::remove_reference_t<V>>>>
-		auto operator|(V &&val);
-
-		class DeclType;
-		class DeclValue;
-
-		template <typename V>
-		auto operator=(V &&value);
-
-		template <typename ...Values>
-		Value operator()(Values &&...val);
-
-		template <typename O>
-		auto operator>>(O &&other);
-
-		template <typename ...Args>
-		auto Template(Args &&...args);
-		template <typename ...Args>
-		auto T(Args &&...args);
-
-		template <typename O>
-		auto operator/(O &&other);
-		template <typename O>
-		auto operator<<(O &&other);
-	};
-
-	auto& operator<<(std::ostream &o, const Type &type)
-	{
-		type.write(o);
-		return o;
-	}
-
-	auto operator ""_t(const char *str, size_t size)
-	{
-		std::string s;
-
-		s.reserve(size);
-		for (size_t i = 0; i < size; i++)
-			s.push_back(str[i]);
-		return Type(str);
-	}
-
-	namespace Util {
-		class Void_t : public Type
-		{
-		public:
-			template <typename ...Args>
-			Void_t(Args &&...args) :
-				Type(std::forward<Args>(args)...)
-			{
-			}
-		};
-	}
-
-	static Type Auto("auto");
-	static Util::Void_t Void("void");
-	static Type Char("char");
-	static Type Short("short");
-	static Type Int("int");
-	static Type Float("float");
-	static Type Double("double");
-	static Type Bool("bool");
-	static Type Nullptr_t("nullptr_t");
-	static Type Size_t("size_t");
-	static Type Int8_t("int8_t");
-	static Type Int16_t("int16_t");
-	static Type Int32_t("int32_t");
-	static Type Int64_t("int64_t");
-	static Type Uint8_t("uint8_t");
-	static Type Uint16_t("uint16_t");
-	static Type Uint32_t("uint32_t");
-	static Type Uint64_t("uint64_t");
-	static Type Long("long");
-
-	static Type Const("const");
-	static Type Volatile("volatile");
-	static Type Typename("typename");
-	static Type Signed("signed");
-	static Type Unsigned("unsigned");
-	static Type Constexpr("constexpr");
-
-	class Type::Modifiers::Ref : public Type
-	{
-	public:
-		Ref(const Type &type) :
-			Type(std::string("&") + type.m_value)
-		{
-		}
-	};
-
-	class Type::Modifiers::Ptr : public Type
-	{
-	public:
-		Ptr(const Type &type) :
-			Type(std::string("*") + type.m_value)
-		{
-		}
-	};
-
-	class Type::Modifiers::Template : public Type
-	{
-	public:
-		template <typename ...Args>
-		Template(const Type &type, Args &&...args) :
-			Type(getValue(type, util::vectorize_args<Type>(std::forward<Args>(args)...)))
-		{
-		}
-
-	private:
-		template <typename ...Args>
-		std::string getValue(const Type &type, const std::vector<Type> &args) const
-		{
-			std::stringstream o;
-
-			o << type.m_value << "<";
-			auto comma = "";
-			for (auto &a : args) {
-				o << comma << a;
-				comma = ", ";
-			}
-			o << ">";
-			return o.str();
-		}
-	};
-
-	template <typename ...Args>
-	auto Type::Template(Args &&...args)
-	{
-		return Modifiers::Template(*this, std::forward<Args>(args)...);
-	}
-
-	template <typename ...Args>
-	auto Type::T(Args &&...args)
-	{
-		return Template(std::forward<Args>(args)...);
-	}
-
 	class Value : public Util::Writable
 	{
 		template <typename W>
@@ -508,6 +312,8 @@ namespace CppGenerator {
 		Value(void)
 		{
 		}
+
+		Value(const Util::Identifier&);
 
 		template <typename W, class = std::enable_if_t<is_w_ok_v<W> && std::is_rvalue_reference_v<W&&>>>
 		Value(W &&sub) :
@@ -807,6 +613,227 @@ namespace CppGenerator {
 		}
 	};
 
+	class Value::Direct : public Value
+	{
+	public:
+		Direct(const std::string &str) :
+			m_str(str)
+		{
+		}
+
+		void write(std::ostream &o) const override
+		{
+			o << m_str;
+		}
+
+	private:
+		std::string m_str;
+	};
+
+	Value::Value(const Util::Identifier &id) :
+		Value(Value::Direct(id.getName()))
+	{
+	}
+
+	static Value::Direct This("this");
+	static Value::Direct Sizeof("sizeof");
+	static Value::Direct Alignof("alignof");
+	static Value::Direct Asm("asm");
+
+	class Type
+	{
+	public:
+		Type(const std::string &str) :
+			m_value(str)
+		{
+		}
+
+		Type(const Type&) = default;
+		Type(Type&&) = default;
+
+		virtual void write(std::ostream &o) const
+		{
+			o << m_value;
+		}
+
+		virtual const Util::Storage& getStorage(void) const;
+
+		virtual ~Type(void) = default;
+
+	protected:
+		const std::string m_value;
+
+	public:
+		struct Modifiers
+		{
+			class Ref;
+			class Ptr;
+			class Array;
+			class Template;
+		};
+
+		template <typename ...Args>
+		auto operator[](Args &&...args);
+		auto operator*(void);
+		auto operator&(void);
+
+		auto operator-(const Type &other)
+		{
+			return Type(m_value + std::string(" ") + other.m_value);
+		}
+
+		auto operator|(const char *id);
+		auto operator|(const Util::Identifier &id);
+		auto operator|(Util::IdentifierCtor &&id);
+		template <typename ArgsType>
+		auto operator|(Util::IdentifierFunArgs<ArgsType> &&id);
+
+	private:
+		template <typename V>
+		static inline constexpr bool is_bind_v = util::is_instance_of_template<std::remove_reference_t<V>, Util::Bind>{};
+		template <typename V>
+		static inline constexpr bool is_identifier_v = std::is_same_v<std::remove_reference_t<V>, Util::Identifier> || is_bind_v<std::remove_reference_t<V>>;
+
+	public:
+		template <typename BindType, class = std::enable_if_t<is_bind_v<BindType>>>
+		auto operator|(const BindType &bind);
+		template <typename V, class = std::enable_if_t<!is_identifier_v<V> && !std::is_base_of_v<Type, std::remove_reference_t<V>>>>
+		auto operator|(V &&val);
+
+		class DeclType;
+		class DeclValue;
+
+		template <typename V>
+		auto operator=(V &&value);
+
+		template <typename ...Values>
+		Value operator()(Values &&...val);
+
+		template <typename O>
+		auto operator>>(O &&other);
+
+		template <typename ...Args>
+		auto Template(Args &&...args);
+		template <typename ...Args>
+		auto T(Args &&...args);
+
+		template <typename O>
+		auto operator/(O &&other);
+		template <typename O>
+		auto operator<<(O &&other);
+	};
+
+	auto& operator<<(std::ostream &o, const Type &type)
+	{
+		type.write(o);
+		return o;
+	}
+
+	auto operator ""_t(const char *str, size_t size)
+	{
+		std::string s;
+
+		s.reserve(size);
+		for (size_t i = 0; i < size; i++)
+			s.push_back(str[i]);
+		return Type(str);
+	}
+
+	namespace Util {
+		class Void_t : public Type
+		{
+		public:
+			template <typename ...Args>
+			Void_t(Args &&...args) :
+				Type(std::forward<Args>(args)...)
+			{
+			}
+		};
+	}
+
+	static Type Auto("auto");
+	static Util::Void_t Void("void");
+	static Type Char("char");
+	static Type Short("short");
+	static Type Int("int");
+	static Type Float("float");
+	static Type Double("double");
+	static Type Bool("bool");
+	static Type Nullptr_t("nullptr_t");
+	static Type Size_t("size_t");
+	static Type Int8_t("int8_t");
+	static Type Int16_t("int16_t");
+	static Type Int32_t("int32_t");
+	static Type Int64_t("int64_t");
+	static Type Uint8_t("uint8_t");
+	static Type Uint16_t("uint16_t");
+	static Type Uint32_t("uint32_t");
+	static Type Uint64_t("uint64_t");
+	static Type Long("long");
+
+	static Type Const("const");
+	static Type Volatile("volatile");
+	static Type Typename("typename");
+	static Type Signed("signed");
+	static Type Unsigned("unsigned");
+	static Type Constexpr("constexpr");
+
+	class Type::Modifiers::Ref : public Type
+	{
+	public:
+		Ref(const Type &type) :
+			Type(std::string("&") + type.m_value)
+		{
+		}
+	};
+
+	class Type::Modifiers::Ptr : public Type
+	{
+	public:
+		Ptr(const Type &type) :
+			Type(std::string("*") + type.m_value)
+		{
+		}
+	};
+
+	class Type::Modifiers::Template : public Type
+	{
+	public:
+		template <typename ...Args>
+		Template(const Type &type, Args &&...args) :
+			Type(getValue(type, util::vectorize_args<Type>(std::forward<Args>(args)...)))
+		{
+		}
+
+	private:
+		template <typename ...Args>
+		std::string getValue(const Type &type, const std::vector<Type> &args) const
+		{
+			std::stringstream o;
+
+			o << type.m_value << "<";
+			auto comma = "";
+			for (auto &a : args) {
+				o << comma << a;
+				comma = ", ";
+			}
+			o << ">";
+			return o.str();
+		}
+	};
+
+	template <typename ...Args>
+	auto Type::Template(Args &&...args)
+	{
+		return Modifiers::Template(*this, std::forward<Args>(args)...);
+	}
+
+	template <typename ...Args>
+	auto Type::T(Args &&...args)
+	{
+		return Template(std::forward<Args>(args)...);
+	}
+
 	namespace Util {
 		class IdentifierCtor
 		{
@@ -851,28 +878,6 @@ namespace CppGenerator {
 				return IdentifierCtor(m_name, std::forward<Args>(args)...);
 		}
 	}
-
-	class Value::Direct : public Value
-	{
-	public:
-		Direct(const std::string &str) :
-			m_str(str)
-		{
-		}
-
-		void write(std::ostream &o) const override
-		{
-			o << m_str;
-		}
-
-	private:
-		std::string m_str;
-	};
-
-	static Value::Direct This("this");
-	static Value::Direct Sizeof("sizeof");
-	static Value::Direct Alignof("alignof");
-	static Value::Direct Asm("asm");
 
 	auto operator ""_v(const char *str, size_t size)
 	{
@@ -3330,7 +3335,7 @@ namespace CppGenerator {
 			virtual void expandPrimNames(const std::string &to_add) = 0;
 			virtual const std::string& getIdName(void) const = 0;
 
-			template <typename P>
+			template <typename P, class = std::enable_if_t<!std::is_same_v<std::remove_reference_t<P>, Statements>>>
 			decltype(auto) operator+=(P &&prim)
 			{
 				decltype(auto) id = extractId(std::forward<P>(prim));
@@ -3351,6 +3356,12 @@ namespace CppGenerator {
 					return id;
 				else
 					return;
+			}
+
+			void operator+=(Block &&blk)
+			{
+				for (auto &s : blk.getSmts())
+					getSmts().emplace_back(std::move(s));
 			}
 
 		private:
