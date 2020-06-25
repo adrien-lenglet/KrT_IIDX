@@ -2055,6 +2055,16 @@ namespace CppGenerator {
 					o << q << " ";
 			}
 
+			bool isStatic(void) const
+			{
+				static const std::string s("static");
+
+				for (auto &q : m_qualifiers)
+					if (s == q)
+						return true;
+				return false;
+			}
+
 		private:
 			std::vector<const char*> m_qualifiers;
 		};
@@ -2127,6 +2137,11 @@ namespace CppGenerator {
 				return m_name;
 			}
 
+			Identifier toId(void) const
+			{
+				return Identifier(getName());
+			}
+
 			void expandName(const std::string &prefix)
 			{
 				static const std::string scp("::");
@@ -2141,6 +2156,7 @@ namespace CppGenerator {
 
 				virtual const std::string& getId(void) const = 0;
 				virtual const std::string& getName(void) const = 0;
+				virtual Identifier toId(void) const = 0;
 				virtual void expandName(const std::string &prefix) = 0;
 			};
 
@@ -2160,6 +2176,11 @@ namespace CppGenerator {
 				const std::string& getName(void) const override
 				{
 					return getBase().getName();
+				}
+
+				virtual Identifier toId(void) const override
+				{
+					return getBase().toId();
 				}
 
 				void expandName(const std::string &prefix) override
@@ -2277,6 +2298,11 @@ namespace CppGenerator {
 				if (s_name.size() > 0)
 					o << " " << s_name;
 				o << arr;
+			}
+
+			Identifier toId(void) const override
+			{
+				return Identifier(m_stype.getStorage().isStatic() ? this->getId() : this->getName());
 			}
 
 		public:
@@ -2586,14 +2612,23 @@ namespace CppGenerator {
 			{
 			}
 
-			void write(Util::File &o) const override
+			void write(File &o) const override
 			{
-				o << "{" << o.end_line();
-				o.indent();
+				declare(o);
+			}
+
+			void declare(File &o, bool w_brace = true) const
+			{
+				if (w_brace) {
+					o << "{" << o.end_line();
+					o.indent();
+				}
 				for (auto &s : m_smts)
 					s.write(o);
-				o.unindent();
-				o.new_line() << "}";
+				if (w_brace) {
+					o.unindent();
+					o.new_line() << "}";
+				}
 			}
 
 			std::vector<Statement>& getSmts(void)
@@ -3279,6 +3314,29 @@ namespace CppGenerator {
 			virtual ~CollectionBase(void) = default;
 
 			virtual void expandPrimNames(const std::string &to_add) = 0;
+			virtual Identifier primId(void) const = 0;
+
+			template <typename P>
+			decltype(auto) operator+=(P &&prim)
+			{
+				auto &emplaced = getSmts().emplace_back(std::forward<P>(prim));
+
+				if constexpr (std::is_base_of_v<CollectionBase, std::remove_reference_t<P>>) {
+					auto sub = emplaced.getSub();
+					if (!sub)
+						throw std::runtime_error("Can't get collection contained");
+					auto col = dynamic_cast<CollectionBase*>(sub);
+					if (!col)
+						throw std::runtime_error("Can't get collection");
+						return static_cast<CollectionBase&>(*col);
+				} else if constexpr (std::is_base_of_v<Primitive::DerivedBase, std::remove_reference_t<P>>) {
+					return prim.toId();
+				} else
+					return;
+			}
+
+		private:
+			virtual std::vector<Statement>& getSmts(void) = 0;
 		};
 
 		template <typename Base>
@@ -3294,13 +3352,23 @@ namespace CppGenerator {
 
 			void write(File &o) const override
 			{
+				declare(o);
+			}
+
+			void declare(File &o, bool blk_w_brace = true) const
+			{
 				m_base.declare(o);
 				o << o.end_line();
 				o.new_line();
-				m_blk.write(o);
+				m_blk.declare(o, blk_w_brace);
 				if constexpr (Base::has_semicolon::value)
 					o << ";";
 				o << o.end_line();
+			}
+
+			Identifier primId(void) const override
+			{
+				return this->toId();
 			}
 
 		private:
@@ -3327,6 +3395,11 @@ namespace CppGenerator {
 				auto col = dynamic_cast<CollectionBase*>(sub);
 				if (col)
 					col->expandPrimNames(to_add);
+			}
+
+			std::vector<Statement>& getSmts(void) override
+			{
+				return m_blk.getSmts();
 			}
 		};
 
@@ -3830,10 +3903,28 @@ namespace CppGenerator {
 	static Util::Visibility Protected("protected");
 	static Util::Visibility Private("private");
 
-	class Out
+	namespace Util {
+		class Out : public Primitive
+		{
+		public:
+			using has_semicolon = std::false_type;
+
+			Out(void) :
+				Primitive("")
+			{
+			}
+
+			void declare(File&) const
+			{
+			}
+		};
+	}
+
+	class Out : public Util::Collection<Util::Out>
 	{
 	public:
 		Out(const std::string &path) :
+			Util::Collection<Util::Out>(Util::Out(), S {}),
 			m_path(path)
 		{
 		}
@@ -3846,7 +3937,7 @@ namespace CppGenerator {
 		void operator|(Util::Block &&blk)
 		{
 			for (auto &b : blk.getSmts())
-				m_smts.emplace_back(std::move(b));
+				(*this) += std::move(b);
 		}
 
 		void flush(void)
@@ -3855,9 +3946,7 @@ namespace CppGenerator {
 				return;
 
 			Util::File f(m_path);
-
-			for (auto &s : m_smts)
-				s.write(f);
+			declare(f, false);
 			m_flushed = true;
 		}
 
@@ -3869,7 +3958,6 @@ namespace CppGenerator {
 	private:
 		const std::string m_path;
 		bool m_flushed = false;
-		std::vector<Statement> m_smts;
 	};
 
 	namespace Util {
