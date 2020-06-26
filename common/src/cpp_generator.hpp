@@ -727,13 +727,7 @@ namespace CppGenerator {
 	class Util::Identifier::Typed : public Util::Identifier, public Type
 	{
 	public:
-		template <typename ...Args>
-		Typed(Args &&...args) :
-			Util::Identifier(std::forward<Args>(args)...),
-			Type(getName())
-		{
-		}
-
+		using Type::operator/;
 		using Type::operator();
 		using Type::operator>>;
 		using Type::operator[];
@@ -741,8 +735,19 @@ namespace CppGenerator {
 		using Type::operator&;
 		using Type::operator|;
 		using Type::operator=;
-		using Type::operator<<;
-		using Type::operator/;
+
+		template <typename ...Args>
+		Typed(Args &&...args) :
+			Util::Identifier(std::forward<Args>(args)...),
+			Type(getName())
+		{
+		}
+
+		template <typename T>
+		auto operator<<(T &&t)
+		{
+			return Type::operator<<(std::forward<T>(t));
+		}
 	};
 
 	namespace Util {
