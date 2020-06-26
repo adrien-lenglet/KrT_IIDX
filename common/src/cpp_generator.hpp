@@ -2153,7 +2153,18 @@ namespace CppGenerator {
 		template <typename ArgsType>
 		class Function;
 
-		class Primitive
+		class PrimitiveBase
+		{
+		public:
+			virtual ~PrimitiveBase(void) = default;
+
+			virtual const std::string& getId(void) const = 0;
+			virtual const std::string& getName(void) const = 0;
+			virtual Identifier toId(void) const = 0;
+			virtual void setLocation(const std::string &loc) = 0;
+		};
+
+		class Primitive : public PrimitiveBase
 		{
 		public:
 			Primitive(const std::string &id) :
@@ -2162,41 +2173,30 @@ namespace CppGenerator {
 			{
 			}
 
-			const std::string& getId(void) const
+			const std::string& getId(void) const override
 			{
 				return m_id;
 			}
 
-			const std::string& getName(void) const
+			const std::string& getName(void) const override
 			{
 				return m_name;
 			}
 
-			Identifier toId(void) const
+			Identifier toId(void) const override
 			{
 				return Identifier(getName());
 			}
 
-			void expandName(const std::string &prefix)
+			void setLocation(const std::string &loc) override
 			{
 				static const std::string scp("::");
 
-				m_name = prefix + scp + m_name;
+				m_name = loc + scp + m_id;
 			}
 
-			class DerivedBase
-			{
-			public:
-				virtual ~DerivedBase(void) = default;
-
-				virtual const std::string& getId(void) const = 0;
-				virtual const std::string& getName(void) const = 0;
-				virtual Identifier toId(void) const = 0;
-				virtual void expandName(const std::string &prefix) = 0;
-			};
-
 			template <typename Self>
-			class Derived : public DerivedBase
+			class Derived : public PrimitiveBase
 			{
 			public:
 				Derived(void)
@@ -2218,9 +2218,9 @@ namespace CppGenerator {
 					return getBase().toId();
 				}
 
-				void expandName(const std::string &prefix) override
+				void setLocation(const std::string &loc) override
 				{
-					return getBase().expandName(prefix);
+					return getBase().setLocation(loc);
 				}
 
 			private:
@@ -3347,116 +3347,106 @@ namespace CppGenerator {
 		{
 		public:
 			CollectionBase(void) :
-				m_parent(nullptr),
-				m_id("")
+				m_parent(nullptr)
 			{
 			}
 			virtual ~CollectionBase(void) = default;
 
 			operator Identifier(void) const
 			{
-				return m_id;
+				return Identifier(colGetName());
 			}
 
 			operator Type(void) const
 			{
-				return Type(m_id.getName());
+				return Type(colGetName());
+			}
+
+			template <typename P>
+			auto& emplace_prim(P &&p)
+			{
+				auto &emplaced = getSmts().emplace_back(std::move(p));
+
+				updateSmt(emplaced);
+				return emplaced;
+			}
+
+			void operator+=(Block &&blk)
+			{
+				for (auto &s : blk.getSmts())
+					emplace_prim(s);
 			}
 
 			template <typename P, class = std::enable_if_t<!std::is_same_v<std::remove_reference_t<P>, Statements>>>
 			decltype(auto) operator+=(P &&prim)
 			{
-				decltype(auto) id = extractId(std::forward<P>(prim));
+				auto &emplaced = emplace_prim(std::forward<P>(prim));
 
-				auto &emplaced = getSmts().emplace_back(std::forward<P>(prim));
-
-				if constexpr (std::is_base_of_v<CollectionBase, std::remove_reference_t<P>>) {
+				using Pnoref = std::remove_reference_t<P>;
+				if constexpr (std::is_base_of_v<CollectionBase, Pnoref>) {
 					auto sub = emplaced.getSub();
 					if (!sub)
 						throw std::runtime_error("Can't get collection contained");
 					auto col = dynamic_cast<CollectionBase*>(sub);
 					if (!col)
 						throw std::runtime_error("Can't get collection");
-					auto &res = *col;
-					res.m_parent = this;
-					res.updateId();
-					return res;
-				} else if constexpr (!std::is_same_v<decltype(id), decltype(nullptr)>)
-					return id;
-				else
+					return *col;
+				} else if constexpr (std::is_base_of_v<PrimitiveBase, Pnoref>) {
+					auto sub = emplaced.getSub();
+					if (!sub)
+						throw std::runtime_error("Can't get primitive contained");
+					auto prim = dynamic_cast<PrimitiveBase*>(sub);
+					if (!prim)
+						throw std::runtime_error("Can't get primitive");
+					return Identifier(prim->getName());
+				} else
 					return;
-			}
-
-			void operator+=(Block &&blk)
-			{
-				for (auto &s : blk.getSmts())
-					getSmts().emplace_back(std::move(s));
-			}
-
-		protected:
-			void expandPrimNames(const std::string &to_add)
-			{
-				for (auto &s : getSmts()) {
-					auto sub = s.getSub();
-					if (sub)
-						expandSub(sub, to_add);
-				}
-			}
-
-			template <typename T>
-			void expandSub(T sub, const std::string &to_add)
-			{
-				auto got = dynamic_cast<Primitive::DerivedBase*>(sub);
-				if (got)
-					got->expandName(to_add);
-				auto col = dynamic_cast<CollectionBase*>(sub);
-				if (col)
-					col->expandPrimNames(to_add);
 			}
 
 		private:
 			CollectionBase *m_parent;
-			Identifier m_id;
 
 			virtual std::vector<Statement>& getSmts(void) = 0;
 
 			virtual const std::string& colGetId(void) const = 0;
 			virtual const std::string& colGetName(void) const = 0;
 			virtual const Identifier& getIdComplete(void) const = 0;
+			virtual void colSetLocation(const std::string &loc) = 0;
 
-			void updateId(void)
+			void update(void)
 			{
-				m_id = Identifier(colGetName());
+				for (auto &s : getSmts())
+					updateSmt(s);
 			}
 
-			template <typename P>
-			decltype(auto) extractId(P &&p)
+			std::string getLocation(void) const
 			{
-				using Pnoref = std::remove_reference_t<P>;
+				static const std::string scp("::");
+				auto cur = colGetId();
 
-				if constexpr (std::is_base_of_v<Primitive::DerivedBase, Pnoref> || std::is_base_of_v<Primitive, Pnoref>) {
-					updateId();
-					if constexpr (util::is_instance_of_template<std::remove_reference_t<P>, Variable>{})
-						if (!p.isStatic())
-							return p.toId();
-					expandId(std::forward<P>(p));
-					updateId();
-					auto res = p.toId();
-					if constexpr (std::is_base_of_v<Type, Pnoref>)
-						return Identifier::Typed(res);
-					else
-						return res;
+				if (m_parent) {
+					auto par = m_parent->getLocation();
+
+					return par.size() == 0 ? cur : m_parent->getLocation() + scp + cur;
 				} else
-					return nullptr;
+					return cur;
 			}
 
-			template <typename P>
-			void expandId(P &&p)
+			void updateSmt(Statement &s)
 			{
-				if (colGetId().size() > 0)
-					p.expandName(colGetId());
-				if (m_parent)
-					return m_parent->expandId(p);
+				auto sub = s.getSub();
+				if (!sub)
+					return;
+				auto col = dynamic_cast<CollectionBase*>(sub);
+				if (col) {
+					col->m_parent = this;
+					col->colSetLocation(getLocation());
+					col->update();
+				} else {
+					auto prim = dynamic_cast<PrimitiveBase*>(sub);
+					if (prim)
+						prim->setLocation(getLocation());
+				}
 			}
 		};
 
@@ -3466,10 +3456,10 @@ namespace CppGenerator {
 		public:
 			Collection(Base &&base, Block &&blk) :
 				m_base(std::move(base)),
-				m_blk(std::move(blk)),
+				m_blk({}),
 				m_id("")
 			{
-				expandPrimNames(this->getId());
+				*this += std::move(blk);
 			}
 
 			void write(File &o) const override
@@ -3508,6 +3498,11 @@ namespace CppGenerator {
 			const Identifier& getIdComplete(void) const override
 			{
 				return m_id;
+			}
+
+			void colSetLocation(const std::string &loc) override
+			{
+				this->setLocation(loc);
 			}
 
 			std::vector<Statement>& getSmts(void) override
