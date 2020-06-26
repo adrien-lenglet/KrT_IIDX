@@ -2949,208 +2949,55 @@ namespace CppGenerator {
 		return Loop(std::move(*this), std::move(blk));
 	}
 
-	class If : public Statement
-	{
-	public:
-		template <typename Cond>
-		explicit If(Cond &&cond) :
-			m_cond(std::forward<Cond>(cond))
-		{
-		}
-
-		void write(Util::File &o) const override
-		{
-			declare(o);
-			o << o.end_line();
-		}
-
-		void declare(Util::File &o) const
-		{
-			declare_part(o);
-			o << ";";
-		}
-
-		auto operator|(Util::Block &&blk);
-		auto operator|(Util::Else_t &e);
-
-		using has_blk = std::false_type;
-
-		void declare_part(Util::File &o) const
-		{
-			o.new_line() << "if (" << m_cond << ")";
-		}
-
-	private:
-		Value m_cond;
-
-		class Blk;
-		template <typename IfType>
-		class CElse;
-		template <typename IfType>
-		class CElseIf;
-	};
-
-	class If::Blk : public Statement
-	{
-	public:
-		Blk(If &&f, Util::Block &&blk) :
-			m_base(std::move(f)),
-			m_blk(std::move(blk))
-		{
-		}
-
-		void write(Util::File &o) const override
-		{
-			declare(o);
-			o << o.end_line();
-		}
-
-		auto operator|(Util::Else_t &e);
-
-		using has_blk = std::true_type;
-
-		void declare(Util::File &o) const
-		{
-			m_base.declare_part(o);
-			o << " ";
-			m_blk.write(o);			
-		}
-
-	private:
-		template <typename IfType>
-		friend class If::CElseIf;
-		If m_base;
-		Util::Block m_blk;
-	};
-
-	auto If::operator|(Util::Block &&blk)
-	{
-		return Blk(std::move(*this), std::move(blk));
-	}
-
-	template <typename IfType>
-	class If::CElse : public Statement
-	{
-	public:
-		CElse(IfType &&f) :
-			m_base(std::move(f))
-		{
-		}
-
-		void write(Util::File &o) const override
-		{
-			declare(o);
-			o << ";" << o.end_line();
-		}
-
-		auto operator|(Util::Block &&blk)
-		{
-			return Blk(std::move(*this), std::move(blk));
-		}
-
-		auto operator|(If &&f);
-
-		using has_blk = std::false_type;
-
-		void declare(Util::File &o) const
-		{
-			m_base.declare(o);
-			if constexpr (IfType::has_blk::value)
-				o << " ";
-			else {
-				o << o.end_line();
-				o.new_line();
-			}
-			o << "else";
-		}
-
-	private:
-		IfType m_base;
-
-		class Blk : public Statement
+	namespace Util {
+		class If : public Statement
 		{
 		public:
-			Blk(CElse &&e, Util::Block &&blk) :
-				m_base(std::move(e)),
-				m_blk(std::move(blk))
+			template <typename Cond>
+			explicit If(Cond &&cond) :
+				m_cond(std::forward<Cond>(cond))
 			{
 			}
 
 			void write(Util::File &o) const override
 			{
-				m_base.declare(o);
-				o << " ";
-				m_blk.write(o);
+				declare(o);
 				o << o.end_line();
 			}
 
-			using has_blk = std::true_type;
+			void declare(Util::File &o) const
+			{
+				declare_part(o);
+				o << ";";
+			}
+
+			auto operator|(Util::Block &&blk);
+			auto operator|(Util::Else_t &e);
+
+			using has_blk = std::false_type;
+
+			void declare_part(Util::File &o) const
+			{
+				o.new_line() << "if (" << m_cond << ")";
+			}
 
 		private:
-			CElse m_base;
-			Util::Block m_blk;
+			Value m_cond;
+
+			template <typename IfType>
+			class Blk;
+			template <typename IfType>
+			class CElse;
+			template <typename IfType>
+			class CElseIf;
 		};
-	};
 
-	auto If::operator|(Util::Else_t&)
-	{
-		return CElse<If>(std::move(*this));
-	}
-
-	auto If::Blk::operator|(Util::Else_t&)
-	{
-		return CElse<If::Blk>(std::move(*this));
-	}
-
-	template <typename IfType>
-	class If::CElseIf : public Statement
-	{
-	public:
-		CElseIf(IfType &&f, If &&cond) :
-			m_base(std::move(f)),
-			m_cond(std::move(cond.m_cond))
-		{
-		}
-
-		void write(Util::File &o) const override
-		{
-			declare(o);
-			o << o.end_line();
-		}
-
-		auto operator|(Util::Block &&blk)
-		{
-			return Blk(std::move(*this), std::move(blk));
-		}
-
-		auto operator|(Util::Else_t&)
-		{
-			return CElse<CElseIf<IfType>>(std::move(*this));
-		}
-
-		using has_blk = std::false_type;
-
-		void declare_part(Util::File &o) const
-		{
-			m_base.declare(o);
-			o << " if (" << m_cond << ")";
-		}
-
-		void declare(Util::File &o) const
-		{
-			declare_part(o);
-			o << ";";
-		}
-
-	private:
-		IfType m_base;
-		Value m_cond;
-
-		class Blk : public Statement
+		template <typename IfType>
+		class If::Blk : public Statement
 		{
 		public:
-			Blk(CElseIf &&e, Util::Block &&blk) :
-				m_base(std::move(e)),
+			Blk(IfType &&f, Util::Block &&blk) :
+				m_base(std::move(f)),
 				m_blk(std::move(blk))
 			{
 			}
@@ -3161,10 +3008,7 @@ namespace CppGenerator {
 				o << o.end_line();
 			}
 
-			auto operator|(Util::Else_t&)
-			{
-				return CElse<CElseIf<IfType>::Blk>(std::move(*this));
-			}
+			auto operator|(Util::Else_t &e);
 
 			using has_blk = std::true_type;
 
@@ -3176,16 +3020,179 @@ namespace CppGenerator {
 			}
 
 		private:
-			CElseIf m_base;
+			template <typename>
+			friend class If::CElseIf;
+			IfType m_base;
 			Util::Block m_blk;
 		};
-	};
 
-	template <typename IfType>
-	auto If::CElse<IfType>::operator|(If &&f)
-	{
-		return CElseIf<CElse<IfType>>(std::move(*this), std::move(f));
+		auto If::operator|(Util::Block &&blk)
+		{
+			return Blk(std::move(*this), std::move(blk));
+		}
+
+		template <typename IfType>
+		class If::CElse : public Statement
+		{
+		public:
+			CElse(IfType &&f) :
+				m_base(std::move(f))
+			{
+			}
+
+			void write(Util::File &o) const override
+			{
+				declare(o);
+				o << ";" << o.end_line();
+			}
+
+			auto operator|(Util::Block &&blk)
+			{
+				return Blk(std::move(*this), std::move(blk));
+			}
+
+			auto operator|(If &&f);
+
+			using has_blk = std::false_type;
+
+			void declare(Util::File &o) const
+			{
+				m_base.declare(o);
+				if constexpr (IfType::has_blk::value)
+					o << " ";
+				else {
+					o << o.end_line();
+					o.new_line();
+				}
+				o << "else";
+			}
+
+		private:
+			IfType m_base;
+
+			class Blk : public Statement
+			{
+			public:
+				Blk(CElse &&e, Util::Block &&blk) :
+					m_base(std::move(e)),
+					m_blk(std::move(blk))
+				{
+				}
+
+				void write(Util::File &o) const override
+				{
+					m_base.declare(o);
+					o << " ";
+					m_blk.write(o);
+					o << o.end_line();
+				}
+
+				using has_blk = std::true_type;
+
+			private:
+				CElse m_base;
+				Util::Block m_blk;
+			};
+		};
+
+		auto If::operator|(Util::Else_t&)
+		{
+			return CElse<If>(std::move(*this));
+		}
+
+		template <typename IfType>
+		auto If::Blk<IfType>::operator|(Util::Else_t&)
+		{
+			return CElse<If::Blk<IfType>>(std::move(*this));
+		}
+
+		template <typename IfType>
+		class If::CElseIf : public Statement
+		{
+		public:
+			CElseIf(IfType &&f, If &&cond) :
+				m_base(std::move(f)),
+				m_cond(std::move(cond.m_cond))
+			{
+			}
+
+			void write(Util::File &o) const override
+			{
+				declare(o);
+				o << o.end_line();
+			}
+
+			auto operator|(Util::Block &&blk)
+			{
+				return Blk(std::move(*this), std::move(blk));
+			}
+
+			auto operator|(Util::Else_t&)
+			{
+				return CElse<CElseIf<IfType>>(std::move(*this));
+			}
+
+			using has_blk = std::false_type;
+
+			void declare_part(Util::File &o) const
+			{
+				m_base.declare(o);
+				o << " if (" << m_cond << ")";
+			}
+
+			void declare(Util::File &o) const
+			{
+				declare_part(o);
+				o << ";";
+			}
+
+		private:
+			IfType m_base;
+			Value m_cond;
+
+			class Blk : public Statement
+			{
+			public:
+				Blk(CElseIf &&e, Util::Block &&blk) :
+					m_base(std::move(e)),
+					m_blk(std::move(blk))
+				{
+				}
+
+				void write(Util::File &o) const override
+				{
+					declare(o);
+					o << o.end_line();
+				}
+
+				auto operator|(Util::Else_t&)
+				{
+					return CElse<CElseIf<IfType>::Blk>(std::move(*this));
+				}
+
+				using has_blk = std::true_type;
+
+				void declare(Util::File &o) const
+				{
+					m_base.declare_part(o);
+					o << " ";
+					m_blk.write(o);
+				}
+
+			private:
+				CElseIf m_base;
+				Util::Block m_blk;
+			};
+		};
+
+		template <typename IfType>
+		auto If::CElse<IfType>::operator|(If &&f)
+		{
+			return CElseIf<CElse<IfType>>(std::move(*this), std::move(f));
+		}
 	}
+
+	using If = Util::If;
 
 	static Util::Else_t Else;
 
