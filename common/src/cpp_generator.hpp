@@ -223,86 +223,6 @@ namespace CppGenerator {
 		class IdentifierCtor;
 		template <typename ArgsType>
 		class IdentifierFunArgs;
-		class Identifier
-		{
-		public:
-			class Typed;
-
-			Identifier(const std::string &name) :
-				m_name(name)
-			{
-			}
-
-			Identifier(const char *name) :
-				Identifier(std::string(name))
-			{
-			}
-
-			const std::string& getName(void) const
-			{
-				return m_name;
-			}
-
-			template <typename ...Args>
-			auto operator()(Args &&...args);
-
-			template <typename ...Args>
-			static constexpr bool isFunction(void)
-			{
-				if constexpr (util::are_args_empty_v<Args...>)
-					return true;
-				else if constexpr (isVoidOnly<Args...>())
-					return true;
-				else
-					return areArgsFunction<Args...>();
-			}
-
-			template <typename ...Args>
-			static auto tupleizeVariables(Args &&...args)
-			{
-				if constexpr (util::are_args_empty_v<Args...>)
-					return std::make_tuple();
-				else if constexpr (isVoidOnly<Args...>())
-					return std::make_tuple();
-				else
-					return util::tupleize_args(std::forward<Args>(args)...);
-			}
-
-			template <typename Arg>
-			static inline constexpr bool is_arg_variable_v = std::is_same_v<Arg, Util::Variable<IdentifierName>> || std::is_base_of_v<Type, Arg>;
-
-		private:
-			friend Type;
-			std::string m_name;
-
-			template <typename First, typename ...Args>
-			static constexpr bool areArgsFunction(void)
-			{
-				using Arg = std::remove_reference_t<First>;
-
-				if constexpr (util::are_args_empty_v<Args...>)
-					return true;
-				else {
-					if constexpr (is_arg_variable_v<Arg>) {
-						return areArgsFunction<Args...>();
-					} else
-						return false;
-				}
-			}
-
-			template <typename First, typename ...Args>
-			static constexpr bool isVoidOnly(void)
-			{
-				return std::is_same_v<std::remove_reference_t<First>, Void_t> && util::are_args_empty_v<Args...>;
-			}
-		};
-	}
-
-	using Id = Util::Identifier;
-
-	auto operator ""_id(const char *str, size_t)
-	{
-		return Id(str);
 	}
 
 	class Value : public Util::Writable
@@ -314,8 +234,6 @@ namespace CppGenerator {
 		Value(void)
 		{
 		}
-
-		Value(const Util::Identifier&);
 
 		template <typename W, class = std::enable_if_t<is_w_ok_v<W> && std::is_rvalue_reference_v<W&&>>>
 		Value(W &&sub) :
@@ -632,15 +550,99 @@ namespace CppGenerator {
 		std::string m_str;
 	};
 
-	Value::Value(const Util::Identifier &id) :
-		Value(Value::Direct(id.getName()))
-	{
-	}
-
 	static Value::Direct This("this");
 	static Value::Direct Sizeof("sizeof");
 	static Value::Direct Alignof("alignof");
 	static Value::Direct Asm("asm");
+
+	namespace Util {
+		class Identifier : public Value
+		{
+		public:
+			class Typed;
+
+			Identifier(const Identifier &other) :
+				Identifier(other.m_name)
+			{
+			}
+
+			Identifier(const std::string &name) :
+				Value(Value::Direct(name)),
+				m_name(name)
+			{
+			}
+
+			Identifier(const char *name) :
+				Identifier(std::string(name))
+			{
+			}
+
+			const std::string& getName(void) const
+			{
+				return m_name;
+			}
+
+			template <typename ...Args>
+			auto operator()(Args &&...args);
+
+			template <typename ...Args>
+			static constexpr bool isFunction(void)
+			{
+				if constexpr (util::are_args_empty_v<Args...>)
+					return true;
+				else if constexpr (isVoidOnly<Args...>())
+					return true;
+				else
+					return areArgsFunction<Args...>();
+			}
+
+			template <typename ...Args>
+			static auto tupleizeVariables(Args &&...args)
+			{
+				if constexpr (util::are_args_empty_v<Args...>)
+					return std::make_tuple();
+				else if constexpr (isVoidOnly<Args...>())
+					return std::make_tuple();
+				else
+					return util::tupleize_args(std::forward<Args>(args)...);
+			}
+
+			template <typename Arg>
+			static inline constexpr bool is_arg_variable_v = std::is_same_v<Arg, Util::Variable<IdentifierName>> || std::is_base_of_v<Type, Arg>;
+
+		private:
+			friend Type;
+			std::string m_name;
+
+			template <typename First, typename ...Args>
+			static constexpr bool areArgsFunction(void)
+			{
+				using Arg = std::remove_reference_t<First>;
+
+				if constexpr (util::are_args_empty_v<Args...>)
+					return true;
+				else {
+					if constexpr (is_arg_variable_v<Arg>) {
+						return areArgsFunction<Args...>();
+					} else
+						return false;
+				}
+			}
+
+			template <typename First, typename ...Args>
+			static constexpr bool isVoidOnly(void)
+			{
+				return std::is_same_v<std::remove_reference_t<First>, Void_t> && util::are_args_empty_v<Args...>;
+			}
+		};
+	}
+
+	using Id = Util::Identifier;
+
+	auto operator ""_id(const char *str, size_t)
+	{
+		return Id(str);
+	}
 
 	class Type
 	{
@@ -663,7 +665,7 @@ namespace CppGenerator {
 		virtual ~Type(void) = default;
 
 	protected:
-		const std::string m_value;
+		std::string m_value;
 
 	public:
 		struct Modifiers
@@ -3441,24 +3443,15 @@ namespace CppGenerator {
 	using C = Colon;
 
 	namespace Util {
-		class CollectionBase
+		class CollectionBase : public Type
 		{
 		public:
 			CollectionBase(void) :
+				Type(""),
 				m_parent(nullptr)
 			{
 			}
 			virtual ~CollectionBase(void) = default;
-
-			operator Identifier(void) const
-			{
-				return Identifier(colGetName());
-			}
-
-			operator Type(void) const
-			{
-				return Type(colGetName());
-			}
 
 			void operator+=(Block &&blk)
 			{
@@ -3475,7 +3468,11 @@ namespace CppGenerator {
 				if constexpr (std::is_base_of_v<CollectionBase, Pnoref>) {
 					return cast_sub<CollectionBase>(emplaced);
 				} else if constexpr (std::is_base_of_v<PrimitiveBase, Pnoref>) {
-					return Identifier(cast_sub<PrimitiveBase>(emplaced).getName());
+					auto n = cast_sub<PrimitiveBase>(emplaced).getName();
+					if constexpr (std::is_base_of_v<Type, Pnoref>) {
+						return Identifier::Typed(n);
+					} else
+						return Identifier(n);
 				} else
 					return;
 			}
@@ -3513,6 +3510,7 @@ namespace CppGenerator {
 
 			void update(void)
 			{
+				Type::m_value = colGetName();
 				for (auto &s : getSmts())
 					updateSmt(s);
 			}
@@ -3576,6 +3574,8 @@ namespace CppGenerator {
 			{
 				*this += std::move(blk);
 			}
+
+			using CollectionBase::write;
 
 			void write(File &o) const override
 			{
@@ -3963,16 +3963,16 @@ namespace CppGenerator {
 			{
 			}
 
+			template <typename V>
+			auto operator|(V &&v)
+			{
+				return VTemplate(std::forward<V>(v));
+			}
+
 			template <typename ...Args>
 			auto operator()(Args &&...args)
 			{
-				if constexpr (sizeof... (Args) == 1) {
-					if constexpr (!Identifier::is_arg_variable_v<Args...>)
-						return VTemplate(std::forward<Args>(args)...);
-					else
-						return make_ttemplate(std::forward<Args>(args)...);
-				} else
-					return make_ttemplate(std::forward<Args>(args)...);
+				return make_ttemplate(std::forward<Args>(args)...);
 			}
 
 			template <typename ...Args>
