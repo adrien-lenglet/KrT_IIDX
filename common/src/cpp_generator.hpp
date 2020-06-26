@@ -20,6 +20,8 @@ namespace CppGenerator {
 			{
 			}
 		};
+
+		class Ppp;
 	}
 
 	template <typename ...Args>
@@ -344,7 +346,7 @@ namespace CppGenerator {
 		auto operator&(S &&val);
 		template <typename S>
 		auto operator^(S &&val);
-		template <typename S>
+		template <typename S, class = std::enable_if_t<!std::is_same_v<std::remove_reference_t<S>, Util::Ppp>>>
 		auto operator|(S &&val);
 		template <typename S>
 		auto operator&&(S &&val);
@@ -374,6 +376,8 @@ namespace CppGenerator {
 		auto operator|=(S &&val);
 		template <typename S>
 		auto operator,(S &&val);
+
+		auto operator|(const Util::Ppp &other);
 
 		class Direct;
 
@@ -1731,7 +1735,7 @@ namespace CppGenerator {
 		return Op::XorBin(toString(), std::forward<S>(val));
 	}
 
-	template <typename S>
+	template <typename S, class>
 	auto Value::operator|(S &&val)
 	{
 		return Op::OrBin(toString(), std::forward<S>(val));
@@ -2341,7 +2345,7 @@ namespace CppGenerator {
 					std::stringstream o;
 
 					declare(o);
-					m_value = o.str();
+					Variable::m_value = o.str();
 				}
 
 				template <typename O>
@@ -4346,6 +4350,11 @@ namespace CppGenerator {
 			{
 			}
 
+			operator Value(void) const
+			{
+				return Value::Direct(std::string("class ") + getId());
+			}
+
 			auto operator|(Block &&blk)
 			{
 				return Collection<Class>(std::move(*this), std::move(blk));
@@ -4364,6 +4373,12 @@ namespace CppGenerator {
 			void declare(File &o) const
 			{
 				o.new_line() << "class " << getId();
+			}
+
+			template <typename V>
+			auto operator=(V &&value)
+			{
+				return Variable<IdentifierName>::DeclValue(Variable<IdentifierName>(StorageType(Storage(), Type("class")), getId()), std::forward<V>(value), true);
 			}
 
 			using Type::write;
@@ -4386,6 +4401,11 @@ namespace CppGenerator {
 			{
 			}
 
+			operator Value(void) const
+			{
+				return Value::Direct(std::string("struct ") + getId());
+			}
+
 			auto operator|(Block &&blk)
 			{
 				return Collection<Struct>(std::move(*this), std::move(blk));
@@ -4406,6 +4426,12 @@ namespace CppGenerator {
 				o.new_line() << "struct " << getId();
 			}
 
+			template <typename V>
+			auto operator=(V &&value)
+			{
+				return Variable<IdentifierName>::DeclValue(Variable<IdentifierName>(StorageType(Storage(), Type("struct")), getId()), std::forward<V>(value), true);
+			}
+
 			using Type::write;
 
 			void write(File &o) const
@@ -4416,23 +4442,53 @@ namespace CppGenerator {
 		};
 
 		template <typename FinalType>
-		class ContainerProxy
+		class ContainerProxy : public Type
 		{
 		public:
-			ContainerProxy(void)
+			ContainerProxy(void) :
+				Type("")
 			{
 			}
 
-			auto operator|(const Identifier &id)
+			ContainerProxy(const std::string &name) :
+				Type(name)
 			{
-				return FinalType(id);
+			}
+
+			using Type::operator=;
+
+			template <typename T>
+			auto operator|(T &&id)
+			{
+				if constexpr (std::is_same_v<std::remove_reference_t<T>, Type> || std::is_same_v<std::remove_reference_t<T>, Ppp>)
+					return Type::operator|(std::forward<T>(id));
+				else
+					return FinalType(std::forward<T>(id));
 			}
 		};
 	}
 
 	static Util::ContainerProxy<Util::Namespace> Namespace;
-	static Util::ContainerProxy<Util::Class> Class;
-	static Util::ContainerProxy<Util::Struct> Struct;
+	static Util::ContainerProxy<Util::Class> Class("class");
+	static Util::ContainerProxy<Util::Struct> Struct("struct");
+
+	namespace Util {
+		class Ppp : public Type
+		{
+		public:
+			Ppp(void) :
+				Type("...")
+			{
+			}
+		};
+	}
+
+	auto Value::operator|(const Util::Ppp&)
+	{
+		return Value::Direct(m_value + std::string("..."));
+	}
+
+	static Util::Ppp Ppp;
 
 	static Util::Final Final;
 
