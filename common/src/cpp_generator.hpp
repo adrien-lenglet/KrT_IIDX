@@ -4489,6 +4489,7 @@ namespace CppGenerator {
 	}
 
 	static Util::Ppp Ppp;
+	static auto SizeofPpp = Sizeof | Ppp;
 
 	static Util::Final Final;
 
