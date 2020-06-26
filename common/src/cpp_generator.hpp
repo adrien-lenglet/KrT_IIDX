@@ -3362,15 +3362,6 @@ namespace CppGenerator {
 				return Type(colGetName());
 			}
 
-			template <typename P>
-			auto& emplace_prim(P &&p)
-			{
-				auto &emplaced = getSmts().emplace_back(std::move(p));
-
-				updateSmt(emplaced);
-				return emplaced;
-			}
-
 			void operator+=(Block &&blk)
 			{
 				for (auto &s : blk.getSmts())
@@ -3384,21 +3375,9 @@ namespace CppGenerator {
 
 				using Pnoref = std::remove_reference_t<P>;
 				if constexpr (std::is_base_of_v<CollectionBase, Pnoref>) {
-					auto sub = emplaced.getSub();
-					if (!sub)
-						throw std::runtime_error("Can't get collection contained");
-					auto col = dynamic_cast<CollectionBase*>(sub);
-					if (!col)
-						throw std::runtime_error("Can't get collection");
-					return *col;
+					return cast_sub<CollectionBase>(emplaced);
 				} else if constexpr (std::is_base_of_v<PrimitiveBase, Pnoref>) {
-					auto sub = emplaced.getSub();
-					if (!sub)
-						throw std::runtime_error("Can't get primitive contained");
-					auto prim = dynamic_cast<PrimitiveBase*>(sub);
-					if (!prim)
-						throw std::runtime_error("Can't get primitive");
-					return Identifier(prim->getName());
+					return Identifier(cast_sub<PrimitiveBase>(emplaced).getName());
 				} else
 					return;
 			}
@@ -3412,6 +3391,27 @@ namespace CppGenerator {
 			virtual const std::string& colGetName(void) const = 0;
 			virtual const Identifier& getIdComplete(void) const = 0;
 			virtual void colSetLocation(const std::string &loc) = 0;
+
+			template <typename Dst>
+			Dst& cast_sub(Statement &smt)
+			{
+				auto sub = smt.getSub();
+				if (!sub)
+					throw std::runtime_error("Can't get element in statement");
+				auto dst = dynamic_cast<Dst*>(sub);
+				if (!dst)
+					throw std::runtime_error("Can't convert statement to such type");
+				return *dst;
+			}
+
+			template <typename P>
+			Statement& emplace_prim(P &&p)
+			{
+				auto &emplaced = getSmts().emplace_back(std::move(p));
+
+				updateSmt(emplaced);
+				return emplaced;
+			}
 
 			void update(void)
 			{
