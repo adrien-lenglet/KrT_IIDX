@@ -3370,6 +3370,9 @@ namespace CppGenerator {
 
 		class CollectionFunctionBase;
 
+		class TemplateCollectionBase;
+		class TemplateCollectionFunctionBase;
+
 		class CollectionBase : public Type
 		{
 		public:
@@ -3392,7 +3395,11 @@ namespace CppGenerator {
 				auto &emplaced = emplace_prim(std::forward<P>(prim));
 
 				using Pnoref = std::remove_reference_t<P>;
-				if constexpr (std::is_base_of_v<CollectionFunctionBase, Pnoref>)
+				if constexpr (std::is_base_of_v<TemplateCollectionBase, Pnoref>)
+					return cast_sub<TemplateCollectionBase>(emplaced);
+				else if constexpr (std::is_base_of_v<TemplateCollectionFunctionBase, Pnoref>)
+					return cast_sub<TemplateCollectionFunctionBase>(emplaced);
+				else if constexpr (std::is_base_of_v<CollectionFunctionBase, Pnoref>)
 					return cast_sub<CollectionFunctionBase>(emplaced);
 				else if constexpr (std::is_base_of_v<CollectionBase, Pnoref>)
 					return cast_sub<CollectionBase>(emplaced);
@@ -3498,7 +3505,7 @@ namespace CppGenerator {
 
 		public:
 			template <typename V>
-			decltype(auto) operator<<=(V &&value)
+			decltype(auto) operator*=(V &&value)
 			{
 				decltype(auto) res = getArgId(std::forward<V>(value));
 
@@ -3940,6 +3947,36 @@ namespace CppGenerator {
 			}
 		};
 
+		class TemplateCollectionBase
+		{
+		public:
+			virtual CollectionBase& getCollection(void) = 0;
+
+			template <typename T>
+			decltype(auto) operator+=(T &&val)
+			{
+				return getCollection() += std::forward<T>(val);
+			}
+		};
+
+		class TemplateCollectionFunctionBase
+		{
+			virtual CollectionFunctionBase& getCollection(void) = 0;
+
+		public:
+			template <typename T>
+			decltype(auto) operator+=(T &&val)
+			{
+				return getCollection() += std::forward<T>(val);
+			}
+
+			template <typename T>
+			decltype(auto) operator*=(T &&val)
+			{
+				return getCollection() *= std::forward<T>(val);
+			}
+		};
+
 		template <typename ArgsType>
 		class TTemplate : public Type
 		{
@@ -3963,26 +4000,68 @@ namespace CppGenerator {
 					m_base.write(o);
 				}
 
+				class Collection : public Combined, public TemplateCollectionBase
+				{
+				public:
+					template<typename ...Args>
+					Collection(Args &&...args) :
+						Combined(std::forward<Args>(args)...)
+					{
+					}
+
+					CollectionBase& getCollection(void) override
+					{
+						return m_base;
+					}
+				};
+
+				class CollectionFunction : public Combined, public TemplateCollectionFunctionBase
+				{
+				public:
+					template<typename ...Args>
+					CollectionFunction(Args &&...args) :
+						Combined(std::forward<Args>(args)...)
+					{
+					}
+
+					CollectionFunctionBase& getCollection(void) override
+					{
+						return m_base;
+					}
+				};
+
 			private:
 				TTemplate m_templ;
+			protected:
 				Prim m_base;
 			};
 
 		public:
 			TTemplate(ArgsType &&args) :
-				Type(toString(args)),
+				Type(""),
 				m_args(std::move(args))
 			{
+				m_value = toString();
 			}
 
 			template <typename Other>
 			auto operator||(Other &&other)
 			{
-				return Combined<std::remove_reference_t<Other>>(std::move(*this), std::forward<Other>(other));
+				using BaseCombined = Combined<std::remove_reference_t<Other>>;
+
+				if constexpr (std::is_base_of_v<CollectionFunctionBase, Other>) {
+					using Final = typename BaseCombined::CollectionFunction;
+					return Final(std::move(*this), std::forward<Other>(other));
+				} else if constexpr (std::is_base_of_v<CollectionBase, Other>) {
+					using Final = typename BaseCombined::Collection;
+					return Final(std::move(*this), std::forward<Other>(other));
+				} else
+					return BaseCombined(std::move(*this), std::forward<Other>(other));
 			}
 
 		private:
 			ArgsType m_args;
+			std::vector<Value> m_add_args;
 
 			template <size_t I = 0, typename ...Args>
 			void write_next_arg(std::ostream &o, const std::tuple<Args...> &tup, const char *&comma) const
@@ -3999,14 +4078,18 @@ namespace CppGenerator {
 				o << "template <";
 				auto comma = "";
 				write_next_arg(o, args, comma);
+				for (auto &v : m_add_args) {
+					o << comma << v;
+					comma = ", ";
+				}
 				o << ">";
 			}
 
-			std::string toString(const ArgsType &args) const
+			std::string toString(void) const
 			{
 				std::stringstream ss;
 
-				write_args(ss, args);
+				write_args(ss, m_args);
 				return ss.str();
 			}
 		};
