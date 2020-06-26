@@ -656,6 +656,11 @@ namespace CppGenerator {
 
 		virtual ~Type(void) = default;
 
+		operator Value(void) const
+		{
+			return Value::Direct(m_value);
+		}
+
 	protected:
 		std::string m_value;
 
@@ -2109,6 +2114,11 @@ namespace CppGenerator {
 			virtual const std::string& getName(void) const = 0;
 			virtual Identifier toId(void) const = 0;
 			virtual void setLocation(const std::string &loc) = 0;
+
+			operator Identifier(void) const
+			{
+				return toId();
+			}
 		};
 
 		class Primitive : public PrimitiveBase
@@ -3352,6 +3362,14 @@ namespace CppGenerator {
 	using C = Colon;
 
 	namespace Util {
+		class FunctionBase
+		{
+		public:
+			virtual void addArg(const Value &arg) = 0;
+		};
+
+		class CollectionFunctionBase;
+
 		class CollectionBase : public Type
 		{
 		public:
@@ -3374,9 +3392,11 @@ namespace CppGenerator {
 				auto &emplaced = emplace_prim(std::forward<P>(prim));
 
 				using Pnoref = std::remove_reference_t<P>;
-				if constexpr (std::is_base_of_v<CollectionBase, Pnoref>) {
+				if constexpr (std::is_base_of_v<CollectionFunctionBase, Pnoref>)
+					return cast_sub<CollectionFunctionBase>(emplaced);
+				else if constexpr (std::is_base_of_v<CollectionBase, Pnoref>)
 					return cast_sub<CollectionBase>(emplaced);
-				} else if constexpr (std::is_base_of_v<PrimitiveBase, Pnoref>) {
+				else if constexpr (std::is_base_of_v<PrimitiveBase, Pnoref>) {
 					auto n = cast_sub<PrimitiveBase>(emplaced).getName();
 					if constexpr (std::is_base_of_v<Type, Pnoref>) {
 						return Identifier::Typed(n);
@@ -3472,6 +3492,34 @@ namespace CppGenerator {
 			}
 		};
 
+		class CollectionFunctionBase : public CollectionBase, public FunctionBase
+		{
+			using FunctionBase::addArg;
+
+		public:
+			template <typename V>
+			decltype(auto) operator<<=(V &&value)
+			{
+				decltype(auto) res = getArgId(std::forward<V>(value));
+
+				addArg(std::forward<V>(value));
+				if constexpr (std::is_same_v<decltype(res), decltype(nullptr)>)
+					return;
+				else
+					return res;
+			}
+
+		private:
+			template <typename V>
+			decltype(auto) getArgId(V &&value)
+			{
+				if constexpr (std::is_convertible_v<V, Identifier>)
+					return Identifier(std::forward<V>(value));
+				else
+					return nullptr;
+			}
+		};
+
 		template <typename Base>
 		class Collection : public Statement, public Primitive::Derived<Collection<Base>>, public CollectionBase
 		{
@@ -3548,24 +3596,38 @@ namespace CppGenerator {
 			}
 
 			template <typename ...Args>
-			void writeArgs(std::ostream &o, const std::tuple<Args...> &tup)
+			void writeArgs(std::ostream &o, const std::tuple<Args...> &tup, const std::vector<Value> &values)
 			{
 				auto comma = "";
 				o << "(";
 				writeArgsNext(o, tup, comma);
-				if constexpr (sizeof... (Args) == 0)
-					o << Void;
+				for (auto &v : values) {
+					o << comma << v;
+					comma = ", ";
+				}
+				if constexpr (sizeof... (Args) == 0) {
+					if (values.size() == 0)
+						o << Void;
+				}
 				o << ")";
 			}
 		};
 
+		template <typename>
+		class CollectionFunc;
+
 		template<typename Self>
-		class FunctionLike
+		class FunctionLike : public FunctionBase
 		{
 		public:
 			auto operator|(Util::Block &&blk)
 			{
-				return Collection<Self>(std::move(getBase()), std::move(blk));
+				return CollectionFunc<Self>(std::move(getBase()), std::move(blk));
+			}
+
+			void addArg(const Value &arg) override
+			{
+				getBase().m_arg_sup.emplace_back(arg);
 			}
 
 		private:
@@ -3580,11 +3642,91 @@ namespace CppGenerator {
 			}
 		};
 
+		template <typename Base>
+		class CollectionFunction : public Statement, public Primitive::Derived<CollectionFunction<Base>>, public CollectionFunctionBase
+		{
+		public:
+			CollectionFunction(Base &&base, Block &&blk) :
+				m_base(std::move(base)),
+				m_blk({}),
+				m_id("")
+			{
+				*this += std::move(blk);
+			}
+
+			using CollectionBase::write;
+
+			void write(File &o) const override
+			{
+				declare(o);
+			}
+
+			void declare(File &o, bool blk_w_brace = true) const
+			{
+				m_base.declare(o);
+				o << o.end_line();
+				o.new_line();
+				m_blk.declare(o, blk_w_brace);
+				if constexpr (Base::has_semicolon::value)
+					o << ";";
+				o << o.end_line();
+			}
+
+			void addArg(const Value &value) override
+			{
+				m_base.addArg(value);
+			}
+
+		private:
+			template <typename>
+			friend class Primitive::Derived;
+			Base m_base;
+			Block m_blk;
+			Identifier m_id;
+
+			const std::string& colGetId(void) const override
+			{
+				return this->getId();
+			}
+
+			const std::string& colGetName(void) const override
+			{
+				return this->getName();
+			}
+
+			const Identifier& getIdComplete(void) const override
+			{
+				return m_id;
+			}
+
+			void colSetLocation(const std::string &loc) override
+			{
+				this->setLocation(loc);
+			}
+
+			std::vector<Statement>& getSmts(void) override
+			{
+				return m_blk.getSmts();
+			}
+		};
+
+		template <typename Self>
+		class CollectionFunc : public CollectionFunction<Self>
+		{
+		public:
+			CollectionFunc(Self &&base, Block &&blk) :
+				CollectionFunction<Self>(std::move(base), std::move(blk))
+			{
+			}
+		};
+
 		template <typename ArgsType>
 		class Function : public Statement, public Primitive::Derived<Function<ArgsType>>, public FunctionLike<Function<ArgsType>>
 		{
 			template <typename>
 			friend class Primitive::Derived;
+			template <typename>
+			friend class FunctionLike;
 
 		public:
 			using has_semicolon = std::false_type;
@@ -3599,7 +3741,7 @@ namespace CppGenerator {
 			{
 				o.new_line();
 				m_base.declare(o);
-				FunctionHelper::writeArgs(o, m_args);
+				FunctionHelper::writeArgs(o, m_args, m_arg_sup);
 			}
 
 			void write(File &o) const override
@@ -3611,12 +3753,15 @@ namespace CppGenerator {
 		private:
 			Variable<IdentifierName> m_base;
 			ArgsType m_args;
+			std::vector<Value> m_arg_sup;
 		};
 
 		template <typename ArgsType>
 		class Ctor : public Statement, public Primitive, public FunctionLike<Ctor<ArgsType>>
 		{
 			friend Storage;
+			template <typename>
+			friend class FunctionLike;
 
 		public:
 			using has_semicolon = std::false_type;
@@ -3633,7 +3778,7 @@ namespace CppGenerator {
 				o.new_line();
 				m_storage.write(o);
 				o << getId();
-				FunctionHelper::writeArgs(o, m_args);
+				FunctionHelper::writeArgs(o, m_args, m_arg_sup);
 			}
 
 			void write(File &o) const override
@@ -3645,6 +3790,7 @@ namespace CppGenerator {
 		private:
 			Storage m_storage;
 			ArgsType m_args;
+			std::vector<Value> m_arg_sup;
 		};
 
 		template <typename ArgsType>
@@ -3657,6 +3803,8 @@ namespace CppGenerator {
 		class Dtor : public Statement, public Primitive, public FunctionLike<Dtor<ArgsType>>
 		{
 			friend Storage;
+			template <typename>
+			friend class FunctionLike;
 
 		public:
 			using has_semicolon = std::false_type;
@@ -3673,7 +3821,7 @@ namespace CppGenerator {
 				o.new_line();
 				m_storage.write(o);
 				o << getId();
-				FunctionHelper::writeArgs(o, m_args);
+				FunctionHelper::writeArgs(o, m_args, m_arg_sup);
 			}
 
 			void write(File &o) const override
@@ -3692,6 +3840,7 @@ namespace CppGenerator {
 		private:
 			Storage m_storage;
 			ArgsType m_args;
+			std::vector<Value> m_arg_sup;
 		};
 
 		template <typename ArgsType>
@@ -3704,6 +3853,8 @@ namespace CppGenerator {
 		class FuncNoReturn : public Statement, public Primitive, public FunctionLike<FuncNoReturn<ArgsType>>
 		{
 			friend Storage;
+			template <typename>
+			friend class FunctionLike;
 
 		public:
 			using has_semicolon = std::false_type;
@@ -3720,7 +3871,7 @@ namespace CppGenerator {
 				o.new_line();
 				m_storage.write(o);
 				o << getId();
-				FunctionHelper::writeArgs(o, m_args);
+				FunctionHelper::writeArgs(o, m_args, m_arg_sup);
 			}
 
 			void write(File &o) const override
@@ -3732,6 +3883,7 @@ namespace CppGenerator {
 		private:
 			Storage m_storage;
 			ArgsType m_args;
+			std::vector<Value> m_arg_sup;
 		};
 
 		template <typename ArgsType>
