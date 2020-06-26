@@ -661,6 +661,11 @@ namespace CppGenerator {
 			return Value::Direct(m_value);
 		}
 
+		const std::string& getValue(void) const
+		{
+			return m_value;
+		}
+
 	protected:
 		std::string m_value;
 
@@ -3368,13 +3373,100 @@ namespace CppGenerator {
 			virtual void addArg(const Value &arg) = 0;
 		};
 
+		class CollectionBase;
 		class CollectionFunctionBase;
 
-		class TemplateCollectionBase;
-		class TemplateCollectionFunctionBase;
+		class TemplateBase
+		{
+			virtual void addArg(const Value &arg) = 0;
+
+		public:
+			template <typename T>
+			decltype(auto) operator<<=(T &&val)
+			{
+				decltype(auto) res = getArgId(std::forward<T>(val));
+
+				addArg(std::forward<T>(val));
+				if constexpr (std::is_same_v<decltype(res), decltype(nullptr)>)
+					return;
+				else
+					return res;
+			}
+
+		private:
+			template <typename V>
+			decltype(auto) getArgId(V &&value)
+			{
+				if constexpr (std::is_convertible_v<V, Identifier>)
+					return Identifier(std::forward<V>(value));
+				else
+					return nullptr;
+			}
+		};
+
+		class TemplateCollectionBase : public Type, public TemplateBase
+		{
+			virtual CollectionBase& getCollection(void) = 0;
+
+			friend CollectionBase;
+			void update(void);
+
+		public:
+			TemplateCollectionBase(void) :
+				Type("")
+			{
+			}
+
+			template <typename T>
+			decltype(auto) operator+=(T &&val)
+			{
+				return getCollection() += std::forward<T>(val);
+			}
+
+			template <typename T>
+			decltype(auto) operator<<=(T &&val)
+			{
+				return TemplateBase::operator<<=(std::forward<T>(val));
+			}
+		};
+
+		class TemplateCollectionFunctionBase : public Type, public TemplateBase
+		{
+			virtual CollectionFunctionBase& getCollection(void) = 0;
+
+			friend CollectionBase;
+			void update(void);
+
+		public:
+			TemplateCollectionFunctionBase(void) :
+				Type("")
+			{
+			}
+
+			template <typename T>
+			decltype(auto) operator+=(T &&val)
+			{
+				return getCollection() += std::forward<T>(val);
+			}
+
+			template <typename T>
+			decltype(auto) operator*=(T &&val)
+			{
+				return getCollection() *= std::forward<T>(val);
+			}
+
+			template <typename T>
+			decltype(auto) operator<<=(T &&val)
+			{
+				return TemplateBase::operator<<=(std::forward<T>(val));
+			}
+		};
 
 		class CollectionBase : public Type
 		{
+			friend TemplateCollectionBase;
+			friend TemplateCollectionFunctionBase;
+
 		public:
 			CollectionBase(void) :
 				Type(""),
@@ -3444,9 +3536,14 @@ namespace CppGenerator {
 				return emplaced;
 			}
 
-			void update(void)
+			void updateType(void)
 			{
 				Type::m_value = colGetName();
+			}
+
+			void update(void)
+			{
+				updateType();
 				for (auto &s : getSmts())
 					updateSmt(s);
 			}
@@ -3486,6 +3583,12 @@ namespace CppGenerator {
 					if (prim && !isPrimLocal(sub))
 						prim->setLocation(getLocation());
 				}
+				auto temp = dynamic_cast<TemplateCollectionBase*>(sub);
+				if (temp)
+					temp->update();
+				auto temp_func = dynamic_cast<TemplateCollectionFunctionBase*>(sub);
+				if (temp_func)
+					temp_func->update();
 			}
 
 			template <typename S>
@@ -3526,6 +3629,18 @@ namespace CppGenerator {
 					return nullptr;
 			}
 		};
+
+		void TemplateCollectionBase::update(void)
+		{
+			getCollection().updateType();
+			m_value = getCollection().getValue();
+		}
+
+		void TemplateCollectionFunctionBase::update(void)
+		{
+			getCollection().updateType();
+			m_value = getCollection().getValue();
+		}
 
 		template <typename Base>
 		class Collection : public Statement, public Primitive::Derived<Collection<Base>>, public CollectionBase
@@ -3947,36 +4062,6 @@ namespace CppGenerator {
 			}
 		};
 
-		class TemplateCollectionBase
-		{
-		public:
-			virtual CollectionBase& getCollection(void) = 0;
-
-			template <typename T>
-			decltype(auto) operator+=(T &&val)
-			{
-				return getCollection() += std::forward<T>(val);
-			}
-		};
-
-		class TemplateCollectionFunctionBase
-		{
-			virtual CollectionFunctionBase& getCollection(void) = 0;
-
-		public:
-			template <typename T>
-			decltype(auto) operator+=(T &&val)
-			{
-				return getCollection() += std::forward<T>(val);
-			}
-
-			template <typename T>
-			decltype(auto) operator*=(T &&val)
-			{
-				return getCollection() *= std::forward<T>(val);
-			}
-		};
-
 		template <typename ArgsType>
 		class TTemplate : public Type
 		{
@@ -4013,6 +4098,11 @@ namespace CppGenerator {
 					{
 						return m_base;
 					}
+
+					void addArg(const Value &arg) override
+					{
+						m_templ.addArg(arg);
+					}
 				};
 
 				class CollectionFunction : public Combined, public TemplateCollectionFunctionBase
@@ -4028,11 +4118,15 @@ namespace CppGenerator {
 					{
 						return m_base;
 					}
+
+					void addArg(const Value &arg) override
+					{
+						m_templ.addArg(arg);
+					}
 				};
 
-			private:
-				TTemplate m_templ;
 			protected:
+				TTemplate m_templ;
 				Prim m_base;
 			};
 
@@ -4057,6 +4151,12 @@ namespace CppGenerator {
 					return Final(std::move(*this), std::forward<Other>(other));
 				} else
 					return BaseCombined(std::move(*this), std::forward<Other>(other));
+			}
+
+			void addArg(const Value &arg)
+			{
+				m_add_args.emplace_back(arg);
+				m_value = toString();
 			}
 
 		private:
