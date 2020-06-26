@@ -814,6 +814,7 @@ namespace CppGenerator {
 		};
 	}
 
+	static Util::Storage Typedef("typedef");
 	static Util::Storage Inline("inline");
 	static Util::Storage Static("static");
 	static Util::Storage Extern("extern");
@@ -4499,6 +4500,8 @@ namespace CppGenerator {
 	static auto SizeofPpp = Sizeof | Ppp;
 
 	static Util::Final Final;
+
+	static Type Using("using");
 
 	namespace Util {
 		class Out : public Primitive
