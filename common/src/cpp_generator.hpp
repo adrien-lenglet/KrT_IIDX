@@ -733,6 +733,16 @@ namespace CppGenerator {
 			Type(getName())
 		{
 		}
+
+		using Type::operator();
+		using Type::operator>>;
+		using Type::operator[];
+		using Type::operator*;
+		using Type::operator&;
+		using Type::operator|;
+		using Type::operator=;
+		using Type::operator<<;
+		using Type::operator/;
 	};
 
 	namespace Util {
