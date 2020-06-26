@@ -679,10 +679,7 @@ namespace CppGenerator {
 		auto operator*(void);
 		auto operator&(void);
 
-		auto operator-(const Type &other)
-		{
-			return Type(m_value + std::string(" ") + other.m_value);
-		}
+		auto operator|(const Type &other);
 
 		auto operator|(const char *id);
 		auto operator|(const Util::Identifier &id);
@@ -736,10 +733,110 @@ namespace CppGenerator {
 		}
 	};
 
+	namespace Util {
+		class Storage
+		{
+		public:
+			Storage(void)
+			{
+			}
+			Storage(const char *quali) :
+				m_qualifiers({quali})
+			{
+			}
+			Storage(const Storage &base, const Storage &add) :
+				m_qualifiers(base.m_qualifiers)
+			{
+				for (auto &a : add.m_qualifiers)
+					m_qualifiers.emplace_back(a);
+			}
+
+			auto operator|(const Storage &other)
+			{
+				return Storage(*this, other);
+			}
+
+			auto operator|(const Type &type);
+
+			void write(std::ostream &o) const
+			{
+				for (auto &q : m_qualifiers)
+					o << q << " ";
+			}
+
+			bool isStatic(void) const
+			{
+				static const std::string s("static");
+
+				for (auto &q : m_qualifiers)
+					if (s == q)
+						return true;
+				return false;
+			}
+
+		private:
+			std::vector<const char*> m_qualifiers;
+		};
+	}
+
+	static Util::Storage Inline("inline");
+	static Util::Storage Static("static");
+	static Util::Storage Extern("extern");
+	static Util::Storage ThreadLocal("thread_local");
+	static Util::Storage Register("register");
+	static Util::Storage Mutable("mutable");
+	static Util::Storage Virtual("virtual");
+	static Util::Storage Explicit("explicit");
+	static Util::Storage Public("public");
+	static Util::Storage Protected("protected");
+	static Util::Storage Private("private");
+
 	auto& operator<<(std::ostream &o, const Type &type)
 	{
 		type.write(o);
 		return o;
+	}
+
+	auto& operator<<(std::ostream &o, const Util::Storage &storage)
+	{
+		storage.write(o);
+		return o;
+	}
+
+	namespace Util {
+		class StorageType : public Type
+		{
+		public:
+			StorageType(const Storage &storage, const Type &type) :
+				Type(type),
+				m_storage(storage)
+			{
+			}
+
+			const Storage& getStorage(void) const override
+			{
+				return m_storage;
+			}
+
+			void write(std::ostream &o) const override
+			{
+				o << m_storage;
+				Type::write(o);
+			}
+
+		private:
+			Storage m_storage;
+		};
+
+		auto Storage::operator|(const Type &type)
+		{
+			return StorageType(*this, type);
+		}
+	}
+
+	auto Type::operator|(const Type &other)
+	{
+		return Util::StorageType(getStorage(), m_value + std::string(" ") + other.m_value);
 	}
 
 	auto operator ""_t(const char *str, size_t size)
@@ -2053,101 +2150,8 @@ namespace CppGenerator {
 	static Statement::Direct Continue("continue"_v);
 
 	namespace Util {
-		class Storage
-		{
-		public:
-			Storage(void)
-			{
-			}
-			Storage(const char *quali) :
-				m_qualifiers({quali})
-			{
-			}
-			Storage(const Storage &base, const Storage &add) :
-				m_qualifiers(base.m_qualifiers)
-			{
-				for (auto &a : add.m_qualifiers)
-					m_qualifiers.emplace_back(a);
-			}
-
-			auto operator-(const Storage &other)
-			{
-				return Storage(*this, other);
-			}
-
-			auto operator|(const Type &type);
-
-			void write(std::ostream &o) const
-			{
-				for (auto &q : m_qualifiers)
-					o << q << " ";
-			}
-
-			bool isStatic(void) const
-			{
-				static const std::string s("static");
-
-				for (auto &q : m_qualifiers)
-					if (s == q)
-						return true;
-				return false;
-			}
-
-		private:
-			std::vector<const char*> m_qualifiers;
-		};
-	}
-
-	static Util::Storage Inline("inline");
-	static Util::Storage Static("static");
-	static Util::Storage Extern("extern");
-	static Util::Storage ThreadLocal("thread_local");
-	static Util::Storage Register("register");
-	static Util::Storage Mutable("mutable");
-	static Util::Storage Virtual("virtual");
-	static Util::Storage Explicit("explicit");
-	static Util::Storage Public("public");
-	static Util::Storage Protected("protected");
-	static Util::Storage Private("private");
-
-	auto& operator<<(std::ostream &o, const Util::Storage &storage)
-	{
-		storage.write(o);
-		return o;
-	}
-
-	namespace Util {
 		template <typename ArgsType>
 		class Function;
-
-		class StorageType : public Type
-		{
-		public:
-			StorageType(const Storage &storage, const Type &type) :
-				Type(type),
-				m_storage(storage)
-			{
-			}
-
-			const Storage& getStorage(void) const override
-			{
-				return m_storage;
-			}
-
-			void write(std::ostream &o) const override
-			{
-				o << m_storage;
-				Type::write(o);
-			}
-
-		private:
-			Storage m_storage;
-		};
-
-		auto Storage::operator|(const Type &type)
-		{
-			return StorageType(*this, type);
-		}
 
 		class Primitive
 		{
