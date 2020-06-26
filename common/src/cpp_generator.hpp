@@ -225,26 +225,20 @@ namespace CppGenerator {
 		class IdentifierFunArgs;
 	}
 
-	class Value : public Util::Writable
+	class Value
 	{
-		template <typename W>
-		static inline constexpr bool is_w_ok_v = std::is_base_of_v<Value, std::remove_reference_t<W>> && !std::is_same_v<std::remove_reference_t<W>, Value>;
+	protected:
+		std::string m_value;
 
 	public:
-		Value(void)
+		Value(void) :
+			m_value("")
 		{
 		}
 
-		template <typename W, class = std::enable_if_t<is_w_ok_v<W> && std::is_rvalue_reference_v<W&&>>>
-		Value(W &&sub) :
-			Util::Writable(std::move(sub))
+		const std::string& getValue(void) const
 		{
-		}
-
-		template <typename W, class = std::enable_if_t<is_w_ok_v<W>>>
-		Value(W &sub) :
-			Util::Writable(sub)
-		{
+			return m_value;
 		}
 
 		Value(const std::string &str);
@@ -265,9 +259,9 @@ namespace CppGenerator {
 		Value(long i);
 		Value(long long i);
 
-		void write(std::ostream &o) const override
+		void write(std::ostream &o) const
 		{
-			write_sub(o);
+			o << m_value;
 		}
 
 		struct Modifiers
@@ -533,21 +527,19 @@ namespace CppGenerator {
 		}
 	};
 
+	std::ostream& operator<<(std::ostream &o, const Value &value)
+	{
+		o << value.getValue();
+		return o;
+	}
+
 	class Value::Direct : public Value
 	{
 	public:
-		Direct(const std::string &str) :
-			m_str(str)
+		Direct(const std::string &str)
 		{
+			m_value = str;
 		}
-
-		void write(std::ostream &o) const override
-		{
-			o << m_str;
-		}
-
-	private:
-		std::string m_str;
 	};
 
 	static Value::Direct This("this");
@@ -1146,47 +1138,19 @@ namespace CppGenerator {
 		class Unary : public Value
 		{
 		public:
-			template <typename T>
-			Unary(T &&val, const char *op) :
-				m_smt(std::forward<T>(val)),
-				m_op(op)
+			Unary(const Value &val, const char *op)
 			{
+				m_value = std::string(op) + val.getValue();
 			}
-
-			void write(std::ostream &o) const override
-			{
-				o << "(";
-				o << m_op;
-				m_smt.write(o);
-				o << ")";
-			}
-
-		private:
-			Value m_smt;
-			const char *m_op;
 		};
 
 		class PostfixUnary : public Value
 		{
 		public:
-			template <typename T>
-			PostfixUnary(T &&val, const char *op) :
-				m_smt(std::forward<T>(val)),
-				m_op(op)
+			PostfixUnary(const Value &val, const char *op)
 			{
+				m_value = val.getValue() + std::string(op);
 			}
-
-			void write(std::ostream &o) const override
-			{
-				o << "(";
-				m_smt.write(o);
-				o << m_op;
-				o << ")";
-			}
-
-		private:
-			Value m_smt;
-			const char *m_op;
 		};
 
 		class Inc : public Unary
@@ -1299,46 +1263,30 @@ namespace CppGenerator {
 		class Cpp : public Value
 		{
 		public:
-			template <typename Tp, typename S>
-			Cpp(const char *cast_type, Tp &&type, S &&val) :
-				m_cast_type(cast_type),
-				m_type(std::forward<Tp>(type)),
-				m_smt(std::forward<S>(val))
+			Cpp(const char *cast_type, const Type &type, const Value &val)
 			{
-			}
-
-			void write(std::ostream &o) const override
-			{
-				o << m_cast_type;
+				std::stringstream o;
+				o << cast_type;
 				o << "<";
-				m_type.write(o);
+				type.write(o);
 				o << ">(";
-				m_smt.write(o);
+				val.write(o);
 				o << ")";
+				m_value = o.str();
 			}
-
-		private:
-			const char *m_cast_type;
-			Type m_type;
-			Value m_smt;
 		};
 
 	public:
-		template <typename T, typename S>
-		Cast(T &&type, S &&val) :
-			m_type(std::forward<T>(type)),
-			m_smt(std::forward<S>(val))
+		Cast(const Type &type, const Value &val)
 		{
-		}
+			std::stringstream o;
 
-		void write(std::ostream &o) const override
-		{
 			o << "(";
-			o << "(";
-			m_type.write(o);
+			type.write(o);
 			o << ")";
-			m_smt.write(o);
-			o << ")";
+			val.write(o);
+
+			m_value = o.str();
 		}
 
 		class Static : public Cpp
@@ -1372,10 +1320,6 @@ namespace CppGenerator {
 			Reinterpret(Args &&...args) :
 				Cpp("reinterpret_cast", std::forward<Args>(args)...) {}
 		};
-
-	private:
-		Type m_type;
-		Value m_smt;
 	};
 
 	using StaticCast = Cast::Static;
@@ -1386,47 +1330,33 @@ namespace CppGenerator {
 	class Ternary : public Value
 	{
 	public:
-		template <typename B, typename T, typename F>
-		Ternary(B &&predicate, T &&true_smt, F &&false_smt) :
-			m_predicate(std::forward<B>(predicate)),
-			m_true_smt(std::forward<T>(true_smt)),
-			m_false_smt(std::forward<F>(false_smt))
+		Ternary(const Value &predicate, const Value &true_smt, const Value &false_smt)
 		{
-		}
+			std::stringstream o;
 
-		void write(std::ostream &o) const override
-		{
 			o << "(";
-			m_predicate.write(o);
+			predicate.write(o);
 			o << " ? ";
-			m_true_smt.write(o);
+			true_smt.write(o);
 			o << " : ";
-			m_false_smt.write(o);
+			false_smt.write(o);
 			o << ")";
-		}
 
-	private:
-		Value m_predicate;
-		Value m_true_smt;
-		Value m_false_smt;
+			m_value = o.str();
+		}
 	};
 
 	class Paren : public Value
 	{
 	public:
-		template <typename V>
-		Paren(V &&value) :
-			m_value(std::forward<V>(value))
+		Paren(const Value &value)
 		{
-		}
+			std::stringstream o;
 
-		void write(std::ostream &o) const override
-		{
-			o << "(" << m_value << ")";
-		}
+			o << "(" << value << ")";
 
-	private:
-		Value m_value;
+			m_value = o.str();
+		}
 	};
 
 	namespace Op {
@@ -1435,32 +1365,26 @@ namespace CppGenerator {
 		{
 		public:
 			template <typename Ta, typename Tb, typename ...Supp>
-			GenAssociative(const char *op, Ta &&a, Tb &&b, Supp &&...supp) :
-				m_op(op),
-				m_args(util::vectorize_args<Value>(std::forward<Ta>(a), std::forward<Tb>(b), std::forward<Supp>(supp)...))
+			GenAssociative(const char *op, Ta &&a, Tb &&b, Supp &&...supp)
 			{
-			}
+				std::stringstream o;
 
-			void write(std::ostream &o) const override
-			{
-				o << "(";
+				auto args = util::vectorize_args<Value>(std::forward<Ta>(a), std::forward<Tb>(b), std::forward<Supp>(supp)...);
+
 				auto first = true;
-				for (auto &a : m_args) {
+				for (auto &a : args) {
 					if (!first) {
 						if constexpr (do_space)
-							o << " " << m_op << " ";
+							o << " " << op << " ";
 						else
-							o << m_op;
+							o << op;
 					}
 					first = false;
 					a.write(o);
 				}
-				o << ")";
-			}
 
-		private:
-			const char *m_op;
-			std::vector<Value> m_args;
+				m_value = o.str();
+			}
 		};
 
 		using Associative = GenAssociative<true>;
@@ -1936,29 +1860,25 @@ namespace CppGenerator {
 	class Value::Modifiers::Call : public Value
 	{
 	public:
-		template <typename T, typename ...Args>
-		Call(T &&val, Args &&...args) :
-			m_fun_name(std::forward<T>(val)),
-			m_args(util::vectorize_args<Value>(std::forward<Args>(args)...))
+		template <typename ...Args>
+		Call(const Value &fun_name, Args &&...args)
 		{
-		}
+			std::stringstream o;
 
-		void write(std::ostream &o) const override
-		{
-			m_fun_name.write(o);
+			auto vargs = util::vectorize_args<Value>(std::forward<Args>(args)...);
+
+			fun_name.write(o);
 			o << "(";
 			auto comma = "";
-			for (auto &s : m_args) {
+			for (auto &s : vargs) {
 				o << comma;
 				s.write(o);
 				comma = ", ";
 			}
 			o << ")";
-		}
 
-	private:
-		Value m_fun_name;
-		std::vector<Value> m_args;
+			m_value = o.str();
+		}
 	};
 
 	template <typename ...Args>
@@ -1970,26 +1890,21 @@ namespace CppGenerator {
 	class Value::Modifiers::Array : public Value
 	{
 	public:
-		template <typename A, typename S, typename ...Ss>
-		Array(A &&array, S &&subscript, Ss &&...additional_subscript) :
-			m_array(std::forward<A>(array)),
-			m_subscript(util::vectorize_args<Value>(std::forward<S>(subscript), std::forward<Ss>(additional_subscript)...))
+		template <typename S, typename ...Ss>
+		Array(const Value &array, S &&subscript, Ss &&...additional_subscript)
 		{
-		}
+			std::stringstream o;
 
-		void write(std::ostream &o) const override
-		{
-			m_array.write(o);
-			for (auto &s : m_subscript) {
+			auto vsubscript = util::vectorize_args<Value>(std::forward<S>(subscript), std::forward<Ss>(additional_subscript)...);
+			array.write(o);
+			for (auto &s : vsubscript) {
 				o << "[";
 				s.write(o);
 				o << "]";
 			}
-		}
 
-	private:
-		Value m_array;
-		std::vector<Value> m_subscript;
+			m_value = o.str();
+		}
 	};
 
 	template <typename ...Args>
@@ -2051,27 +1966,23 @@ namespace CppGenerator {
 	class Value::Modifiers::Template : public Value
 	{
 	public:
-		template <typename V, typename ...Args>
-		Template(V &&val, Args &&...args) :
-			m_base(std::forward<V>(val)),
-			m_args(util::vectorize_args<Type>(std::forward<Args>(args)...))
+		template <typename ...Args>
+		Template(const Value &base, Args &&...args)
 		{
-		}
+			std::stringstream o;
 
-		void write(std::ostream &o) const override
-		{
-			o << m_base << "<";
+			auto vargs = util::vectorize_args<Type>(std::forward<Args>(args)...);
+
+			o << base << "<";
 			auto comma = "";
-			for (auto &a : m_args) {
+			for (auto &a : vargs) {
 				o << comma << a;
 				comma = ", ";
 			}
 			o << ">";
-		}
 
-	private:
-		Value m_base;
-		std::vector<Type> m_args;
+			m_value = o.str();
+		}
 	};
 
 	class Type::Modifiers::Array : public Type
@@ -2367,11 +2278,10 @@ namespace CppGenerator {
 				m_stype(stype),
 				m_base(id)
 			{
-			}
+				std::stringstream o;
 
-			void write(std::ostream &o) const override
-			{
 				declare(o);
+				m_value = o.str();
 			}
 
 			void write(File &o) const override
@@ -2408,12 +2318,15 @@ namespace CppGenerator {
 			class DeclValue : public Variable
 			{
 			public:
-				template <typename V>
-				DeclValue(Variable &&base, V &&value, bool is_equal = false) :
+				DeclValue(Variable &&base, const Value &value, bool is_equal = false) :
 					Variable(std::move(base)),
-					m_value(std::forward<V>(value)),
+					m_value(value),
 					m_is_equal(is_equal)
 				{
+					std::stringstream o;
+
+					declare(o);
+					m_value = o.str();
 				}
 
 				template <typename O>
@@ -2425,11 +2338,6 @@ namespace CppGenerator {
 					else
 						o << " ";
 					o << m_value;
-				}
-
-				void write(std::ostream &o) const override
-				{
-					declare(o);
 				}
 
 				void write(File &o) const override
@@ -2452,12 +2360,14 @@ namespace CppGenerator {
 					Variable(std::move(base)),
 					m_args(util::vectorize_args<Value>(std::forward<Args>(args)...))
 				{
+					m_value = toString();
 				}
 
 				DeclCtor(Variable &&base, std::vector<Value> &&args) :
 					Variable(std::move(base)),
 					m_args(std::move(args))
 				{
+					m_value = toString();
 				}
 
 				template <typename O>
@@ -2473,9 +2383,12 @@ namespace CppGenerator {
 					o << ")";
 				}
 
-				void write(std::ostream &o) const override
+				std::string toString(void) const
 				{
+					std::stringstream o;
+
 					declare(o);
+					return o.str();
 				}
 
 				void write(File &o) const override
@@ -2610,40 +2523,25 @@ namespace CppGenerator {
 	class Type::DeclValue : public Value
 	{
 	public:
-		template <typename V>
-		DeclValue(const Type &type, V &&value) :
-			m_type(type),
-			m_value(std::forward<V>(value))
+		DeclValue(const Type &type, const Value &value)
 		{
-		}
+			std::stringstream o;
 
-		void write(std::ostream &o) const override
-		{
-			o << m_type << " = " << m_value;
+			o << type << " = " << value;
+			m_value = o.str();
 		}
-
-	private:
-		Type m_type;
-		Value m_value;
 	};
 
 	class Type::DeclType : public Value
 	{
 	public:
-		DeclType(const Type &type, const Type &value) :
-			m_type(type),
-			m_value(value)
+		DeclType(const Type &type, const Type &value)
 		{
-		}
+			std::stringstream o;
 
-		void write(std::ostream &o) const override
-		{
-			o << m_type << " = " << m_value;
+			o << type << " = " << value;
+			m_value = o.str();
 		}
-
-	private:
-		Type m_type;
-		Type m_value;
 	};
 
 	template <typename V>
@@ -2787,24 +2685,20 @@ namespace CppGenerator {
 	{
 	public:
 		template<typename ...Args>
-		Brace(Args &&...args) :
-			m_values(util::vectorize_args<Value>(std::forward<Args>(args)...))
+		Brace(Args &&...args)
 		{
-		}
+			std::stringstream o;
 
-		void write(std::ostream &o) const override
-		{
+			auto vvalues = util::vectorize_args<Value>(std::forward<Args>(args)...);
 			o << "{";
 			auto comma = "";
-			for (auto &v : m_values) {
+			for (auto &v : vvalues) {
 				o << comma << v;
 				comma = ", ";
 			}
 			o << "}";
+			m_value = o.str();
 		}
-
-	private:
-		std::vector<Value> m_values;
 	};
 
 	using B = Brace;
@@ -3885,19 +3779,13 @@ namespace CppGenerator {
 		class VTemplate : public Value
 		{
 		public:
-			template <typename V>
-			VTemplate(V &&value) :
-				m_value(std::forward<V>(value))
+			VTemplate(const Value &value)
 			{
-			}
+				std::stringstream o;
 
-			void write(std::ostream &o) const override
-			{
-				o << "template " << m_value;
+				o << "template " << value;
+				m_value = o.str();
 			}
-
-		private:
-			Value m_value;
 		};
 
 		template <typename ArgsType>
