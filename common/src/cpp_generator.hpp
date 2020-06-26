@@ -734,6 +734,11 @@ namespace CppGenerator {
 	};
 
 	namespace Util {
+		template <typename ArgsType>
+		class Ctor;
+		template <typename ArgsType>
+		class Dtor;
+
 		class Storage
 		{
 		public:
@@ -757,6 +762,13 @@ namespace CppGenerator {
 			}
 
 			auto operator|(const Type &type);
+
+			template <typename ArgsType>
+			auto operator|(Ctor<ArgsType> &&ctor);
+			template <typename ArgsType>
+			auto operator|(Dtor<ArgsType> &&ctor);
+			template <typename ArgsType>
+			auto operator|(IdentifierFunArgs<ArgsType> &&funargs);
 
 			void write(std::ostream &o) const
 			{
@@ -961,6 +973,8 @@ namespace CppGenerator {
 			std::vector<Value> m_args;
 		};
 
+		class Block;
+
 		template <typename ArgsType>
 		class IdentifierFunArgs
 		{
@@ -972,8 +986,11 @@ namespace CppGenerator {
 			{
 			}
 
+			auto operator|(Block&&);
+
 		private:
 			friend Type;
+			friend Storage;
 			std::string m_name;
 			ArgsType m_args;
 		};
@@ -2159,6 +2176,8 @@ namespace CppGenerator {
 			virtual ~PrimitiveBase(void) = default;
 
 			virtual const std::string& getId(void) const = 0;
+			virtual void setId(const std::string &id) = 0;
+			virtual bool isDynamic(void) const = 0;
 			virtual const std::string& getName(void) const = 0;
 			virtual Identifier toId(void) const = 0;
 			virtual void setLocation(const std::string &loc) = 0;
@@ -2167,15 +2186,26 @@ namespace CppGenerator {
 		class Primitive : public PrimitiveBase
 		{
 		public:
-			Primitive(const std::string &id) :
+			Primitive(const std::string &id, bool dynamic = false) :
 				m_id(id),
-				m_name(m_id)
+				m_name(m_id),
+				m_is_dynamic(dynamic)
 			{
 			}
 
 			const std::string& getId(void) const override
 			{
 				return m_id;
+			}
+
+			void setId(const std::string &id) override
+			{
+				m_id = id;
+			}
+
+			bool isDynamic(void) const override
+			{
+				return m_is_dynamic;
 			}
 
 			const std::string& getName(void) const override
@@ -2208,6 +2238,16 @@ namespace CppGenerator {
 					return getBase().getId();
 				}
 
+				void setId(const std::string &id) override
+				{
+					getBase().setId(id);
+				}
+
+				bool isDynamic(void) const override
+				{
+					return getBase().isDynamic();
+				}
+
 				const std::string& getName(void) const override
 				{
 					return getBase().getName();
@@ -2238,6 +2278,7 @@ namespace CppGenerator {
 		private:
 			std::string m_id;
 			std::string m_name;
+			bool m_is_dynamic;
 		};
 
 		class IdentifierName : public Primitive
@@ -2291,8 +2332,14 @@ namespace CppGenerator {
 			}
 		};
 
+		class VariableBase
+		{
+		public:
+			virtual bool isStatic(void) const = 0;
+		};
+
 		template <typename IdType>
-		class Variable : public Value, public Statement, public Primitive::Derived<Variable<IdType>>
+		class Variable : public Value, public Statement, public Primitive::Derived<Variable<IdType>>, public VariableBase
 		{
 			template <typename>
 			friend class Primitive::Derived;
@@ -2335,7 +2382,7 @@ namespace CppGenerator {
 				o << arr;
 			}
 
-			auto isStatic(void) const
+			bool isStatic(void) const override
 			{
 				return m_stype.getStorage().isStatic();
 			}
@@ -3342,6 +3389,57 @@ namespace CppGenerator {
 	static Util::Case Case;
 	static Util::Default Default;
 
+	class Colon : public Statement
+	{
+	public:
+		template <typename ...Args>
+		explicit Colon(Args &&...args) :
+			m_args(getArgs(std::forward<Args>(args)...))
+		{
+		}
+
+		void write(Util::File &o) const override
+		{
+			if (m_args.size() == 0)
+				return;
+			o << ":" << o.end_line();
+			o.indent();
+			size_t i = 0;
+			for (auto &a : m_args) {
+				o.new_line() << a;
+				if (++i < m_args.size())
+					o << "," << o.end_line();;
+			}
+			o.unindent();
+		}
+
+	private:
+		std::vector<Value> m_args;
+
+		template <typename First, typename ...Args>
+		void argAppend(std::vector<Value> &res, First &&first, Args &&...args)
+		{
+			if constexpr (std::is_base_of_v<Type, std::remove_reference_t<First>>)
+				res.emplace_back(Value::Direct(util::sstream_str(first)));
+			else
+				res.emplace_back(std::forward<First>(first));
+			if constexpr (sizeof... (Args) > 0)
+				argAppend(res, std::forward<Args>(args)...);
+		}
+
+		template <typename ...Args>
+		auto getArgs(Args &&...args)
+		{
+			std::vector<Value> res;
+
+			if constexpr (sizeof... (Args) > 0)
+				argAppend(res, std::forward<Args>(args)...);
+			return res;
+		}
+	};
+
+	using C = Colon;
+
 	namespace Util {
 		class CollectionBase
 		{
@@ -3437,16 +3535,33 @@ namespace CppGenerator {
 				auto sub = s.getSub();
 				if (!sub)
 					return;
+				auto prim = dynamic_cast<PrimitiveBase*>(sub);
+				if (prim) {
+					if (prim->isDynamic())
+						prim->setId(colGetId());
+				}
+
 				auto col = dynamic_cast<CollectionBase*>(sub);
 				if (col) {
 					col->m_parent = this;
-					col->colSetLocation(getLocation());
+					if (!isPrimLocal(sub))
+						col->colSetLocation(getLocation());
 					col->update();
 				} else {
 					auto prim = dynamic_cast<PrimitiveBase*>(sub);
-					if (prim)
+					if (prim && !isPrimLocal(sub))
 						prim->setLocation(getLocation());
 				}
+			}
+
+			template <typename S>
+			bool isPrimLocal(S sub)
+			{
+				auto var = dynamic_cast<VariableBase*>(sub);
+
+				if (!var)
+					return false;
+				return !var->isStatic();
 			}
 		};
 
@@ -3511,8 +3626,53 @@ namespace CppGenerator {
 			}
 		};
 
+		namespace FunctionHelper
+		{
+			template <size_t I = 0, typename ...Args>
+			void writeArgsNext(std::ostream &o, const std::tuple<Args...> &tup, const char *&comma)
+			{
+				if constexpr (I < sizeof... (Args)) {
+					o << comma << std::get<I>(tup);
+					comma = ", ";
+					writeArgsNext<I + 1>(o, tup, comma);
+				}
+			}
+
+			template <typename ...Args>
+			void writeArgs(std::ostream &o, const std::tuple<Args...> &tup)
+			{
+				auto comma = "";
+				o << "(";
+				writeArgsNext(o, tup, comma);
+				if constexpr (sizeof... (Args) == 0)
+					o << Void;
+				o << ")";
+			}
+		};
+
+		template<typename Self>
+		class FunctionLike
+		{
+		public:
+			auto operator|(Util::Block &&blk)
+			{
+				return Collection<Self>(std::move(getBase()), std::move(blk));
+			}
+
+		private:
+			auto& getBase(void)
+			{
+				return static_cast<Self&>(*this);
+			}
+
+			auto& getBase(void) const
+			{
+				return static_cast<const Self&>(*this);
+			}
+		};
+
 		template <typename ArgsType>
-		class Function : public Statement, public Primitive::Derived<Function<ArgsType>>
+		class Function : public Statement, public Primitive::Derived<Function<ArgsType>>, public FunctionLike<Function<ArgsType>>
 		{
 			template <typename>
 			friend class Primitive::Derived;
@@ -3526,28 +3686,11 @@ namespace CppGenerator {
 			{
 			}
 
-		private:
-			template <size_t I = 0, typename ...Args>
-			void write_next_arg(std::ostream &o, const std::tuple<Args...> &tup, const char *&comma) const
-			{
-				if constexpr (I < sizeof... (Args)) {
-					o << comma << std::get<I>(tup);
-					comma = ", ";
-					write_next_arg<I + 1>(o, tup, comma);
-				}
-			}
-
-		public:
 			void declare(File &o) const
 			{
 				o.new_line();
 				m_base.declare(o);
-				o << "(";
-				auto comma = "";
-				write_next_arg(o, m_args, comma);
-				if constexpr (std::is_same_v<ArgsType, std::tuple<>>)
-					o << Void;
-				o << ")";
+				FunctionHelper::writeArgs(o, m_args);
 			}
 
 			void write(File &o) const override
@@ -3556,14 +3699,172 @@ namespace CppGenerator {
 				o << ";" << o.end_line();
 			}
 
-			auto operator|(Util::Block &&blk)
-			{
-				return Collection<Function>(std::move(*this), std::move(blk));
-			}
-
 		private:
 			Variable<IdentifierName> m_base;
 			ArgsType m_args;
+		};
+
+		template <typename ArgsType>
+		class Ctor : public Statement, public Primitive, public FunctionLike<Ctor<ArgsType>>
+		{
+			friend Storage;
+
+		public:
+			using has_semicolon = std::false_type;
+
+			Ctor(const Storage &storage, ArgsType &&args) :
+				Primitive("Ctor", true),
+				m_storage(storage),
+				m_args(std::move(args))
+			{
+			}
+
+			void declare(File &o) const
+			{
+				o.new_line();
+				m_storage.write(o);
+				o << getId();
+				FunctionHelper::writeArgs(o, m_args);
+			}
+
+			void write(File &o) const override
+			{
+				declare(o);
+				o << ";" << o.end_line();
+			}
+
+		private:
+			Storage m_storage;
+			ArgsType m_args;
+		};
+
+		template <typename ArgsType>
+		auto Storage::operator|(Ctor<ArgsType> &&ctor)
+		{
+			return Ctor(*this, std::move(ctor.m_args));
+		}
+
+		template <typename ArgsType>
+		class Dtor : public Statement, public Primitive, public FunctionLike<Dtor<ArgsType>>
+		{
+			friend Storage;
+
+		public:
+			using has_semicolon = std::false_type;
+
+			Dtor(const Storage &storage, ArgsType &&args) :
+				Primitive("Dtor", true),
+				m_storage(storage),
+				m_args(std::move(args))
+			{
+			}
+
+			void declare(File &o) const
+			{
+				o.new_line();
+				m_storage.write(o);
+				o << getId();
+				FunctionHelper::writeArgs(o, m_args);
+			}
+
+			void write(File &o) const override
+			{
+				declare(o);
+				o << ";" << o.end_line();
+			}
+
+			void setId(const std::string &id) override
+			{
+				static const std::string tilde("~");
+
+				Primitive::setId(tilde + id);
+			}
+
+		private:
+			Storage m_storage;
+			ArgsType m_args;
+		};
+
+		template <typename ArgsType>
+		auto Storage::operator|(Dtor<ArgsType> &&ctor)
+		{
+			return Dtor(*this, std::move(ctor.m_args));
+		}
+
+		template <typename ArgsType>
+		class FuncNoReturn : public Statement, public Primitive, public FunctionLike<FuncNoReturn<ArgsType>>
+		{
+			friend Storage;
+
+		public:
+			using has_semicolon = std::false_type;
+
+			FuncNoReturn(const Storage &storage, const std::string &name, ArgsType &&args) :
+				Primitive(name),
+				m_storage(storage),
+				m_args(std::move(args))
+			{
+			}
+
+			void declare(File &o) const
+			{
+				o.new_line();
+				m_storage.write(o);
+				o << getId();
+				FunctionHelper::writeArgs(o, m_args);
+			}
+
+			void write(File &o) const override
+			{
+				declare(o);
+				o << ";" << o.end_line();
+			}
+
+		private:
+			Storage m_storage;
+			ArgsType m_args;
+		};
+
+		template <typename ArgsType>
+		auto Storage::operator|(IdentifierFunArgs<ArgsType> &&funargs)
+		{
+			return FuncNoReturn(*this, funargs.m_name, std::move(funargs.m_args));
+		}
+
+		template <typename ArgsType>
+		auto IdentifierFunArgs<ArgsType>::operator|(Block &&blk)
+		{
+			return FuncNoReturn(Storage(), m_name, std::move(m_args)) | std::move(blk);
+		}
+
+		class DeclCtor
+		{
+		public:
+			DeclCtor(void)
+			{
+			}
+
+			template <typename ...Args>
+			auto operator()(Args &&...args)
+			{
+				auto params = Identifier::tupleizeVariables(std::forward<Args>(args)...);
+				return Ctor<decltype(params)>(Storage(), std::move(params));
+			}
+		};
+
+		class DeclDtor
+		{
+		public:
+			DeclDtor(void)
+			{
+			}
+
+			template <typename ...Args>
+			auto operator()(Args &&...args)
+			{
+				auto params = Identifier::tupleizeVariables(std::forward<Args>(args)...);
+				return Dtor<decltype(params)>(Storage(), std::move(params));
+			}
 		};
 
 		class VTemplate : public Value
@@ -3685,6 +3986,9 @@ namespace CppGenerator {
 
 	static Util::Template Template;
 
+	static Util::DeclCtor Ctor;
+	static Util::DeclDtor Dtor;
+
 	template <typename ArgsType>
 	auto Type::operator|(Util::IdentifierFunArgs<ArgsType> &&id)
 	{
@@ -3692,57 +3996,6 @@ namespace CppGenerator {
 	}
 
 	class Out;
-
-	class Colon : public Statement
-	{
-	public:
-		template <typename ...Args>
-		explicit Colon(Args &&...args) :
-			m_args(getArgs(std::forward<Args>(args)...))
-		{
-		}
-
-		void write(Util::File &o) const override
-		{
-			if (m_args.size() == 0)
-				return;
-			o << ":" << o.end_line();
-			o.indent();
-			size_t i = 0;
-			for (auto &a : m_args) {
-				o.new_line() << a;
-				if (++i < m_args.size())
-					o << "," << o.end_line();;
-			}
-			o.unindent();
-		}
-
-	private:
-		std::vector<Value> m_args;
-
-		template <typename First, typename ...Args>
-		void argAppend(std::vector<Value> &res, First &&first, Args &&...args)
-		{
-			if constexpr (std::is_base_of_v<Type, std::remove_reference_t<First>>)
-				res.emplace_back(Value::Direct(util::sstream_str(first)));
-			else
-				res.emplace_back(std::forward<First>(first));
-			if constexpr (sizeof... (Args) > 0)
-				argAppend(res, std::forward<Args>(args)...);
-		}
-
-		template <typename ...Args>
-		auto getArgs(Args &&...args)
-		{
-			std::vector<Value> res;
-
-			if constexpr (sizeof... (Args) > 0)
-				argAppend(res, std::forward<Args>(args)...);
-			return res;
-		}
-	};
-
-	using C = Colon;
 
 	namespace Util {
 		class Namespace : public Statement, public Primitive
