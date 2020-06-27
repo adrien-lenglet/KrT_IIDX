@@ -40,14 +40,30 @@ namespace CppGenerator {
 	{
 		class File
 		{
+			static std::string read(const std::string &path)
+			{
+				std::stringstream res;
+				std::ifstream in(path, std::ios::binary);
+
+				res << in.rdbuf();
+				return res.str();
+			}
+
 		public:
 			File(const std::string &path) :
-				m_stream(path, std::ios::binary | std::ios::trunc),
+				m_path(path),
 				m_indent(0)
 			{
 			}
 			~File(void)
 			{
+				auto to_write = m_buf.str();
+
+				if (read(m_path) == to_write)
+					return;
+
+				std::ofstream stream(m_path, std::ios::binary | std::ios::trunc);
+				stream << to_write;
 			}
 
 			File& new_line(void)
@@ -83,11 +99,12 @@ namespace CppGenerator {
 
 			operator std::ostream&(void)
 			{
-				return m_stream;
+				return m_buf;
 			}
 
 		private:
-			std::ofstream m_stream;
+			std::stringstream m_buf;
+			const std::string m_path;
 			size_t m_indent;
 		};
 
@@ -2230,6 +2247,7 @@ namespace CppGenerator {
 			virtual const std::string& getId(void) const = 0;
 			virtual void setId(const std::string &id) = 0;
 			virtual bool isDynamic(void) const = 0;
+			virtual bool isGlobal(void) const = 0;
 			virtual const std::string& getName(void) const = 0;
 			virtual Identifier toId(void) const = 0;
 			virtual void setLocation(const std::string &loc) = 0;
@@ -2243,10 +2261,11 @@ namespace CppGenerator {
 		class Primitive : public PrimitiveBase
 		{
 		public:
-			Primitive(const std::string &id, bool dynamic = false) :
+			Primitive(const std::string &id, bool dynamic = false, bool global = false) :
 				m_id(id),
 				m_name(m_id),
-				m_is_dynamic(dynamic)
+				m_is_dynamic(dynamic),
+				m_is_global(global)
 			{
 			}
 
@@ -2271,6 +2290,11 @@ namespace CppGenerator {
 			bool isDynamic(void) const override
 			{
 				return m_is_dynamic;
+			}
+
+			bool isGlobal(void) const override
+			{
+				return m_is_global;
 			}
 
 			const std::string& getName(void) const override
@@ -2313,6 +2337,11 @@ namespace CppGenerator {
 					return getBase().isDynamic();
 				}
 
+				bool isGlobal(void) const override
+				{
+					return getBase().isGlobal();
+				}
+
 				const std::string& getName(void) const override
 				{
 					return getBase().getName();
@@ -2344,6 +2373,7 @@ namespace CppGenerator {
 			std::string m_id;
 			std::string m_name;
 			bool m_is_dynamic;
+			bool m_is_global;
 		};
 
 		class IdentifierName : public Primitive
@@ -3766,11 +3796,18 @@ namespace CppGenerator {
 			template <typename S>
 			bool isPrimLocal(S sub)
 			{
+				auto colprim = dynamic_cast<PrimitiveBase*>(this);
+
+				if (colprim) {
+					if (colprim->isGlobal())
+						return false;
+				}
+
 				auto var = dynamic_cast<VariableBase*>(sub);
 
-				if (!var)
-					return false;
-				return !var->isStatic();
+				if (var)
+					return !var->isStatic();
+				return false;
 			}
 		};
 
@@ -4447,8 +4484,8 @@ namespace CppGenerator {
 			{
 			}
 
-			using FunctionDerived<FunctionTyped<Base>>::operator|;
-			using FunctionDerived<FunctionTyped<Base>>::operator=;
+			using FunctionDerived<FunctionStorage<Base>>::operator|;
+			using FunctionDerived<FunctionStorage<Base>>::operator=;
 			auto operator|(const Storage &storage)
 			{
 				return FunctionStorage<std::remove_reference_t<decltype(*this)>>(std::move(*this), storage);
@@ -4747,7 +4784,7 @@ namespace CppGenerator {
 			using has_semicolon = std::false_type;
 
 			Namespace(const Identifier &id) :
-				Primitive(id.getName())
+				Primitive(id.getName(), false, true)
 			{
 			}
 
@@ -5213,11 +5250,43 @@ namespace CppGenerator {
 					return CInclude::Std(std::forward<T>(t));
 				}
 			};
+
+			class Pragma
+			{
+				class CPragma : public Statement
+				{
+				public:
+					CPragma(const std::string &directive) :
+						m_directive(directive)
+					{
+					}
+
+					void write(File &o) const override
+					{
+						o.new_line() << "#pragma " << m_directive << o.end_line();
+					}
+
+				private:
+					std::string m_directive;
+				};
+
+			public:
+				Pragma(void)
+				{
+				}
+
+				template <typename T>
+				auto operator|(T &&t)
+				{
+					return CPragma(std::forward<T>(t));
+				}
+			};
 		}
 	}
 
 	namespace Pp {
 		static Util::Pp::Include Include;
+		static Util::Pp::Pragma Pragma;
 	}
 }
 

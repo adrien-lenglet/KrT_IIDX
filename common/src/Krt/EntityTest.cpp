@@ -1,5 +1,5 @@
 #include "EntityTest.hpp"
-//#include "res.hpp"
+#include "res.resdecl.hpp"
 //#include "../../res/shaders/diffuse.hpp"
 
 #include <iostream>
@@ -26,6 +26,8 @@ EntityTest::EntityTest(void) :
 		pos.x += t;
 		transformed();
 	});
+
+	std::cout << &res.models().npc().gordon() << std::endl;
 }
 
 EntityTest::~EntityTest(void)
