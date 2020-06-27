@@ -2225,7 +2225,15 @@ namespace CppGenerator {
 
 			void setId(const std::string &id) override
 			{
-				m_id = id;
+				size_t len = 0;
+				for (auto it = id.rbegin(); it != id.rend(); it++) {
+					auto c = *it;
+					if (c == ':' || c == '<' || c == '>')
+						break;
+					len++;
+				}
+
+				m_id = id.substr(id.size() - len, len);
 			}
 
 			bool isDynamic(void) const override
@@ -3428,6 +3436,11 @@ namespace CppGenerator {
 			o.unindent();
 		}
 
+		void addArg(const Value &value)
+		{
+			m_args.emplace_back(value);
+		}
+
 	private:
 		std::vector<Value> m_args;
 
@@ -3460,6 +3473,7 @@ namespace CppGenerator {
 		{
 		public:
 			virtual void addArg(const Value &arg) = 0;
+			virtual void addInitArg(const Value &arg) = 0;
 		};
 
 		class CollectionBase;
@@ -3542,6 +3556,12 @@ namespace CppGenerator {
 			decltype(auto) operator*=(T &&val)
 			{
 				return getCollection() *= std::forward<T>(val);
+			}
+
+			template <typename T>
+			void operator/=(T &&val)
+			{
+				return getCollection() /= std::forward<T>(val);
 			}
 
 			template <typename T>
@@ -3708,6 +3728,12 @@ namespace CppGenerator {
 					return res;
 			}
 
+			template <typename V>
+			void operator/=(V &&value)
+			{
+				return addInitArg(std::forward<V>(value));
+			}
+
 		private:
 			template <typename V>
 			decltype(auto) getArgId(V &&value)
@@ -3872,6 +3898,10 @@ namespace CppGenerator {
 				getBase().m_arg_sup.emplace_back(arg);
 			}
 
+			void addInitArg(const Value&) override
+			{
+			}
+
 		private:
 			auto& getBase(void)
 			{
@@ -3890,6 +3920,16 @@ namespace CppGenerator {
 		public:
 			CollectionFunction(Base &&base, Block &&blk) :
 				m_base(std::move(base)),
+				m_colon(Colon()),
+				m_blk({}),
+				m_id("")
+			{
+				*this += std::move(blk);
+			}
+
+			CollectionFunction(Base &&base, Colon &&colon, Block &&blk) :
+				m_base(std::move(base)),
+				m_colon(std::move(colon)),
 				m_blk({}),
 				m_id("")
 			{
@@ -3906,6 +3946,7 @@ namespace CppGenerator {
 			void declare(File &o, bool blk_w_brace = true) const
 			{
 				m_base.declare(o);
+				m_colon.write(o);
 				o << o.end_line();
 				o.new_line();
 				m_blk.declare(o, blk_w_brace);
@@ -3919,10 +3960,16 @@ namespace CppGenerator {
 				m_base.addArg(value);
 			}
 
+			void addInitArg(const Value &arg) override
+			{
+				m_colon.addArg(arg);
+			}
+
 		private:
 			template <typename>
 			friend class Primitive::Derived;
 			Base m_base;
+			Colon m_colon;
 			Block m_blk;
 			Identifier m_id;
 
@@ -3956,8 +4003,9 @@ namespace CppGenerator {
 		class CollectionFunc : public CollectionFunction<Self>
 		{
 		public:
-			CollectionFunc(Self &&base, Block &&blk) :
-				CollectionFunction<Self>(std::move(base), std::move(blk))
+			template <typename ...Args>
+			CollectionFunc(Args &&...args) :
+				CollectionFunction<Self>(std::forward<Args>(args)...)
 			{
 			}
 		};
@@ -4179,6 +4227,11 @@ namespace CppGenerator {
 				getBase().addArg(arg);
 			}
 
+			void addInitArg(const Value &arg) override
+			{
+				getBase().addInitArg(arg);
+			}
+
 			auto operator|(Util::Block &&blk)
 			{
 				return CollectionFunc<Self>(std::move(static_cast<Self&>(*this)), std::move(blk));
@@ -4225,6 +4278,10 @@ namespace CppGenerator {
 			{
 				declare(o);
 				o << ";" << o.end_line();
+			}
+
+			void addInitArg(const Value&) override
+			{
 			}
 
 			using FunctionDerived<FunctionTyped<Base>>::operator|;
@@ -4276,6 +4333,10 @@ namespace CppGenerator {
 				o << ";" << o.end_line();
 			}
 
+			void addInitArg(const Value&) override
+			{
+			}
+
 			using FunctionDerived<FunctionStorage<Base>>::operator|;
 			auto operator|(const Storage &storage)
 			{
@@ -4315,7 +4376,14 @@ namespace CppGenerator {
 				m_colon.write(o);
 			}
 
-			using FunctionDerived<FunctionColon<Base>>::operator|;
+			auto operator|(Util::Block &&blk)
+			{
+				return CollectionFunc<Base>(std::move(m_base), std::move(m_colon), std::move(blk));
+			}
+
+			void addInitArg(const Value&) override
+			{
+			}
 
 		private:
 			Base m_base;
