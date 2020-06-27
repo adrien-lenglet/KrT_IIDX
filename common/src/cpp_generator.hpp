@@ -715,6 +715,21 @@ namespace CppGenerator {
 		auto operator[](Args &&...args);
 		auto operator*(void);
 		auto operator&(void);
+		template <typename ...Args>
+		static auto Paren(Args &&...args)
+		{
+			std::stringstream o;
+
+			auto vargs = util::vectorize_args<Type>(std::forward<Args>(args)...);
+			o << "(";
+			auto comma = "";
+			for (auto &v : vargs) {
+				o << comma << v;
+				comma = ", ";
+			}
+			o << ")";
+			return Type(o.str());
+		}
 
 		auto operator|(const Type &other);
 
@@ -758,6 +773,12 @@ namespace CppGenerator {
 		template <typename O>
 		auto operator<<(O &&other);
 	};
+
+	template <typename ...Args>
+	decltype(auto) Tp(Args &&...args)
+	{
+		return Type::Paren(std::forward<Args>(args)...);
+	}
 
 	class Util::Identifier::Typed : public Util::Identifier, public Type
 	{
