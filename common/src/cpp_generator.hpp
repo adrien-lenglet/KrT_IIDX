@@ -4230,7 +4230,7 @@ namespace CppGenerator {
 			using FunctionDerived<FunctionTyped<Base>>::operator|;
 			auto operator|(const Type &type)
 			{
-				return FunctionTyped<std::remove_reference_t<decltype(*this)>>(std::move(*this), m_type | type);
+				return FunctionTyped<std::remove_reference_t<decltype(*this)>>(std::move(*this), type);
 			}
 			auto operator|(const Storage &storage)
 			{
