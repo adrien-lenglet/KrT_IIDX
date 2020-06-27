@@ -592,6 +592,35 @@ namespace CppGenerator {
 					return areArgsFunction<Args...>();
 			}
 
+			template <typename T>
+			static decltype(auto) getCurArg(T &&val)
+			{
+				if constexpr (std::is_move_constructible_v<std::remove_reference_t<T>>)
+					return std::tuple<std::remove_reference_t<T>>(std::move(val));
+				else
+					return std::tuple<Value>(std::forward<T>(val));
+			}
+
+			template <typename First, typename ...Args>
+			static auto tupleize_args_first(First &&first, Args &&...args)
+			{
+				decltype(auto) cur = getCurArg(std::forward<First>(first));
+
+				if constexpr (util::are_args_empty_v<Args...>)
+					return cur;
+				else
+					return std::tuple_cat(std::move(cur), tupleize_args_first(std::forward<Args>(args)...));
+			}
+
+			template <typename ...Args>
+			static auto tupleize_args(Args &&...args)
+			{
+				if constexpr (util::are_args_empty_v<Args...>)
+					return std::make_tuple();
+				else
+					return tupleize_args_first(std::forward<Args>(args)...);
+			}
+
 			template <typename ...Args>
 			static auto tupleizeVariables(Args &&...args)
 			{
@@ -600,7 +629,7 @@ namespace CppGenerator {
 				else if constexpr (isVoidOnly<Args...>())
 					return std::make_tuple();
 				else
-					return util::tupleize_args(std::forward<Args>(args)...);
+					return tupleize_args(std::forward<Args>(args)...);
 			}
 
 			template <typename Arg>
@@ -799,6 +828,12 @@ namespace CppGenerator {
 					o << q << " ";
 			}
 
+			void write_end(std::ostream &o) const
+			{
+				for (auto &q : m_qualifiers)
+					o << " " << q;
+			}
+
 			bool isStatic(void) const
 			{
 				static const std::string s("static");
@@ -822,6 +857,7 @@ namespace CppGenerator {
 	static Util::Storage Register("register");
 	static Util::Storage Mutable("mutable");
 	static Util::Storage Virtual("virtual");
+	static Util::Storage Override("override");
 	static Util::Storage Explicit("explicit");
 	static Util::Storage Public("public");
 	static Util::Storage Protected("protected");
@@ -1011,6 +1047,8 @@ namespace CppGenerator {
 			}
 
 			auto operator|(Block&&);
+
+			operator Value(void) const;
 
 		private:
 			friend Type;
@@ -3340,7 +3378,7 @@ namespace CppGenerator {
 		{
 			if (m_args.size() == 0)
 				return;
-			o << ":" << o.end_line();
+			o << " :" << o.end_line();
 			o.indent();
 			size_t i = 0;
 			for (auto &a : m_args) {
@@ -3747,8 +3785,24 @@ namespace CppGenerator {
 			}
 		};
 
+		template <typename ArgsType>
+		IdentifierFunArgs<ArgsType>::operator Value(void) const
+		{
+			std::stringstream o;
+
+			o << m_name;
+			FunctionHelper::writeArgs(o, m_args, {});
+			return Value::Direct(o.str());
+		}
+
 		template <typename>
 		class CollectionFunc;
+		template <typename Base>
+		class FunctionTyped;
+		template <typename Base>
+		class FunctionStorage;
+		template <typename Base>
+		class FunctionColon;
 
 		template<typename Self>
 		class FunctionLike : public FunctionBase
@@ -3757,6 +3811,21 @@ namespace CppGenerator {
 			auto operator|(Util::Block &&blk)
 			{
 				return CollectionFunc<Self>(std::move(getBase()), std::move(blk));
+			}
+
+			auto operator|(const Type &type)
+			{
+				return FunctionTyped<Self>(std::move(getBase()), type);
+			}
+
+			auto operator|(const Storage &storage)
+			{
+				return FunctionStorage<Self>(std::move(getBase()), storage);
+			}
+
+			auto operator|(Colon &&colon)
+			{
+				return FunctionColon<Self>(std::move(*this), std::move(colon));
 			}
 
 			void addArg(const Value &arg) override
@@ -4062,6 +4131,158 @@ namespace CppGenerator {
 			}
 		};
 
+		template<typename Self>
+		class FunctionDerived : public FunctionBase
+		{
+		public:
+			void addArg(const Value &arg) override
+			{
+				getBase().addArg(arg);
+			}
+
+			auto operator|(Util::Block &&blk)
+			{
+				return CollectionFunc<Self>(std::move(static_cast<Self&>(*this)), std::move(blk));
+			}
+
+		private:
+			auto& getBase(void)
+			{
+				return static_cast<Self&>(*this).m_base;
+			}
+
+			auto& getBase(void) const
+			{
+				return static_cast<const Self&>(*this).m_base;
+			}
+		};
+
+		template <typename Base>
+		class FunctionTyped : public Statement, public Primitive::Derived<FunctionTyped<Base>>, public FunctionDerived<FunctionTyped<Base>>
+		{
+			friend Storage;
+			template <typename>
+			friend class FunctionDerived;
+			template <typename>
+			friend class Primitive::Derived;
+
+		public:
+			using has_semicolon = std::false_type;
+
+			FunctionTyped(Base &&base, const Type &type) :
+				m_base(std::move(base)),
+				m_type(type)
+			{
+			}
+
+			void declare(File &o) const
+			{
+				m_base.declare(o);
+				o << " ";
+				o << m_type;
+			}
+
+			void write(File &o) const override
+			{
+				declare(o);
+				o << ";" << o.end_line();
+			}
+
+			using FunctionDerived<FunctionTyped<Base>>::operator|;
+			auto operator|(const Type &type)
+			{
+				return FunctionTyped<std::remove_reference_t<decltype(*this)>>(std::move(*this), m_type | type);
+			}
+			auto operator|(const Storage &storage)
+			{
+				return FunctionStorage<std::remove_reference_t<decltype(*this)>>(std::move(*this), storage);
+			}
+			auto operator|(Colon &&colon)
+			{
+				return FunctionColon<std::remove_reference_t<decltype(*this)>>(std::move(*this), std::move(colon));
+			}
+
+		private:
+			Base m_base;
+			Type m_type;
+		};
+
+		template <typename Base>
+		class FunctionStorage : public Statement, public Primitive::Derived<FunctionStorage<Base>>, public FunctionDerived<FunctionStorage<Base>>
+		{
+			friend Storage;
+			template <typename>
+			friend class FunctionDerived;
+			template <typename>
+			friend class Primitive::Derived;
+
+		public:
+			using has_semicolon = std::false_type;
+
+			FunctionStorage(Base &&base, const Storage &storage) :
+				m_base(std::move(base)),
+				m_storage(storage)
+			{
+			}
+
+			void declare(File &o) const
+			{
+				m_base.declare(o);
+				m_storage.write_end(o);
+			}
+
+			void write(File &o) const override
+			{
+				declare(o);
+				o << ";" << o.end_line();
+			}
+
+			using FunctionDerived<FunctionStorage<Base>>::operator|;
+			auto operator|(const Storage &storage)
+			{
+				return FunctionStorage<std::remove_reference_t<decltype(*this)>>(std::move(*this), storage);
+			}
+			auto operator|(Colon &&colon)
+			{
+				return FunctionColon<std::remove_reference_t<decltype(*this)>>(std::move(*this), std::move(colon));
+			}
+
+		private:
+			Base m_base;
+			Storage m_storage;
+		};
+
+		template <typename Base>
+		class FunctionColon : public Primitive::Derived<FunctionColon<Base>>, public FunctionDerived<FunctionColon<Base>>
+		{
+			friend Storage;
+			template <typename>
+			friend class FunctionDerived;
+			template <typename>
+			friend class Primitive::Derived;
+
+		public:
+			using has_semicolon = std::false_type;
+
+			FunctionColon(Base &&base, Colon &&colon) :
+				m_base(std::move(base)),
+				m_colon(std::move(colon))
+			{
+			}
+
+			void declare(File &o) const
+			{
+				m_base.declare(o);
+				m_colon.write(o);
+			}
+
+			using FunctionDerived<FunctionColon<Base>>::operator|;
+
+		private:
+			Base m_base;
+			Colon m_colon;
+		};
+
 		class VTemplate : public Value
 		{
 		public:
@@ -4295,7 +4516,6 @@ namespace CppGenerator {
 			void declare(File &o) const
 			{
 				m_base.declare(o);
-				o << " ";
 				m_colon.write(o);
 			}
 
@@ -4339,10 +4559,11 @@ namespace CppGenerator {
 			Base m_base;
 		};
 
-		class Final
+		class Final : public Util::Storage
 		{
 		public:
-			Final(void)
+			Final(void) :
+				Util::Storage("final")
 			{
 			}
 		};
@@ -4502,6 +4723,27 @@ namespace CppGenerator {
 	static Util::Final Final;
 
 	static Type Using("using");
+
+	namespace Util {
+		class Noexcept : public Type
+		{
+		public:
+			Noexcept(void) :
+				Type("noexcept")
+			{
+			}
+
+			auto operator()(const Value &value)
+			{
+				std::stringstream o;
+
+				o << static_cast<Type&>(*this) << "(" << value << ")";
+				return Type(o.str());
+			}
+		};
+	}
+
+	static Util::Noexcept Noexecpt;
 
 	namespace Util {
 		class Out : public Primitive
