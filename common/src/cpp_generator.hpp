@@ -859,9 +859,6 @@ namespace CppGenerator {
 	static Util::Storage Virtual("virtual");
 	static Util::Storage Override("override");
 	static Util::Storage Explicit("explicit");
-	static Util::Storage Public("public");
-	static Util::Storage Protected("protected");
-	static Util::Storage Private("private");
 
 	auto& operator<<(std::ostream &o, const Type &type)
 	{
@@ -2133,6 +2130,48 @@ namespace CppGenerator {
 	private:
 		Value m_value;
 	};
+
+	namespace Util {
+		class Visibility : public Storage
+		{
+			class Smt : public Statement
+			{
+			public:
+				Smt(const char *str) :
+					m_str(str)
+				{
+				}
+
+				void write(File &o) const override
+				{
+					o.unindent();
+					o.new_line() << m_str << ":" << o.end_line();
+					o.indent();
+				}
+
+			private:
+				const char *m_str;
+			};
+
+		public:
+			Visibility(const char *str) :
+				Storage(str),
+				m_str(str)
+			{
+			}
+
+			operator Statement(void) const
+			{
+				return Smt(m_str);
+			}
+
+		private:
+			const char *m_str;
+		};
+	}
+	static Util::Visibility Public("public");
+	static Util::Visibility Protected("protected");
+	static Util::Visibility Private("private");
 
 	Statement::Statement(Value &val) :
 		Statement(Statement::Direct(val))
@@ -3825,7 +3864,7 @@ namespace CppGenerator {
 
 			auto operator|(Colon &&colon)
 			{
-				return FunctionColon<Self>(std::move(*this), std::move(colon));
+				return FunctionColon<Self>(std::move(getBase()), std::move(colon));
 			}
 
 			void addArg(const Value &arg) override
