@@ -3665,7 +3665,7 @@ namespace CppGenerator {
 					return cast_sub<CollectionBase>(emplaced);
 				else if constexpr (std::is_base_of_v<PrimitiveBase, Pnoref>) {
 					auto n = cast_sub<PrimitiveBase>(emplaced).getName();
-					if constexpr (std::is_base_of_v<Type, Pnoref>) {
+					if constexpr (std::is_convertible_v<Pnoref, Type>) {
 						return Identifier::Typed(n);
 					} else
 						return Identifier(n);
@@ -4556,11 +4556,25 @@ namespace CppGenerator {
 		template <typename ArgsType>
 		class TTemplate : public Type
 		{
+			struct CombinedNotConvertType {};
+
+			template <typename Self>
+			struct CombinedConvertType
+			{
+			public:
+				operator Type(void) const
+				{
+					return static_cast<const Self&>(*this).m_base;
+				}
+			};
+
 			template <typename Prim>
-			class Combined : public Statement, public Primitive::Derived<Combined<Prim>>
+			class Combined : public Statement, public Primitive::Derived<Combined<Prim>>, public std::conditional_t<std::is_convertible_v<Prim, Type>, CombinedConvertType<Combined<Prim>>, CombinedNotConvertType>
 			{
 				template <typename>
 				friend class Primitive::Derived;
+				template <typename>
+				friend struct CombinedConvertType;
 
 			public:
 				template <typename Other>
@@ -5022,7 +5036,7 @@ namespace CppGenerator {
 				public:
 					Typed(const std::string &name, const Type &type) :
 						Primitive(name),
-						Type(type),
+						Type(name),
 						m_name(name),
 						m_type(type)
 					{
