@@ -3359,10 +3359,29 @@ namespace CppGenerator {
 	}
 
 	namespace Util {
-		class Default : public Statement
+		class FuncEq
 		{
 		public:
-			Default(void)
+			FuncEq(const char *str) :
+				m_str(str)
+			{
+			}
+
+			template <typename O>
+			void write(O &o) const
+			{
+				o << m_str;
+			}
+
+		private:
+			const char *m_str;
+		};
+
+		class Default : public Statement, public FuncEq
+		{
+		public:
+			Default(void) :
+				FuncEq("default")
 			{
 			}
 
@@ -3411,6 +3430,8 @@ namespace CppGenerator {
 
 	static Util::Case Case;
 	static Util::Default Default;
+
+	static Util::FuncEq Delete("delete");
 
 	class Colon : public Statement
 	{
@@ -3867,6 +3888,8 @@ namespace CppGenerator {
 		template <typename Base>
 		class FunctionStorage;
 		template <typename Base>
+		class FunctionEq;
+		template <typename Base>
 		class FunctionColon;
 
 		template<typename Self>
@@ -3886,6 +3909,11 @@ namespace CppGenerator {
 			auto operator|(const Storage &storage)
 			{
 				return FunctionStorage<Self>(std::move(getBase()), storage);
+			}
+
+			auto operator=(const FuncEq &funceq)
+			{
+				return FunctionEq<Self>(std::move(getBase()), funceq);
 			}
 
 			auto operator|(Colon &&colon)
@@ -4237,6 +4265,11 @@ namespace CppGenerator {
 				return CollectionFunc<Self>(std::move(static_cast<Self&>(*this)), std::move(blk));
 			}
 
+			auto operator=(const FuncEq &funceq)
+			{
+				return FunctionEq<Self>(std::move(static_cast<Self&>(*this)), funceq);
+			}
+
 		private:
 			auto& getBase(void)
 			{
@@ -4285,6 +4318,7 @@ namespace CppGenerator {
 			}
 
 			using FunctionDerived<FunctionTyped<Base>>::operator|;
+			using FunctionDerived<FunctionTyped<Base>>::operator=;
 			auto operator|(const Type &type)
 			{
 				return FunctionTyped<std::remove_reference_t<decltype(*this)>>(std::move(*this), type);
@@ -4337,7 +4371,8 @@ namespace CppGenerator {
 			{
 			}
 
-			using FunctionDerived<FunctionStorage<Base>>::operator|;
+			using FunctionDerived<FunctionTyped<Base>>::operator|;
+			using FunctionDerived<FunctionTyped<Base>>::operator=;
 			auto operator|(const Storage &storage)
 			{
 				return FunctionStorage<std::remove_reference_t<decltype(*this)>>(std::move(*this), storage);
@@ -4350,6 +4385,46 @@ namespace CppGenerator {
 		private:
 			Base m_base;
 			Storage m_storage;
+		};
+
+		template <typename Base>
+		class FunctionEq : public Statement, public Primitive::Derived<FunctionEq<Base>>, public FunctionDerived<FunctionEq<Base>>
+		{
+			friend Storage;
+			template <typename>
+			friend class FunctionDerived;
+			template <typename>
+			friend class Primitive::Derived;
+
+		public:
+			using has_semicolon = std::false_type;
+
+			FunctionEq(Base &&base, const FuncEq &funceq) :
+				m_base(std::move(base)),
+				m_funceq(funceq)
+			{
+			}
+
+			void declare(File &o) const
+			{
+				m_base.declare(o);
+				o << " = ";
+				m_funceq.write(o);
+			}
+
+			void write(File &o) const override
+			{
+				declare(o);
+				o << ";" << o.end_line();
+			}
+
+			void addInitArg(const Value&) override
+			{
+			}
+
+		private:
+			Base m_base;
+			FuncEq m_funceq;
 		};
 
 		template <typename Base>
