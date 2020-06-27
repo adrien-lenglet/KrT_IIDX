@@ -3635,9 +3635,10 @@ namespace CppGenerator {
 			friend TemplateCollectionFunctionBase;
 
 		public:
-			CollectionBase(void) :
+			CollectionBase(bool updateSmts = true) :
 				Type(""),
-				m_parent(nullptr)
+				m_parent(nullptr),
+				m_update_smts(updateSmts)
 			{
 			}
 			virtual ~CollectionBase(void) = default;
@@ -3674,6 +3675,7 @@ namespace CppGenerator {
 
 		private:
 			CollectionBase *m_parent;
+			bool m_update_smts;
 
 			virtual std::vector<Statement>& getSmts(void) = 0;
 
@@ -3730,6 +3732,9 @@ namespace CppGenerator {
 
 			void updateSmt(Statement &s)
 			{
+				if (!m_update_smts)
+					return;
+
 				auto sub = s.getSub();
 				if (!sub)
 					return;
@@ -3774,6 +3779,11 @@ namespace CppGenerator {
 			using FunctionBase::addArg;
 
 		public:
+			CollectionFunctionBase(void) :
+				CollectionBase(false)
+			{
+			}
+
 			template <typename V>
 			decltype(auto) operator*=(V &&value)
 			{
@@ -4970,8 +4980,6 @@ namespace CppGenerator {
 
 	static Util::Final Final;
 
-	static Type Using("using");
-
 	namespace Util {
 		class Noexcept : public Type
 		{
@@ -4992,6 +5000,68 @@ namespace CppGenerator {
 	}
 
 	static Util::Noexcept Noexecpt;
+
+	namespace Util {
+		class Using
+		{
+		public:
+			Using(void)
+			{
+			}
+
+			class Named
+			{
+			public:
+				Named(const std::string &name) :
+					m_name(name)
+				{
+				}
+
+				class Typed : public Statement, public Primitive, public Type
+				{
+				public:
+					Typed(const std::string &name, const Type &type) :
+						Primitive(name),
+						Type(type),
+						m_name(name),
+						m_type(type)
+					{
+					}
+
+					using Type::write;
+
+					void write(File &o) const override
+					{
+						o.new_line() << "using " << m_name << " = " << m_type << ";" << o.end_line();
+					}
+
+					auto operator|(const Type &type)
+					{
+						return Typed(m_name, m_type | type);
+					}
+
+				private:
+					std::string m_name;
+					Type m_type;
+				};
+
+				auto operator=(const Type &type)
+				{
+					return Typed(m_name, type);
+				}
+
+			private:
+				std::string m_name;
+			};
+
+			auto operator|(const Identifier &id)
+			{
+				return Named(id.getName());
+			}
+		};
+	}
+
+	static Util::Using Using;
 
 	namespace Util {
 		class Out : public Primitive
