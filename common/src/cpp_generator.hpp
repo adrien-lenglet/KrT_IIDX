@@ -914,6 +914,9 @@ namespace CppGenerator {
 				Type::write(o);
 			}
 
+			using Type::operator=;
+			using Type::operator();
+
 		private:
 			Storage m_storage;
 		};
