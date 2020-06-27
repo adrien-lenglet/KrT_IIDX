@@ -1013,6 +1013,8 @@ namespace CppGenerator {
 		return Template(std::forward<Args>(args)...);
 	}
 
+	class Colon;
+
 	namespace Util {
 		class IdentifierCtor
 		{
@@ -1031,6 +1033,7 @@ namespace CppGenerator {
 		};
 
 		class Block;
+		class FuncEq;
 
 		template <typename ArgsType>
 		class IdentifierFunArgs
@@ -1043,7 +1046,12 @@ namespace CppGenerator {
 			{
 			}
 
+			auto toFunc(void) const;
 			auto operator|(Block&&);
+			auto operator|(const Type &type);
+			auto operator|(const Storage &storage);
+			auto operator=(const FuncEq &funceq);
+			auto operator|(const Colon &colon);
 
 			operator Value(void) const;
 
@@ -3436,9 +3444,14 @@ namespace CppGenerator {
 	class Colon : public Statement
 	{
 	public:
-		template <typename ...Args>
+		template <typename ...Args, class = std::enable_if_t<!std::is_same_v<std::tuple<std::remove_reference_t<Args>...>, std::tuple<Colon>>>>
 		explicit Colon(Args &&...args) :
 			m_args(getArgs(std::forward<Args>(args)...))
+		{
+		}
+
+		explicit Colon(const Colon &other) :
+			m_args(other.m_args)
 		{
 		}
 
@@ -3457,7 +3470,7 @@ namespace CppGenerator {
 			o.unindent();
 		}
 
-		void addArg(const Value &value)
+		void operator/=(const Value &value)
 		{
 			m_args.emplace_back(value);
 		}
@@ -3916,9 +3929,9 @@ namespace CppGenerator {
 				return FunctionEq<Self>(std::move(getBase()), funceq);
 			}
 
-			auto operator|(Colon &&colon)
+			auto operator|(const Colon &colon)
 			{
-				return FunctionColon<Self>(std::move(getBase()), std::move(colon));
+				return FunctionColon<Self>(std::move(getBase()), colon);
 			}
 
 			void addArg(const Value &arg) override
@@ -3948,16 +3961,15 @@ namespace CppGenerator {
 		public:
 			CollectionFunction(Base &&base, Block &&blk) :
 				m_base(std::move(base)),
-				m_colon(Colon()),
 				m_blk({}),
 				m_id("")
 			{
 				*this += std::move(blk);
 			}
 
-			CollectionFunction(Base &&base, Colon &&colon, Block &&blk) :
+			CollectionFunction(Base &&base, const Colon &colon, Block &&blk) :
 				m_base(std::move(base)),
-				m_colon(std::move(colon)),
+				m_colon(colon),
 				m_blk({}),
 				m_id("")
 			{
@@ -3990,7 +4002,7 @@ namespace CppGenerator {
 
 			void addInitArg(const Value &arg) override
 			{
-				m_colon.addArg(arg);
+				m_colon /= arg;
 			}
 
 		private:
@@ -4211,9 +4223,39 @@ namespace CppGenerator {
 		}
 
 		template <typename ArgsType>
+		auto IdentifierFunArgs<ArgsType>::toFunc(void) const
+		{
+			return FuncNoReturn(Storage(), m_name, std::move(m_args));
+		}
+
+		template <typename ArgsType>
 		auto IdentifierFunArgs<ArgsType>::operator|(Block &&blk)
 		{
-			return FuncNoReturn(Storage(), m_name, std::move(m_args)) | std::move(blk);
+			return toFunc() | std::move(blk);
+		}
+
+		template <typename ArgsType>
+		auto IdentifierFunArgs<ArgsType>::operator|(const Type &type)
+		{
+			return toFunc() | type;
+		}
+
+		template <typename ArgsType>
+		auto IdentifierFunArgs<ArgsType>::operator|(const Storage &storage)
+		{
+			return toFunc() | storage;
+		}
+
+		template <typename ArgsType>
+		auto IdentifierFunArgs<ArgsType>::operator=(const FuncEq &funceq)
+		{
+			return toFunc() | funceq;
+		}
+
+		template <typename ArgsType>
+		auto IdentifierFunArgs<ArgsType>::operator|(const Colon &colon)
+		{
+			return toFunc() | colon;
 		}
 
 		class DeclCtor
@@ -4327,9 +4369,9 @@ namespace CppGenerator {
 			{
 				return FunctionStorage<std::remove_reference_t<decltype(*this)>>(std::move(*this), storage);
 			}
-			auto operator|(Colon &&colon)
+			auto operator|(const Colon &colon)
 			{
-				return FunctionColon<std::remove_reference_t<decltype(*this)>>(std::move(*this), std::move(colon));
+				return FunctionColon<std::remove_reference_t<decltype(*this)>>(std::move(*this), colon);
 			}
 
 		private:
@@ -4377,9 +4419,9 @@ namespace CppGenerator {
 			{
 				return FunctionStorage<std::remove_reference_t<decltype(*this)>>(std::move(*this), storage);
 			}
-			auto operator|(Colon &&colon)
+			auto operator|(const Colon &colon)
 			{
-				return FunctionColon<std::remove_reference_t<decltype(*this)>>(std::move(*this), std::move(colon));
+				return FunctionColon<std::remove_reference_t<decltype(*this)>>(std::move(*this), colon);
 			}
 
 		private:
@@ -4439,9 +4481,9 @@ namespace CppGenerator {
 		public:
 			using has_semicolon = std::false_type;
 
-			FunctionColon(Base &&base, Colon &&colon) :
+			FunctionColon(Base &&base, const Colon &colon) :
 				m_base(std::move(base)),
-				m_colon(std::move(colon))
+				m_colon(colon)
 			{
 			}
 
@@ -4684,9 +4726,9 @@ namespace CppGenerator {
 		public:
 			using has_semicolon = typename Base::has_semicolon;
 
-			ClassColon(Base &&base, Colon &&colon) :
+			ClassColon(Base &&base, const Colon &colon) :
 				m_base(std::move(base)),
-				m_colon(std::move(colon))
+				m_colon(colon)
 			{
 			}
 
@@ -4724,9 +4766,9 @@ namespace CppGenerator {
 				return Collection<ClassFinal>(std::move(*this), std::move(blk));
 			}
 
-			auto operator|(Colon &&c)
+			auto operator|(const Colon &c)
 			{
-				return ClassColon<ClassFinal>(std::move(*this), std::move(c));
+				return ClassColon<ClassFinal>(std::move(*this), c);
 			}
 
 			void declare(File &o) const
@@ -4776,9 +4818,9 @@ namespace CppGenerator {
 				return ClassFinal<Class>(std::move(*this));
 			}
 
-			auto operator|(Colon &&c)
+			auto operator|(const Colon &c)
 			{
-				return ClassColon<Class>(std::move(*this), std::move(c));
+				return ClassColon<Class>(std::move(*this), c);
 			}
 
 			void declare(File &o) const
@@ -4827,7 +4869,7 @@ namespace CppGenerator {
 				return ClassFinal<Struct>(std::move(*this));
 			}
 
-			auto operator|(Colon &&c)
+			auto operator|(const Colon &c)
 			{
 				return ClassColon<Struct>(std::move(*this), std::move(c));
 			}
