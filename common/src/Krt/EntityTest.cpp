@@ -13,12 +13,12 @@ EntityTest::EntityTest(void) :
 	entity2(add<EntityTest2>())
 {
 	bind(world.events.system.input.button.pressed("quit"), [this](){
-		std::cout << "quit pressed" << std::endl;
+		//std::cout << "quit pressed" << std::endl;
 		trigger(just_died, 14.2);
 	});
 
 	bind(world.events.system.input.button.released("quit"), [this](){
-		std::cout << "quit released" << std::endl;
+		//std::cout << "quit released" << std::endl;
 		trigger(got_score, 7.92);
 	});
 
@@ -27,7 +27,7 @@ EntityTest::EntityTest(void) :
 		transformed();
 	});
 
-	std::cout << &res.models().npc().gordon() << std::endl;
+	//std::cout << &res.models().npc().gordon() << std::endl;
 }
 
 EntityTest::~EntityTest(void)

@@ -7,14 +7,16 @@
 namespace Subtile {
 namespace System {
 
-class Glfw : public ISystem
+class Glfw
 {
 public:
-	Glfw(void);
-	~Glfw(void) override;
+	Glfw(uint32_t ctx = GLFW_NO_API);
+	~Glfw(void);
 
-	void scanInputs(void) override;
-	const std::map<std::string, System::IInput&>& getInputs(void) override;
+	void scanInputs(void);
+	const std::map<std::string, System::IInput&>& getInputs(void);
+
+	util::svec getRequiredVkInstanceExts(void) const;
 
 private:
 	class Error : public std::runtime_error
@@ -45,7 +47,7 @@ private:
 	std::vector<std::unique_ptr<System::IInput>> m_inputs;
 	std::map<std::string, System::IInput&> m_inputs_map;
 
-	Window createWindow(void) const;
+	Window createWindow(uint32_t) const;
 	std::vector<std::unique_ptr<System::IInput>> createInputs(void);
 	std::map<std::string, System::IInput&> createInputsMap(void);
 };

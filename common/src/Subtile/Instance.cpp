@@ -1,12 +1,12 @@
 #include "Instance.hpp"
 #include "System/Input/IButton.hpp"
 #include "System/Input/IKeyboard.hpp"
-#include "System/Glfw.hpp"
+#include "System/Vk.hpp"
 
 namespace Subtile {
 
 Instance::Instance(void) :
-	m_system(new System::Glfw()),
+	m_system(new System::Vk()),
 	m_events(*m_system)
 {
 }

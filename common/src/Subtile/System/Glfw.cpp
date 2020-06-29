@@ -17,10 +17,13 @@ std::string Glfw::getError(void)
 		return desc;
 }
 
-Glfw::Window Glfw::createWindow(void) const
+Glfw::Window Glfw::createWindow(uint32_t ctx) const
 {
 	if (glfwInit() == GLFW_FALSE)
 		throw Error("Can't initialize GLFW");
+
+	glfwWindowHint(GLFW_CLIENT_API, ctx);
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
 	return Window(1600, 900, "SUBTILE® Application");
 }
@@ -49,8 +52,8 @@ std::map<std::string, System::IInput&> Glfw::createInputsMap(void)
 	return res;
 }
 
-Glfw::Glfw(void) :
-	m_window(createWindow()),
+Glfw::Glfw(uint32_t ctx) :
+	m_window(createWindow(ctx)),
 	m_inputs(createInputs()),
 	m_inputs_map(createInputsMap())
 {
@@ -69,6 +72,17 @@ void Glfw::scanInputs(void)
 const std::map<std::string, System::IInput&>& Glfw::getInputs(void)
 {
 	return m_inputs_map;
+}
+
+util::svec Glfw::getRequiredVkInstanceExts(void) const
+{
+	uint32_t size;
+	auto cstrs = glfwGetRequiredInstanceExtensions(&size);
+	util::svec res;
+	for (size_t i = 0; i < size; i++)
+		res.emplace_back(cstrs[i]);
+	return res;
+
 }
 
 }

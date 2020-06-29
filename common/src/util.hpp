@@ -658,4 +658,24 @@ auto tupleize_args(Args &&...args)
 		return tupleize_args_first(std::forward<Args>(args)...);
 }
 
+class svec : public std::vector<std::string>
+{
+public:
+	template <typename ...Args>
+	svec(Args &&...args) :
+		std::vector<std::string>(std::forward<Args>(args)...)
+	{
+	}
+
+	auto c_strs(void) const
+	{
+		std::vector<const char*> res;
+
+		res.reserve(size());
+		for (auto &s : *this)
+			res.emplace_back(s.c_str());
+		return res;
+	}
+};
+
 }

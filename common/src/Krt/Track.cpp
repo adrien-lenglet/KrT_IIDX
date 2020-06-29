@@ -12,12 +12,12 @@ Track::Track(void) :
 	camera(add<sb::Camera>()),
 	entity(add<EntityTest>())
 {
-	bind(entity.just_died, [](const double &val){
-		std::cout << "Just died event: " << val << std::endl;
+	bind(entity.just_died, [](const double &){
+		//std::cout << "Just died event: " << val << std::endl;
 	});
 
-	bind(entity.got_score, [this](const size_t &score){
-		std::cout << "Got score event: " << score << std::endl;
+	bind(entity.got_score, [this](const size_t &){
+		//std::cout << "Got score event: " << score << std::endl;
 		trigger(done);
 	});
 }
