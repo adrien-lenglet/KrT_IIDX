@@ -5,9 +5,12 @@ namespace Subtile {
 namespace System {
 
 Vk::Vk(bool isDebug) :
-	m_instance(isDebug, isDebug ? util::svec{"VK_LAYER_KHRONOS_validation"} : util::svec{},
+	m_instance(isDebug,
+		isDebug ? util::svec{"VK_LAYER_KHRONOS_validation"} : util::svec{},
 		m_glfw.getRequiredVkInstanceExts() + (isDebug ? util::svec{VK_EXT_DEBUG_UTILS_EXTENSION_NAME} : util::svec{})
-	)
+	),
+	m_physical_device(m_instance.enumerateDevices().getBest()),
+	m_device(m_physical_device)
 {
 }
 
@@ -81,6 +84,11 @@ Vk::PhysicalDevice::PhysicalDevice(VkPhysicalDevice device) :
 {
 }
 
+Vk::PhysicalDevice::operator VkPhysicalDevice(void) const
+{
+	return m_device;
+}
+
 const VkPhysicalDeviceProperties& Vk::PhysicalDevice::properties(void) const
 {
 	return m_props;
@@ -103,6 +111,11 @@ size_t Vk::PhysicalDevice::getScore(void) const
 	if (m_props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
 		res += 1;
 	return res;
+}
+
+const Vk::PhysicalDevice::QueueFamilies& Vk::PhysicalDevice::getQueues(void) const
+{
+	return m_queue_families;
 }
 
 Vk::PhysicalDevice::QueueFamilies::QueueFamilies(VkPhysicalDevice device) :
@@ -224,23 +237,25 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL validation_cb(
 		{VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT, "Performance"}
 	};
 
-	auto comma = "";
-	std::cerr << "[";
-	for (auto &p : sever_table)
-		if (p.first & messageSeverity) {
-			std::cerr << p.second;
-			comma = ", ";
-		}
-	std::cerr << "] -> {";
-	comma = "";
-	for (auto &p : type_table)
-		if (p.first & messageType) {
-			std::cerr << p.second;
-			comma = ", ";
-		}
-	std::cerr << "}" << std::endl;
+	if (messageSeverity != VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) {
+		auto comma = "";
+		std::cerr << "[";
+		for (auto &p : sever_table)
+			if (p.first & messageSeverity) {
+				std::cerr << p.second;
+				comma = ", ";
+			}
+		std::cerr << "] -> {";
+		comma = "";
+		for (auto &p : type_table)
+			if (p.first & messageType) {
+				std::cerr << p.second;
+				comma = ", ";
+			}
+		std::cerr << "}" << std::endl;
 
-	std::cerr << pCallbackData->pMessage << std::endl;
+		std::cerr << pCallbackData->pMessage << std::endl;
+	}
 
 	return VK_FALSE;
 }
@@ -266,6 +281,64 @@ void Vk::Instance::Handle<VkDebugUtilsMessengerEXT>::destroy(Instance &instance,
 Vk::PhysicalDevices Vk::Instance::enumerateDevices(void)
 {
 	return *this;
+}
+
+Vk::Device::Device(PhysicalDevice &physicalDevice) :
+	Handle<VkDevice>(create(physicalDevice))
+{
+}
+
+VkDevice Vk::Device::create(PhysicalDevice &physicalDevice)
+{
+	QueuesCreateInfo queues;
+
+	queues.add(*physicalDevice.getQueues().indexOf(VK_QUEUE_GRAPHICS_BIT), {1.0f});
+
+	auto vk_queues = queues.getInfos();
+
+	VkDeviceCreateInfo createInfo {};
+	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	createInfo.queueCreateInfoCount = vk_queues.size();
+	createInfo.pQueueCreateInfos = vk_queues.data();
+	createInfo.pEnabledFeatures = &physicalDevice.features();
+
+	return Vk::create<VkDevice>(vkCreateDevice, physicalDevice, &createInfo, nullptr);
+}
+
+Vk::Device::QueueCreateInfo::QueueCreateInfo(uint32_t ndx, const std::vector<float> &priorities) :
+	m_priorities(priorities),
+	m_info({})
+{
+	m_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+	m_info.queueFamilyIndex = ndx;
+	m_info.queueCount = m_priorities.size();
+	m_info.pQueuePriorities = m_priorities.data();
+}
+
+const VkDeviceQueueCreateInfo& Vk::Device::QueueCreateInfo::getInfo(void) const
+{
+	return m_info;
+}
+
+Vk::Device::QueuesCreateInfo::QueuesCreateInfo(void)
+{
+}
+
+void Vk::Device::QueuesCreateInfo::add(uint32_t ndx, const std::vector<float> &priorities)
+{
+	m_infos.emplace_back(ndx, priorities);
+	m_vk_infos.emplace_back(m_infos.rbegin()->getInfo());
+}
+
+const std::vector<VkDeviceQueueCreateInfo>& Vk::Device::QueuesCreateInfo::getInfos(void) const
+{
+	return m_vk_infos;
+}
+
+template <>
+void Vk::Handle<VkDevice>::destroy(VkDevice device)
+{
+	vkDestroyDevice(device, nullptr);
 }
 
 }

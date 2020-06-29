@@ -109,6 +109,8 @@ private:
 	public:
 		PhysicalDevice(VkPhysicalDevice device);
 
+		operator VkPhysicalDevice(void) const;
+
 		const VkPhysicalDeviceProperties& properties(void) const;
 		const VkPhysicalDeviceFeatures& features(void) const;
 
@@ -127,6 +129,8 @@ private:
 
 			std::vector<VkQueueFamilyProperties> getProps(VkPhysicalDevice device);
 		};
+
+		const QueueFamilies& getQueues(void) const;
 
 	private:
 		VkPhysicalDevice m_device;
@@ -221,6 +225,44 @@ private:
 	};
 
 	Instance m_instance;
+	PhysicalDevice m_physical_device;
+
+	class Device : public Handle<VkDevice>
+	{
+	public:
+		Device(PhysicalDevice &physicalDevice);
+
+	private:
+		VkDevice create(PhysicalDevice &physicalDevice);
+
+		class QueueCreateInfo
+		{
+		public:
+			QueueCreateInfo(uint32_t ndx, const std::vector<float> &priorities);
+
+			const VkDeviceQueueCreateInfo& getInfo(void) const;
+
+		private:
+			std::vector<float> m_priorities;
+			VkDeviceQueueCreateInfo m_info;
+		};
+
+		class QueuesCreateInfo
+		{
+		public:
+			QueuesCreateInfo(void);
+
+			void add(uint32_t ndx, const std::vector<float> &priorities);
+			const std::vector<VkDeviceQueueCreateInfo>& getInfos(void) const;
+
+		private:
+			std::vector<QueueCreateInfo> m_infos;
+			std::vector<VkDeviceQueueCreateInfo> m_vk_infos;
+		};
+
+	};
+
+	Device m_device;
 };
 
 }
