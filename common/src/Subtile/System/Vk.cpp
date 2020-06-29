@@ -10,7 +10,8 @@ Vk::Vk(bool isDebug) :
 		m_glfw.getRequiredVkInstanceExts() + (isDebug ? util::svec{VK_EXT_DEBUG_UTILS_EXTENSION_NAME} : util::svec{})
 	),
 	m_physical_device(m_instance.enumerateDevices().getBest()),
-	m_device(m_physical_device)
+	m_device(m_physical_device, {{*m_physical_device.getQueues().indexOf(VK_QUEUE_GRAPHICS_BIT), {1.0f}}}),
+	m_graphics_queue(m_device.getQueue(*m_physical_device.getQueues().indexOf(VK_QUEUE_GRAPHICS_BIT), 0))
 {
 }
 
@@ -73,7 +74,7 @@ void Vk::assert(VkResult res)
 {
 	if (res == VK_SUCCESS)
 		return;
-		throw std::runtime_error(std::string("Vk::assert failed: ") + resultToString(res));
+	throw std::runtime_error(std::string("Vk::assert failed: ") + resultToString(res));
 }
 
 Vk::PhysicalDevice::PhysicalDevice(VkPhysicalDevice device) :
@@ -128,9 +129,9 @@ std::vector<VkQueueFamilyProperties> Vk::PhysicalDevice::QueueFamilies::getProps
 	return getCollection<VkQueueFamilyProperties>(vkGetPhysicalDeviceQueueFamilyProperties, device);
 }
 
-std::optional<size_t> Vk::PhysicalDevice::QueueFamilies::indexOf(VkQueueFlagBits queueFlags) const
+std::optional<uint32_t> Vk::PhysicalDevice::QueueFamilies::indexOf(VkQueueFlagBits queueFlags) const
 {
-	size_t res = 0;
+	uint32_t res = 0;
 
 	for (auto &q : m_queues) {
 		if (q.queueFlags & queueFlags)
@@ -283,17 +284,13 @@ Vk::PhysicalDevices Vk::Instance::enumerateDevices(void)
 	return *this;
 }
 
-Vk::Device::Device(PhysicalDevice &physicalDevice) :
-	Handle<VkDevice>(create(physicalDevice))
+Vk::Device::Device(PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues) :
+	Handle<VkDevice>(create(physicalDevice, queues))
 {
 }
 
-VkDevice Vk::Device::create(PhysicalDevice &physicalDevice)
+VkDevice Vk::Device::create(PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues)
 {
-	QueuesCreateInfo queues;
-
-	queues.add(*physicalDevice.getQueues().indexOf(VK_QUEUE_GRAPHICS_BIT), {1.0f});
-
 	auto vk_queues = queues.getInfos();
 
 	VkDeviceCreateInfo createInfo {};
@@ -305,14 +302,19 @@ VkDevice Vk::Device::create(PhysicalDevice &physicalDevice)
 	return Vk::create<VkDevice>(vkCreateDevice, physicalDevice, &createInfo, nullptr);
 }
 
-Vk::Device::QueueCreateInfo::QueueCreateInfo(uint32_t ndx, const std::vector<float> &priorities) :
+Vk::Device::QueueCreateInfo::QueueCreateInfo(uint32_t family_ndx, const std::vector<float> &priorities) :
 	m_priorities(priorities),
 	m_info({})
 {
 	m_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-	m_info.queueFamilyIndex = ndx;
+	m_info.queueFamilyIndex = family_ndx;
 	m_info.queueCount = m_priorities.size();
 	m_info.pQueuePriorities = m_priorities.data();
+}
+
+Vk::Device::QueueCreateInfo::QueueCreateInfo(const Vk::Device::QueueCreateInfo::Struct &str) :
+	QueueCreateInfo(str.family_ndx, str.priorities)
+{
 }
 
 const VkDeviceQueueCreateInfo& Vk::Device::QueueCreateInfo::getInfo(void) const
@@ -324,10 +326,10 @@ Vk::Device::QueuesCreateInfo::QueuesCreateInfo(void)
 {
 }
 
-void Vk::Device::QueuesCreateInfo::add(uint32_t ndx, const std::vector<float> &priorities)
+Vk::Device::QueuesCreateInfo::QueuesCreateInfo(std::initializer_list<QueueCreateInfo> queues)
 {
-	m_infos.emplace_back(ndx, priorities);
-	m_vk_infos.emplace_back(m_infos.rbegin()->getInfo());
+	for (auto &q : queues)
+		add(q);
 }
 
 const std::vector<VkDeviceQueueCreateInfo>& Vk::Device::QueuesCreateInfo::getInfos(void) const
@@ -339,6 +341,11 @@ template <>
 void Vk::Handle<VkDevice>::destroy(VkDevice device)
 {
 	vkDestroyDevice(device, nullptr);
+}
+
+VkQueue Vk::Device::getQueue(uint32_t family_ndx, uint32_t ndx)
+{
+	return get<VkQueue>(vkGetDeviceQueue, *this, family_ndx, ndx);
 }
 
 }

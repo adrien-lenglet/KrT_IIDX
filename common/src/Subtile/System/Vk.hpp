@@ -122,7 +122,7 @@ private:
 		public:
 			QueueFamilies(VkPhysicalDevice device);
 
-			std::optional<size_t> indexOf(VkQueueFlagBits queueFlags) const;
+			std::optional<uint32_t> indexOf(VkQueueFlagBits queueFlags) const;
 
 		private:
 			std::vector<VkQueueFamilyProperties> m_queues;
@@ -230,15 +230,16 @@ private:
 	class Device : public Handle<VkDevice>
 	{
 	public:
-		Device(PhysicalDevice &physicalDevice);
-
-	private:
-		VkDevice create(PhysicalDevice &physicalDevice);
-
 		class QueueCreateInfo
 		{
 		public:
-			QueueCreateInfo(uint32_t ndx, const std::vector<float> &priorities);
+			struct Struct {
+				uint32_t family_ndx;
+				std::vector<float> priorities;
+			};
+
+			QueueCreateInfo(uint32_t family_ndx, const std::vector<float> &priorities);
+			QueueCreateInfo(const Struct &str);
 
 			const VkDeviceQueueCreateInfo& getInfo(void) const;
 
@@ -251,8 +252,15 @@ private:
 		{
 		public:
 			QueuesCreateInfo(void);
+			QueuesCreateInfo(std::initializer_list<QueueCreateInfo> queues);
 
-			void add(uint32_t ndx, const std::vector<float> &priorities);
+			template <typename ...Args>
+			void add(Args &&...args)
+			{
+				m_infos.emplace_back(std::forward<Args>(args)...);
+				m_vk_infos.emplace_back(m_infos.rbegin()->getInfo());
+			}
+
 			const std::vector<VkDeviceQueueCreateInfo>& getInfos(void) const;
 
 		private:
@@ -260,9 +268,17 @@ private:
 			std::vector<VkDeviceQueueCreateInfo> m_vk_infos;
 		};
 
+		Device(PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues);
+
+		VkQueue getQueue(uint32_t family_ndx, uint32_t ndx);
+
+	private:
+		VkDevice create(PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues);
+
 	};
 
 	Device m_device;
+	VkQueue m_graphics_queue;
 };
 
 }
