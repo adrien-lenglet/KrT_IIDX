@@ -9,6 +9,7 @@ Subsection::Subsection(Camera &camera) :
 	m_camera(camera)
 {
 	//std::cout << "Camera: " << &m_camera << std::endl;
+	static_cast<void>(m_camera);
 }
 
 Subsection::~Subsection(void)

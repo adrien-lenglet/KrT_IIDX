@@ -667,6 +667,11 @@ public:
 	{
 	}
 
+	svec(std::initializer_list<std::string> init_list) :
+		std::vector<std::string>(init_list)
+	{
+	}
+
 	auto c_strs(void) const
 	{
 		std::vector<const char*> res;
@@ -674,6 +679,15 @@ public:
 		res.reserve(size());
 		for (auto &s : *this)
 			res.emplace_back(s.c_str());
+		return res;
+	}
+
+	auto operator+(svec &&other) &&
+	{
+		svec res;
+
+		std::move(begin(), end(), std::back_inserter(res));
+		std::move(other.begin(), other.end(), std::back_inserter(res));
 		return res;
 	}
 };

@@ -6,10 +6,17 @@
 
 #include <iostream>
 
+#ifdef DEBUG
+#define IS_DEBUG true
+#else
+#define IS_DEBUG false
+#endif
+
 namespace Krt {
 
 Instance::Instance(std::vector<std::string> args, bool) :
-	config(args)
+	config(args),
+	subtile(IS_DEBUG)
 {
 }
 

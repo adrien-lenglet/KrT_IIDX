@@ -4,8 +4,10 @@
 namespace Subtile {
 namespace System {
 
-Vk::Vk(void) :
-	m_instance({}, m_glfw.getRequiredVkInstanceExts())
+Vk::Vk(bool isDebug) :
+	m_instance(isDebug, isDebug ? util::svec{"VK_LAYER_KHRONOS_validation"} : util::svec{},
+		m_glfw.getRequiredVkInstanceExts() + (isDebug ? util::svec{VK_EXT_DEBUG_UTILS_EXTENSION_NAME} : util::svec{})
+	)
 {
 }
 
@@ -71,7 +73,13 @@ void Vk::assert(VkResult res)
 		throw std::runtime_error(std::string("Vk::assert failed: ") + resultToString(res));
 }
 
-Vk::Instance::Instance(const util::svec &layers, const util::svec &extensions)
+Vk::Instance::Instance(bool isDebug, const util::svec &layers, const util::svec &extensions) :
+	Vk::Handle<VkInstance>(createInstance(layers, extensions)),
+	m_messenger(createMessenger(isDebug))
+{
+}
+
+VkInstance Vk::Instance::createInstance(const util::svec &layers, const util::svec &extensions)
 {
 	VkApplicationInfo appinfo {};
 
@@ -92,11 +100,93 @@ Vk::Instance::Instance(const util::svec &layers, const util::svec &extensions)
 	createInfo.enabledExtensionCount = cexts.size();
 	createInfo.ppEnabledExtensionNames = cexts.data();
 
-	assert(vkCreateInstance(&createInfo, nullptr, &m_instance));
+	/*
+	std::cout << "LAYERS:" << std::endl;
+	for (auto &l : layers)
+		std::cout << l << std::endl;
+	std::cout << "EXTENSIONS:" << std::endl;
+	for (auto &e : extensions)
+		std::cout << e << std::endl;
+	*/
+
+	return create<VkInstance>(vkCreateInstance, &createInfo, nullptr);
 }
 
-Vk::Instance::~Instance(void)
+std::optional<Vk::Instance::Messenger> Vk::Instance::createMessenger(bool isDebug)
 {
+	if (isDebug)
+		return *this;
+	else
+		return std::nullopt;
+}
+
+template <>
+void Vk::Handle<VkInstance>::destroy(VkInstance handle)
+{
+	vkDestroyInstance(handle, nullptr);
+}
+
+Vk::Instance::Messenger::Messenger(Instance &instance) :
+	Handle<VkDebugUtilsMessengerEXT>(instance, create(instance))
+{
+}
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL validation_cb(
+	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+	VkDebugUtilsMessageTypeFlagsEXT messageType,
+	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+	void*)
+{
+	static const std::map<VkDebugUtilsMessageSeverityFlagBitsEXT, std::string> sever_table = {
+		{VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT, "VERBOSE"},
+		{VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT, "INFO"},
+		{VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT, "WARNING"},
+		{VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "ERROR"}
+	};
+
+	static const std::map<VkDebugUtilsMessageTypeFlagBitsEXT, std::string> type_table = {
+		{VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT, "General"},
+		{VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT, "Validation"},
+		{VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT, "Performance"}
+	};
+
+	auto comma = "";
+	std::cerr << "[";
+	for (auto &p : sever_table)
+		if (p.first & messageSeverity) {
+			std::cerr << p.second;
+			comma = ", ";
+		}
+	std::cerr << "] -> {";
+	comma = "";
+	for (auto &p : type_table)
+		if (p.first & messageType) {
+			std::cerr << p.second;
+			comma = ", ";
+		}
+	std::cerr << "}" << std::endl;
+
+	std::cerr << pCallbackData->pMessage << std::endl;
+
+	return VK_FALSE;
+}
+
+VkDebugUtilsMessengerEXT Vk::Instance::Messenger::create(Instance &instance)
+{
+	VkDebugUtilsMessengerCreateInfoEXT createInfo {};
+
+	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+	createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+	createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+	createInfo.pfnUserCallback = validation_cb;
+
+	return Vk::create<VkDebugUtilsMessengerEXT>(instance.getProcAddr<PFN_vkCreateDebugUtilsMessengerEXT>("vkCreateDebugUtilsMessengerEXT"), instance, &createInfo, nullptr);
+}
+
+template <>
+void Vk::Instance::Handle<VkDebugUtilsMessengerEXT>::destroy(Instance &instance, VkDebugUtilsMessengerEXT handle)
+{
+	instance.getProcAddr<PFN_vkDestroyDebugUtilsMessengerEXT>("vkDestroyDebugUtilsMessengerEXT")(instance, handle, nullptr);
 }
 
 }
