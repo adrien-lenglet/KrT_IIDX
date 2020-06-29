@@ -73,6 +73,89 @@ void Vk::assert(VkResult res)
 		throw std::runtime_error(std::string("Vk::assert failed: ") + resultToString(res));
 }
 
+Vk::PhysicalDevice::PhysicalDevice(VkPhysicalDevice device) :
+	m_device(device),
+	m_props(get<VkPhysicalDeviceProperties>(vkGetPhysicalDeviceProperties, m_device)),
+	m_features(get<VkPhysicalDeviceFeatures>(vkGetPhysicalDeviceFeatures, m_device)),
+	m_queue_families(m_device)
+{
+}
+
+const VkPhysicalDeviceProperties& Vk::PhysicalDevice::properties(void) const
+{
+	return m_props;
+}
+
+const VkPhysicalDeviceFeatures& Vk::PhysicalDevice::features(void) const
+{
+	return m_features;
+}
+
+bool Vk::PhysicalDevice::isCompetent(void) const
+{
+	return m_queue_families.indexOf(VK_QUEUE_GRAPHICS_BIT).has_value();
+}
+
+size_t Vk::PhysicalDevice::getScore(void) const
+{
+	size_t res = 0;
+
+	if (m_props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+		res += 1;
+	return res;
+}
+
+Vk::PhysicalDevice::QueueFamilies::QueueFamilies(VkPhysicalDevice device) :
+	m_queues(getProps(device))
+{
+}
+
+std::vector<VkQueueFamilyProperties> Vk::PhysicalDevice::QueueFamilies::getProps(VkPhysicalDevice device)
+{
+	return getCollection<VkQueueFamilyProperties>(vkGetPhysicalDeviceQueueFamilyProperties, device);
+}
+
+std::optional<size_t> Vk::PhysicalDevice::QueueFamilies::indexOf(VkQueueFlagBits queueFlags) const
+{
+	size_t res = 0;
+
+	for (auto &q : m_queues) {
+		if (q.queueFlags & queueFlags)
+			return res;
+		res++;
+	}
+	return std::nullopt;
+}
+
+Vk::PhysicalDevices::PhysicalDevices(Instance &instance) :
+	m_devices(enumerate(instance))
+{
+}
+
+const Vk::PhysicalDevice& Vk::PhysicalDevices::getBest(void) const
+{
+	std::map<size_t, std::reference_wrapper<const PhysicalDevice>> cands;
+
+	for (auto &p : m_devices)
+		if (p.isCompetent())
+			cands.emplace(p.getScore(), p);
+	if (cands.size() == 0)
+		throw std::runtime_error("No physical device found");
+	return cands.rbegin()->second.get();
+}
+
+std::vector<Vk::PhysicalDevice> Vk::PhysicalDevices::enumerate(Instance &instance)
+{
+	auto devices = enumerateAbstract<VkPhysicalDevice>(vkEnumeratePhysicalDevices, instance);
+
+	std::vector<Vk::PhysicalDevice> res;
+	res.reserve(devices.size());
+
+	for (auto &d : devices)
+		res.emplace_back(d);
+	return res;
+}
+
 Vk::Instance::Instance(bool isDebug, const util::svec &layers, const util::svec &extensions) :
 	Vk::Handle<VkInstance>(createInstance(layers, extensions)),
 	m_messenger(createMessenger(isDebug))
@@ -99,15 +182,6 @@ VkInstance Vk::Instance::createInstance(const util::svec &layers, const util::sv
 	auto cexts = extensions.c_strs();
 	createInfo.enabledExtensionCount = cexts.size();
 	createInfo.ppEnabledExtensionNames = cexts.data();
-
-	/*
-	std::cout << "LAYERS:" << std::endl;
-	for (auto &l : layers)
-		std::cout << l << std::endl;
-	std::cout << "EXTENSIONS:" << std::endl;
-	for (auto &e : extensions)
-		std::cout << e << std::endl;
-	*/
 
 	return create<VkInstance>(vkCreateInstance, &createInfo, nullptr);
 }
@@ -187,6 +261,11 @@ template <>
 void Vk::Instance::Handle<VkDebugUtilsMessengerEXT>::destroy(Instance &instance, VkDebugUtilsMessengerEXT handle)
 {
 	instance.getProcAddr<PFN_vkDestroyDebugUtilsMessengerEXT>("vkDestroyDebugUtilsMessengerEXT")(instance, handle, nullptr);
+}
+
+Vk::PhysicalDevices Vk::Instance::enumerateDevices(void)
+{
+	return *this;
 }
 
 }

@@ -53,6 +53,25 @@ private:
 		return res;
 	}
 
+	template <typename T, typename C, typename ...Args>
+	static T get(C &&callable, Args &&...args)
+	{
+		T res;
+		callable(std::forward<Args>(args)..., &res);
+		return res;
+	}
+
+	template <typename T, typename C, typename ...Args>
+	static std::vector<T> getCollection(C &&callable, Args &&...args)
+	{
+		uint32_t size;
+
+		callable(std::forward<Args>(args)..., &size, nullptr);
+		std::vector<T> res(size);
+		callable(std::forward<Args>(args)..., &size, res.data());
+		return res;
+	}
+
 	template <typename VkHandle>
 	class Handle
 	{
@@ -83,6 +102,52 @@ private:
 
 	protected:
 		VkHandle m_handle;
+	};
+
+	class PhysicalDevice
+	{
+	public:
+		PhysicalDevice(VkPhysicalDevice device);
+
+		const VkPhysicalDeviceProperties& properties(void) const;
+		const VkPhysicalDeviceFeatures& features(void) const;
+
+		bool isCompetent(void) const;
+		size_t getScore(void) const;
+
+		class QueueFamilies
+		{
+		public:
+			QueueFamilies(VkPhysicalDevice device);
+
+			std::optional<size_t> indexOf(VkQueueFlagBits queueFlags) const;
+
+		private:
+			std::vector<VkQueueFamilyProperties> m_queues;
+
+			std::vector<VkQueueFamilyProperties> getProps(VkPhysicalDevice device);
+		};
+
+	private:
+		VkPhysicalDevice m_device;
+		const VkPhysicalDeviceProperties m_props;
+		const VkPhysicalDeviceFeatures m_features;
+		const QueueFamilies m_queue_families;
+	};
+
+	class Instance;
+
+	class PhysicalDevices
+	{
+	public:
+		PhysicalDevices(Instance &instance);
+
+		const PhysicalDevice& getBest(void) const;
+
+	private:
+		std::vector<PhysicalDevice> m_devices;
+
+		std::vector<Vk::PhysicalDevice> enumerate(Instance &instance);
 	};
 
 	class Instance : public Handle<VkInstance>
@@ -130,10 +195,14 @@ private:
 				return m_handle;
 			}
 
-		protected:
+		private:
 			Instance &m_instance;
+
+		protected:
 			VkHandle m_handle;
 		};
+
+		PhysicalDevices enumerateDevices(void);
 
 	private:
 		class Messenger : public Handle<VkDebugUtilsMessengerEXT>
