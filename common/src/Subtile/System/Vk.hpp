@@ -110,61 +110,12 @@ private:
 		VkHandle m_handle;
 	};
 
-	class PhysicalDevice
-	{
-	public:
-		PhysicalDevice(VkPhysicalDevice device);
-
-		operator VkPhysicalDevice(void) const;
-
-		const VkPhysicalDeviceProperties& properties(void) const;
-		const VkPhysicalDeviceFeatures& features(void) const;
-
-		bool isCompetent(void) const;
-		size_t getScore(void) const;
-
-		class QueueFamilies
-		{
-		public:
-			QueueFamilies(VkPhysicalDevice device);
-
-			const std::vector<VkQueueFamilyProperties>& properties(void) const;
-			std::optional<uint32_t> indexOf(VkQueueFlagBits queueFlags) const;
-
-		private:
-			std::vector<VkQueueFamilyProperties> m_queues;
-
-			std::vector<VkQueueFamilyProperties> getProps(VkPhysicalDevice device);
-		};
-
-		const QueueFamilies& getQueues(void) const;
-
-	private:
-		VkPhysicalDevice m_device;
-		const VkPhysicalDeviceProperties m_props;
-		const VkPhysicalDeviceFeatures m_features;
-		const QueueFamilies m_queue_families;
-	};
-
-	class Instance;
-
-	class PhysicalDevices
-	{
-	public:
-		PhysicalDevices(Instance &instance);
-
-		const PhysicalDevice& getBest(void) const;
-
-	private:
-		std::vector<PhysicalDevice> m_devices;
-
-		std::vector<Vk::PhysicalDevice> enumerate(Instance &instance);
-	};
+	class PhysicalDevices;
 
 	class Instance : public Handle<VkInstance>
 	{
 	public:
-		Instance(bool isDebug, const util::svec &layers, const util::svec &extensions);
+		Instance(bool isDebug, Glfw::Window &window, const util::svec &layers, const util::svec &extensions);
 
 		template <typename FunType>
 		FunType getProcAddr(const char *name)
@@ -213,6 +164,13 @@ private:
 			VkHandle m_handle;
 		};
 
+		class Surface : public Handle<VkSurfaceKHR>
+		{
+		public:
+			Surface(Glfw::Window &window, Instance &instance);
+		};
+
+		Surface& getSurface(void);
 		PhysicalDevices enumerateDevices(void);
 
 	private:
@@ -226,12 +184,69 @@ private:
 		};
 
 		std::optional<Messenger> m_messenger;
+		Surface m_surface;
 
 		VkInstance createInstance(const util::svec &layers, const util::svec &extensions);
 		std::optional<Messenger> createMessenger(bool isDebug);
 	};
 
+	using Surface = typename Instance::Surface;
+
+	class PhysicalDevice
+	{
+	public:
+		PhysicalDevice(VkPhysicalDevice device, Surface &surface);
+
+		operator VkPhysicalDevice(void) const;
+
+		const VkPhysicalDeviceProperties& properties(void) const;
+		const VkPhysicalDeviceFeatures& features(void) const;
+
+		bool getSurfaceSupport(uint32_t queueFamilyIndex) const;
+		bool isCompetent(void) const;
+		size_t getScore(void) const;
+
+		class QueueFamilies
+		{
+		public:
+			QueueFamilies(PhysicalDevice &device);
+
+			const std::vector<VkQueueFamilyProperties>& properties(void) const;
+			std::optional<uint32_t> indexOf(VkQueueFlagBits queueFlags) const;
+			std::optional<uint32_t> presentation(void) const;
+
+		private:
+			std::vector<VkQueueFamilyProperties> m_queues;
+			std::optional<uint32_t> m_presentation_queue;
+
+			std::optional<uint32_t> getPresentationQueue(PhysicalDevice &device);
+		};
+
+		const QueueFamilies& getQueues(void) const;
+
+	private:
+		VkPhysicalDevice m_device;
+		Surface &m_surface;
+		const VkPhysicalDeviceProperties m_props;
+		const VkPhysicalDeviceFeatures m_features;
+		const QueueFamilies m_queue_families;
+	};
+
+	class PhysicalDevices
+	{
+	public:
+		PhysicalDevices(Instance &instance);
+
+		const PhysicalDevice& getBest(void) const;
+
+	private:
+		std::vector<PhysicalDevice> m_devices;
+
+		std::vector<Vk::PhysicalDevice> enumerate(Instance &instance);
+	};
+
 	Instance m_instance;
+	Surface &m_surface;
 	PhysicalDevice m_physical_device;
 
 	class Device : public Handle<VkDevice>
@@ -284,16 +299,11 @@ private:
 
 	};
 
+	Device::QueuesCreateInfo getDesiredQueues(void);
+
 	Device m_device;
 	VkQueue m_graphics_queue;
-
-	class Surface : public Instance::Handle<VkSurfaceKHR>
-	{
-	public:
-		Surface(Glfw::Window &window, Instance &instance);
-	};
-
-	Surface m_surface;
+	VkQueue m_present_queue;
 };
 
 }

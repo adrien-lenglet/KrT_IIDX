@@ -1,4 +1,5 @@
 #include <iostream>
+#include <set>
 #include "Vk.hpp"
 
 namespace Subtile {
@@ -6,14 +7,15 @@ namespace System {
 
 Vk::Vk(bool isDebug, Glfw &&glfw) :
 	m_glfw(std::move(glfw)),
-	m_instance(isDebug,
+	m_instance(isDebug, m_glfw.getWindow(),
 		isDebug ? util::svec{"VK_LAYER_KHRONOS_validation"} : util::svec{},
 		m_glfw.getRequiredVkInstanceExts() + (isDebug ? util::svec{VK_EXT_DEBUG_UTILS_EXTENSION_NAME} : util::svec{})
 	),
+	m_surface(m_instance.getSurface()),
 	m_physical_device(m_instance.enumerateDevices().getBest()),
-	m_device(m_physical_device, {{*m_physical_device.getQueues().indexOf(VK_QUEUE_GRAPHICS_BIT), {1.0f}}}),
+	m_device(m_physical_device, getDesiredQueues()),
 	m_graphics_queue(m_device.getQueue(*m_physical_device.getQueues().indexOf(VK_QUEUE_GRAPHICS_BIT), 0)),
-	m_surface(m_glfw.getWindow(), m_instance)
+	m_present_queue(m_device.getQueue(*m_physical_device.getQueues().presentation(), 0))
 {
 }
 
@@ -79,11 +81,12 @@ void Vk::assert(VkResult res)
 	throw std::runtime_error(std::string("Vk::assert failed: ") + resultToString(res));
 }
 
-Vk::PhysicalDevice::PhysicalDevice(VkPhysicalDevice device) :
+Vk::PhysicalDevice::PhysicalDevice(VkPhysicalDevice device, Vk::Surface &surface) :
 	m_device(device),
+	m_surface(surface),
 	m_props(get<VkPhysicalDeviceProperties>(vkGetPhysicalDeviceProperties, m_device)),
 	m_features(get<VkPhysicalDeviceFeatures>(vkGetPhysicalDeviceFeatures, m_device)),
-	m_queue_families(m_device)
+	m_queue_families(*this)
 {
 }
 
@@ -102,9 +105,14 @@ const VkPhysicalDeviceFeatures& Vk::PhysicalDevice::features(void) const
 	return m_features;
 }
 
+bool Vk::PhysicalDevice::getSurfaceSupport(uint32_t queueFamilyIndex) const
+{
+	return create<VkBool32>(vkGetPhysicalDeviceSurfaceSupportKHR, m_device, queueFamilyIndex, m_surface);
+}
+
 bool Vk::PhysicalDevice::isCompetent(void) const
 {
-	return m_queue_families.indexOf(VK_QUEUE_GRAPHICS_BIT).has_value();
+	return m_queue_families.indexOf(VK_QUEUE_GRAPHICS_BIT) && m_queue_families.presentation();
 }
 
 size_t Vk::PhysicalDevice::getScore(void) const
@@ -121,14 +129,10 @@ const Vk::PhysicalDevice::QueueFamilies& Vk::PhysicalDevice::getQueues(void) con
 	return m_queue_families;
 }
 
-Vk::PhysicalDevice::QueueFamilies::QueueFamilies(VkPhysicalDevice device) :
-	m_queues(getProps(device))
+Vk::PhysicalDevice::QueueFamilies::QueueFamilies(Vk::PhysicalDevice &device) :
+	m_queues(getCollection<VkQueueFamilyProperties>(vkGetPhysicalDeviceQueueFamilyProperties, device)),
+	m_presentation_queue(getPresentationQueue(device))
 {
-}
-
-std::vector<VkQueueFamilyProperties> Vk::PhysicalDevice::QueueFamilies::getProps(VkPhysicalDevice device)
-{
-	return getCollection<VkQueueFamilyProperties>(vkGetPhysicalDeviceQueueFamilyProperties, device);
 }
 
 const std::vector<VkQueueFamilyProperties>& Vk::PhysicalDevice::QueueFamilies::properties(void) const
@@ -148,7 +152,25 @@ std::optional<uint32_t> Vk::PhysicalDevice::QueueFamilies::indexOf(VkQueueFlagBi
 	return std::nullopt;
 }
 
-Vk::PhysicalDevices::PhysicalDevices(Instance &instance) :
+std::optional<uint32_t> Vk::PhysicalDevice::QueueFamilies::presentation(void) const
+{
+	return m_presentation_queue;
+}
+
+std::optional<uint32_t> Vk::PhysicalDevice::QueueFamilies::getPresentationQueue(PhysicalDevice &device)
+{
+	uint32_t res = 0;
+
+	for (auto &q : m_queues) {
+		static_cast<void>(q);
+		if (device.getSurfaceSupport(res))
+			return res;
+		res++;
+	}
+	return std::nullopt;
+}
+
+Vk::PhysicalDevices::PhysicalDevices(Vk::Instance &instance) :
 	m_devices(enumerate(instance))
 {
 }
@@ -165,6 +187,11 @@ const Vk::PhysicalDevice& Vk::PhysicalDevices::getBest(void) const
 	return cands.rbegin()->second.get();
 }
 
+Vk::Surface& Vk::Instance::getSurface(void)
+{
+	return m_surface;
+}
+
 std::vector<Vk::PhysicalDevice> Vk::PhysicalDevices::enumerate(Instance &instance)
 {
 	auto devices = enumerateAbstract<VkPhysicalDevice>(vkEnumeratePhysicalDevices, instance);
@@ -173,13 +200,14 @@ std::vector<Vk::PhysicalDevice> Vk::PhysicalDevices::enumerate(Instance &instanc
 	res.reserve(devices.size());
 
 	for (auto &d : devices)
-		res.emplace_back(d);
+		res.emplace_back(d, instance.getSurface());
 	return res;
 }
 
-Vk::Instance::Instance(bool isDebug, const util::svec &layers, const util::svec &extensions) :
+Vk::Instance::Instance(bool isDebug, Glfw::Window &window, const util::svec &layers, const util::svec &extensions) :
 	Vk::Handle<VkInstance>(createInstance(layers, extensions)),
-	m_messenger(createMessenger(isDebug))
+	m_messenger(createMessenger(isDebug)),
+	m_surface(window, *this)
 {
 }
 
@@ -365,6 +393,17 @@ template <>
 void Vk::Instance::Handle<VkSurfaceKHR>::destroy(Vk::Instance &instance, VkSurfaceKHR surface)
 {
 	vkDestroySurfaceKHR(instance, surface, nullptr);
+}
+
+Vk::Device::QueuesCreateInfo Vk::getDesiredQueues(void)
+{
+	auto &queues = m_physical_device.getQueues();
+	std::set<uint32_t> unique_queues {*queues.indexOf(VK_QUEUE_GRAPHICS_BIT), *queues.presentation()};
+	Device::QueuesCreateInfo res;
+
+	for (auto &q : unique_queues)
+		res.add(q, std::vector<float>{1.0f});
+	return res;
 }
 
 }
