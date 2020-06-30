@@ -17,17 +17,6 @@ std::string Glfw::getError(void)
 		return desc;
 }
 
-Glfw::Window Glfw::createWindow(uint32_t ctx) const
-{
-	if (glfwInit() == GLFW_FALSE)
-		throw Error("Can't initialize GLFW");
-
-	glfwWindowHint(GLFW_CLIENT_API, ctx);
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-
-	return Window(1600, 900, "SUBTILE® Application");
-}
-
 std::vector<std::unique_ptr<System::IInput>> Glfw::createInputs(void)
 {
 	std::vector<std::unique_ptr<System::IInput>> res;
@@ -50,13 +39,6 @@ std::map<std::string, System::IInput&> Glfw::createInputsMap(void)
 	for (const auto &in : m_inputs)
 		res.emplace(in->getName(), *in);
 	return res;
-}
-
-Glfw::Glfw(uint32_t ctx) :
-	m_window(createWindow(ctx)),
-	m_inputs(createInputs()),
-	m_inputs_map(createInputsMap())
-{
 }
 
 Glfw::~Glfw(void)

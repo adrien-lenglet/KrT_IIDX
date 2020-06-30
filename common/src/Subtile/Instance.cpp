@@ -5,8 +5,8 @@
 
 namespace Subtile {
 
-Instance::Instance(bool isDebug) :
-	m_system(new System::Vk(isDebug)),
+Instance::Instance(bool isDebug, const std::string &name) :
+	m_system(new System::Vk(isDebug, name)),
 	m_events(*m_system)
 {
 }

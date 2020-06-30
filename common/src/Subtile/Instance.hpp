@@ -12,7 +12,7 @@ namespace Subtile {
 class Instance
 {
 public:
-	Instance(bool isDebug = false);
+	Instance(bool isDebug = false, const std::string &name = "SUBTILE® Application");
 	~Instance(void);
 
 	void setInputs(const std::function<void (const Event::System::Observer::Input::Setter &setter)> &binder);

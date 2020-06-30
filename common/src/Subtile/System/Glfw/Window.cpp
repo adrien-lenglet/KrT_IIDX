@@ -3,7 +3,7 @@
 namespace Subtile {
 namespace System {
 
-Glfw::Window::Window(size_t w, size_t h, const std::string &title) :
+Glfw::Window::Window(const std::string &title, size_t w, size_t h) :
 	m_window(glfwCreateWindow(w, h, title.c_str(), nullptr, nullptr))
 {
 	if (m_window == nullptr)

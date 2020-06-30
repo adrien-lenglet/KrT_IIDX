@@ -11,7 +11,18 @@ namespace System {
 class Vk : public ISystem
 {
 public:
-	Vk(bool isDebug = false);
+	template <typename ...Args>
+	Vk(bool isDebug, Args &&...args) :
+		m_glfw(GLFW_NO_API, std::forward<Args>(args)...),
+		m_instance(isDebug,
+			isDebug ? util::svec{"VK_LAYER_KHRONOS_validation"} : util::svec{},
+			m_glfw.getRequiredVkInstanceExts() + (isDebug ? util::svec{VK_EXT_DEBUG_UTILS_EXTENSION_NAME} : util::svec{})
+		),
+		m_physical_device(m_instance.enumerateDevices().getBest()),
+		m_device(m_physical_device, {{*m_physical_device.getQueues().indexOf(VK_QUEUE_GRAPHICS_BIT), {1.0f}}}),
+		m_graphics_queue(m_device.getQueue(*m_physical_device.getQueues().indexOf(VK_QUEUE_GRAPHICS_BIT), 0))
+	{
+	}
 	~Vk(void);
 
 	void scanInputs(void) override;
@@ -122,6 +133,7 @@ private:
 		public:
 			QueueFamilies(VkPhysicalDevice device);
 
+			const std::vector<VkQueueFamilyProperties>& properties(void) const;
 			std::optional<uint32_t> indexOf(VkQueueFlagBits queueFlags) const;
 
 		private:

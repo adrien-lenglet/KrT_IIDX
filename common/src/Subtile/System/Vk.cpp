@@ -4,17 +4,6 @@
 namespace Subtile {
 namespace System {
 
-Vk::Vk(bool isDebug) :
-	m_instance(isDebug,
-		isDebug ? util::svec{"VK_LAYER_KHRONOS_validation"} : util::svec{},
-		m_glfw.getRequiredVkInstanceExts() + (isDebug ? util::svec{VK_EXT_DEBUG_UTILS_EXTENSION_NAME} : util::svec{})
-	),
-	m_physical_device(m_instance.enumerateDevices().getBest()),
-	m_device(m_physical_device, {{*m_physical_device.getQueues().indexOf(VK_QUEUE_GRAPHICS_BIT), {1.0f}}}),
-	m_graphics_queue(m_device.getQueue(*m_physical_device.getQueues().indexOf(VK_QUEUE_GRAPHICS_BIT), 0))
-{
-}
-
 Vk::~Vk(void)
 {
 }
@@ -127,6 +116,11 @@ Vk::PhysicalDevice::QueueFamilies::QueueFamilies(VkPhysicalDevice device) :
 std::vector<VkQueueFamilyProperties> Vk::PhysicalDevice::QueueFamilies::getProps(VkPhysicalDevice device)
 {
 	return getCollection<VkQueueFamilyProperties>(vkGetPhysicalDeviceQueueFamilyProperties, device);
+}
+
+const std::vector<VkQueueFamilyProperties>& Vk::PhysicalDevice::QueueFamilies::properties(void) const
+{
+	return m_queues;
 }
 
 std::optional<uint32_t> Vk::PhysicalDevice::QueueFamilies::indexOf(VkQueueFlagBits queueFlags) const

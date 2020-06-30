@@ -16,7 +16,7 @@ namespace Krt {
 
 Instance::Instance(std::vector<std::string> args, bool) :
 	config(args),
-	subtile(IS_DEBUG)
+	subtile(IS_DEBUG, "SUNREN®")
 {
 }
 

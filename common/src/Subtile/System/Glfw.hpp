@@ -10,7 +10,14 @@ namespace System {
 class Glfw
 {
 public:
-	Glfw(uint32_t ctx = GLFW_NO_API);
+	template <typename ...Args>
+	Glfw(uint32_t ctx, Args &&...args) :
+		m_window(createWindow(ctx, std::forward<Args>(args)...)),
+		m_inputs(createInputs()),
+		m_inputs_map(createInputsMap())
+	{
+	}
+
 	~Glfw(void);
 
 	void scanInputs(void);
@@ -29,7 +36,7 @@ private:
 	class Window
 	{
 	public:
-		Window(size_t w, size_t h, const std::string &title);
+		Window(const std::string &title = "SUBTILE® Application", size_t w = 1600, size_t h = 900);
 		~Window(void);
 
 		bool shouldClose(void) const;
@@ -47,7 +54,18 @@ private:
 	std::vector<std::unique_ptr<System::IInput>> m_inputs;
 	std::map<std::string, System::IInput&> m_inputs_map;
 
-	Window createWindow(uint32_t) const;
+	template <typename ...Args>
+	Window createWindow(uint32_t ctx, Args &&...args) const
+	{
+		if (glfwInit() == GLFW_FALSE)
+			throw Error("Can't initialize GLFW");
+
+		glfwWindowHint(GLFW_CLIENT_API, ctx);
+		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+
+		return Window(std::forward<Args>(args)...);
+	}
+
 	std::vector<std::unique_ptr<System::IInput>> createInputs(void);
 	std::map<std::string, System::IInput&> createInputsMap(void);
 };
