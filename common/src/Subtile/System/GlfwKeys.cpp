@@ -6,7 +6,7 @@
 namespace Subtile {
 namespace System {
 
-const std::map<std::string, int> Glfw::m_keys = {
+const std::map<std::string, int> Glfw::Inputs::m_keys = {
 	{"KEY_SPACE", GLFW_KEY_SPACE}, 
 	{"KEY_APOSTROPHE", GLFW_KEY_APOSTROPHE}, 
 	{"KEY_COMMA", GLFW_KEY_COMMA}, 

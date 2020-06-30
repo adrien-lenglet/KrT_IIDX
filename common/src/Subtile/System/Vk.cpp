@@ -4,6 +4,19 @@
 namespace Subtile {
 namespace System {
 
+Vk::Vk(bool isDebug, Glfw &&glfw) :
+	m_glfw(std::move(glfw)),
+	m_instance(isDebug,
+		isDebug ? util::svec{"VK_LAYER_KHRONOS_validation"} : util::svec{},
+		m_glfw.getRequiredVkInstanceExts() + (isDebug ? util::svec{VK_EXT_DEBUG_UTILS_EXTENSION_NAME} : util::svec{})
+	),
+	m_physical_device(m_instance.enumerateDevices().getBest()),
+	m_device(m_physical_device, {{*m_physical_device.getQueues().indexOf(VK_QUEUE_GRAPHICS_BIT), {1.0f}}}),
+	m_graphics_queue(m_device.getQueue(*m_physical_device.getQueues().indexOf(VK_QUEUE_GRAPHICS_BIT), 0)),
+	m_surface(m_glfw.getWindow(), m_instance)
+{
+}
+
 Vk::~Vk(void)
 {
 }
@@ -232,7 +245,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL validation_cb(
 		{VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT, "Performance"}
 	};
 
-	if (messageSeverity != VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) {
+	if (messageSeverity != VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT &&
+	messageSeverity != VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) {
 		auto comma = "";
 		std::cerr << "[";
 		for (auto &p : sever_table)
@@ -340,6 +354,17 @@ void Vk::Handle<VkDevice>::destroy(VkDevice device)
 VkQueue Vk::Device::getQueue(uint32_t family_ndx, uint32_t ndx)
 {
 	return get<VkQueue>(vkGetDeviceQueue, *this, family_ndx, ndx);
+}
+
+Vk::Surface::Surface(Glfw::Window &window, Vk::Instance &instance) :
+	Instance::Handle<VkSurfaceKHR>(instance, create<VkSurfaceKHR>(glfwCreateWindowSurface, instance, window, nullptr))
+{
+}
+
+template <>
+void Vk::Instance::Handle<VkSurfaceKHR>::destroy(Vk::Instance &instance, VkSurfaceKHR surface)
+{
+	vkDestroySurfaceKHR(instance, surface, nullptr);
 }
 
 }

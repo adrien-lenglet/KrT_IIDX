@@ -9,34 +9,59 @@ namespace System {
 
 class Glfw
 {
+	class Ctx;
+
 public:
+	class Window;
+
+private:
+	Glfw(Ctx &&ctx, std::unique_ptr<Window> &&window);
+
+	struct construct_window_t {};
+
 	template <typename ...Args>
-	Glfw(uint32_t ctx, Args &&...args) :
-		m_window(createWindow(ctx, std::forward<Args>(args)...)),
-		m_inputs(createInputs()),
-		m_inputs_map(createInputsMap())
+	Glfw(construct_window_t, Ctx &&ctx, Args &&...args) :
+		Glfw(std::move(ctx), std::make_unique<Window>(std::forward<Args>(args)...))
 	{
 	}
 
-	~Glfw(void);
-
-	void scanInputs(void);
-	const std::map<std::string, System::IInput&>& getInputs(void);
-
-	util::svec getRequiredVkInstanceExts(void) const;
-
-private:
-	class Error : public std::runtime_error
+	class Inputs
 	{
 	public:
-		Error(const std::string &msg);
-		~Error(void);
+		using input_map_type = std::map<std::string, System::IInput&>;
+
+		static const std::map<std::string, int> m_keys;
+
+		Inputs(Window &window);
+
+		const input_map_type& getMap(void) const;
+
+	private:
+		std::vector<std::unique_ptr<System::IInput>> m_inputs;
+		input_map_type m_inputs_map;
+
+		std::vector<std::unique_ptr<System::IInput>> create(Window &window);
+		input_map_type createMap(void);
 	};
+
+public:
+	template <typename ...Args>
+	Glfw(uint32_t api, Args &&...args) :
+		Glfw(construct_window_t(), Ctx(api), std::forward<Args>(args)...)
+	{
+	}
+
+	void scanInputs(void);
+	const Inputs::input_map_type& getInputs(void);
+
+	util::svec getRequiredVkInstanceExts(void) const;
+	Window& getWindow(void) const;
 
 	class Window
 	{
 	public:
 		Window(const std::string &title = "SUBTILE® Application", size_t w = 1600, size_t h = 900);
+		Window(Window &&other);
 		~Window(void);
 
 		bool shouldClose(void) const;
@@ -46,28 +71,30 @@ private:
 		GLFWwindow *m_window;
 	};
 
-	Window m_window;
-
-	static const std::map<std::string, int> m_keys;
-	static std::string getError(void);
-
-	std::vector<std::unique_ptr<System::IInput>> m_inputs;
-	std::map<std::string, System::IInput&> m_inputs_map;
-
-	template <typename ...Args>
-	Window createWindow(uint32_t ctx, Args &&...args) const
+private:
+	class Error : public std::runtime_error
 	{
-		if (glfwInit() == GLFW_FALSE)
-			throw Error("Can't initialize GLFW");
+	public:
+		Error(const std::string &msg);
+		~Error(void);
+	};
 
-		glfwWindowHint(GLFW_CLIENT_API, ctx);
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+	class Ctx
+	{
+	public:
+		Ctx(uint32_t api);
+		Ctx(Ctx &&other);
+		~Ctx(void);
 
-		return Window(std::forward<Args>(args)...);
-	}
+	private:
+		bool m_moved = false;
+	};
 
-	std::vector<std::unique_ptr<System::IInput>> createInputs(void);
-	std::map<std::string, System::IInput&> createInputsMap(void);
+	Ctx m_ctx;
+	std::unique_ptr<Window> m_window;
+	Inputs m_inputs;
+
+	static std::string getError(void);
 };
 
 }

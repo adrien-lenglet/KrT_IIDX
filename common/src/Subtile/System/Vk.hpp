@@ -10,17 +10,12 @@ namespace System {
 
 class Vk : public ISystem
 {
+	Vk(bool isDebug, Glfw &&glfw);
+
 public:
 	template <typename ...Args>
 	Vk(bool isDebug, Args &&...args) :
-		m_glfw(GLFW_NO_API, std::forward<Args>(args)...),
-		m_instance(isDebug,
-			isDebug ? util::svec{"VK_LAYER_KHRONOS_validation"} : util::svec{},
-			m_glfw.getRequiredVkInstanceExts() + (isDebug ? util::svec{VK_EXT_DEBUG_UTILS_EXTENSION_NAME} : util::svec{})
-		),
-		m_physical_device(m_instance.enumerateDevices().getBest()),
-		m_device(m_physical_device, {{*m_physical_device.getQueues().indexOf(VK_QUEUE_GRAPHICS_BIT), {1.0f}}}),
-		m_graphics_queue(m_device.getQueue(*m_physical_device.getQueues().indexOf(VK_QUEUE_GRAPHICS_BIT), 0))
+		Vk(isDebug, Glfw(GLFW_NO_API, std::forward<Args>(args)...))
 	{
 	}
 	~Vk(void);
@@ -291,6 +286,14 @@ private:
 
 	Device m_device;
 	VkQueue m_graphics_queue;
+
+	class Surface : public Instance::Handle<VkSurfaceKHR>
+	{
+	public:
+		Surface(Glfw::Window &window, Instance &instance);
+	};
+
+	Surface m_surface;
 };
 
 }
