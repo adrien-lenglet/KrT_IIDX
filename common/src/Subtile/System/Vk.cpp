@@ -7,10 +7,7 @@ namespace System {
 
 Vk::Vk(bool isDebug, Glfw &&glfw) :
 	m_glfw(std::move(glfw)),
-	m_instance(isDebug, m_glfw.getWindow(),
-		isDebug ? util::svec{"VK_LAYER_KHRONOS_validation"} : util::svec{},
-		m_glfw.getRequiredVkInstanceExts() + (isDebug ? util::svec{VK_EXT_DEBUG_UTILS_EXTENSION_NAME} : util::svec{})
-	),
+	m_instance(isDebug, m_glfw),
 	m_surface(m_instance.getSurface()),
 	m_physical_device(m_instance.enumerateDevices().getBest()),
 	m_device(m_physical_device, getDesiredQueues()),
@@ -35,7 +32,7 @@ const std::map<std::string, System::IInput&>& Vk::getInputs(void)
 
 const std::string& Vk::resultToString(VkResult res)
 {
-	static const std::map<VkResult, std::string> table = {
+	static const std::map<VkResult, std::string> table {
 		{VK_SUCCESS, "VK_SUCCESS"},
 		{VK_NOT_READY, "VK_NOT_READY"},
 		{VK_TIMEOUT, "VK_TIMEOUT"},
@@ -112,7 +109,23 @@ bool Vk::PhysicalDevice::getSurfaceSupport(uint32_t queueFamilyIndex) const
 
 bool Vk::PhysicalDevice::isCompetent(void) const
 {
-	return m_queue_families.indexOf(VK_QUEUE_GRAPHICS_BIT) && m_queue_families.presentation();
+	return m_queue_families.indexOf(VK_QUEUE_GRAPHICS_BIT) && m_queue_families.presentation() && areExtensionsSupported();
+}
+
+const util::svec Vk::PhysicalDevice::required_extensions {
+	VK_KHR_SWAPCHAIN_EXTENSION_NAME
+};
+
+bool Vk::PhysicalDevice::areExtensionsSupported(void) const
+{
+	std::map<std::string, bool> avail;
+	for (auto &a : enumerateAbstract<VkExtensionProperties>(vkEnumerateDeviceExtensionProperties, *this, nullptr))
+		avail[a.extensionName] = true;
+
+	for (auto &w : required_extensions)
+		if (!avail[w])
+			return false;
+	return true;
 }
 
 size_t Vk::PhysicalDevice::getScore(void) const
@@ -145,7 +158,7 @@ std::optional<uint32_t> Vk::PhysicalDevice::QueueFamilies::indexOf(VkQueueFlagBi
 	uint32_t res = 0;
 
 	for (auto &q : m_queues) {
-		if (q.queueFlags & queueFlags)
+		if (q.queueCount > 0 && q.queueFlags & queueFlags)
 			return res;
 		res++;
 	}
@@ -162,8 +175,7 @@ std::optional<uint32_t> Vk::PhysicalDevice::QueueFamilies::getPresentationQueue(
 	uint32_t res = 0;
 
 	for (auto &q : m_queues) {
-		static_cast<void>(q);
-		if (device.getSurfaceSupport(res))
+		if (q.queueCount > 0 && device.getSurfaceSupport(res))
 			return res;
 		res++;
 	}
@@ -183,7 +195,7 @@ const Vk::PhysicalDevice& Vk::PhysicalDevices::getBest(void) const
 		if (p.isCompetent())
 			cands.emplace(p.getScore(), p);
 	if (cands.size() == 0)
-		throw std::runtime_error("No physical device found");
+		throw std::runtime_error("No compatible GPU found");
 	return cands.rbegin()->second.get();
 }
 
@@ -204,10 +216,13 @@ std::vector<Vk::PhysicalDevice> Vk::PhysicalDevices::enumerate(Instance &instanc
 	return res;
 }
 
-Vk::Instance::Instance(bool isDebug, Glfw::Window &window, const util::svec &layers, const util::svec &extensions) :
-	Vk::Handle<VkInstance>(createInstance(layers, extensions)),
+Vk::Instance::Instance(bool isDebug, Glfw &glfw) :
+	Vk::Handle<VkInstance>(createInstance(
+		isDebug ? util::svec{"VK_LAYER_KHRONOS_validation"} : util::svec{},
+		glfw.getRequiredVkInstanceExts() + (isDebug ? util::svec{VK_EXT_DEBUG_UTILS_EXTENSION_NAME} : util::svec{})
+	)),
 	m_messenger(createMessenger(isDebug)),
-	m_surface(window, *this)
+	m_surface(glfw.getWindow(), *this)
 {
 }
 
@@ -260,14 +275,14 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL validation_cb(
 	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 	void*)
 {
-	static const std::map<VkDebugUtilsMessageSeverityFlagBitsEXT, std::string> sever_table = {
+	static const std::map<VkDebugUtilsMessageSeverityFlagBitsEXT, std::string> sever_table {
 		{VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT, "VERBOSE"},
 		{VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT, "INFO"},
 		{VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT, "WARNING"},
 		{VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "ERROR"}
 	};
 
-	static const std::map<VkDebugUtilsMessageTypeFlagBitsEXT, std::string> type_table = {
+	static const std::map<VkDebugUtilsMessageTypeFlagBitsEXT, std::string> type_table {
 		{VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT, "General"},
 		{VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT, "Validation"},
 		{VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT, "Performance"}
@@ -334,6 +349,10 @@ VkDevice Vk::Device::create(PhysicalDevice &physicalDevice, const QueuesCreateIn
 	createInfo.queueCreateInfoCount = vk_queues.size();
 	createInfo.pQueueCreateInfos = vk_queues.data();
 	createInfo.pEnabledFeatures = &physicalDevice.features();
+
+	auto cexts = PhysicalDevice::required_extensions.c_strs();
+	createInfo.enabledExtensionCount = cexts.size();
+	createInfo.ppEnabledExtensionNames = cexts.data();
 
 	return Vk::create<VkDevice>(vkCreateDevice, physicalDevice, &createInfo, nullptr);
 }

@@ -115,7 +115,7 @@ private:
 	class Instance : public Handle<VkInstance>
 	{
 	public:
-		Instance(bool isDebug, Glfw::Window &window, const util::svec &layers, const util::svec &extensions);
+		Instance(bool isDebug, Glfw &window);
 
 		template <typename FunType>
 		FunType getProcAddr(const char *name)
@@ -206,6 +206,8 @@ private:
 		bool isCompetent(void) const;
 		size_t getScore(void) const;
 
+		static const util::svec required_extensions;
+
 		class QueueFamilies
 		{
 		public:
@@ -230,6 +232,8 @@ private:
 		const VkPhysicalDeviceProperties m_props;
 		const VkPhysicalDeviceFeatures m_features;
 		const QueueFamilies m_queue_families;
+
+		bool areExtensionsSupported(void) const;
 	};
 
 	class PhysicalDevices
