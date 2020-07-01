@@ -506,9 +506,38 @@ Vk::Device Vk::createDevice(void)
 	return Device(phys, getDesiredQueues(phys));
 }
 
+Vk::ImageView::ImageView(Vk::Device &device, VkImage image, VkImageViewType viewType, VkFormat format, const VkImageSubresourceRange &subres) :
+	Device::Handle<VkImageView>(device, create(device, image, viewType, format, subres))
+{
+}
+
+VkImageView Vk::ImageView::create(Vk::Device &device, VkImage image, VkImageViewType viewType, VkFormat format, const VkImageSubresourceRange &subres)
+{
+	VkImageViewCreateInfo createInfo {};
+
+	createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	createInfo.image = image;
+	createInfo.viewType = viewType;
+	createInfo.format = format;
+	createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+	createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+	createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+	createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+	createInfo.subresourceRange = subres;
+
+	return Vk::create<VkImageView>(vkCreateImageView, device, &createInfo, nullptr);
+}
+
+template <>
+void Vk::Device::Handle<VkImageView>::destroy(Vk::Device &device, VkImageView imageView)
+{
+	vkDestroyImageView(device, imageView, nullptr);
+}
+
 Vk::Swapchain::Swapchain(const Glfw::Window &window, Vk::Device &device) :
 	Device::Handle<VkSwapchainKHR>(device, create(window, device)),
-	m_images(enumerate<VkImage>(vkGetSwapchainImagesKHR, device, *this))
+	m_images(enumerate<VkImage>(vkGetSwapchainImagesKHR, device, *this)),
+	m_views(createViews(device))
 {
 }
 
@@ -544,6 +573,16 @@ VkSwapchainKHR Vk::Swapchain::create(const Glfw::Window &window, Vk::Device &dev
 	createInfo.oldSwapchain = VK_NULL_HANDLE;
 
 	return Vk::create<VkSwapchainKHR>(vkCreateSwapchainKHR, device, &createInfo, nullptr);
+}
+
+std::vector<Vk::ImageView> Vk::Swapchain::createViews(Vk::Device &dev)
+{
+	std::vector<Vk::ImageView> res;
+
+	auto fmt = dev.physical().surface().chooseFormat().format;
+	for (auto &i : m_images)
+		res.emplace_back(dev, i, VK_IMAGE_VIEW_TYPE_2D, fmt);
+	return res;
 }
 
 template <>

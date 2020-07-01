@@ -372,6 +372,15 @@ private:
 	VkQueue m_graphics_queue;
 	VkQueue m_present_queue;
 
+	class ImageView : public Device::Handle<VkImageView>
+	{
+	public:
+		ImageView(Vk::Device &device, VkImage image, VkImageViewType viewType, VkFormat format, const VkImageSubresourceRange &subres = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
+
+	private:
+		VkImageView create(Vk::Device &device, VkImage image, VkImageViewType viewType, VkFormat format, const VkImageSubresourceRange &subres);
+	};
+
 	class Swapchain : public Device::Handle<VkSwapchainKHR>
 	{
 	public:
@@ -379,8 +388,10 @@ private:
 
 	private:
 		std::vector<VkImage> m_images;
+		std::vector<Vk::ImageView> m_views;
 
 		VkSwapchainKHR create(const Glfw::Window &window, Vk::Device &device);
+		std::vector<Vk::ImageView> createViews(Vk::Device &dev);
 	};
 
 	Swapchain m_swapchain;
