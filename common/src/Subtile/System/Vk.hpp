@@ -1,9 +1,10 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
-#undef assert
 #include "../ISystem.hpp"
 #include "Glfw.hpp"
+
+#undef assert
 
 namespace Subtile {
 namespace System {
@@ -30,7 +31,7 @@ private:
 	static void assert(VkResult res);
 
 	template <typename T>
-	static std::vector<T> enumerate(VkResult (*callable)(uint32_t*, T*))
+	static std::vector<T> enumerateAbstract(VkResult (*callable)(uint32_t*, T*))
 	{
 		uint32_t size;
 
@@ -41,7 +42,7 @@ private:
 	}
 
 	template <typename T, typename C, typename ...Args>
-	static std::vector<T> enumerateAbstract(C &&callable, Args &&...args)
+	static std::vector<T> enumerate(C &&callable, Args &&...args)
 	{
 		uint32_t size;
 
@@ -195,12 +196,35 @@ private:
 	class PhysicalDevice
 	{
 	public:
-		PhysicalDevice(VkPhysicalDevice device, Surface &surface);
+		PhysicalDevice(VkPhysicalDevice device, Vk::Surface &surface);
+
+		class Surface
+		{
+		public:
+			Surface(PhysicalDevice &device, Vk::Surface &surface);
+
+			const VkSurfaceCapabilitiesKHR& capabilities(void) const;
+			const std::vector<VkSurfaceFormatKHR>& formats(void) const;
+			const std::vector<VkPresentModeKHR>& presentModes(void) const;
+
+			const VkSurfaceFormatKHR& chooseFormat(void) const;
+			VkPresentModeKHR choosePresentMode(void) const;
+			VkExtent2D chooseExtent(VkExtent2D baseExtent) const;
+
+			operator VkSurfaceKHR(void) const;
+
+		private:
+			const VkSurfaceCapabilitiesKHR m_capabilities;
+			const std::vector<VkSurfaceFormatKHR> m_formats;
+			const std::vector<VkPresentModeKHR> m_present_modes;
+			Vk::Surface &m_vk_surface;
+		};
 
 		operator VkPhysicalDevice(void) const;
 
 		const VkPhysicalDeviceProperties& properties(void) const;
 		const VkPhysicalDeviceFeatures& features(void) const;
+		const Surface& surface(void) const;
 
 		bool getSurfaceSupport(uint32_t queueFamilyIndex) const;
 		bool isCompetent(void) const;
@@ -224,14 +248,15 @@ private:
 			std::optional<uint32_t> getPresentationQueue(PhysicalDevice &device);
 		};
 
-		const QueueFamilies& getQueues(void) const;
+		const QueueFamilies& queues(void) const;
 
 	private:
 		VkPhysicalDevice m_device;
-		Surface &m_surface;
+		Vk::Surface &m_surface;
 		const VkPhysicalDeviceProperties m_props;
 		const VkPhysicalDeviceFeatures m_features;
 		const QueueFamilies m_queue_families;
+		Surface m_phys_surface;
 
 		bool areExtensionsSupported(void) const;
 	};
@@ -250,8 +275,6 @@ private:
 	};
 
 	Instance m_instance;
-	Surface &m_surface;
-	PhysicalDevice m_physical_device;
 
 	class Device : public Handle<VkDevice>
 	{
@@ -294,20 +317,73 @@ private:
 			std::vector<VkDeviceQueueCreateInfo> m_vk_infos;
 		};
 
-		Device(PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues);
+		Device(const PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues);
 
+		const PhysicalDevice& physical(void) const;
 		VkQueue getQueue(uint32_t family_ndx, uint32_t ndx);
 
-	private:
-		VkDevice create(PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues);
+		template <typename VkHandle>
+		class Handle
+		{
+		public:
+			Handle(Device &device, VkHandle handle) :
+				m_device(device),
+				m_handle(handle)
+			{
+			}
 
+			Handle(Handle &&other) :
+				m_device(other.m_device),
+				m_handle(other.m_handle)
+			{
+				m_handle = VK_NULL_HANDLE;
+			}
+
+			void destroy(Device &device, VkHandle handle);
+
+			~Handle(void)
+			{
+				if (m_handle != VK_NULL_HANDLE)
+					destroy(m_device, m_handle);
+			}
+
+			operator VkHandle(void) const
+			{
+				return m_handle;
+			}
+
+		private:
+			Device &m_device;
+
+		protected:
+			VkHandle m_handle;
+		};
+
+	private:
+		PhysicalDevice m_physical;
+
+		VkDevice create(const PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues);
 	};
 
-	Device::QueuesCreateInfo getDesiredQueues(void);
+	Device::QueuesCreateInfo getDesiredQueues(const PhysicalDevice &dev);
+	Device createDevice(void);
 
 	Device m_device;
 	VkQueue m_graphics_queue;
 	VkQueue m_present_queue;
+
+	class Swapchain : public Device::Handle<VkSwapchainKHR>
+	{
+	public:
+		Swapchain(const Glfw::Window &window, Vk::Device &device);
+
+	private:
+		std::vector<VkImage> m_images;
+
+		VkSwapchainKHR create(const Glfw::Window &window, Vk::Device &device);
+	};
+
+	Swapchain m_swapchain;
 };
 
 }

@@ -8,11 +8,10 @@ namespace System {
 Vk::Vk(bool isDebug, Glfw &&glfw) :
 	m_glfw(std::move(glfw)),
 	m_instance(isDebug, m_glfw),
-	m_surface(m_instance.getSurface()),
-	m_physical_device(m_instance.enumerateDevices().getBest()),
-	m_device(m_physical_device, getDesiredQueues()),
-	m_graphics_queue(m_device.getQueue(*m_physical_device.getQueues().indexOf(VK_QUEUE_GRAPHICS_BIT), 0)),
-	m_present_queue(m_device.getQueue(*m_physical_device.getQueues().presentation(), 0))
+	m_device(createDevice()),
+	m_graphics_queue(m_device.getQueue(*m_device.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT), 0)),
+	m_present_queue(m_device.getQueue(*m_device.physical().queues().presentation(), 0)),
+	m_swapchain(m_glfw.getWindow(), m_device)
 {
 }
 
@@ -83,7 +82,8 @@ Vk::PhysicalDevice::PhysicalDevice(VkPhysicalDevice device, Vk::Surface &surface
 	m_surface(surface),
 	m_props(get<VkPhysicalDeviceProperties>(vkGetPhysicalDeviceProperties, m_device)),
 	m_features(get<VkPhysicalDeviceFeatures>(vkGetPhysicalDeviceFeatures, m_device)),
-	m_queue_families(*this)
+	m_queue_families(*this),
+	m_phys_surface(*this, surface)
 {
 }
 
@@ -102,6 +102,11 @@ const VkPhysicalDeviceFeatures& Vk::PhysicalDevice::features(void) const
 	return m_features;
 }
 
+const Vk::PhysicalDevice::Surface& Vk::PhysicalDevice::surface(void) const
+{
+	return m_phys_surface;
+}
+
 bool Vk::PhysicalDevice::getSurfaceSupport(uint32_t queueFamilyIndex) const
 {
 	return create<VkBool32>(vkGetPhysicalDeviceSurfaceSupportKHR, m_device, queueFamilyIndex, m_surface);
@@ -109,7 +114,11 @@ bool Vk::PhysicalDevice::getSurfaceSupport(uint32_t queueFamilyIndex) const
 
 bool Vk::PhysicalDevice::isCompetent(void) const
 {
-	return m_queue_families.indexOf(VK_QUEUE_GRAPHICS_BIT) && m_queue_families.presentation() && areExtensionsSupported();
+	return m_queue_families.indexOf(VK_QUEUE_GRAPHICS_BIT) &&
+	m_queue_families.presentation() &&
+	areExtensionsSupported() &&
+	surface().formats().size() > 0 &&
+	surface().presentModes().size() > 0;
 }
 
 const util::svec Vk::PhysicalDevice::required_extensions {
@@ -119,7 +128,7 @@ const util::svec Vk::PhysicalDevice::required_extensions {
 bool Vk::PhysicalDevice::areExtensionsSupported(void) const
 {
 	std::map<std::string, bool> avail;
-	for (auto &a : enumerateAbstract<VkExtensionProperties>(vkEnumerateDeviceExtensionProperties, *this, nullptr))
+	for (auto &a : enumerate<VkExtensionProperties>(vkEnumerateDeviceExtensionProperties, *this, nullptr))
 		avail[a.extensionName] = true;
 
 	for (auto &w : required_extensions)
@@ -137,7 +146,7 @@ size_t Vk::PhysicalDevice::getScore(void) const
 	return res;
 }
 
-const Vk::PhysicalDevice::QueueFamilies& Vk::PhysicalDevice::getQueues(void) const
+const Vk::PhysicalDevice::QueueFamilies& Vk::PhysicalDevice::queues(void) const
 {
 	return m_queue_families;
 }
@@ -182,6 +191,64 @@ std::optional<uint32_t> Vk::PhysicalDevice::QueueFamilies::getPresentationQueue(
 	return std::nullopt;
 }
 
+Vk::PhysicalDevice::Surface::Surface(PhysicalDevice &device, Vk::Surface &surface) :
+	m_capabilities(create<VkSurfaceCapabilitiesKHR>(vkGetPhysicalDeviceSurfaceCapabilitiesKHR, device, surface)),
+	m_formats(enumerate<VkSurfaceFormatKHR>(vkGetPhysicalDeviceSurfaceFormatsKHR, device, surface)),
+	m_present_modes(enumerate<VkPresentModeKHR>(vkGetPhysicalDeviceSurfacePresentModesKHR, device, surface)),
+	m_vk_surface(surface)
+{
+}
+
+const VkSurfaceCapabilitiesKHR& Vk::PhysicalDevice::Surface::capabilities(void) const
+{
+	return m_capabilities;
+}
+
+const std::vector<VkSurfaceFormatKHR>& Vk::PhysicalDevice::Surface::formats(void) const
+{
+	return m_formats;
+}
+
+const std::vector<VkPresentModeKHR>& Vk::PhysicalDevice::Surface::presentModes(void) const
+{
+	return m_present_modes;
+}
+
+const VkSurfaceFormatKHR& Vk::PhysicalDevice::Surface::chooseFormat(void) const
+{
+	for (auto &f : m_formats)
+		if (f.format == VK_FORMAT_B8G8R8_SRGB && f.colorSpace == VK_COLORSPACE_SRGB_NONLINEAR_KHR)
+			return f;
+	return *m_formats.begin();
+}
+
+VkPresentModeKHR Vk::PhysicalDevice::Surface::choosePresentMode(void) const
+{
+	for (auto &p : m_present_modes)
+		if (p == VK_PRESENT_MODE_FIFO_KHR)
+			return p;
+	return VK_PRESENT_MODE_IMMEDIATE_KHR;
+}
+
+VkExtent2D Vk::PhysicalDevice::Surface::chooseExtent(VkExtent2D baseExtent) const
+{
+	if (m_capabilities.currentExtent.width != UINT32_MAX)
+		return m_capabilities.currentExtent;
+	else {
+		VkExtent2D res = baseExtent;
+
+		res.width = std::clamp(res.width, m_capabilities.minImageExtent.width, m_capabilities.maxImageExtent.width);
+		res.height = std::clamp(res.width, m_capabilities.minImageExtent.height, m_capabilities.maxImageExtent.height);
+
+		return res;
+	}
+}
+
+Vk::PhysicalDevice::Surface::operator VkSurfaceKHR(void) const
+{
+	return m_vk_surface;
+}
+
 Vk::PhysicalDevices::PhysicalDevices(Vk::Instance &instance) :
 	m_devices(enumerate(instance))
 {
@@ -206,7 +273,7 @@ Vk::Surface& Vk::Instance::getSurface(void)
 
 std::vector<Vk::PhysicalDevice> Vk::PhysicalDevices::enumerate(Instance &instance)
 {
-	auto devices = enumerateAbstract<VkPhysicalDevice>(vkEnumeratePhysicalDevices, instance);
+	auto devices = Vk::enumerate<VkPhysicalDevice>(vkEnumeratePhysicalDevices, instance);
 
 	std::vector<Vk::PhysicalDevice> res;
 	res.reserve(devices.size());
@@ -335,12 +402,13 @@ Vk::PhysicalDevices Vk::Instance::enumerateDevices(void)
 	return *this;
 }
 
-Vk::Device::Device(PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues) :
-	Handle<VkDevice>(create(physicalDevice, queues))
+Vk::Device::Device(const PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues) :
+	Vk::Handle<VkDevice>(create(physicalDevice, queues)),
+	m_physical(physicalDevice)
 {
 }
 
-VkDevice Vk::Device::create(PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues)
+VkDevice Vk::Device::create(const PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues)
 {
 	auto vk_queues = queues.getInfos();
 
@@ -398,6 +466,11 @@ void Vk::Handle<VkDevice>::destroy(VkDevice device)
 	vkDestroyDevice(device, nullptr);
 }
 
+const Vk::PhysicalDevice& Vk::Device::physical(void) const
+{
+	return m_physical;
+}
+
 VkQueue Vk::Device::getQueue(uint32_t family_ndx, uint32_t ndx)
 {
 	return get<VkQueue>(vkGetDeviceQueue, *this, family_ndx, ndx);
@@ -414,15 +487,69 @@ void Vk::Instance::Handle<VkSurfaceKHR>::destroy(Vk::Instance &instance, VkSurfa
 	vkDestroySurfaceKHR(instance, surface, nullptr);
 }
 
-Vk::Device::QueuesCreateInfo Vk::getDesiredQueues(void)
+Vk::Device::QueuesCreateInfo Vk::getDesiredQueues(const Vk::PhysicalDevice &dev)
 {
-	auto &queues = m_physical_device.getQueues();
+	auto &queues = dev.queues();
 	std::set<uint32_t> unique_queues {*queues.indexOf(VK_QUEUE_GRAPHICS_BIT), *queues.presentation()};
 	Device::QueuesCreateInfo res;
 
 	for (auto &q : unique_queues)
 		res.add(q, std::vector<float>{1.0f});
 	return res;
+}
+
+Vk::Device Vk::createDevice(void)
+{
+	auto devs = m_instance.enumerateDevices();
+	auto &phys = devs.getBest();
+
+	return Device(phys, getDesiredQueues(phys));
+}
+
+Vk::Swapchain::Swapchain(const Glfw::Window &window, Vk::Device &device) :
+	Device::Handle<VkSwapchainKHR>(device, create(window, device)),
+	m_images(enumerate<VkImage>(vkGetSwapchainImagesKHR, device, *this))
+{
+}
+
+VkSwapchainKHR Vk::Swapchain::create(const Glfw::Window &window, Vk::Device &device)
+{
+	VkSwapchainCreateInfoKHR createInfo {};
+	auto &phys = device.physical();
+	auto &surface = phys.surface();
+
+	createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	createInfo.surface = surface;
+	createInfo.minImageCount = surface.capabilities().minImageCount + 1;
+	if (surface.capabilities().maxImageCount > 0)
+		createInfo.minImageCount = std::min(createInfo.minImageCount, surface.capabilities().maxImageCount);
+	auto fmt = surface.chooseFormat();
+	createInfo.imageFormat = fmt.format;
+	createInfo.imageColorSpace = fmt.colorSpace;
+	auto winsize = window.getSize();
+	createInfo.imageExtent = surface.chooseExtent(VkExtent2D{static_cast<uint32_t>(winsize.x), static_cast<uint32_t>(winsize.y)});
+	createInfo.imageArrayLayers = 1;
+	createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+	auto &queues = phys.queues();
+	std::set<uint32_t> unique_queues {*queues.indexOf(VK_QUEUE_GRAPHICS_BIT), *queues.presentation()};
+	std::vector<uint32_t> queues_ndx(unique_queues.begin(), unique_queues.end());
+	createInfo.imageSharingMode = queues_ndx.size() > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
+	createInfo.queueFamilyIndexCount = queues_ndx.size();
+	createInfo.pQueueFamilyIndices = queues_ndx.data();
+	createInfo.preTransform = surface.capabilities().currentTransform;
+	createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	createInfo.presentMode = surface.choosePresentMode();
+	createInfo.clipped = VK_TRUE;
+	createInfo.oldSwapchain = VK_NULL_HANDLE;
+
+	return Vk::create<VkSwapchainKHR>(vkCreateSwapchainKHR, device, &createInfo, nullptr);
+}
+
+template <>
+void Vk::Device::Handle<VkSwapchainKHR>::destroy(Vk::Device &device, VkSwapchainKHR swapchain)
+{
+	vkDestroySwapchainKHR(device, swapchain, nullptr);
 }
 
 }

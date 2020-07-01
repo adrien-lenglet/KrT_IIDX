@@ -84,6 +84,14 @@ Glfw::Window& Glfw::getWindow(void) const
 	return *m_window;
 }
 
+svec2 Glfw::Window::getSize(void) const
+{
+	int w, h;
+
+	glfwGetWindowSize(*this, &w, &h);
+	return svec2(w, h);
+}
+
 Glfw::Error::Error(const std::string &msg) :
 	std::runtime_error(std::string("GLFW Error: ") + msg + std::string(": ") + Glfw::getError())
 {

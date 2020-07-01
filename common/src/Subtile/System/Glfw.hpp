@@ -3,6 +3,7 @@
 #include <memory>
 #include <GLFW/glfw3.h>
 #include "../ISystem.hpp"
+#include "Subtile/Math/Size.hpp"
 
 namespace Subtile {
 namespace System {
@@ -66,6 +67,7 @@ public:
 
 		bool shouldClose(void) const;
 		operator GLFWwindow*(void) const;
+		svec2 getSize(void) const;
 
 	private:
 		GLFWwindow *m_window;
