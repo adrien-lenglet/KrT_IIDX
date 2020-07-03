@@ -25,6 +25,11 @@ Element::~Element(void)
 {
 }
 
+Folder& Element::getParent(void)
+{
+	return *m_parent;
+}
+
 }
 }
 

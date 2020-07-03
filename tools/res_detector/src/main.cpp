@@ -10,6 +10,7 @@
 #include <functional>
 
 #include "cpp_generator.hpp"
+#include "Subtile/Shader/Compiler.hpp"
 
 using namespace CppGenerator;
 
@@ -33,6 +34,7 @@ class FolderPrinter
 		static const std::map<std::string, std::string> exts = {
 			{".obj", "sb::rs::Model"},
 			{".png", "sb::rs::Texture"},
+			{".sbsl", "sb::rs::Shader"},
 		};
 
 		auto ext = path.extension().string();
@@ -52,7 +54,7 @@ class FolderPrinter
 		return str + cl;
 	}
 
-	void addgetterstorage(Util::CollectionBase &scope, Util::CollectionFunctionBase &ctor, Type t, const std::string &idRaw)
+	void addgetterstorage(Util::CollectionBase &scope, Util::CollectionFunctionBase &ctor, Type t, const std::string &idRaw, const std::string &basefile)
 	{
 		Id id(idRaw);
 
@@ -65,7 +67,7 @@ class FolderPrinter
 			Return | st
 		};
 
-		ctor /= st("add"_v.T(t)(idRaw));
+		ctor /= st("add"_v.T(t)(basefile));
 	}
 
 	template <typename T>
@@ -82,7 +84,7 @@ class FolderPrinter
 
 			if (e.is_directory()) {
 				auto &cl = scope += Class | class_name(name) | C(Public | "sb::rs::Folder"_t) | S{};
-				addgetterstorage(scope, ctor, cl, name);
+				addgetterstorage(scope, ctor, cl, name, name);
 				cl += Public;
 				auto ctor_fwd = cl += Ctor(Void);
 				auto &ctor_sub = m_impl_out += ctor_fwd(Void) | S{};
@@ -93,7 +95,11 @@ class FolderPrinter
 					auto [type, id] = *got;
 					auto t = Type(type);
 
-					addgetterstorage(scope, ctor, type, id);
+					if (type == "sb::rs::Shader") {
+						sb::Shader::Compiler compiled(e.path().string());
+					}
+
+					addgetterstorage(scope, ctor, t, id, name);
 				}
 			}
 		}
@@ -138,7 +144,8 @@ public:
 			Pp::Pragma | "once",
 			Pp::Include | "Subtile/Resource/Folder.hpp",
 			Pp::Include | "Subtile/Resource/Model.hpp",
-			Pp::Include | "Subtile/Resource/Texture.hpp"
+			Pp::Include | "Subtile/Resource/Texture.hpp",
+			Pp::Include | "Subtile/Resource/Shader.hpp"
 		};
 
 		Out impl(implpath);

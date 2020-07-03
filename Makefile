@@ -9,6 +9,10 @@ define make_platforms
 	done
 endef
 
+resources:
+	$(MAKE) -C $(COMMON) resources_detect $(OPT)
+	$(MAKE) -C $(COMMON) resources $(OPT)
+
 common_macro_resources:
 	$(MAKE) -C $(COMMON) macro $(OPT)
 	$(MAKE) -C $(COMMON) resources_detect $(OPT)

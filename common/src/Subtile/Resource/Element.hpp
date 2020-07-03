@@ -31,6 +31,9 @@ public:
 	Element(const Context &ctx);
 	virtual ~Element(void) = 0;
 
+protected:
+	Folder& getParent(void);
+
 private:
 	Folder *m_parent;
 	const std::string m_name;
