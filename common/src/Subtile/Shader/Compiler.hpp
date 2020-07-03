@@ -16,6 +16,33 @@ namespace Subtile {
 
 class Shader::Compiler
 {
+	enum class BufType {
+		Whitespace,
+		Id,
+		Operator
+	};
+
+	static char lower_char(char c)
+	{
+		if (c >= 'A' && c <= 'Z')
+			return c + 32;
+		else
+			return c;
+	}
+
+	static BufType c_type(char c)
+	{
+		static const std::set<char> whitespace = {' ', '\n', '\t', '\r'};
+
+		if (whitespace.find(c) != whitespace.end())
+			return BufType::Whitespace;
+		auto lower = lower_char(c);
+		if (c == '_' || (lower >= 'a' && lower <= 'z') || (lower >= '0' && lower <= '9'))
+			return BufType::Id;
+		else
+			return BufType::Operator;
+	}
+
 	class token_stream
 	{
 	public:
@@ -94,7 +121,7 @@ class Shader::Compiler
 			size_t indent = 0;
 			auto endl = "\n";
 
-			auto sep = "";
+			auto prev_type = BufType::Whitespace;
 			bool new_lined = false;
 			for (auto &t : m_tokens) {
 				if (t == "{") {
@@ -102,25 +129,28 @@ class Shader::Compiler
 					write_tabs(o, indent);
 					o << t << endl;
 					new_lined = false;
-					sep = "";
+					prev_type = BufType::Whitespace;
 					indent++;
 				} else if (t == "}") {
 					indent--;
 					write_tabs(o, indent);
 					o << t << endl;
 					new_lined = false;
-					sep = "";
+					prev_type = BufType::Whitespace;
 				} else if (t == ";") {
 					o << t << endl;
 					new_lined = false;
-					sep = "";
+					prev_type = BufType::Whitespace;
 				} else {
 					if (!new_lined) {
 						write_tabs(o, indent);
 						new_lined = true;
 					}
-					o << sep << t;
-					sep = " ";
+					auto type = c_type(t.at(0));
+					if (type == BufType::Id && prev_type == BufType::Id)
+						o << " ";
+					o << t;
+					prev_type = type;
 				}
 			}
 		}
@@ -144,33 +174,6 @@ class Shader::Compiler
 
 		res << in.rdbuf();
 		return res.str();
-	}
-
-	enum class BufType {
-		Whitespace,
-		Id,
-		Operator
-	};
-
-	static char lower_char(char c)
-	{
-		if (c >= 'A' && c <= 'Z')
-			return c + 32;
-		else
-			return c;
-	}
-
-	static BufType c_type(char c)
-	{
-		static const std::set<char> whitespace = {' ', '\n', '\t', '\r'};
-
-		if (whitespace.find(c) != whitespace.end())
-			return BufType::Whitespace;
-		auto lower = lower_char(c);
-		if (c == '_' || (lower >= 'a' && lower <= 'z') || (lower >= '0' && lower <= '9'))
-			return BufType::Id;
-		else
-			return BufType::Operator;
 	}
 
 	static void flush_buffer(std::string &buf, BufType buf_type, std::vector<std::string> &res)
@@ -250,6 +253,15 @@ class Shader::Compiler
 		}
 	};
 
+	Stages m_stages;
+
+public:
+	auto& getStages(void)
+	{
+		return m_stages;
+	}
+
+private:
 	class Section : public Primitive
 	{
 		using StageTable = std::map<std::string, Shader::Stage>;
@@ -267,11 +279,11 @@ class Shader::Compiler
 		}
 
 	public:
-		Section(tstream &s, Stages &stages) :
-			m_stage(getStage(s, stages))
+		Section(tstream &s, Compiler &compiler) :
+			m_stage(getStage(s, compiler.getStages()))
 		{
 			while (!poll_end(s))
-				poll(s, stages);
+				poll(s, compiler);
 		}
 
 		static bool isComingUp(tstream &s)
@@ -291,7 +303,7 @@ class Shader::Compiler
 				p.write(o, sbi);
 		}
 
-		void poll(tstream &s, Stages &stages);
+		void poll(tstream &s, Compiler &compiler);
 
 		void recurAdd(Primitive &prim)
 		{
@@ -487,19 +499,16 @@ class Shader::Compiler
 
 public:	
 	Compiler(const std::string &path);
-
-private:
-	Stages m_stages;
 };
 
-inline void Shader::Compiler::Section::poll(tstream &s, Stages &stages)
+inline void Shader::Compiler::Section::poll(tstream &s, Compiler &compiler)
 {
 	if (s.peek() == ";") {
 		s.poll();
 		return;
 	}
 	if (Section::isComingUp(s))
-		m_primitives.emplace<Section>(s, stages);
+		m_primitives.emplace<Section>(s, compiler);
 	else if (Variable::isComingUp(s))
 		m_primitives.emplace<Variable>(s);
 	else
@@ -510,7 +519,7 @@ inline Shader::Compiler::Compiler(const std::string &path)
 {
 	auto stream = token_stream(tokenize(read(path)));
 
-	Section collec(stream, m_stages);
+	Section collec(stream, *this);
 	collec.dispatch();
 
 	std::cout << "STAGES:" << std::endl;
