@@ -14,6 +14,10 @@ public:
 		Fragment
 	};
 
+	enum class Sbi {  // shader binary interface
+		Vulkan
+	};
+
 	class Compiler;
 };
 

@@ -10,6 +10,7 @@
 #include "../Shader.hpp"
 #include "util.hpp"
 #include "util/string.hpp"
+#include "util/sstream.hpp"
 
 namespace Subtile {
 
@@ -69,6 +70,69 @@ class Shader::Compiler
 		size_t m_ndx;
 	};
 
+	class token_output
+	{
+	public:
+		token_output(void)
+		{
+		}
+
+		template <typename S>
+		auto& operator<<(S &&str)
+		{
+			if constexpr (std::is_same_v<std::string, std::remove_cv_t<std::remove_reference_t<S>>>)
+				m_tokens.emplace_back(str);
+			else
+				m_tokens.emplace_back(util::sstream_str(std::forward<S>(str)));
+			return *this;
+		}
+
+		void write(std::ostream &o) const
+		{
+			size_t indent = 0;
+			auto endl = "\n";
+
+			auto sep = "";
+			bool new_lined = false;
+			for (auto &t : m_tokens) {
+				if (t == "{") {
+					o << endl;
+					write_tabs(o, indent);
+					o << t << endl;
+					new_lined = false;
+					sep = "";
+					indent++;
+				} else if (t == "}") {
+					indent--;
+					write_tabs(o, indent);
+					o << t << endl;
+					new_lined = false;
+					sep = "";
+				} else if (t == ";") {
+					o << t << endl;
+					new_lined = false;
+					sep = "";
+				} else {
+					if (!new_lined) {
+						write_tabs(o, indent);
+						new_lined = true;
+					}
+					o << sep << t;
+					sep = " ";
+				}
+			}
+		}
+
+	private:
+		std::vector<std::string> m_tokens;
+
+		static void write_tabs(std::ostream &o, size_t n)
+		{
+			for (size_t i = 0; i < n; i++)
+				o << "\t";
+		}
+	};
+
 	using tstream = token_stream;
 
 	static auto read(const std::string &path)
@@ -116,6 +180,10 @@ class Shader::Compiler
 
 	static auto tokenize(const std::string &str)
 	{
+		static const std::set<std::string> ops = {
+			"(", ")", ";", "{", "}"
+		};
+
 		std::vector<std::string> res;
 
 		std::string buf;
@@ -127,17 +195,22 @@ class Shader::Compiler
 				buf_type = t;
 			}
 			buf.push_back(c);
+			if ((buf_type == BufType::Operator) && (ops.find(buf) != ops.end()))
+				flush_buffer(buf, buf_type, res);
 		}
 		flush_buffer(buf, buf_type, res);
 		return res;
 	}
 
 	class Stages;
+	class Stage;
 
 	class Primitive
 	{
 	public:
 		virtual ~Primitive(void) = default;
+
+		virtual void write(token_output &o, Sbi sbi) const = 0;
 
 		class Collection : public util::unique_vector<Primitive>
 		{
@@ -148,8 +221,8 @@ class Shader::Compiler
 			{
 			}
 
-			void poll(tstream &s, Stages &stages);
-			void dispatch();
+			std::optional<std::reference_wrapper<Shader::Compiler::Primitive>> poll(tstream &s, Stages &stages);
+			void dispatch(Stage *stage = nullptr);
 			void recurAdd(Primitive &prim);
 		};
 	};
@@ -164,6 +237,12 @@ class Shader::Compiler
 		void add(Primitive &prim)
 		{
 			m_primitives.emplace_back(prim);
+		}
+
+		void write(token_output &o, Sbi sbi) const
+		{
+			for (auto &p : m_primitives)
+				p.get().write(o, sbi);
 		}
 
 	private:
@@ -205,7 +284,7 @@ class Shader::Compiler
 		{
 			while (!poll_end(s))
 				m_primitives.poll(s, stages);
-			m_primitives.dispatch();
+			m_primitives.dispatch(m_stage);
 		}
 
 		static bool isComingUp(tstream &s)
@@ -224,6 +303,12 @@ class Shader::Compiler
 			m_primitives.recurAdd(prim);
 			if (m_stage)
 				m_stage->add(prim);
+		}
+
+		void write(token_output &o, Sbi sbi) const override
+		{
+			for (auto &p : m_primitives)
+				p.write(o, sbi);
 		}
 
 	private:
@@ -293,6 +378,14 @@ class Shader::Compiler
 			return storageTable().find(s.peek()) != storageTable().end();
 		}
 
+		void write(token_output &o, Sbi sbi) const override
+		{
+			if (sbi == Sbi::Vulkan) {
+				write_vulkan(o);
+			} else
+				throw std::runtime_error("Can't output variable for such interface");
+		}
+
 	private:
 		Storage m_storage;
 		std::string m_type;
@@ -314,6 +407,8 @@ class Shader::Compiler
 		std::optional<std::vector<std::string>> getValue(tstream &s)
 		{
 			if (s.peek() == "=") {
+				s.poll();
+
 				std::vector<std::string> res;
 
 				while (s.peek() != ";")
@@ -321,6 +416,28 @@ class Shader::Compiler
 				return res;
 			} else
 				return std::nullopt;
+		}
+
+		void write_vulkan(token_output &o) const
+		{
+			static const std::map<Storage, size_t> storage_to_set {
+				{Storage::Material, 0},
+				{Storage::Object, 1}
+			};
+
+			if (m_storage == Storage::Const)
+				o << "const";
+			else
+				o << "layout" << "(" << "set" << "=" << (storage_to_set.at(m_storage)) << "," << "binding" << "=" << 0 << ")" << "uniform";
+			o << m_type << m_id;
+			if (m_array)
+				o << "[" << *m_array << "]";
+			if (m_value) {
+				o << "=";
+				for (auto &v : *m_value)
+					o << v;
+			}
+			o << ";";
 		}
 	};
 
@@ -330,6 +447,12 @@ class Shader::Compiler
 		Function(tstream &s) :
 			m_tokens(getTokens(s))
 		{
+		}
+
+		void write(token_output &o, Sbi) const override
+		{
+			for (auto &t : m_tokens)
+				o << t;
 		}
 
 	private:
@@ -365,25 +488,29 @@ private:
 	Stages m_stages;
 };
 
-inline void Shader::Compiler::Primitive::Collection::poll(tstream &s, Stages &stages)
+inline std::optional<std::reference_wrapper<Shader::Compiler::Primitive>> Shader::Compiler::Primitive::Collection::poll(tstream &s, Stages &stages)
 {
 	if (s.peek() == ";") {
 		s.poll();
-		return;
+		return std::nullopt;
 	}
 	if (Section::isComingUp(s))
-		emplace<Section>(s, stages);
+		return emplace<Section>(s, stages);
 	else if (Variable::isComingUp(s))
-		emplace<Variable>(s);
+		return emplace<Variable>(s);
 	else
-		emplace<Function>(s);
+		return emplace<Function>(s);
 }
 
-inline void Shader::Compiler::Primitive::Collection::dispatch(void)
+inline void Shader::Compiler::Primitive::Collection::dispatch(Shader::Compiler::Stage *stage)
 {
-	for (auto &p : *this)
-		if (!dynamic_cast<Section*>(&p))
+	for (auto &p : *this) {
+		if (!dynamic_cast<Section*>(&p)) {
 			recurAdd(p);
+			if (stage)
+				stage->add(p);
+		}
+	}
 }
 
 inline void Shader::Compiler::Primitive::Collection::recurAdd(Primitive &prim)
@@ -391,7 +518,7 @@ inline void Shader::Compiler::Primitive::Collection::recurAdd(Primitive &prim)
 	for (auto &p : *this) {
 		auto sec = dynamic_cast<Section*>(&p);
 		if (sec)
-			sec->recurAdd(p);
+			sec->recurAdd(prim);
 	}
 }
 
@@ -405,8 +532,13 @@ inline Shader::Compiler::Compiler(const std::string &path)
 	collec.dispatch();
 
 	std::cout << "STAGES:" << std::endl;
-	for (auto &s : m_stages)
+	for (auto &s : m_stages) {
 		std::cout << static_cast<std::underlying_type_t<decltype(s.first)>>(s.first) << std::endl;
+		token_output o;
+		s.second.write(o, Sbi::Vulkan);
+		o.write(std::cout);
+		std::cout << std::endl;
+	}
 }
 
 }
