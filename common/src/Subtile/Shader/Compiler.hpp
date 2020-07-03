@@ -132,6 +132,8 @@ class Shader::Compiler
 		return res;
 	}
 
+	class Stages;
+
 	class Primitive
 	{
 	public:
@@ -146,8 +148,39 @@ class Shader::Compiler
 			{
 			}
 
-			void poll(tstream &s);
+			void poll(tstream &s, Stages &stages);
+			void dispatch();
+			void recurAdd(Primitive &prim);
 		};
+	};
+
+	class Stage
+	{
+	public:
+		Stage(void)
+		{
+		}
+
+		void add(Primitive &prim)
+		{
+			m_primitives.emplace_back(prim);
+		}
+
+	private:
+		std::vector<std::reference_wrapper<Primitive>> m_primitives;
+	};
+
+	class Stages : public std::map<Shader::Stage, Stage>
+	{
+	public:
+		Stages(void)
+		{
+		}
+
+		void add(Shader::Stage stage, Primitive &prim)
+		{
+			(*this)[stage].add(prim);
+		}
 	};
 
 	class Section : public Primitive
@@ -167,11 +200,12 @@ class Shader::Compiler
 		}
 
 	public:
-		Section(tstream &s) :
-			m_stage(getStage(s))
+		Section(tstream &s, Stages &stages) :
+			m_stage(getStage(s, stages))
 		{
 			while (!poll_end(s))
-				m_primitives.poll(s);
+				m_primitives.poll(s, stages);
+			m_primitives.dispatch();
 		}
 
 		static bool isComingUp(tstream &s)
@@ -185,21 +219,28 @@ class Shader::Compiler
 			return false;
 		}
 
+		void recurAdd(Primitive &prim)
+		{
+			m_primitives.recurAdd(prim);
+			if (m_stage)
+				m_stage->add(prim);
+		}
+
 	private:
-		std::optional<Shader::Stage> m_stage;
+		Stage *m_stage;
 		Primitive::Collection m_primitives;
 
-		std::optional<Shader::Stage> getStage(tstream &s)
+		Stage* getStage(tstream &s, Stages &stages)
 		{
 			auto [first, second] = s.peek2();
 
 			if (first == "{") {
 				s.poll();
-				return std::nullopt;
+				return nullptr;
 			} else {
 				auto name = s.poll();
 				s.poll();
-				return stageTable().at(name);
+				return &stages[stageTable().at(name)];
 			}
 		}
 
@@ -319,20 +360,39 @@ class Shader::Compiler
 
 public:	
 	Compiler(const std::string &path);
+
+private:
+	Stages m_stages;
 };
 
-inline void Shader::Compiler::Primitive::Collection::poll(tstream &s)
+inline void Shader::Compiler::Primitive::Collection::poll(tstream &s, Stages &stages)
 {
 	if (s.peek() == ";") {
 		s.poll();
 		return;
 	}
 	if (Section::isComingUp(s))
-		emplace<Section>(s);
+		emplace<Section>(s, stages);
 	else if (Variable::isComingUp(s))
 		emplace<Variable>(s);
 	else
 		emplace<Function>(s);
+}
+
+inline void Shader::Compiler::Primitive::Collection::dispatch(void)
+{
+	for (auto &p : *this)
+		if (!dynamic_cast<Section*>(&p))
+			recurAdd(p);
+}
+
+inline void Shader::Compiler::Primitive::Collection::recurAdd(Primitive &prim)
+{
+	for (auto &p : *this) {
+		auto sec = dynamic_cast<Section*>(&p);
+		if (sec)
+			sec->recurAdd(p);
+	}
 }
 
 inline Shader::Compiler::Compiler(const std::string &path)
@@ -341,7 +401,12 @@ inline Shader::Compiler::Compiler(const std::string &path)
 
 	Primitive::Collection collec;
 	while (stream.any_buf())
-		collec.poll(stream);
+		collec.poll(stream, m_stages);
+	collec.dispatch();
+
+	std::cout << "STAGES:" << std::endl;
+	for (auto &s : m_stages)
+		std::cout << static_cast<std::underlying_type_t<decltype(s.first)>>(s.first) << std::endl;
 }
 
 }

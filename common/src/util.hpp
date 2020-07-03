@@ -393,7 +393,7 @@ public:
 
 		reference operator*(void) const
 		{
-			return *(Vector::const_iterator::operator *());
+			return *(Vector::iterator::operator *());
 		}
 	};
 
