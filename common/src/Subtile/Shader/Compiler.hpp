@@ -23,6 +23,8 @@ class Shader::Compiler
 			m_tokens(tokens),
 			m_ndx(0)
 		{
+			m_tokens.emplace(m_tokens.begin(), "{");
+			m_tokens.emplace_back("}");
 		}
 
 		auto& peek(void) const
@@ -211,20 +213,6 @@ class Shader::Compiler
 		virtual ~Primitive(void) = default;
 
 		virtual void write(token_output &o, Sbi sbi) const = 0;
-
-		class Collection : public util::unique_vector<Primitive>
-		{
-		public:
-			template <typename ...Args>
-			Collection(Args &&...args) :
-				util::unique_vector<Primitive>(std::forward<Args>(args)...)
-			{
-			}
-
-			std::optional<std::reference_wrapper<Shader::Compiler::Primitive>> poll(tstream &s, Stages &stages);
-			void dispatch(Stage *stage = nullptr);
-			void recurAdd(Primitive &prim);
-		};
 	};
 
 	class Stage
@@ -283,8 +271,7 @@ class Shader::Compiler
 			m_stage(getStage(s, stages))
 		{
 			while (!poll_end(s))
-				m_primitives.poll(s, stages);
-			m_primitives.dispatch(m_stage);
+				poll(s, stages);
 		}
 
 		static bool isComingUp(tstream &s)
@@ -298,22 +285,39 @@ class Shader::Compiler
 			return false;
 		}
 
-		void recurAdd(Primitive &prim)
-		{
-			m_primitives.recurAdd(prim);
-			if (m_stage)
-				m_stage->add(prim);
-		}
-
 		void write(token_output &o, Sbi sbi) const override
 		{
 			for (auto &p : m_primitives)
 				p.write(o, sbi);
 		}
 
+		void poll(tstream &s, Stages &stages);
+
+		void recurAdd(Primitive &prim)
+		{
+			if (m_stage)
+				m_stage->add(prim);
+			for (auto &p : m_primitives) {
+				auto s = dynamic_cast<Section*>(&p);
+				if (s)
+					s->recurAdd(prim);
+			}
+		}
+
+		void dispatch(void)
+		{
+			for (auto &p : m_primitives) {
+				auto s = dynamic_cast<Section*>(&p);
+				if (s)
+					s->dispatch();
+				else
+					recurAdd(p);
+			}
+		}
+
 	private:
 		Stage *m_stage;
-		Primitive::Collection m_primitives;
+		util::unique_vector<Primitive> m_primitives;
 
 		Stage* getStage(tstream &s, Stages &stages)
 		{
@@ -488,47 +492,25 @@ private:
 	Stages m_stages;
 };
 
-inline std::optional<std::reference_wrapper<Shader::Compiler::Primitive>> Shader::Compiler::Primitive::Collection::poll(tstream &s, Stages &stages)
+inline void Shader::Compiler::Section::poll(tstream &s, Stages &stages)
 {
 	if (s.peek() == ";") {
 		s.poll();
-		return std::nullopt;
+		return;
 	}
 	if (Section::isComingUp(s))
-		return emplace<Section>(s, stages);
+		m_primitives.emplace<Section>(s, stages);
 	else if (Variable::isComingUp(s))
-		return emplace<Variable>(s);
+		m_primitives.emplace<Variable>(s);
 	else
-		return emplace<Function>(s);
-}
-
-inline void Shader::Compiler::Primitive::Collection::dispatch(Shader::Compiler::Stage *stage)
-{
-	for (auto &p : *this) {
-		if (!dynamic_cast<Section*>(&p)) {
-			recurAdd(p);
-			if (stage)
-				stage->add(p);
-		}
-	}
-}
-
-inline void Shader::Compiler::Primitive::Collection::recurAdd(Primitive &prim)
-{
-	for (auto &p : *this) {
-		auto sec = dynamic_cast<Section*>(&p);
-		if (sec)
-			sec->recurAdd(prim);
-	}
+		m_primitives.emplace<Function>(s);
 }
 
 inline Shader::Compiler::Compiler(const std::string &path)
 {
 	auto stream = token_stream(tokenize(read(path)));
 
-	Primitive::Collection collec;
-	while (stream.any_buf())
-		collec.poll(stream, m_stages);
+	Section collec(stream, m_stages);
 	collec.dispatch();
 
 	std::cout << "STAGES:" << std::endl;
@@ -537,7 +519,6 @@ inline Shader::Compiler::Compiler(const std::string &path)
 		token_output o;
 		s.second.write(o, Sbi::Vulkan);
 		o.write(std::cout);
-		std::cout << std::endl;
 	}
 }
 
