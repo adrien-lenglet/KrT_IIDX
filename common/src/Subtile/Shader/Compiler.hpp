@@ -218,10 +218,135 @@ class Shader::Compiler
 		virtual void write(token_output &o, Sbi sbi) const = 0;
 	};
 
+	class Variable;
+
+	enum class Set {
+		Material,
+		Object
+	};
+
+	class SharedBlock
+	{
+	public:
+		SharedBlock(Set set, size_t binding, const std::set<Shader::Stage> &stages) :
+			m_set(set),
+			m_binding(binding),
+			m_stages(stages)
+		{
+		}
+
+		void add(Variable &var)
+		{
+			m_variables.emplace_back(var);
+		}
+
+		auto& getStages(void) const
+		{
+			return m_stages;
+		}
+
+		void write(token_output &o, Sbi sbi) const
+		{
+			if (sbi == Sbi::Vulkan)
+				write_vulkan(o);
+			else
+				throw std::runtime_error("Sbi not supported");
+		}
+
+		static std::string getSignature(Set set, size_t binding)
+		{
+			std::stringstream ss;
+
+			ss << "___uni_s" << static_cast<std::underlying_type_t<decltype(set)>>(set) << "_b" << binding;
+			return ss.str();
+		}
+
+		std::string getType(void) const
+		{
+			return getSignature(m_set, m_binding) + std::string("_t");
+		}
+
+		static std::string getVarName(Set set, size_t binding)
+		{
+			return getSignature(set, binding) + std::string("_v");
+		}
+
+		std::string getVarName(void) const
+		{
+			return getVarName(m_set, m_binding);
+		}
+
+	private:
+		Set m_set;
+		size_t m_binding;
+		std::set<Shader::Stage> m_stages;
+		std::vector<std::reference_wrapper<Variable>> m_variables;
+
+		void write_vulkan(token_output &o) const;
+	};
+
+	class DescriptorSet
+	{
+	public:
+		DescriptorSet(Set set) :
+			m_set(set),
+			m_binding(0)
+		{
+		}
+
+		auto& getBlocks(void)
+		{
+			return m_blocks;
+		}
+
+		SharedBlock& forStages(const std::set<Shader::Stage> &stages)
+		{
+			for (auto &b : m_blocks)
+				if (b.getStages() == stages)
+					return b;
+			return m_blocks.emplace_back(m_set, m_binding++, stages);	
+		}
+
+	private:
+		Set m_set;
+		size_t m_binding;
+		std::vector<SharedBlock> m_blocks;
+	};
+
+	class DescriptorSets : public std::map<Set, DescriptorSet>
+	{
+	public:
+		DescriptorSets(void)
+		{
+		}
+
+		SharedBlock& forStages(Set set, const std::set<Shader::Stage> &stages)
+		{
+			auto got = find(set);
+			if (got == end()) {
+				auto [it, succ] = emplace(set, set);
+				got = it;
+			}
+			return got->second.forStages(stages);
+		}
+	};
+
+	DescriptorSets m_blocks;
+
+	std::vector<std::reference_wrapper<Variable>> m_variables;
+
+public:
+	void addVariable(Variable &variable)
+	{
+		m_variables.emplace_back(variable);
+	}
+
+private:
 	class Stage
 	{
 	public:
-		Stage(void)
+		Stage(Shader::Stage stage) :
+			m_stage(stage)
 		{
 		}
 
@@ -230,13 +355,27 @@ class Shader::Compiler
 			m_primitives.emplace_back(prim);
 		}
 
+		void add(SharedBlock &block)
+		{
+			m_shared_blocks.emplace_back(block);
+		}
+
 		void write(token_output &o, Sbi sbi) const
 		{
+			for (auto &b : m_shared_blocks)
+				b.get().write(o, sbi);
 			for (auto &p : m_primitives)
 				p.get().write(o, sbi);
 		}
 
+		auto getStage(void)
+		{
+			return m_stage;
+		}
+
 	private:
+		Shader::Stage m_stage;
+		std::vector<std::reference_wrapper<SharedBlock>> m_shared_blocks;
 		std::vector<std::reference_wrapper<Primitive>> m_primitives;
 	};
 
@@ -249,7 +388,12 @@ class Shader::Compiler
 
 		void add(Shader::Stage stage, Primitive &prim)
 		{
-			(*this)[stage].add(prim);
+			auto got = find(stage);
+			if (got == end()) {
+				auto [it, succ] = emplace(stage, stage);
+				got = it;
+			}
+			got->second.add(prim);
 		}
 	};
 
@@ -262,101 +406,6 @@ public:
 	}
 
 private:
-	class Section : public Primitive
-	{
-		using StageTable = std::map<std::string, Shader::Stage>;
-
-		static auto& stageTable(void)
-		{
-			static const StageTable table {
-				{"tesselation", Shader::Stage::Tesselation},
-				{"geometry", Shader::Stage::Geometry},
-				{"vertex", Shader::Stage::Vertex},
-				{"fragment", Shader::Stage::Fragment}
-			};
-
-			return table;
-		}
-
-	public:
-		Section(tstream &s, Compiler &compiler) :
-			m_stage(getStage(s, compiler.getStages()))
-		{
-			while (!poll_end(s))
-				poll(s, compiler);
-		}
-
-		static bool isComingUp(tstream &s)
-		{
-			if (s.peek() == "{")
-				return true;
-			if (s.tokens_left() >= 2) {
-				auto [first, second] = s.peek2();
-				return (stageTable().find(first) != stageTable().end()) && (second == "{");
-			}
-			return false;
-		}
-
-		void write(token_output &o, Sbi sbi) const override
-		{
-			for (auto &p : m_primitives)
-				p.write(o, sbi);
-		}
-
-		void poll(tstream &s, Compiler &compiler);
-
-		void recurAdd(Primitive &prim)
-		{
-			if (m_stage)
-				m_stage->add(prim);
-			for (auto &p : m_primitives) {
-				auto s = dynamic_cast<Section*>(&p);
-				if (s)
-					s->recurAdd(prim);
-			}
-		}
-
-		void dispatch(void)
-		{
-			for (auto &p : m_primitives) {
-				auto s = dynamic_cast<Section*>(&p);
-				if (s)
-					s->dispatch();
-				else
-					recurAdd(p);
-			}
-		}
-
-	private:
-		Stage *m_stage;
-		util::unique_vector<Primitive> m_primitives;
-
-		Stage* getStage(tstream &s, Stages &stages)
-		{
-			auto [first, second] = s.peek2();
-
-			if (first == "{") {
-				s.poll();
-				return nullptr;
-			} else {
-				auto name = s.poll();
-				s.poll();
-				return &stages[stageTable().at(name)];
-			}
-		}
-
-		bool poll_end(tstream &s)
-		{
-			auto &p = s.peek();
-
-			if (p == "}") {
-				s.poll();
-				return true;
-			} else
-				return false;
-		}
-	};
-
 	class Variable : public Primitive
 	{
 		enum class Storage {
@@ -379,7 +428,7 @@ private:
 		}
 
 	public:
-		Variable(tstream &s) :
+		Variable(tstream &s, Compiler &compiler) :
 			m_storage(storageTable().find(s.poll())->second),
 			m_type(s.poll()),
 			m_id(s.poll()),
@@ -387,11 +436,25 @@ private:
 			m_value(getValue(s))
 		{
 			s.expect(";");
+			compiler.addVariable(*this);
 		}
 
 		static bool isComingUp(tstream &s)
 		{
 			return storageTable().find(s.peek()) != storageTable().end();
+		}
+
+		void declare(token_output &o) const
+		{
+			o << m_type << m_id;
+			if (m_array)
+				o << "[" << *m_array << "]";
+			if (m_value) {
+				o << "=";
+				for (auto &v : *m_value)
+					o << v;
+			}
+			o << ";";
 		}
 
 		void write(token_output &o, Sbi sbi) const override
@@ -402,12 +465,44 @@ private:
 				throw std::runtime_error("Can't output variable for such interface");
 		}
 
+		bool isUniform(void) const
+		{
+			return m_storage == Storage::Material || m_storage == Storage::Object;
+		}
+
+		void addStage(Shader::Stage stage)
+		{
+			m_stages.emplace(stage);
+		}
+
+		const std::set<Shader::Stage>& getStages(void) const
+		{
+			return m_stages;
+		}
+
+		std::optional<Set> getSet(void) const
+		{
+			static const std::map<Storage, Set> table {
+				{Storage::Material, Set::Material},
+				{Storage::Object, Set::Object}
+			};
+
+			auto got = table.find(m_storage);
+			if (got == table.end())
+				return std::nullopt;
+			else
+				return got->second;
+	
+		}
+
 	private:
 		Storage m_storage;
 		std::string m_type;
 		std::string m_id;
 		std::optional<size_t> m_array;
 		std::optional<std::vector<std::string>> m_value;
+
+		std::set<Shader::Stage> m_stages;
 
 		std::optional<size_t> getArray(tstream &s)
 		{
@@ -445,15 +540,119 @@ private:
 				o << "const";
 			else
 				o << "layout" << "(" << "set" << "=" << (storage_to_set.at(m_storage)) << "," << "binding" << "=" << 0 << ")" << "uniform";
-			o << m_type << m_id;
-			if (m_array)
-				o << "[" << *m_array << "]";
-			if (m_value) {
-				o << "=";
-				for (auto &v : *m_value)
-					o << v;
+			declare(o);
+		}
+	};
+
+	class Section : public Primitive
+	{
+		using StageTable = std::map<std::string, Shader::Stage>;
+
+		static auto& stageTable(void)
+		{
+			static const StageTable table {
+				{"tesselation", Shader::Stage::Tesselation},
+				{"geometry", Shader::Stage::Geometry},
+				{"vertex", Shader::Stage::Vertex},
+				{"fragment", Shader::Stage::Fragment}
+			};
+
+			return table;
+		}
+
+	public:
+		Section(tstream &s, Compiler &compiler) :
+			m_compiler(compiler),
+			m_stage(getStage(s))
+		{
+			while (!poll_end(s))
+				poll(s, compiler);
+		}
+
+		static bool isComingUp(tstream &s)
+		{
+			if (s.peek() == "{")
+				return true;
+			if (s.tokens_left() >= 2) {
+				auto [first, second] = s.peek2();
+				return (stageTable().find(first) != stageTable().end()) && (second == "{");
 			}
-			o << ";";
+			return false;
+		}
+
+		void write(token_output &o, Sbi sbi) const override
+		{
+			for (auto &p : m_primitives)
+				p.write(o, sbi);
+		}
+
+		void poll(tstream &s, Compiler &compiler);
+
+		void recurAdd(Primitive &prim)
+		{
+			if (m_stage) {
+				auto var = dynamic_cast<Variable*>(&prim);
+				if (var) {
+					if (var->isUniform()) {
+						var->addStage(m_stage->getStage());
+					} else
+						m_stage->add(prim);
+				} else
+					m_stage->add(prim);
+			}
+			for (auto &p : m_primitives) {
+				auto s = dynamic_cast<Section*>(&p);
+				if (s)
+					s->recurAdd(prim);
+			}
+		}
+
+		void dispatch(void)
+		{
+			for (auto &p : m_primitives) {
+				auto s = dynamic_cast<Section*>(&p);
+				if (s)
+					s->dispatch();
+				else
+					recurAdd(p);
+			}
+		}
+
+	private:
+		Compiler &m_compiler;
+		Stage *m_stage;
+		util::unique_vector<Primitive> m_primitives;
+
+		Stage* getStage(tstream &s)
+		{
+			auto [first, second] = s.peek2();
+
+			if (first == "{") {
+				s.poll();
+				return nullptr;
+			} else {
+				auto name = s.poll();
+				s.poll();
+				auto stage = stageTable().at(name);
+				auto &stages = m_compiler.getStages();
+				auto got = stages.find(stage);
+				if (got == stages.end()) {
+					auto [it, suc] = stages.emplace(stage, stage);
+					got = it;
+				}
+				return &got->second;
+			}
+		}
+
+		bool poll_end(tstream &s)
+		{
+			auto &p = s.peek();
+
+			if (p == "}") {
+				s.poll();
+				return true;
+			} else
+				return false;
 		}
 	};
 
@@ -510,9 +709,22 @@ inline void Shader::Compiler::Section::poll(tstream &s, Compiler &compiler)
 	if (Section::isComingUp(s))
 		m_primitives.emplace<Section>(s, compiler);
 	else if (Variable::isComingUp(s))
-		m_primitives.emplace<Variable>(s);
+		m_primitives.emplace<Variable>(s, compiler);
 	else
 		m_primitives.emplace<Function>(s);
+}
+
+inline void Shader::Compiler::SharedBlock::write_vulkan(token_output &o) const
+{
+	static const std::map<Set, size_t> set_ndx_table {
+		{Set::Material, 0},
+		{Set::Object, 1}
+	};
+
+	o << "layout" << "(" << "std140" << "," << "set" << "=" << set_ndx_table.at(m_set) << "," << "binding" << "=" << m_binding << ")" << "uniform" << getType() << "{";
+	for (auto &v : m_variables)
+		v.get().declare(o);
+	o << "}" << getVarName() << ";";
 }
 
 inline Shader::Compiler::Compiler(const std::string &path)
@@ -521,6 +733,18 @@ inline Shader::Compiler::Compiler(const std::string &path)
 
 	Section collec(stream, *this);
 	collec.dispatch();
+
+	for (auto &v : m_variables) {
+		auto var = v.get();
+		auto set = var.getSet();
+		if (set)
+			m_blocks.forStages(*set, var.getStages()).add(v);
+	}
+
+	for (auto &pb : m_blocks)
+		for (auto &b : pb.second.getBlocks())
+			for (auto &s : b.getStages())
+				m_stages.at(s).add(b);
 
 	std::cout << "STAGES:" << std::endl;
 	for (auto &s : m_stages) {
