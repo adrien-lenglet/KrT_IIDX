@@ -155,6 +155,11 @@ class Shader::Compiler
 			}
 		}
 
+		const auto& getTokens(void)
+		{
+			return m_tokens;
+		}
+
 	private:
 		std::vector<std::string> m_tokens;
 
@@ -276,6 +281,16 @@ class Shader::Compiler
 			return getVarName(m_set, m_binding);
 		}
 
+		std::optional<std::string> substituate(const std::string &in) const
+		{
+			for (auto &v : m_variables) {
+				auto &name = v.get().getName();
+				if (name == in)
+					return getVarName() + std::string(".") + name;
+			}
+			return std::nullopt;
+		}
+
 	private:
 		Set m_set;
 		size_t m_binding;
@@ -364,8 +379,22 @@ private:
 		{
 			for (auto &b : m_shared_blocks)
 				b.get().write(o, sbi);
+			token_output inter_o;
 			for (auto &p : m_primitives)
-				p.get().write(o, sbi);
+				p.get().write(inter_o, sbi);
+			for (auto &t : inter_o.getTokens()) {
+				bool has_subs = false;
+				for (auto &b : m_shared_blocks) {
+					auto sub = b.get().substituate(t);
+					if (sub) {
+						o << *sub;
+						has_subs = true;
+						break;
+					}
+				}
+				if (!has_subs)
+					o << t;
+			}
 		}
 
 		auto getStage(void)
@@ -493,6 +522,11 @@ private:
 			else
 				return got->second;
 	
+		}
+
+		const std::string& getName(void) const
+		{
+			return m_id;
 		}
 
 	private:
