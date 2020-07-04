@@ -41,7 +41,7 @@ geometry {
 	fragment {
 		material sampler2D diffuse;
 		material sampler2D normal_map;
-		object mat4 mvp;
+		object mat4 mvp[56];
 		object mat4 add_cam;
 
 		void main(void)

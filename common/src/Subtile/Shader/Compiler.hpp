@@ -191,7 +191,7 @@ class Shader::Compiler
 	static auto tokenize(const std::string &str)
 	{
 		static const std::set<std::string> ops = {
-			"(", ")", ";", "{", "}"
+			"(", ")", ";", "{", "}", "[", "]"
 		};
 
 		std::vector<std::string> res;
