@@ -404,7 +404,7 @@ class Shader::Compiler
 		Set m_set;
 		Counter m_counter;
 		std::set<Shader::Stage> m_stages;
-		std::vector<std::reference_wrapper<Variable>> m_variables
+		std::vector<std::reference_wrapper<Variable>> m_variables;
 		std::optional<GlslNonOpaqueBlock> m_n_opaque;
 		std::vector<GlslOpaqueVar> m_opaque;
 	};
@@ -564,15 +564,62 @@ private:
 			return table;
 		}
 
+		static std::vector<size_t> parseArray(tstream &s)
+		{
+			std::vector<size_t> res;
+
+			while (s.peek() == "[") {
+				s.poll();
+				res.emplace_back(util::stot(std::stoull, s.poll()));
+				s.expect("]");
+			}
+			return res;
+		}
+
+		class Type
+		{
+		public:
+			Type(tstream &s) :
+				m_name(s.poll()),
+				m_array(parseArray(s))
+			{
+			}
+
+			const std::string& getName(void) const
+			{
+				return m_name;
+			}
+
+			const std::vector<size_t>& getArray(void) const
+			{
+				return m_array;
+			}
+
+		private:
+			std::string m_name;
+			std::vector<size_t> m_array;
+		};
+
 	public:
 		Variable(tstream &s, Compiler &compiler) :
 			m_storage(storageTable().find(s.poll())->second),
-			m_type(s.poll()),
+			m_type(s),
 			m_id(s.poll()),
-			m_array(getArray(s)),
+			m_array_ext(parseArray(s)),
+			m_array(mergeArrays()),
 			m_value(getValue(s))
 		{
-			s.expect(";");
+			compiler.addVariable(*this);
+		}
+
+		Variable(tstream &s, Variable &first, Compiler &compiler) :
+			m_storage(first.m_storage),
+			m_type(first.m_type),
+			m_id(s.poll()),
+			m_array_ext(parseArray(s)),
+			m_array(mergeArrays()),
+			m_value(getValue(s))
+		{
 			compiler.addVariable(*this);
 		}
 
@@ -583,9 +630,9 @@ private:
 
 		void declare(token_output &o) const
 		{
-			o << m_type << m_id;
-			if (m_array)
-				o << "[" << *m_array << "]";
+			o << m_type.getName() << m_id;
+			for (auto &a : m_array)
+				o << "[" << a << "]";
 			if (m_value) {
 				o << "=";
 				for (auto &v : *m_value)
@@ -639,22 +686,21 @@ private:
 
 	private:
 		Storage m_storage;
-		std::string m_type;
+		Type m_type;
 		std::string m_id;
-		std::optional<size_t> m_array;
+		std::vector<size_t> m_array_ext;
+		std::vector<size_t> m_array;
 		std::optional<std::vector<std::string>> m_value;
 
 		std::set<Shader::Stage> m_stages;
 
-		std::optional<size_t> getArray(tstream &s)
+		std::vector<size_t> mergeArrays(void) const
 		{
-			if (s.peek() == "[") {
-				s.poll();
-				auto res = util::stot(std::stoull, s.poll());
-				s.expect("]");
-				return res;
-			} else
-				return std::nullopt;
+			std::vector<size_t> res = m_array_ext;
+
+			for (auto &e : m_type.getArray())
+				res.emplace_back(e);
+			return res;
 		}
 
 		std::optional<std::vector<std::string>> getValue(tstream &s)
@@ -850,9 +896,14 @@ inline void Shader::Compiler::Section::poll(tstream &s, Compiler &compiler)
 	}
 	if (Section::isComingUp(s))
 		m_primitives.emplace<Section>(s, compiler);
-	else if (Variable::isComingUp(s))
-		m_primitives.emplace<Variable>(s, compiler);
-	else
+	else if (Variable::isComingUp(s)) {
+		auto &first = m_primitives.emplace<Variable>(s, compiler);
+		while (s.peek() == ",") {
+			s.poll();
+			m_primitives.emplace<Variable>(s, first, compiler);
+		}
+		s.expect(";");
+	} else
 		m_primitives.emplace<Function>(s);
 }
 
