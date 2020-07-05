@@ -230,24 +230,47 @@ class Shader::Compiler
 		Object
 	};
 
-	class SharedBlock
+	class Counter
 	{
 	public:
-		SharedBlock(Set set, size_t binding, const std::set<Shader::Stage> &stages) :
+		Counter(void) :
+			m_ndx(0)
+		{
+		}
+
+		size_t next(void)
+		{
+			return m_ndx++;
+		}
+
+	private:
+		size_t m_ndx;
+	};
+
+	static auto setToBindingNdx(Set set)
+	{
+		static const std::map<Set, size_t> table {
+			{Set::Material, 0},
+			{Set::Object, 1}
+		};
+
+		return table.at(set);
+	}
+
+	static auto sbiIsGlsl(Sbi sbi)
+	{
+		static const std::set<Sbi> table {Sbi::Vulkan};
+
+		return table.find(sbi) != table.end();
+	}
+
+	class GlslNonOpaqueBlock
+	{
+	public:
+		GlslNonOpaqueBlock(Set set, Counter &counter) :
 			m_set(set),
-			m_binding(binding),
-			m_stages(stages)
+			m_binding(counter.next())
 		{
-		}
-
-		void add(Variable &var)
-		{
-			m_variables.emplace_back(var);
-		}
-
-		auto& getStages(void) const
-		{
-			return m_stages;
 		}
 
 		void write(token_output &o, Sbi sbi) const
@@ -256,6 +279,11 @@ class Shader::Compiler
 				write_vulkan(o);
 			else
 				throw std::runtime_error("Sbi not supported");
+		}
+
+		void add(Variable &var)
+		{
+			m_variables.emplace_back(var);
 		}
 
 		static std::string getSignature(Set set, size_t binding)
@@ -294,18 +322,98 @@ class Shader::Compiler
 	private:
 		Set m_set;
 		size_t m_binding;
-		std::set<Shader::Stage> m_stages;
 		std::vector<std::reference_wrapper<Variable>> m_variables;
 
 		void write_vulkan(token_output &o) const;
+	};
+
+	class GlslOpaqueVar
+	{
+	public:
+		GlslOpaqueVar(Set set, Counter &counter, Variable &variable) :
+			m_set(set),
+			m_binding(counter.next()),
+			m_variable(variable)
+		{
+		}
+
+		void write(token_output &o, Sbi sbi) const
+		{
+			if (sbi == Sbi::Vulkan)
+				write_vulkan(o);
+			else
+				throw std::runtime_error("Sbi not supported");
+		}
+
+	private:
+		Set m_set;
+		size_t m_binding;
+		Variable &m_variable;
+
+		void write_vulkan(token_output &o) const
+		{
+			o << "layout" << "(" << "std140" << "," << "set" << "=" << setToBindingNdx(m_set) << "," << "binding" << "=" << m_binding << ")" << "uniform";
+			m_variable.declare(o);
+		}
+	};
+
+	class SharedBlock
+	{
+	public:
+		SharedBlock(Set set, Counter &counter, const std::set<Shader::Stage> &stages) :
+			m_set(set),
+			m_counter(counter),
+			m_stages(stages)
+		{
+		}
+
+		void add(Variable &var)
+		{
+			m_variables.emplace_back(var);
+
+			m_opaque.emplace_back(m_set, m_counter, var);
+		}
+
+		auto& getStages(void) const
+		{
+			return m_stages;
+		}
+
+		std::optional<std::string> substituate(const std::string &in, Sbi sbi) const
+		{
+			if (sbiIsGlsl(sbi)) {
+				if (m_n_opaque)
+					return m_n_opaque->substituate(in);
+				return std::nullopt;
+			} else
+				throw std::runtime_error("Unsupported SBI");
+		}
+
+		void write(token_output &o, Sbi sbi) const
+		{
+			if (sbiIsGlsl(sbi)) {
+				if (m_n_opaque)
+					m_n_opaque->write(o, sbi);
+				for (auto &opq : m_opaque)
+					opq.write(o, sbi);
+			} else
+				throw std::runtime_error("Unsupported SBI");
+		}
+
+	private:
+		Set m_set;
+		Counter m_counter;
+		std::set<Shader::Stage> m_stages;
+		std::vector<std::reference_wrapper<Variable>> m_variables
+		std::optional<GlslNonOpaqueBlock> m_n_opaque;
+		std::vector<GlslOpaqueVar> m_opaque;
 	};
 
 	class DescriptorSet
 	{
 	public:
 		DescriptorSet(Set set) :
-			m_set(set),
-			m_binding(0)
+			m_set(set)
 		{
 		}
 
@@ -319,12 +427,12 @@ class Shader::Compiler
 			for (auto &b : m_blocks)
 				if (b.getStages() == stages)
 					return b;
-			return m_blocks.emplace_back(m_set, m_binding++, stages);	
+			return m_blocks.emplace_back(m_set, m_counter, stages);	
 		}
 
 	private:
 		Set m_set;
-		size_t m_binding;
+		Counter m_counter;
 		std::vector<SharedBlock> m_blocks;
 	};
 
@@ -385,7 +493,7 @@ private:
 			for (auto &t : inter_o.getTokens()) {
 				bool has_subs = false;
 				for (auto &b : m_shared_blocks) {
-					auto sub = b.get().substituate(t);
+					auto sub = b.get().substituate(t, sbi);
 					if (sub) {
 						o << *sub;
 						has_subs = true;
@@ -748,14 +856,9 @@ inline void Shader::Compiler::Section::poll(tstream &s, Compiler &compiler)
 		m_primitives.emplace<Function>(s);
 }
 
-inline void Shader::Compiler::SharedBlock::write_vulkan(token_output &o) const
+inline void Shader::Compiler::GlslNonOpaqueBlock::write_vulkan(token_output &o) const
 {
-	static const std::map<Set, size_t> set_ndx_table {
-		{Set::Material, 0},
-		{Set::Object, 1}
-	};
-
-	o << "layout" << "(" << "std140" << "," << "set" << "=" << set_ndx_table.at(m_set) << "," << "binding" << "=" << m_binding << ")" << "uniform" << getType() << "{";
+	o << "layout" << "(" << "std140" << "," << "set" << "=" << setToBindingNdx(m_set) << "," << "binding" << "=" << m_binding << ")" << "uniform" << getType() << "{";
 	for (auto &v : m_variables)
 		v.get().declare(o);
 	o << "}" << getVarName() << ";";
