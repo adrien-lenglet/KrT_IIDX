@@ -39,10 +39,10 @@ RESOURCE_DUMMY_MAIN = .sb_dummy_main.cpp
 RESOURCE_OUT = ./.sb_resource_make
 
 resources: $(RESOURCES_OBJ) $(USER_RESOURCES_OBJ)
-	echo "int main(void) { return 0; }" > $(RESOURCE_DUMMY_MAIN)
-	$(CXX) $(CXXFLAGS) $(RESOURCE_DUMMY_MAIN) $(RESOURCES_OBJ) $(USER_RESOURCES_OBJ) -o $(RESOURCE_OUT)
-	$(RESOURCE_OUT)
-	rm $(RESOURCE_DUMMY_MAIN) $(RESOURCE_OUT)
+	#echo "int main(void) { return 0; }" > $(RESOURCE_DUMMY_MAIN)
+	#$(CXX) $(CXXFLAGS) $(RESOURCE_DUMMY_MAIN) $(RESOURCES_OBJ) $(USER_RESOURCES_OBJ) -o $(RESOURCE_OUT)
+	#$(RESOURCE_OUT)
+	#rm $(RESOURCE_DUMMY_MAIN) $(RESOURCE_OUT)
 
 LIB_SRC = $(wildcard $(LIB_SRC_FOLDER)/*.cpp)
 LIB_OBJ = $(LIB_SRC:.cpp=.o)

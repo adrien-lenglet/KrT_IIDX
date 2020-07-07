@@ -31,8 +31,6 @@ private:
 	friend Entity;
 
 	static util::stack<std::reference_wrapper<Subtile::Event::System::Observer>>& getSystems(void);
-
-	util::unique_set<Entity> m_children;
 };
 
 }

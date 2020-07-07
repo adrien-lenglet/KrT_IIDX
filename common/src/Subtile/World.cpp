@@ -9,6 +9,7 @@ World::World(void) :
 
 World::~World(void)
 {
+	m_children.clear();
 }
 
 util::stack<std::reference_wrapper<Event::System::Observer>>& World::getSystems(void)

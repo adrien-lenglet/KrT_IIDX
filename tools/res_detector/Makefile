@@ -1,5 +1,5 @@
 CXX = clang++
-CXXFLAGS = -std=c++17 -Wall -Wextra -I ../../common/src
+CXXFLAGS = -std=c++17 -Wall -Wextra -g -I ../../common/src
 
 SRC_FOLDER = src
 SRC = $(wildcard $(SRC_FOLDER)/*.cpp)

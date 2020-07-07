@@ -225,11 +225,13 @@ class Shader::Compiler
 
 	class Variable;
 
+public:
 	enum class Set {
 		Material,
 		Object
 	};
 
+private:
 	class Counter
 	{
 	public:
@@ -319,6 +321,16 @@ class Shader::Compiler
 			return std::nullopt;
 		}
 
+		auto getSet(void) const
+		{
+			return setToBindingNdx(m_set);
+		}
+
+		auto getBinding(void) const
+		{
+			return m_binding;
+		}
+
 	private:
 		Set m_set;
 		size_t m_binding;
@@ -343,6 +355,21 @@ class Shader::Compiler
 				write_vulkan(o);
 			else
 				throw std::runtime_error("Sbi not supported");
+		}
+
+		auto getSet(void) const
+		{
+			return setToBindingNdx(m_set);
+		}
+
+		auto getBinding(void) const
+		{
+			return m_binding;
+		}
+
+		auto& getVariable(void) const
+		{
+			return m_variable;
 		}
 
 	private:
@@ -371,7 +398,13 @@ class Shader::Compiler
 		{
 			m_variables.emplace_back(var);
 
-			m_opaque.emplace_back(m_set, m_counter, var);
+			if (var.getType().getName() == "sampler2D")
+				m_opaque.emplace_back(m_set, m_counter, var);
+			else {
+				if (!m_n_opaque)
+					m_n_opaque.emplace(m_set, m_counter);
+				m_n_opaque->add(var);
+			}
 		}
 
 		auto& getStages(void) const
@@ -400,6 +433,16 @@ class Shader::Compiler
 				throw std::runtime_error("Unsupported SBI");
 		}
 
+		auto& getGlslNonOpaque(void) const
+		{
+			return m_n_opaque;
+		}
+
+		auto& getGlslOpaque(void) const
+		{
+			return m_opaque;
+		}
+
 	private:
 		Set m_set;
 		Counter m_counter;
@@ -417,7 +460,17 @@ class Shader::Compiler
 		{
 		}
 
+		auto getSet(void) const
+		{
+			return m_set;
+		}
+
 		auto& getBlocks(void)
+		{
+			return m_blocks;
+		}
+
+		auto& getBlocks(void) const
 		{
 			return m_blocks;
 		}
@@ -464,6 +517,15 @@ public:
 		m_variables.emplace_back(variable);
 	}
 
+	auto getDescriptorSets(void) const
+	{
+		std::vector<std::reference_wrapper<const DescriptorSet>> res;
+
+		for (auto &b : m_blocks)
+			res.emplace_back(b.second);
+		return res;
+	}
+
 private:
 	class Stage
 	{
@@ -490,18 +552,22 @@ private:
 			token_output inter_o;
 			for (auto &p : m_primitives)
 				p.get().write(inter_o, sbi);
+			std::string last_token;
 			for (auto &t : inter_o.getTokens()) {
 				bool has_subs = false;
-				for (auto &b : m_shared_blocks) {
-					auto sub = b.get().substituate(t, sbi);
-					if (sub) {
-						o << *sub;
-						has_subs = true;
-						break;
+				if (last_token != ".") {
+					for (auto &b : m_shared_blocks) {
+						auto sub = b.get().substituate(t, sbi);
+						if (sub) {
+							o << *sub;
+							has_subs = true;
+							break;
+						}
 					}
 				}
 				if (!has_subs)
 					o << t;
+				last_token = t;
 			}
 		}
 
@@ -682,6 +748,16 @@ private:
 		const std::string& getName(void) const
 		{
 			return m_id;
+		}
+
+		const Type& getType(void) const
+		{
+			return m_type;
+		}
+
+		auto& getArray(void) const
+		{
+			return m_array;
 		}
 
 	private:
@@ -884,6 +960,9 @@ private:
 		}
 	};
 
+	token_stream m_stream;
+	Section m_collec;
+
 public:	
 	Compiler(const std::string &path);
 };
@@ -915,12 +994,11 @@ inline void Shader::Compiler::GlslNonOpaqueBlock::write_vulkan(token_output &o) 
 	o << "}" << getVarName() << ";";
 }
 
-inline Shader::Compiler::Compiler(const std::string &path)
+inline Shader::Compiler::Compiler(const std::string &path) :
+	m_stream(token_stream(tokenize(read(path)))),
+	m_collec(m_stream, *this)
 {
-	auto stream = token_stream(tokenize(read(path)));
-
-	Section collec(stream, *this);
-	collec.dispatch();
+	m_collec.dispatch();
 
 	for (auto &v : m_variables) {
 		auto var = v.get();
@@ -934,13 +1012,13 @@ inline Shader::Compiler::Compiler(const std::string &path)
 			for (auto &s : b.getStages())
 				m_stages.at(s).add(b);
 
-	std::cout << "STAGES:" << std::endl;
+	/*std::cout << "STAGES:" << std::endl;
 	for (auto &s : m_stages) {
 		std::cout << static_cast<std::underlying_type_t<decltype(s.first)>>(s.first) << std::endl;
 		token_output o;
 		s.second.write(o, Sbi::Vulkan);
 		o.write(std::cout);
-	}
+	}*/
 }
 
 }

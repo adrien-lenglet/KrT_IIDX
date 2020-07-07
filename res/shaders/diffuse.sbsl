@@ -48,6 +48,7 @@ geometry {
 		{
 			_sb_output = vec4(1.0);
 			mvp * diffuse + time;
+			somestruct.time;
 		}
 	}
 }

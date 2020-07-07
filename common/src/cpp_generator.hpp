@@ -2852,19 +2852,33 @@ namespace CppGenerator {
 	{
 	public:
 		template<typename ...Args>
-		Brace(Args &&...args)
+		Brace(Args &&...args) :
+			m_values(util::vectorize_args<Value>(std::forward<Args>(args)...))
+		{
+			m_value = valuesToStr();
+		}
+
+		void add(const Value &val)
+		{
+			m_values.emplace_back(val);
+			m_value = valuesToStr();
+		}
+
+	private:
+		std::vector<Value> m_values;
+
+		std::string valuesToStr(void) const
 		{
 			std::stringstream o;
 
-			auto vvalues = util::vectorize_args<Value>(std::forward<Args>(args)...);
 			o << "{";
 			auto comma = "";
-			for (auto &v : vvalues) {
+			for (auto &v : m_values) {
 				o << comma << v;
 				comma = ", ";
 			}
 			o << "}";
-			m_value = o.str();
+			return o.str();
 		}
 	};
 

@@ -70,6 +70,73 @@ class FolderPrinter
 		ctor /= st("add"_v.T(t)(basefile));
 	}
 
+	Brace shaderStagesToBrace(const std::set<sb::Shader::Stage> &stages)
+	{
+		static const std::map<sb::Shader::Stage, Value> table {
+			{sb::Shader::Stage::Tesselation, "sb::Shader::Stage::Tesselation"_v},
+			{sb::Shader::Stage::Geometry, "sb::Shader::Stage::Geometry"_v},
+			{sb::Shader::Stage::Vertex, "sb::Shader::Stage::Vertex"_v},
+			{sb::Shader::Stage::Fragment, "sb::Shader::Stage::Fragment"_v}
+		};
+
+		Brace res;
+
+		for (auto &s : stages)
+			res.add(table.at(s));
+		return res;
+	}
+
+	void shaderaddlayout(Util::CollectionBase &scope, sb::Shader::Compiler::Set set, const std::string &met_name, sb::Shader::Compiler &shader)
+	{
+		auto t = "sb::Shader::DescriptorSet::Layout"_t;
+
+		auto fwd = scope += t | Id(met_name)(Void) | Const;
+		auto &impl = m_impl_out += t | fwd(Void) | Const | S {};
+
+		auto res = B {};
+
+		for (auto &sb : shader.getDescriptorSets())
+			if (sb.get().getSet() == set) {
+				auto &blocks = sb.get().getBlocks();
+				auto b_init = B {};
+				for (auto &b : blocks) {
+					auto &nopq = b.getGlslNonOpaque();
+					if (nopq) {
+						auto &n = *nopq;
+						b_init.add(B {n.getBinding(), static_cast<size_t>(1), "sb::Shader::DescriptorType::UniformBuffer"_v, shaderStagesToBrace(b.getStages())});
+					}
+					for (auto &v : b.getGlslOpaque()) {
+						size_t count = 1;
+						auto &arr = v.getVariable().getArray();
+						if (arr.size() > 0)
+							count = arr.at(0);
+						b_init.add(B {v.getBinding(), count, "sb::Shader::DescriptorType::CombinedImageSampler"_v, shaderStagesToBrace(b.getStages())});
+					}
+				}
+
+				res.add(b_init);
+			}
+
+		impl += Return | res;
+	}
+
+	Type addshader(Util::CollectionBase &scope, const std::string &id, const std::string &shaderpath)
+	{
+		sb::Shader::Compiler compiled(shaderpath);
+
+		scope += Private;
+		auto &sh = scope += Class | (id + std::string("_type")) | C(Public | "sb::rs::Shader"_t) | S {Public};
+		auto ctor_fwd = sh += Ctor(Void);
+		m_impl_out += ctor_fwd(Void) | S {};
+		auto dtor_fwd = sh += Dtor(Void);
+		m_impl_out += dtor_fwd(Void) | S {};
+
+		shaderaddlayout(scope, sb::Shader::Compiler::Set::Material, "material", compiled);
+		shaderaddlayout(scope, sb::Shader::Compiler::Set::Object, "object", compiled);
+
+		return sh;
+	}
+
 	template <typename T>
 	void it_dir(const T &itbase, Util::CollectionBase &scope, Util::CollectionFunctionBase &ctor)
 	{
@@ -96,10 +163,10 @@ class FolderPrinter
 					auto t = Type(type);
 
 					if (type == "sb::rs::Shader") {
-						sb::Shader::Compiler compiled(e.path().string());
-					}
-
-					addgetterstorage(scope, ctor, t, id, name);
+						auto t = addshader(scope, id, e.path().string());
+						addgetterstorage(scope, ctor, t, id, name);
+					} else
+						addgetterstorage(scope, ctor, t, id, name);
 				}
 			}
 		}

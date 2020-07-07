@@ -27,6 +27,8 @@ EntityTest::EntityTest(void) :
 		transformed();
 	});
 
+	auto shader = load(res.shaders().diffuse());
+
 	//std::cout << &res.models().npc().gordon() << std::endl;
 }
 

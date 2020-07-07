@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Element.hpp"
+#include "../Shader.hpp"
 
 namespace Subtile {
 namespace Resource {

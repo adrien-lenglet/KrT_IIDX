@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Subtile.hpp"
+#include "Resource/Shader.hpp"
 
 #include <vector>
 #include <stack>
@@ -58,6 +59,18 @@ protected:
 		}), &world, this);
 		getEntityStack().pop();
 		return res;
+	}
+
+	template <typename R>
+	decltype(auto) load(R &&res)
+	{
+		static_cast<void>(res);
+
+		if constexpr (std::is_base_of_v<rs::Shader, std::remove_reference_t<R>>) {
+			return 2;
+		} else {
+			static_assert(std::is_same_v<R, R>, "Unsupported resource type");
+		}
 	}
 
 	void destroy(void);
