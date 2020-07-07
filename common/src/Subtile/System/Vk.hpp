@@ -359,6 +359,9 @@ private:
 			VkHandle m_handle;
 		};
 
+		template <typename ...Args>
+		auto createImageView(Args &&...args);
+
 	private:
 		PhysicalDevice m_physical;
 
@@ -374,11 +377,17 @@ private:
 
 	class ImageView : public Device::Handle<VkImageView>
 	{
+		ImageView(Device &device, VkImageView imageView);
+
 	public:
-		ImageView(Vk::Device &device, VkImage image, VkImageViewType viewType, VkFormat format, const VkImageSubresourceRange &subres = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
+		template <typename ...Args>
+		ImageView(Device &device, Args &&...args) :
+			ImageView(device, create(device, std::forward<Args>(args)...))
+		{
+		}
 
 	private:
-		VkImageView create(Vk::Device &device, VkImage image, VkImageViewType viewType, VkFormat format, const VkImageSubresourceRange &subres);
+		VkImageView create(Vk::Device &device, VkImage image, VkImageViewType viewType, VkFormat format, const VkImageSubresourceRange &subres = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
 	};
 
 	class Swapchain : public Device::Handle<VkSwapchainKHR>
@@ -404,6 +413,12 @@ private:
 
 	std::unique_ptr<sb::Shader> loadShader(rs::Shader &shader) override;
 };
+
+template <typename ...Args>
+auto Vk::Device::createImageView(Args &&...args)
+{
+	return Vk::ImageView(*this, std::forward<Args>(args)...);
+}
 
 }
 }

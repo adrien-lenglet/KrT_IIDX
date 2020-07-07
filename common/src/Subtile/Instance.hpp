@@ -32,9 +32,23 @@ private:
 
 	void scanInputs(void);
 
-	Cache<util::ref_wrapper<rs::Shader>, std::unique_ptr<Shader>> m_shaders;
+	using ShaderCache = Cache<util::ref_wrapper<rs::Shader>, std::unique_ptr<Shader>>;
+	ShaderCache m_shaders;
 
-	auto loadShader(rs::Shader &shaderres)
+	class UniqueShaderRef : public Shader
+	{
+	public:
+		template <typename ...Args>
+		UniqueShaderRef(Args &&...args) :
+			m_ref(std::forward<Args>(args)...)
+		{
+		}
+
+	private:
+		ShaderCache::Ref m_ref;
+	};
+
+	UniqueShaderRef loadShader(rs::Shader &shaderres)
 	{
 		auto got = m_shaders.find(shaderres);
 		if (got == m_shaders.end())

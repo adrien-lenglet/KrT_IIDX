@@ -48,6 +48,24 @@ public:
 				m_entry.ref_lost();
 			}
 
+			operator Value&(void)
+			{
+				return m_entry.m_value;
+			}
+			operator Value&(void) const
+			{
+				return m_entry.m_value;
+			}
+
+			auto operator->(void)
+			{
+				return &m_entry.m_value;
+			}
+			auto operator->(void) const
+			{
+				return &m_entry.m_value;
+			}
+
 		private:
 			Entry &m_entry;
 		};
@@ -84,6 +102,8 @@ public:
 			m_map.erase(got);
 		}
 	};
+
+	using Ref = typename Entry::Ref;
 
 public:
 	class iterator : public MapType::iterator

@@ -506,8 +506,8 @@ Vk::Device Vk::createDevice(void)
 	return Device(phys, getDesiredQueues(phys));
 }
 
-Vk::ImageView::ImageView(Vk::Device &device, VkImage image, VkImageViewType viewType, VkFormat format, const VkImageSubresourceRange &subres) :
-	Device::Handle<VkImageView>(device, create(device, image, viewType, format, subres))
+Vk::ImageView::ImageView(Vk::Device &device, VkImageView imageView) :
+	Device::Handle<VkImageView>(device, imageView)
 {
 }
 
@@ -581,7 +581,7 @@ std::vector<Vk::ImageView> Vk::Swapchain::createViews(Vk::Device &dev)
 
 	auto fmt = dev.physical().surface().chooseFormat().format;
 	for (auto &i : m_images)
-		res.emplace_back(dev, i, VK_IMAGE_VIEW_TYPE_2D, fmt);
+		res.emplace_back(dev.createImageView(i, VK_IMAGE_VIEW_TYPE_2D, fmt));
 	return res;
 }
 
