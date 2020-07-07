@@ -591,5 +591,15 @@ void Vk::Device::Handle<VkSwapchainKHR>::destroy(Vk::Device &device, VkSwapchain
 	vkDestroySwapchainKHR(device, swapchain, nullptr);
 }
 
+Vk::Shader::Shader(rs::Shader &shader)
+{
+	static_cast<void>(shader);
+}
+
+std::unique_ptr<sb::Shader> Vk::loadShader(rs::Shader &shader)
+{
+	return nullptr;
+}
+
 }
 }

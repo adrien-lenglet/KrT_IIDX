@@ -33,8 +33,25 @@ private:
 	friend Entity;
 
 	static util::stack<std::reference_wrapper<Instance>>& getInstanceStack(void);
+
+	template <typename S>
+	decltype(auto) loadShader(S &&shaderres);
 };
 
 }
 
 #include "Instance.hpp"
+
+namespace Subtile {
+	template <typename S>
+	decltype(auto) World::loadShader(S &&shaderres)
+	{
+		return instance.loadShader(std::forward<S>(shaderres));
+	}
+
+	template <typename R>
+	decltype(auto) Entity::worldLoadShader(R &&res)
+	{
+		return world.loadShader(std::forward<R>(res));
+	}
+}

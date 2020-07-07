@@ -395,6 +395,14 @@ private:
 	};
 
 	Swapchain m_swapchain;
+
+	class Shader
+	{
+	public:
+		Shader(rs::Shader &shader);
+	};
+
+	std::unique_ptr<sb::Shader> loadShader(rs::Shader &shader) override;
 };
 
 }

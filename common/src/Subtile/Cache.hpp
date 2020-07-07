@@ -1,37 +1,32 @@
 #pragma once
 
-#include "util.hpp"
+#include <stdexcept>
 
 namespace Subtile {
 
-template <typename ...Args>
-class Cache;
-
-template <template <typename...> class GroupingType, typename ...ReqTypes, typename CachedType>
-class Cache<GroupingType<ReqTypes...>, CachedType>
+template <typename Key, typename Value>
+class Cache
 {
-	using Key = std::tuple<ReqTypes...>;
+public:
+	class Entry;
+
+private:
+	using MapType = std::map<Key, Entry>;
 
 public:
 	Cache(void)
-	{
-	}
-	~Cache(void)
 	{
 	}
 
 	class Entry
 	{
 	public:
-		template <typename ...Args>	
-		Entry(Cache &cache, Args &&...args) :
-			m_cache(cache),
-			m_key(nullptr),
-			m_value(cache.build(std::forward<Args>(args)...)),
-			m_ref_count(0)
-		{
-		}
-		~Entry(void)
+		template <typename ...Args>
+		Entry(MapType &map, const Key &key, Args &&...args) :
+			m_map(map),
+			m_key(key),
+			m_value(std::forward<Args>(args)...),
+			m_refs(0)
 		{
 		}
 
@@ -41,95 +36,91 @@ public:
 			Ref(Entry &entry) :
 				m_entry(entry)
 			{
-				m_entry.refCreated();
+				m_entry.new_ref_created();
 			}
-			Ref(Ref &&other) :
+			Ref(const Ref &other) :
 				m_entry(other.m_entry)
 			{
-				m_entry.refCreated();
+				m_entry.new_ref_created();
 			}
 			~Ref(void)
 			{
-				m_entry.refDestroyed();
+				m_entry.ref_lost();
 			}
-
-			auto& operator*(void) { return *m_entry; }
-			auto& operator*(void) const { return *m_entry; }
-			auto& operator->(void) { return *m_entry; }
-			auto& operator->(void) const { return *m_entry; }
 
 		private:
 			Entry &m_entry;
 		};
 
-		auto& operator*(void) { return m_value; }
-		auto& operator*(void) const { return m_value; }
-		auto& operator->(void) { return m_value; }
-		auto& operator->(void) const { return m_value; }
-
-		Ref createRef(void)
+		friend Ref;
+		Ref new_ref(void)
 		{
-			return Ref(*this);
+			return *this;
 		}
 
 	private:
-		friend Ref;
-		friend Cache;
-		Cache &m_cache;
-		const Key *m_key;
-		CachedType m_value;
-		size_t m_ref_count;
+		MapType &m_map;
+		Key m_key;
+		Value m_value;
+		size_t m_refs;
 
-		void setKey(const Key &key)
+		void new_ref_created(void)
 		{
-			m_key = &key;
+			m_refs++;
 		}
 
-		void refCreated(void)
+		void ref_lost(void)
 		{
-			m_ref_count++;
+			m_refs--;
+			if (m_refs == 0)
+				destroy();
 		}
 
-		void refDestroyed(void)
+		void destroy(void)
 		{
-			m_ref_count--;
-			if (m_ref_count == 0)
-				m_cache.destroy(*m_key);
+			auto got = m_map.find(m_key);
+			if (got == m_map.end())
+				throw std::runtime_error("Can't find self in cache");
+			m_map.erase(got);
 		}
 	};
 
-	using Point = typename Entry::Ref;
-
-	Point resolve(ReqTypes &&...args)
+public:
+	class iterator : public MapType::iterator
 	{
-		auto req = std::make_tuple(std::forward<ReqTypes>(args)...);
-		auto got = m_cache.find(req);
-
-		if (got == m_cache.end()) {
-			auto [it, success] = m_cache.emplace(std::piecewise_construct, req, std::forward_as_tuple(*this, std::forward<ReqTypes>(args)...));
-			if (!success)
-				throw std::runtime_error("Can't emplace value in cache");
-			it->second.setKey(it->first);
-			got = it;
+	public:
+		template <typename ...Args>
+		iterator(Args &&...args) :
+			MapType::iterator(std::forward<Args>(args)...)
+		{
 		}
-		return got->second.createRef();
+	};
+
+	iterator find(const Key &k)
+	{
+		return m_cache.find(k);
 	}
 
-protected:
-	virtual CachedType build(const ReqTypes &...args) const = 0;
+	iterator begin(void)
+	{
+		return m_cache.begin();
+	}
+	iterator end(void)
+	{
+		return m_cache.end();
+	}
+
+	template <typename ...Args>
+	auto emplace(const Key &key, Args &&...args)
+	{
+		auto [it, suc] = m_cache.emplace(std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(m_cache, key, std::forward<Args>(args)...));
+		if (!suc)
+			throw std::runtime_error("Can't insert stuff in cache");
+		return it->second.new_ref();
+	}
 
 private:
-	friend Entry;
-	std::map<Key, Entry> m_cache;
-
-	void destroy(const Key &key)
-	{
-		auto got = m_cache.find(key);
-
-		if (got == m_cache.end())
-			throw std::runtime_error("Can't remove value from cache");
-		m_cache.erase(got);
-	}
+	MapType m_cache;
 };
 
 }

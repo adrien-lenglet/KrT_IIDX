@@ -90,7 +90,7 @@ class FolderPrinter
 	{
 		auto t = "sb::Shader::DescriptorSet::Layout"_t;
 
-		auto fwd = scope += t | Id(met_name)(Void) | Const;
+		auto fwd = scope += t | Id(met_name)(Void) | Const | Override;
 		auto &impl = m_impl_out += t | fwd(Void) | Const | S {};
 
 		auto res = B {};
@@ -131,8 +131,8 @@ class FolderPrinter
 		auto dtor_fwd = sh += Dtor(Void);
 		m_impl_out += dtor_fwd(Void) | S {};
 
-		shaderaddlayout(scope, sb::Shader::Compiler::Set::Material, "material", compiled);
-		shaderaddlayout(scope, sb::Shader::Compiler::Set::Object, "object", compiled);
+		shaderaddlayout(sh, sb::Shader::Compiler::Set::Material, "material", compiled);
+		shaderaddlayout(sh, sb::Shader::Compiler::Set::Object, "object", compiled);
 
 		return sh;
 	}

@@ -8,6 +8,8 @@ namespace Subtile {
 class Shader
 {
 public:
+	virtual ~Shader(void) = default;
+
 	enum class Stage {
 		Tesselation,
 		Geometry,
