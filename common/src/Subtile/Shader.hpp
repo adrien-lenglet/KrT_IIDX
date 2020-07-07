@@ -11,7 +11,8 @@ public:
 	virtual ~Shader(void) = default;
 
 	enum class Stage {
-		Tesselation,
+		TesselationControl,
+		TesselationEvaluation,
 		Geometry,
 		Vertex,
 		Fragment
@@ -47,6 +48,11 @@ public:
 			Layout(std::initializer_list<LayoutBinding> init) :
 				m_bindings(init)
 			{
+			}
+
+			auto& getBindings(void) const
+			{
+				return m_bindings;
 			}
 
 		private:

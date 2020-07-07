@@ -445,7 +445,7 @@ private:
 
 	private:
 		Set m_set;
-		Counter m_counter;
+		Counter &m_counter;
 		std::set<Shader::Stage> m_stages;
 		std::vector<std::reference_wrapper<Variable>> m_variables;
 		std::optional<GlslNonOpaqueBlock> m_n_opaque;
@@ -815,7 +815,8 @@ private:
 		static auto& stageTable(void)
 		{
 			static const StageTable table {
-				{"tesselation", Shader::Stage::Tesselation},
+				{"tesselation_control", Shader::Stage::TesselationControl},
+				{"tesselation_evaluation", Shader::Stage::TesselationEvaluation},
 				{"geometry", Shader::Stage::Geometry},
 				{"vertex", Shader::Stage::Vertex},
 				{"fragment", Shader::Stage::Fragment}

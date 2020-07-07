@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.h>
 #include "../ISystem.hpp"
 #include "Glfw.hpp"
+#include "Subtile/Shader.hpp"
 
 #undef assert
 
@@ -387,28 +388,41 @@ private:
 		}
 
 	private:
-		VkImageView create(Vk::Device &device, VkImage image, VkImageViewType viewType, VkFormat format, const VkImageSubresourceRange &subres = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
+		VkImageView create(Device &device, VkImage image, VkImageViewType viewType, VkFormat format, const VkImageSubresourceRange &subres = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
 	};
 
 	class Swapchain : public Device::Handle<VkSwapchainKHR>
 	{
 	public:
-		Swapchain(const Glfw::Window &window, Vk::Device &device);
+		Swapchain(const Glfw::Window &window, Device &device);
 
 	private:
 		std::vector<VkImage> m_images;
-		std::vector<Vk::ImageView> m_views;
+		std::vector<ImageView> m_views;
 
-		VkSwapchainKHR create(const Glfw::Window &window, Vk::Device &device);
-		std::vector<Vk::ImageView> createViews(Vk::Device &dev);
+		VkSwapchainKHR create(const Glfw::Window &window, Device &device);
+		std::vector<ImageView> createViews(Device &dev);
 	};
 
 	Swapchain m_swapchain;
 
-	class Shader
+	class DescriptorSetLayout : public Device::Handle<VkDescriptorSetLayout>
 	{
 	public:
-		Shader(rs::Shader &shader);
+		DescriptorSetLayout(Device &device, const sb::Shader::DescriptorSet::Layout &layout);
+
+	private:
+		VkDescriptorSetLayout create(Device &device, const sb::Shader::DescriptorSet::Layout &layout);
+	};
+
+	class Shader : public sb::Shader
+	{
+	public:
+		Shader(Device &device, rs::Shader &shader);
+
+	private:
+		DescriptorSetLayout m_material_layout;
+		DescriptorSetLayout m_object_layout;
 	};
 
 	std::unique_ptr<sb::Shader> loadShader(rs::Shader &shader) override;

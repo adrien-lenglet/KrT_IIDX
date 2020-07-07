@@ -581,7 +581,7 @@ std::vector<Vk::ImageView> Vk::Swapchain::createViews(Vk::Device &dev)
 
 	auto fmt = dev.physical().surface().chooseFormat().format;
 	for (auto &i : m_images)
-		res.emplace_back(dev.createImageView(i, VK_IMAGE_VIEW_TYPE_2D, fmt));
+		res.emplace_back(dev, i, VK_IMAGE_VIEW_TYPE_2D, fmt);
 	return res;
 }
 
@@ -591,14 +591,63 @@ void Vk::Device::Handle<VkSwapchainKHR>::destroy(Vk::Device &device, VkSwapchain
 	vkDestroySwapchainKHR(device, swapchain, nullptr);
 }
 
-Vk::Shader::Shader(rs::Shader &shader)
+Vk::DescriptorSetLayout::DescriptorSetLayout(Vk::Device &device, const sb::Shader::DescriptorSet::Layout &layout) :
+	Device::Handle<VkDescriptorSetLayout>(device, create(device, layout))
+{
+}
+
+VkDescriptorSetLayout Vk::DescriptorSetLayout::create(Device &device, const sb::Shader::DescriptorSet::Layout &layout)
+{
+	static const std::map<sb::Shader::DescriptorType, VkDescriptorType> descriptorTypeTable {
+		{sb::Shader::DescriptorType::UniformBuffer, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER},
+		{sb::Shader::DescriptorType::CombinedImageSampler, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER}
+	};
+	static const std::map<sb::Shader::Stage, VkShaderStageFlags> stageTable {
+		{sb::Shader::Stage::TesselationControl, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT},
+		{sb::Shader::Stage::TesselationEvaluation, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT},
+		{sb::Shader::Stage::Geometry, VK_SHADER_STAGE_GEOMETRY_BIT},
+		{sb::Shader::Stage::Vertex, VK_SHADER_STAGE_VERTEX_BIT},
+		{sb::Shader::Stage::Fragment, VK_SHADER_STAGE_FRAGMENT_BIT}
+	};
+
+	VkDescriptorSetLayoutCreateInfo createInfo {};
+
+	createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+
+	std::vector<VkDescriptorSetLayoutBinding> bindings;
+	for (auto &b : layout.getBindings()) {
+		VkDescriptorSetLayoutBinding r {};
+		r.binding = b.binding;
+		r.descriptorType = descriptorTypeTable.at(b.descriptorType);
+		r.descriptorCount = b.descriptorCount;
+		for (auto &s : b.stages)
+			r.stageFlags |= stageTable.at(s);
+
+		bindings.emplace_back(r);
+	}
+
+	createInfo.bindingCount = bindings.size();
+	createInfo.pBindings = bindings.data();
+
+	return Vk::create<VkDescriptorSetLayout>(vkCreateDescriptorSetLayout, device, &createInfo, nullptr);
+}
+
+template <>
+void Vk::Device::Handle<VkDescriptorSetLayout>::destroy(Vk::Device &device, VkDescriptorSetLayout layout)
+{
+	vkDestroyDescriptorSetLayout(device, layout, nullptr);
+}
+
+Vk::Shader::Shader(Vk::Device &device, rs::Shader &shader) :
+	m_material_layout(device, shader.material()),
+	m_object_layout(device, shader.object())
 {
 	static_cast<void>(shader);
 }
 
 std::unique_ptr<sb::Shader> Vk::loadShader(rs::Shader &shader)
 {
-	return nullptr;
+	return std::make_unique<Shader>(m_device, shader);
 }
 
 }

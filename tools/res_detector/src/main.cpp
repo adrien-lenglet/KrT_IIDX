@@ -73,7 +73,8 @@ class FolderPrinter
 	Brace shaderStagesToBrace(const std::set<sb::Shader::Stage> &stages)
 	{
 		static const std::map<sb::Shader::Stage, Value> table {
-			{sb::Shader::Stage::Tesselation, "sb::Shader::Stage::Tesselation"_v},
+			{sb::Shader::Stage::TesselationControl, "sb::Shader::Stage::TesselationControl"_v},
+			{sb::Shader::Stage::TesselationEvaluation, "sb::Shader::Stage::TesselationEvaluation"_v},
 			{sb::Shader::Stage::Geometry, "sb::Shader::Stage::Geometry"_v},
 			{sb::Shader::Stage::Vertex, "sb::Shader::Stage::Vertex"_v},
 			{sb::Shader::Stage::Fragment, "sb::Shader::Stage::Fragment"_v}
