@@ -3,39 +3,26 @@
 #include "ISystem.hpp"
 #include "Event/System/Observer.hpp"
 #include "Screen/Layout.hpp"
-#include "Screen/Subsection.hpp"
 #include "Math.hpp"
 #include "util.hpp"
 
 namespace Subtile {
+
+class Instance;
+class World;
 
 template <class FinalType>
 class Session;
 
 class SessionBase : public Event::Socket
 {
-	struct Ctx {
-		Ctx(ISystem &system, Event::System::Observer &events) :
-			system(system),
-			events(events)
-		{
-		}
-		~Ctx(void)
-		{
-		}
-
-		ISystem &system;
-		Event::System::Observer &events;
-	};
-
 public:
-	SessionBase(const Ctx &ctx);
+	SessionBase(Instance &instance);
 	virtual ~SessionBase(void) = 0;
 
 	void run(void);
 
 protected:
-
 	virtual Screen::Layout& getScreenLayout(void) = 0;
 	void done(void);
 
@@ -43,16 +30,7 @@ protected:
 	using Class = typename T::template Impl<T>;
 
 	template <typename WorldType, typename ...ArgsTypes>
-	WorldType& addWorld(ArgsTypes &&...args)
-	{
-		auto &res = World::getSystems().emplace_frame(std::function([&]() -> auto& {
-			return Entity::getCtx().emplace_frame(std::function([&]() -> auto& {
-				return m_worlds.emplace<WorldType>(std::forward<ArgsTypes>(args)...);
-			}), nullptr, nullptr);
-		}), m_events);
-		Entity::getEntityStack().pop();
-		return res;
-	}
+	auto& addWorld(ArgsTypes &&...args);
 
 	template <class LayoutType, typename ...Args>
 	std::unique_ptr<Screen::Layout> createLayout(Args &&...args)
@@ -65,16 +43,20 @@ private:
 	template <class FinalType>
 	friend class Session;
 
-	static util::stack<Ctx>& getCtx(void);
+	static util::stack<std::reference_wrapper<Instance>>& getCtx(void);
 	static util::stack<std::reference_wrapper<SessionBase>>& getSessionStack(void);
 
-	ISystem &m_system;
-	Event::System::Observer &m_events;
+	Instance &m_instance;
 	util::unique_set<World> m_worlds;
 	bool m_done;
 };
 
+}
+
 #include "Camera.hpp"
+#include "Screen/Subsection.hpp"
+
+namespace Subtile {
 
 template <class FinalType>
 class Session : public SessionBase
@@ -108,4 +90,21 @@ public:
 	};
 };
 
+}
+
+#include "Instance.hpp"
+
+namespace Subtile {
+
+	template <typename WorldType, typename ...ArgsTypes>
+	auto& SessionBase::addWorld(ArgsTypes &&...args)
+	{
+		auto &res = World::getInstanceStack().emplace_frame(std::function([&]() -> auto& {
+			return Entity::getCtx().emplace_frame(std::function([&]() -> auto& {
+				return m_worlds.emplace<WorldType>(std::forward<ArgsTypes>(args)...);
+			}), nullptr, nullptr);
+		}), m_instance);
+		Entity::getEntityStack().pop();
+		return res;
+	}
 }

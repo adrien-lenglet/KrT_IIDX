@@ -22,12 +22,15 @@ public:
 	{
 		auto res = SessionBase::getCtx().emplace_frame(std::function([&](){
 			return std::make_unique<SessionType>(std::forward<ArgsTypes>(args)...);
-		}), SessionBase::Ctx(*m_system, m_events));
+		}), *this);
 		SessionBase::getSessionStack().pop();
 		return res;
 	}
 
 private:
+	friend World;
+	friend SessionBase;
+
 	std::unique_ptr<ISystem> m_system;
 	Event::System::Observer m_events;
 

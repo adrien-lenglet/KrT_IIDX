@@ -1,10 +1,12 @@
 #pragma once
 
 #include "Section.hpp"
-#include "../Camera.hpp"
 #include "../Math.hpp"
 
 namespace Subtile {
+
+class Camera;
+
 namespace Screen {
 
 class Subsection : public Section
@@ -23,3 +25,5 @@ private:
 
 }
 }
+
+#include "../Camera.hpp"

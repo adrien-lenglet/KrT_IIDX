@@ -6,6 +6,7 @@
 namespace Subtile {
 
 class SessionBase;
+class Instance;
 
 class World : public Entity
 {
@@ -13,6 +14,7 @@ public:
 	World(void);
 	~World(void) = 0;
 
+	Instance &instance;
 	Subtile::Event::World::Observer events;
 
 	template <class EntityType, typename ...Args>
@@ -30,7 +32,9 @@ private:
 	friend SessionBase;
 	friend Entity;
 
-	static util::stack<std::reference_wrapper<Subtile::Event::System::Observer>>& getSystems(void);
+	static util::stack<std::reference_wrapper<Instance>>& getInstanceStack(void);
 };
 
 }
+
+#include "Instance.hpp"
