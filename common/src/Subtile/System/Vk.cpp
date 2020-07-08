@@ -591,17 +591,29 @@ void Vk::Device::Handle<VkSwapchainKHR>::destroy(Vk::Device &device, VkSwapchain
 	vkDestroySwapchainKHR(device, swapchain, nullptr);
 }
 
-Vk::DescriptorSetLayout::DescriptorSetLayout(Vk::Device &device, const sb::Shader::DescriptorSet::Layout &layout) :
-	Device::Handle<VkDescriptorSetLayout>(device, create(device, layout))
+VkDescriptorType Vk::descriptorType(sb::Shader::DescriptorType type)
 {
+	static const std::map<sb::Shader::DescriptorType, VkDescriptorType> table {
+		{sb::Shader::DescriptorType::UniformBuffer, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER},
+		{sb::Shader::DescriptorType::CombinedImageSampler, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER}
+	};
+
+	return table.at(type);
+}
+
+Vk::DescriptorSetLayout::DescriptorSetLayout(Vk::Device &device, const sb::Shader::DescriptorSet::Layout &layout) :
+	Device::Handle<VkDescriptorSetLayout>(device, create(device, layout)),
+	m_layout(layout)
+{
+}
+
+const sb::Shader::DescriptorSet::Layout& Vk::DescriptorSetLayout::getLayout(void) const
+{
+	return m_layout;
 }
 
 VkDescriptorSetLayout Vk::DescriptorSetLayout::create(Device &device, const sb::Shader::DescriptorSet::Layout &layout)
 {
-	static const std::map<sb::Shader::DescriptorType, VkDescriptorType> descriptorTypeTable {
-		{sb::Shader::DescriptorType::UniformBuffer, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER},
-		{sb::Shader::DescriptorType::CombinedImageSampler, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER}
-	};
 	static const std::map<sb::Shader::Stage, VkShaderStageFlags> stageTable {
 		{sb::Shader::Stage::TesselationControl, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT},
 		{sb::Shader::Stage::TesselationEvaluation, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT},
@@ -618,7 +630,7 @@ VkDescriptorSetLayout Vk::DescriptorSetLayout::create(Device &device, const sb::
 	for (auto &b : layout.getBindings()) {
 		VkDescriptorSetLayoutBinding r {};
 		r.binding = b.binding;
-		r.descriptorType = descriptorTypeTable.at(b.descriptorType);
+		r.descriptorType = descriptorType(b.descriptorType);
 		r.descriptorCount = b.descriptorCount;
 		for (auto &s : b.stages)
 			r.stageFlags |= stageTable.at(s);
@@ -638,11 +650,74 @@ void Vk::Device::Handle<VkDescriptorSetLayout>::destroy(Vk::Device &device, VkDe
 	vkDestroyDescriptorSetLayout(device, layout, nullptr);
 }
 
+Vk::DescriptorSet::DescriptorSet(Vk::Device &dev, const Vk::DescriptorSetLayout &layout) :
+	Device::Handle<VkDescriptorPool>(dev, createPool(dev, layout)),
+	m_descriptor_set(create(layout))
+{
+}
+
+void Vk::DescriptorSet::write(size_t offset, size_t range, const void *data)
+{
+}
+
+VkDescriptorPool Vk::DescriptorSet::createPool(Device &dev, const DescriptorSetLayout &layout)
+{
+	VkDescriptorPoolCreateInfo createInfo {};
+
+	createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	createInfo.maxSets = 1;
+
+	std::map<VkDescriptorType, size_t> typeCount;
+	for (auto &b : layout.getLayout().getBindings())
+		typeCount[descriptorType(b.descriptorType)] += b.descriptorCount;
+	std::vector<VkDescriptorPoolSize> sizes;
+	for (auto &t : typeCount) {
+		VkDescriptorPoolSize s;
+		s.type = t.first;
+		s.descriptorCount = t.second;
+		sizes.emplace_back(s);
+	}
+
+	createInfo.poolSizeCount = sizes.size();
+	createInfo.pPoolSizes = sizes.data();
+
+	return Vk::create<VkDescriptorPool>(vkCreateDescriptorPool, dev, &createInfo, nullptr);
+}
+
+VkDescriptorSet Vk::DescriptorSet::create(const DescriptorSetLayout &layout)
+{
+	VkDescriptorSetAllocateInfo allocInfo {};
+
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = *this;
+	allocInfo.descriptorSetCount = 1;
+	allocInfo.pSetLayouts = &static_cast<const VkDescriptorSetLayout&>(layout);
+
+	return Vk::create<VkDescriptorSet>(vkAllocateDescriptorSets, getDevice(), &allocInfo);
+}
+
+template <>
+void Vk::Device::Handle<VkDescriptorPool>::destroy(Vk::Device &device, VkDescriptorPool pool)
+{
+	vkDestroyDescriptorPool(device, pool, nullptr);
+}
+
 Vk::Shader::Shader(Vk::Device &device, rs::Shader &shader) :
+	m_device(device),
 	m_material_layout(device, shader.material()),
 	m_object_layout(device, shader.object())
 {
 	static_cast<void>(shader);
+}
+
+std::unique_ptr<sb::Shader::DescriptorSet> Vk::Shader::material(void)
+{
+	return std::make_unique<Vk::DescriptorSet>(m_device, m_material_layout);
+}
+
+std::unique_ptr<sb::Shader::DescriptorSet> Vk::Shader::object(void)
+{
+	return std::make_unique<Vk::DescriptorSet>(m_device, m_object_layout);
 }
 
 std::unique_ptr<sb::Shader> Vk::loadShader(rs::Shader &shader)

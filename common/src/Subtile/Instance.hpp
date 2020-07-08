@@ -44,6 +44,16 @@ private:
 		{
 		}
 
+		std::unique_ptr<Shader::DescriptorSet> material(void) override
+		{
+			return (*m_ref)->material();
+		}
+
+		std::unique_ptr<Shader::DescriptorSet> object(void) override
+		{
+			return (*m_ref)->object();
+		}
+
 	private:
 		ShaderCache::Ref m_ref;
 	};

@@ -66,6 +66,15 @@ public:
 				return &m_entry.m_value;
 			}
 
+			auto& operator*(void)
+			{
+				return m_entry.m_value;
+			}
+			auto& operator*(void) const
+			{
+				return m_entry.m_value;
+			}
+
 		private:
 			Entry &m_entry;
 		};

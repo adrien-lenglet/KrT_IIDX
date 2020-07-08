@@ -28,6 +28,7 @@ EntityTest::EntityTest(void) :
 	});
 
 	auto shader = load(res.shaders().diffuse());
+	auto mat = shader.material();
 
 	//std::cout << &res.models().npc().gordon() << std::endl;
 }

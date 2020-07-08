@@ -103,7 +103,7 @@ private:
 				destroy(m_handle);
 		}
 
-		operator VkHandle(void) const
+		operator const VkHandle&(void) const
 		{
 			return m_handle;
 		}
@@ -154,7 +154,7 @@ private:
 					destroy(m_instance, m_handle);
 			}
 
-			operator VkHandle(void) const
+			operator const VkHandle&(void) const
 			{
 				return m_handle;
 			}
@@ -348,7 +348,7 @@ private:
 					destroy(m_device, m_handle);
 			}
 
-			operator VkHandle(void) const
+			operator const VkHandle&(void) const
 			{
 				return m_handle;
 			}
@@ -358,6 +358,11 @@ private:
 
 		protected:
 			VkHandle m_handle;
+
+			Device& getDevice(void)
+			{
+				return m_device;
+			}
 		};
 
 		template <typename ...Args>
@@ -406,13 +411,33 @@ private:
 
 	Swapchain m_swapchain;
 
+	static VkDescriptorType descriptorType(sb::Shader::DescriptorType type);
+
 	class DescriptorSetLayout : public Device::Handle<VkDescriptorSetLayout>
 	{
 	public:
 		DescriptorSetLayout(Device &device, const sb::Shader::DescriptorSet::Layout &layout);
 
+		const sb::Shader::DescriptorSet::Layout& getLayout(void) const;
+
 	private:
+		const sb::Shader::DescriptorSet::Layout m_layout;
+
 		VkDescriptorSetLayout create(Device &device, const sb::Shader::DescriptorSet::Layout &layout);
+	};
+
+	class DescriptorSet : public sb::Shader::DescriptorSet, private Device::Handle<VkDescriptorPool>
+	{
+	public:
+		DescriptorSet(Device &dev, const DescriptorSetLayout &layout);
+
+		void write(size_t offset, size_t range, const void *data) override;
+
+	private:
+		VkDescriptorSet m_descriptor_set;
+
+		VkDescriptorPool createPool(Device &dev, const DescriptorSetLayout &layout);
+		VkDescriptorSet create(const DescriptorSetLayout &layout);
 	};
 
 	class Shader : public sb::Shader
@@ -420,7 +445,11 @@ private:
 	public:
 		Shader(Device &device, rs::Shader &shader);
 
+		std::unique_ptr<sb::Shader::DescriptorSet> material(void) override;
+		std::unique_ptr<sb::Shader::DescriptorSet> object(void) override;
+
 	private:
+		Device &m_device;
 		DescriptorSetLayout m_material_layout;
 		DescriptorSetLayout m_object_layout;
 	};
