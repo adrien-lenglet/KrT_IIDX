@@ -404,7 +404,8 @@ Vk::PhysicalDevices Vk::Instance::enumerateDevices(void)
 
 Vk::Device::Device(const PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues) :
 	Vk::Handle<VkDevice>(create(physicalDevice, queues)),
-	m_physical(physicalDevice)
+	m_physical(physicalDevice),
+	m_allocator(*this)
 {
 }
 
@@ -471,6 +472,11 @@ const Vk::PhysicalDevice& Vk::Device::physical(void) const
 	return m_physical;
 }
 
+Vk::Allocator& Vk::Device::allocator(void)
+{
+	return m_allocator;
+}
+
 VkQueue Vk::Device::getQueue(uint32_t family_ndx, uint32_t ndx)
 {
 	return get<VkQueue>(vkGetDeviceQueue, *this, family_ndx, ndx);
@@ -504,6 +510,85 @@ Vk::Device Vk::createDevice(void)
 	auto &phys = devs.getBest();
 
 	return Device(phys, getDesiredQueues(phys));
+}
+
+Vk::Allocator::Allocator(Vk::Device &device) :
+	Vk::Handle<VmaAllocator>(create(device)),
+	m_device(device)
+{
+}
+
+VmaAllocator Vk::Allocator::create(Device &device)
+{
+	VmaAllocatorCreateInfo createInfo {};
+
+	createInfo.physicalDevice = device.physical();
+	createInfo.device = device;
+
+	return Vk::create<VmaAllocator>(vmaCreateAllocator, &createInfo);
+}
+
+template <>
+void Vk::Handle<VmaAllocator>::destroy(VmaAllocator allocator)
+{
+	vmaDestroyAllocator(allocator);
+}
+
+Vk::Allocation::Allocation(Allocator &allocator, VmaAllocation alloc) :
+	Allocator::Handle<VmaAllocation>(allocator, alloc)
+{
+}
+
+template <>
+void Vk::Allocator::Handle<VmaAllocation>::destroy(Allocator &allocator, VmaAllocation alloc)
+{
+	vmaFreeMemory(allocator, alloc);
+}
+
+void* Vk::Allocation::map(void)
+{
+	void *res;
+
+	Vk::assert(vmaMapMemory(static_cast<Allocator&>(*this), *this, &res));
+	return res;
+}
+
+void Vk::Allocation::unmap(void)
+{
+	vmaUnmapMemory(static_cast<Allocator&>(*this), *this);
+}
+
+Vk::Buffer::Buffer(Vk::Device &dev, VmaAllocation allocation, VkBuffer buffer) :
+	Allocation(dev.allocator(), allocation),
+	Device::Handle<VkBuffer>(dev, buffer)
+{
+}
+
+template <>
+void Vk::Device::Handle<VkBuffer>::destroy(Vk::Device &device, VkBuffer buffer)
+{
+	vkDestroyBuffer(device, buffer, nullptr);
+}
+
+std::tuple<VmaAllocation, VkBuffer> Vk::Buffer::create(Vk::Allocator &allocator, VkDeviceSize size, VkBufferUsageFlags usage, const std::vector<uint32_t> &queueFamilyIndexes)
+{
+	VkBufferCreateInfo bufferCreateInfo {};
+
+	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferCreateInfo.size = size;
+	bufferCreateInfo.usage = usage;
+	bufferCreateInfo.sharingMode = queueFamilyIndexes.size() > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
+	bufferCreateInfo.queueFamilyIndexCount = queueFamilyIndexes.size();
+	bufferCreateInfo.pQueueFamilyIndices = queueFamilyIndexes.data();
+
+	VmaAllocationCreateInfo allocCreateInfo {};
+
+	allocCreateInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+	VmaAllocation resalloc;
+	VkBuffer resbuffer;
+	Vk::assert(vmaCreateBuffer(allocator, &bufferCreateInfo, &allocCreateInfo, &resbuffer, &resalloc, nullptr));
+	return std::make_tuple(resalloc, resbuffer);
 }
 
 Vk::ImageView::ImageView(Vk::Device &device, VkImageView imageView) :
@@ -652,12 +737,16 @@ void Vk::Device::Handle<VkDescriptorSetLayout>::destroy(Vk::Device &device, VkDe
 
 Vk::DescriptorSet::DescriptorSet(Vk::Device &dev, const Vk::DescriptorSetLayout &layout) :
 	Device::Handle<VkDescriptorPool>(dev, createPool(dev, layout)),
-	m_descriptor_set(create(layout))
-{
+	m_descriptor_set(create(layout)),
+	m_buffer(dev.allocator().createBuffer(256, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, std::vector<uint32_t>{*dev.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT)}))
+{					// dummy 256 bytes buffer for now, actual size incoming
 }
 
 void Vk::DescriptorSet::write(size_t offset, size_t range, const void *data)
 {
+	auto dst = m_buffer.map();
+	memcpy(&static_cast<char*>(dst)[offset], data, range);
+	m_buffer.unmap();
 }
 
 VkDescriptorPool Vk::DescriptorSet::createPool(Device &dev, const DescriptorSetLayout &layout)
@@ -693,7 +782,7 @@ VkDescriptorSet Vk::DescriptorSet::create(const DescriptorSetLayout &layout)
 	allocInfo.descriptorSetCount = 1;
 	allocInfo.pSetLayouts = &static_cast<const VkDescriptorSetLayout&>(layout);
 
-	return Vk::create<VkDescriptorSet>(vkAllocateDescriptorSets, getDevice(), &allocInfo);
+	return Vk::create<VkDescriptorSet>(vkAllocateDescriptorSets, static_cast<Device&>(*this), &allocInfo);
 }
 
 template <>

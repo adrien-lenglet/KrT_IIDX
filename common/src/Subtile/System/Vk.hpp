@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
+#include <vk_mem_alloc.h>
 #include "../ISystem.hpp"
 #include "Glfw.hpp"
 #include "Subtile/Shader.hpp"
@@ -83,6 +84,8 @@ private:
 	template <typename VkHandle>
 	class Handle
 	{
+		void destroy(VkHandle handle);
+
 	public:
 		Handle(VkHandle handle) :
 			m_handle(handle)
@@ -94,8 +97,6 @@ private:
 		{
 			m_handle = VK_NULL_HANDLE;
 		}
-
-		void destroy(VkHandle handle);
 
 		~Handle(void)
 		{
@@ -110,6 +111,53 @@ private:
 
 	protected:
 		VkHandle m_handle;
+	};
+
+	template <typename DepType, typename VkHandle>
+	class HandleDep
+	{
+		void destroy(DepType &dep, VkHandle handle);
+
+	public:
+		HandleDep(DepType &dep, VkHandle handle) :
+			m_dep(dep),
+			m_handle(handle)
+		{
+		}
+
+		HandleDep(HandleDep &&other) :
+			m_dep(other.m_dep),
+			m_handle(other.m_handle)
+		{
+			m_handle = VK_NULL_HANDLE;
+		}
+
+		~HandleDep(void)
+		{
+			if (m_handle != VK_NULL_HANDLE)
+				destroy(m_dep, m_handle);
+		}
+
+		operator const VkHandle&(void) const
+		{
+			return m_handle;
+		}
+
+	private:
+		DepType &m_dep;
+
+	protected:
+		VkHandle m_handle;
+
+		operator DepType&(void)
+		{
+			return m_dep;
+		}
+
+		operator const DepType&(void) const
+		{
+			return m_dep;
+		}
 	};
 
 	class PhysicalDevices;
@@ -130,41 +178,7 @@ private:
 		}
 
 		template <typename VkHandle>
-		class Handle
-		{
-		public:
-			Handle(Instance &instance, VkHandle handle) :
-				m_instance(instance),
-				m_handle(handle)
-			{
-			}
-
-			Handle(Handle &&other) :
-				m_instance(other.m_instance),
-				m_handle(other.m_handle)
-			{
-				m_handle = VK_NULL_HANDLE;
-			}
-
-			void destroy(Instance &instance, VkHandle handle);
-
-			~Handle(void)
-			{
-				if (m_handle != VK_NULL_HANDLE)
-					destroy(m_instance, m_handle);
-			}
-
-			operator const VkHandle&(void) const
-			{
-				return m_handle;
-			}
-
-		private:
-			Instance &m_instance;
-
-		protected:
-			VkHandle m_handle;
-		};
+		using Handle = HandleDep<Instance, VkHandle>;
 
 		class Surface : public Handle<VkSurfaceKHR>
 		{
@@ -276,6 +290,24 @@ private:
 	};
 
 	Instance m_instance;
+	class Device;
+
+	class Allocator : public Vk::Handle<VmaAllocator>
+	{
+	public:
+		Allocator(Device &device);
+
+		template <typename VkHandle>
+		using Handle = HandleDep<Allocator, VkHandle>;
+
+		template <typename ...Args>
+		auto createBuffer(Args &&...args);
+
+	private:
+		Device &m_device;
+
+		VmaAllocator create(Device &device);
+	};
 
 	class Device : public Handle<VkDevice>
 	{
@@ -321,61 +353,52 @@ private:
 		Device(const PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues);
 
 		const PhysicalDevice& physical(void) const;
+		Allocator& allocator(void);
 		VkQueue getQueue(uint32_t family_ndx, uint32_t ndx);
 
 		template <typename VkHandle>
-		class Handle
-		{
-		public:
-			Handle(Device &device, VkHandle handle) :
-				m_device(device),
-				m_handle(handle)
-			{
-			}
-
-			Handle(Handle &&other) :
-				m_device(other.m_device),
-				m_handle(other.m_handle)
-			{
-				m_handle = VK_NULL_HANDLE;
-			}
-
-			void destroy(Device &device, VkHandle handle);
-
-			~Handle(void)
-			{
-				if (m_handle != VK_NULL_HANDLE)
-					destroy(m_device, m_handle);
-			}
-
-			operator const VkHandle&(void) const
-			{
-				return m_handle;
-			}
-
-		private:
-			Device &m_device;
-
-		protected:
-			VkHandle m_handle;
-
-			Device& getDevice(void)
-			{
-				return m_device;
-			}
-		};
+		using Handle = HandleDep<Device, VkHandle>;
 
 		template <typename ...Args>
 		auto createImageView(Args &&...args);
 
 	private:
 		PhysicalDevice m_physical;
+		Allocator m_allocator;
 
 		VkDevice create(const PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues);
 	};
 
 	Device::QueuesCreateInfo getDesiredQueues(const PhysicalDevice &dev);
 	Device createDevice(void);
+
+	class Allocation : public Allocator::Handle<VmaAllocation>
+	{
+	public:
+		Allocation(Allocator &allocator, VmaAllocation alloc);
+
+		void* map(void);
+		void unmap(void);
+	};
+
+	class Buffer : public Allocation, public Device::Handle<VkBuffer>
+	{
+		Buffer(Device &dev, VmaAllocation allocation, VkBuffer buffer);
+		Buffer(Device &dev, std::tuple<VmaAllocation, VkBuffer> &&tup) :
+			Buffer(dev, std::get<0>(tup), std::get<1>(tup))
+		{
+		}
+
+	public:
+		template <typename ...Args>
+		Buffer(Device &dev, Args &&...args) :
+			Buffer(dev, create(std::forward<Args>(args)...))
+		{
+		}
+
+	private:
+		std::tuple<VmaAllocation, VkBuffer> create(Allocator &allocator, VkDeviceSize size, VkBufferUsageFlags usage, const std::vector<uint32_t> &queueFamilyIndexes);
+	};
 
 	Device m_device;
 	VkQueue m_graphics_queue;
@@ -435,6 +458,7 @@ private:
 
 	private:
 		VkDescriptorSet m_descriptor_set;
+		Buffer m_buffer;
 
 		VkDescriptorPool createPool(Device &dev, const DescriptorSetLayout &layout);
 		VkDescriptorSet create(const DescriptorSetLayout &layout);
@@ -461,6 +485,12 @@ template <typename ...Args>
 auto Vk::Device::createImageView(Args &&...args)
 {
 	return Vk::ImageView(*this, std::forward<Args>(args)...);
+}
+
+template <typename ...Args>
+auto Vk::Allocator::createBuffer(Args &&...args)
+{
+	return Buffer(m_device, *this, std::forward<Args>(args)...);
 }
 
 }
