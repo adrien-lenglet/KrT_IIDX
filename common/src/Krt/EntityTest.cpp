@@ -30,13 +30,38 @@ EntityTest::EntityTest(void) :
 	auto shader = load(res.shaders().diffuse());
 	auto mat = shader.material();
 
-	sb::Shader::Std140::Bool stdbool(true);
+	//std::cout << sb::Shader::Type::Vec<sb::Shader::Type::Float, 3>(glm::vec3(1.2)).y << std::endl;
+	//std::cout << util::csize_t<46>{} << std::endl;
 
-	std::cout << sizeof(bool) << std::endl;
-	std::cout << sizeof(stdbool) << std::endl;
-	std::cout << (util::size_cmp::min_v<5, 3, 9, 2>) << std::endl;
+	//sb::Shader::Type::Std140::Mat<sb::Shader::Type::Float, 3, 3> matrix;
+	/*sb::Shader::Type::Std140::Mat<sb::Shader::Type::Float, 3, 3> matrix(glm::identity<glm::mat3>());
 
-	std::cout << (util::size_cmp::max_v<5, 3, 9, 2>) << std::endl;
+	for (size_t i = 0; i < 3; i++) {
+		for (size_t j = 0; j < 3; j++)
+			std::cout << matrix[i][j] << ", ";
+		std::cout << std::endl;
+	}*/
+
+	std::cout << sizeof(sb::Shader::Type::Mat<sb::Shader::Type::Float, 3, 2>) << std::endl; // 48
+	std::cout << sizeof(sb::Shader::Type::Mat<sb::Shader::Type::Float, 2, 3>) << std::endl;	// 32
+
+	/*std::cout << sizeof(sb::Shader::Type::Std140::Array<sb::Shader::Type::Float, 1>) << std::endl;
+	std::cout << sizeof(sb::Shader::Type::Std140::Array<sb::Shader::Type::Float, 2>) << std::endl;
+	std::cout << sizeof(sb::Shader::Type::Std140::Array<sb::Shader::Type::Float, 3>) << std::endl;
+	using vec_arr = sb::Shader::Type::Std140::Array<sb::Shader::Type::Vec<sb::Shader::Type::Float, 2>, 1>;
+	std::cout << sizeof(vec_arr) << std::endl;
+	std::cout << vec_arr::salign{} << std::endl;
+	std::cout << vec_arr::balign{} << std::endl;
+	std::cout << vec_arr::ealign{} << std::endl;*/
+
+	/*sb::Shader::Type::Array<sb::Shader::Type::Float, 3> arr;
+
+	size_t i = 0;
+	for (auto &e : arr)
+		e = ++i + 1;
+
+	for (auto &e : static_cast<const sb::Shader::Type::Array<sb::Shader::Type::Float, 3>&>(arr))
+		std::cout << e << std::endl;*/
 
 	//std::cout << &res.models().npc().gordon() << std::endl;
 }

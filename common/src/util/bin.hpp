@@ -60,7 +60,7 @@ public:
 		return res;
 	}
 
-	scalar operator+(int) const
+	scalar operator+(void) const
 	{
 		return +m_value;
 	}
@@ -288,8 +288,11 @@ std::ostream& operator<<(std::ostream &o, const scalar<S> &s)
 }
 
 template <typename T>
-struct constant_cmp
+struct constant
 {
+	template <T value>
+	using value_t = std::integral_constant<T, value>;
+
 private:
 	template <typename Cmp, T...>
 	struct gen;
@@ -301,7 +304,7 @@ private:
 		static inline constexpr T res = First;
 
 	public:
-		using type = std::integral_constant<T, res>;
+		using type = value_t<res>;
 		static inline constexpr T value = type{};
 	};
 
@@ -331,13 +334,26 @@ public:
 	template <T ...Args>
 	static inline constexpr T max_v = max_t<Args...>{};
 };
-
-using size_cmp = constant_cmp<size_t>;
+using csize = constant<size_t>;
+template <size_t value>
+using csize_t = constant<size_t>::value_t<value>;
 
 template <size_t Size>
 class pad
 {
 	uint8_t data[Size];
 };
+
+template <size_t Offset, size_t Alignment>
+struct align
+{
+	using type = std::conditional_t<Offset % Alignment == 0, csize_t<Offset>, csize_t<Offset - Offset % Alignment + Alignment>>;
+	static inline constexpr size_t value = type{};
+};
+
+template <size_t ...Args>
+using align_t = typename align<Args...>::type;
+template <size_t ...Args>
+static inline constexpr size_t align_v = align_t<Args...>{};
 
 }
