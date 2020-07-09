@@ -2,6 +2,7 @@
 
 #include <set>
 #include "../Subtile.hpp"
+#include "util/bin.hpp"
 
 namespace Subtile {
 
@@ -16,6 +17,20 @@ public:
 		Geometry,
 		Vertex,
 		Fragment
+	};
+
+	struct Std140 {
+
+		class Bool : public util::scalar<bool>, private util::pad<4 - sizeof(bool)>
+		{
+		public:
+			template <typename ...Args>
+			Bool(Args &&...args) :
+				util::scalar<bool>(std::forward<Args>(args)...)
+			{
+			}
+		};
+
 	};
 
 	enum class Sbi {  // shader binary interface

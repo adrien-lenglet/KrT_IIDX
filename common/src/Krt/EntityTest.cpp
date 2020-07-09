@@ -30,6 +30,11 @@ EntityTest::EntityTest(void) :
 	auto shader = load(res.shaders().diffuse());
 	auto mat = shader.material();
 
+	sb::Shader::Std140::Bool stdbool(true);
+
+	std::cout << stdbool << std::endl;
+	std::cout << stdbool - true << std::endl;
+
 	//std::cout << &res.models().npc().gordon() << std::endl;
 }
 
