@@ -32,8 +32,11 @@ EntityTest::EntityTest(void) :
 
 	sb::Shader::Std140::Bool stdbool(true);
 
-	std::cout << stdbool << std::endl;
-	std::cout << stdbool - true << std::endl;
+	std::cout << sizeof(bool) << std::endl;
+	std::cout << sizeof(stdbool) << std::endl;
+	std::cout << (util::size_cmp::min_v<5, 3, 9, 2>) << std::endl;
+
+	std::cout << (util::size_cmp::max_v<5, 3, 9, 2>) << std::endl;
 
 	//std::cout << &res.models().npc().gordon() << std::endl;
 }
