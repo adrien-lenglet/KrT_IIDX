@@ -8,6 +8,42 @@
 
 namespace Krt {
 
+struct simpleC
+{
+	sb::Shader::Type::StructMember<sb::Shader::Type::Bool> base;
+	sb::Shader::Type::StructMember<sb::Shader::Type::Bool, decltype(base)> base2;
+};
+
+using simple = sb::Shader::Type::Struct<simpleC,
+	decltype(simpleC().base),
+	decltype(simpleC().base2)>;
+
+struct UniformStructCollection
+{
+	sb::Shader::Type::StructMember<sb::Shader::Type::Bool> base;
+	sb::Shader::Type::StructMember<sb::Shader::Type::Bool, decltype(base)> base2;
+	sb::Shader::Type::StructMember<sb::Shader::Type::Bool, decltype(base2)> base3;
+	sb::Shader::Type::StructMember<sb::Shader::Type::Vec<sb::Shader::Type::Float, 3>, decltype(base3)> a;
+	sb::Shader::Type::StructMember<sb::Shader::Type::Bool, decltype(a)> c;
+};
+
+using UniformStruct = sb::Shader::Type::Struct<UniformStructCollection,
+	decltype(UniformStructCollection().base),
+	decltype(UniformStructCollection().base2),
+	decltype(UniformStructCollection().base3),
+	decltype(UniformStructCollection().a),
+	decltype(UniformStructCollection().c)>;
+
+struct final_boss
+{
+	sb::Shader::Type::StructMember<sb::Shader::Type::Vec<sb::Shader::Type::Float, 3>> a;
+	sb::Shader::Type::StructMember<sb::Shader::Type::Float, decltype(a)> b;
+};
+
+using fboss = sb::Shader::Type::Struct<final_boss,
+	decltype(final_boss().a),
+	decltype(final_boss().b)>;
+
 EntityTest::EntityTest(void) :
 	entity1(add<EntityTest2>()),
 	entity2(add<EntityTest2>())
@@ -42,8 +78,8 @@ EntityTest::EntityTest(void) :
 		std::cout << std::endl;
 	}*/
 
-	std::cout << sizeof(sb::Shader::Type::Mat<sb::Shader::Type::Float, 3, 2>) << std::endl; // 48
-	std::cout << sizeof(sb::Shader::Type::Mat<sb::Shader::Type::Float, 2, 3>) << std::endl;	// 32
+	//std::cout << sizeof(sb::Shader::Type::Mat<sb::Shader::Type::Float, 3, 2>) << std::endl; // 48
+	//std::cout << sizeof(sb::Shader::Type::Mat<sb::Shader::Type::Float, 2, 3>) << std::endl;	// 32
 
 	/*std::cout << sizeof(sb::Shader::Type::Std140::Array<sb::Shader::Type::Float, 1>) << std::endl;
 	std::cout << sizeof(sb::Shader::Type::Std140::Array<sb::Shader::Type::Float, 2>) << std::endl;
@@ -62,6 +98,32 @@ EntityTest::EntityTest(void) :
 
 	for (auto &e : static_cast<const sb::Shader::Type::Array<sb::Shader::Type::Float, 3>&>(arr))
 		std::cout << e << std::endl;*/
+
+	/*std::cout << sizeof(UniformStruct) << std::endl;
+
+	std::cout << std::endl;
+
+	std::cout << offsetof(UniformStruct, base) << std::endl;
+	std::cout << offsetof(UniformStruct, base2) << std::endl;
+	std::cout << offsetof(UniformStruct, base3) << std::endl;
+	std::cout << offsetof(UniformStruct, a) << std::endl;
+	std::cout << offsetof(UniformStruct, c) << std::endl;
+
+	std::cout << std::endl;
+
+	UniformStruct col;
+	std::cout << decltype(col.base)::offset{} << std::endl;
+	std::cout << decltype(col.base2)::offset{} << std::endl;
+	std::cout << decltype(col.base3)::offset{} << std::endl;
+	std::cout << decltype(col.a)::offset{} << std::endl;
+	std::cout << decltype(col.c)::offset{} << std::endl;
+
+	std::cout << std::endl;*/
+
+	//std::cout << sizeof(fboss) << std::endl;
+	std::cout << simple::salign{} << std::endl;
+	std::cout << simple::balign{} << std::endl;
+	std::cout << simple::ealign{} << std::endl;
 
 	//std::cout << &res.models().npc().gordon() << std::endl;
 }

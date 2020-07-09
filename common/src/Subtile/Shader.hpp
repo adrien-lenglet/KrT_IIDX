@@ -150,9 +150,8 @@ public:
 		struct Std140
 		{
 			template <typename T>
-			class ArrayPad : public T, private util::pad<util::align_v<sizeof(T), 16> - sizeof(T)>
+			struct ArrayPad : public T, private util::pad<util::align_v<sizeof(T), 16> - sizeof(T)>
 			{
-			public:
 				ArrayPad(void) = default;
 				template <typename ...Args>
 				ArrayPad(Args &&...args) :
@@ -163,9 +162,8 @@ public:
 		};
 
 		template <typename T, size_t Size, class Layout = Std140>
-		class Array
+		struct Array
 		{
-		public:
 			Array(void) = default;
 
 			auto& operator[](size_t ndx)
@@ -231,7 +229,6 @@ public:
 
 			class const_iterator
 			{
-			public:
 				const_iterator(const Array &array, size_t ndx = 0) :
 					m_array(array),
 					m_ndx(ndx)
@@ -308,6 +305,98 @@ public:
 			using salign = typename S::salign;
 			using balign = typename col_type::balign;
 			using ealign = balign;
+		};
+
+	private:
+		struct FirstStructMember
+		{
+			using salign = util::csize_t<1>;
+			using balign = util::csize_t<1>;
+			using ealign = util::csize_t<1>;
+			using offset = util::csize_t<0>;
+		};
+
+	public:
+		template <typename T, typename PrevType = FirstStructMember>
+		struct StructMember : private util::pad<util::align_v<PrevType::offset::value, T::ealign::value> - PrevType::offset::value>, public T
+		{
+			StructMember(void) = default;
+			template <typename ...Args>
+			StructMember(Args &&...args) :
+				T(std::forward<Args>(args)...)
+			{
+			}
+
+			using salign = typename T::salign;
+			using balign = typename T::balign;
+			using ealign = typename T::ealign;
+			using offset = util::csize_t<util::align_v<PrevType::offset::value, T::ealign::value> + sizeof(T)>;
+		};
+
+		template <typename Collection, typename ...Members>
+		struct Struct : public Collection
+		{
+			Struct(void) = default;
+			template <typename ...Args>
+			Struct(Args &&...args) :
+				Collection(std::forward<Args>(args)...)
+			{
+			}
+
+		private:
+			template <typename T>
+			struct salign_getter : public T::salign {};
+			template <typename T>
+			struct balign_getter : public T::balign {};
+			template <typename T>
+			struct ealign_getter : public T::ealign {};
+
+			template <template <typename T> typename Getter, typename ...Rest>
+			struct get_align;
+
+			template <template <typename T> typename Getter, typename First>
+			struct get_align<Getter, First>
+			{
+			private:
+				static inline constexpr size_t res = First::value;
+
+			public:
+				using type = util::csize_t<res>;
+				static inline constexpr size_t value = type{};
+			};
+
+			template <template <typename T> typename Getter, size_t First, typename Second, typename ...Rest>
+			struct get_align<Getter, std::integral_constant<size_t, First>, Second, Rest...>
+			{
+			private:
+				using Sval = Getter<Second>;
+				static inline constexpr size_t res = util::csize::max_v<First, Sval::value>;
+
+			public:
+				using type = typename get_align<Getter, util::csize_t<res>, Rest...>::type;
+				static inline constexpr size_t value = type{};
+			};
+
+			template <template <typename T> typename Getter, typename First, typename Second, typename ...Rest>
+			struct get_align<Getter, First, Second, Rest...>
+			{
+			private:
+				using Fval = Getter<First>;
+				using Sval = Getter<Second>;
+				static inline constexpr size_t res = util::csize::max_v<Fval::value, Sval::value>;
+
+			public:
+				using type = typename get_align<Getter, util::csize_t<res>, Rest...>::type;
+				static inline constexpr size_t value = type{};
+			};
+
+			template <template <typename T> typename Getter, typename ...Rest>
+			using get_align_t = typename get_align<Getter, Rest...>::type;
+
+		public:
+			using salign = get_align_t<salign_getter, Members...>;
+			using balign = get_align_t<balign_getter, Members...>;
+			using ealign = util::align_t<get_align_t<ealign_getter, Members...>{}, 16>;
 		};
 	};
 
