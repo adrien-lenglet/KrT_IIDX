@@ -447,6 +447,7 @@ private:
 		const sb::Shader::DescriptorSet::Layout m_layout;
 
 		VkDescriptorSetLayout create(Device &device, const sb::Shader::DescriptorSet::Layout &layout);
+		VkDescriptorSetLayoutBinding bindingtoVk(const sb::Shader::DescriptorSet::LayoutBinding &binding);
 	};
 
 	class DescriptorSet : public sb::Shader::DescriptorSet, private Device::Handle<VkDescriptorPool>

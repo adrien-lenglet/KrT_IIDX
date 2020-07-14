@@ -2,6 +2,7 @@
 
 #include "Subtile/Entity.hpp"
 #include "EntityTest2.hpp"
+#include "res.resdecl.hpp"
 
 namespace Krt {
 
@@ -17,6 +18,7 @@ public:
 private:
 	EntityTest2 &entity1;
 	EntityTest2 &entity2;
+	sb::Instance::Shader<decltype(res.shaders().diffuse())> m_shader;
 };
 
 }

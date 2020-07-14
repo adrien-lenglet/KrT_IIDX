@@ -1,5 +1,4 @@
 #include "EntityTest.hpp"
-#include "res.resdecl.hpp"
 //#include "../../res/shaders/diffuse.hpp"
 
 #include <iostream>
@@ -46,7 +45,8 @@ using fboss = sb::Shader::Type::Struct<final_boss,
 
 EntityTest::EntityTest(void) :
 	entity1(add<EntityTest2>()),
-	entity2(add<EntityTest2>())
+	entity2(add<EntityTest2>()),
+	m_shader(load(res.shaders().diffuse()))
 {
 	bind(world.events.system.input.button.pressed("quit"), [this](){
 		//std::cout << "quit pressed" << std::endl;
@@ -63,8 +63,8 @@ EntityTest::EntityTest(void) :
 		transformed();
 	});
 
-	auto shader = load(res.shaders().diffuse());
-	auto mat = shader.material();
+	auto mat = m_shader.material();
+	auto obj = m_shader.object();
 
 	//std::cout << sb::Shader::Type::Vec<sb::Shader::Type::Float, 3>(glm::vec3(1.2)).y << std::endl;
 	//std::cout << util::csize_t<46>{} << std::endl;
@@ -121,9 +121,12 @@ EntityTest::EntityTest(void) :
 	std::cout << std::endl;*/
 
 	//std::cout << sizeof(fboss) << std::endl;
-	std::cout << simple::salign{} << std::endl;
+	/*std::cout << simple::salign{} << std::endl;
 	std::cout << simple::balign{} << std::endl;
-	std::cout << simple::ealign{} << std::endl;
+	std::cout << simple::ealign{} << std::endl;*/
+
+	//res_class::shaders_class::diffuse_type::objectMapped ubo;
+	//std::cout << decltype(ubo.mvp)::offset_end::value << std::endl;
 
 	//std::cout << &res.models().npc().gordon() << std::endl;
 }

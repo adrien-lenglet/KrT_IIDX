@@ -22,6 +22,17 @@ namespace CppGenerator {
 		};
 
 		class Ppp;
+
+		std::string unscope(const std::string &name)
+		{
+			size_t size = 0;
+			for (auto it = name.rbegin(); it != name.rend(); it++) {
+				if (*it == ':')
+					break;
+				size++;
+			}
+			return name.substr(name.size() - size, size);
+		}
 	}
 
 	template <typename ...Args>
@@ -208,6 +219,14 @@ namespace CppGenerator {
 					return nullptr;
 			}
 
+			const typename HolderType::type* getSub(void) const
+			{
+				if (m_sub)
+					return &(*m_sub).get();
+				else
+					return nullptr;
+			}
+
 		protected:
 			void write_sub(OType &o) const
 			{
@@ -258,6 +277,11 @@ namespace CppGenerator {
 		const std::string& getValue(void) const
 		{
 			return m_value;
+		}
+
+		void assign(const Value &new_value)
+		{
+			m_value = new_value.m_value;
 		}
 
 		Value(const std::string &str);
@@ -563,8 +587,9 @@ namespace CppGenerator {
 		}
 	};
 
+	using Vd = Value::Direct;
+
 	static Value::Direct This("this");
-	static Value::Direct Sizeof("sizeof");
 	static Value::Direct Alignof("alignof");
 	static Value::Direct Asm("asm");
 
@@ -593,6 +618,11 @@ namespace CppGenerator {
 			const std::string& getName(void) const
 			{
 				return m_name;
+			}
+
+			Identifier unscope(void) const
+			{
+				return Util::unscope(m_name);
 			}
 
 			template <typename ...Args>
@@ -694,12 +724,22 @@ namespace CppGenerator {
 		{
 		}
 
+		Type unscope(void) const
+		{
+			return Util::unscope(m_value);
+		}
+
 		Type(const Type&) = default;
 		Type(Type&&) = default;
 
 		virtual void write(std::ostream &o) const
 		{
 			o << m_value;
+		}
+
+		void assign(const Type &new_type)
+		{
+			m_value = new_type.getValue();
 		}
 
 		virtual const Util::Storage& getStorage(void) const;
@@ -1018,14 +1058,34 @@ namespace CppGenerator {
 
 	class Type::Modifiers::Template : public Type
 	{
-	public:
-		template <typename ...Args>
-		Template(const Type &type, Args &&...args) :
-			Type(getValue(type, util::vectorize_args<Type>(std::forward<Args>(args)...)))
+		struct use_vector_t {};
+
+		static constexpr inline auto use_vector = use_vector_t {};
+
+		Template(use_vector_t, const Type &type, const std::vector<Type> &types) :
+			Type(getValue(type, types)),
+			m_type(type),
+			m_types(types)
 		{
 		}
 
+	public:
+		template <typename ...Args>
+		Template(const Type &type, Args &&...args) :
+			Template(use_vector, type, util::vectorize_args<Type>(std::forward<Args>(args)...))
+		{
+		}
+
+		void add(const Type &type)
+		{
+			m_types.emplace_back(type);
+			m_value = getValue(m_type, m_types);
+		}
+
 	private:
+		Type m_type;
+		std::vector<Type> m_types;
+
 		template <typename ...Args>
 		std::string getValue(const Type &type, const std::vector<Type> &args) const
 		{
@@ -2768,6 +2828,47 @@ namespace CppGenerator {
 	using S = Statements;
 
 	namespace Util {
+		namespace Pp {
+			class Pragma
+			{
+			public:
+				class CPragma : public Statement
+				{
+				public:
+					CPragma(const std::string &directive) :
+						m_directive(directive)
+					{
+					}
+
+					void write(File &o) const override
+					{
+						o.new_line() << "#pragma " << m_directive << o.end_line();
+					}
+
+					auto& getDirective(void) const
+					{
+						return m_directive;
+					}
+
+				private:
+					std::string m_directive;
+				};
+
+			public:
+				Pragma(void)
+				{
+				}
+
+				template <typename T>
+				auto operator|(T &&t)
+				{
+					return CPragma(std::forward<T>(t));
+				}
+			};
+		}
+	}
+
+	namespace Util {
 		class Block : public Statement
 		{
 		public:
@@ -2781,14 +2882,25 @@ namespace CppGenerator {
 				declare(o);
 			}
 
-			void declare(File &o, bool w_brace = true) const
+			void declare(File &o, bool w_brace = true, bool no_pragma_once = false) const
 			{
 				if (w_brace) {
 					o << "{" << o.end_line();
 					o.indent();
 				}
-				for (auto &s : m_smts)
+				for (auto &s : m_smts) {
+					if (no_pragma_once) {
+						auto sub = s.getSub();
+						if (sub) {
+							auto cprag = dynamic_cast<const Util::Pp::Pragma::CPragma*>(sub);
+							if (cprag) {
+								if (cprag->getDirective() == "once")
+									continue;
+							}
+						}
+					}
 					s.write(o);
+				}
 				if (w_brace) {
 					o.unindent();
 					o.new_line() << "}";
@@ -3895,12 +4007,12 @@ namespace CppGenerator {
 				declare(o);
 			}
 
-			void declare(File &o, bool blk_w_brace = true) const
+			void declare(File &o, bool is_src = false) const
 			{
 				m_base.declare(o);
 				o << o.end_line();
 				o.new_line();
-				m_blk.declare(o, blk_w_brace);
+				m_blk.declare(o, !is_src, is_src);
 				if constexpr (Base::has_semicolon::value)
 					o << ";";
 				o << o.end_line();
@@ -5041,7 +5153,42 @@ namespace CppGenerator {
 	}
 
 	static Util::Ppp Ppp;
-	static auto SizeofPpp = Sizeof | Ppp;
+
+	class Sizeof : public Value
+	{
+	public:
+		Sizeof(const Type &type) :
+			Value(Vd(computeValue(type)))
+		{
+		}
+
+	private:
+		std::string computeValue(const Type &type)
+		{
+			std::stringstream ss;
+
+			ss << "sizeof(" << type << ")";
+			return ss.str();
+		}
+	};
+
+	class SizeofPpp : public Value
+	{
+	public:
+		SizeofPpp(const Type &type) :
+			Value(Vd(computeValue(type)))
+		{
+		}
+
+	private:
+		std::string computeValue(const Type &type)
+		{
+			std::stringstream ss;
+
+			ss << "sizeof...(" << type << ")";
+			return ss.str();
+		}
+	};
 
 	static Util::Final Final;
 
@@ -5065,6 +5212,26 @@ namespace CppGenerator {
 	}
 
 	static Util::Noexcept Noexecpt;
+
+	class Decltype : public Type
+	{
+	public:
+		template <typename T>
+		Decltype(T &&value) :
+			Type(computeVal(std::forward<T>(value)))
+		{
+		}
+
+	private:
+		template <typename T>
+		std::string computeVal(T &&value)
+		{
+			std::stringstream ss;
+
+			ss << "decltype(" << value << ")";
+			return ss.str();
+		}
+	};
 
 	namespace Util {
 		class Using
@@ -5171,8 +5338,15 @@ namespace CppGenerator {
 				return;
 
 			Util::File f(m_path);
-			declare(f, false);
+			for (auto &i : m_include)
+				i.get().declare(f, true);
+			declare(f, true);
 			m_flushed = true;
+		}
+
+		void include(Out &other)
+		{
+			m_include.emplace_back(other);
 		}
 
 		const std::string& getPath(void) const
@@ -5183,6 +5357,7 @@ namespace CppGenerator {
 	private:
 		const std::string m_path;
 		bool m_flushed = false;
+		std::vector<std::reference_wrapper<Out>> m_include;
 	};
 
 	namespace Util {
@@ -5262,37 +5437,6 @@ namespace CppGenerator {
 				auto operator<<(T &&t)
 				{
 					return CInclude::Std(std::forward<T>(t));
-				}
-			};
-
-			class Pragma
-			{
-				class CPragma : public Statement
-				{
-				public:
-					CPragma(const std::string &directive) :
-						m_directive(directive)
-					{
-					}
-
-					void write(File &o) const override
-					{
-						o.new_line() << "#pragma " << m_directive << o.end_line();
-					}
-
-				private:
-					std::string m_directive;
-				};
-
-			public:
-				Pragma(void)
-				{
-				}
-
-				template <typename T>
-				auto operator|(T &&t)
-				{
-					return CPragma(std::forward<T>(t));
 				}
 			};
 		}

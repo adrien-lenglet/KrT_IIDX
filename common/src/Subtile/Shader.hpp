@@ -314,11 +314,13 @@ public:
 			using balign = util::csize_t<1>;
 			using ealign = util::csize_t<1>;
 			using offset = util::csize_t<0>;
+			using size = util::csize_t<0>;
+			using offset_end = util::csize_t<0>;
 		};
 
 	public:
 		template <typename T, typename PrevType = FirstStructMember>
-		struct StructMember : private util::pad<util::align_v<PrevType::offset::value, T::ealign::value> - PrevType::offset::value>, public T
+		struct StructMember : private util::pad<util::align_v<PrevType::offset_end::value, T::ealign::value> - PrevType::offset_end::value>, public T
 		{
 			StructMember(void) = default;
 			template <typename ...Args>
@@ -330,7 +332,10 @@ public:
 			using salign = typename T::salign;
 			using balign = typename T::balign;
 			using ealign = typename T::ealign;
-			using offset = util::csize_t<util::align_v<PrevType::offset::value, T::ealign::value> + sizeof(T)>;
+			using offset = util::align<PrevType::offset_end::value, T::ealign::value>;
+			using size = util::csize_t<sizeof(T)>;
+			using type = T;
+			using offset_end = util::csize_t<offset::value + sizeof(T)>;
 		};
 
 		template <typename Collection, typename ...Members>
@@ -354,14 +359,27 @@ public:
 			template <template <typename T> typename Getter, typename ...Rest>
 			struct get_align;
 
+			template <template <typename T> typename Getter>
+			struct get_align<Getter>
+			{
+			public:
+				using type = util::csize_t<0>;
+				static inline constexpr size_t value = type{};
+			};
+
+			template <template <typename T> typename Getter, size_t First>
+			struct get_align<Getter, std::integral_constant<size_t, First>>
+			{
+			public:
+				using type = util::csize_t<First>;
+				static inline constexpr size_t value = type{};
+			};
+
 			template <template <typename T> typename Getter, typename First>
 			struct get_align<Getter, First>
 			{
-			private:
-				static inline constexpr size_t res = First::value;
-
 			public:
-				using type = util::csize_t<res>;
+				using type = Getter<First>;
 				static inline constexpr size_t value = type{};
 			};
 
@@ -424,31 +442,55 @@ public:
 			std::set<Stage> stages;
 		};
 
+		struct LayoutBindingMapped : public LayoutBinding
+		{
+			size_t offset;
+			size_t size;
+		};
+
 		class Layout
 		{
 		public:
-			Layout(std::initializer_list<LayoutBinding> init) :
-				m_bindings(init)
-			{
-			}
-
-			auto& getBindings(void) const
-			{
-				return m_bindings;
-			}
-
-		private:
-			std::vector<LayoutBinding> m_bindings;
+			std::vector<LayoutBindingMapped> bindings_mapped;
+			size_t bindings_mapped_size;
+			std::vector<LayoutBinding> bindings;
 		};
 
 		virtual ~DescriptorSet(void) = default;
 
 		virtual void write(size_t offset, size_t range, const void *data) = 0;
 		//virtual void bindCombinedImageSampler(RImage &img) = 0;
+
+		template <typename Traits>
+		class Handle : public Traits::Mapped
+		{
+			using Mapped = typename Traits::Mapped;
+
+		public:
+			Handle(std::unique_ptr<DescriptorSet> &&desc_set) :
+				m_set(std::move(desc_set))
+			{
+			}
+
+			void upload(void)
+			{
+				m_set->write(0, sizeof(Mapped), &static_cast<Mapped&>(*this));
+			}
+
+		private:
+			std::unique_ptr<DescriptorSet> m_set;
+		};
 	};
 
 	virtual std::unique_ptr<DescriptorSet> material(void) = 0;
 	virtual std::unique_ptr<DescriptorSet> object(void) = 0;
+
+	/*
+	template <typename ShaderRs>
+	using Material = DescriptorSet::Handle<typename Shader::Rs::materialTraits>;
+	template <typename ShaderRs>
+	using Object = DescriptorSet::Handle<typename Shader::Rs::objectTraits>;
+	*/
 };
 
 }

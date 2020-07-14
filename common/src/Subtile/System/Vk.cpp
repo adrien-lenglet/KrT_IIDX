@@ -217,7 +217,7 @@ const std::vector<VkPresentModeKHR>& Vk::PhysicalDevice::Surface::presentModes(v
 const VkSurfaceFormatKHR& Vk::PhysicalDevice::Surface::chooseFormat(void) const
 {
 	for (auto &f : m_formats)
-		if (f.format == VK_FORMAT_B8G8R8_SRGB && f.colorSpace == VK_COLORSPACE_SRGB_NONLINEAR_KHR)
+		if (f.format == VK_FORMAT_B8G8R8A8_SRGB && f.colorSpace == VK_COLORSPACE_SRGB_NONLINEAR_KHR)
 			return f;
 	return *m_formats.begin();
 }
@@ -699,6 +699,24 @@ const sb::Shader::DescriptorSet::Layout& Vk::DescriptorSetLayout::getLayout(void
 
 VkDescriptorSetLayout Vk::DescriptorSetLayout::create(Device &device, const sb::Shader::DescriptorSet::Layout &layout)
 {
+	VkDescriptorSetLayoutCreateInfo createInfo {};
+
+	createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+
+	std::vector<VkDescriptorSetLayoutBinding> bindings;
+	for (auto &b : layout.bindings_mapped)
+		bindings.emplace_back(bindingtoVk(b));
+	for (auto &b : layout.bindings)
+		bindings.emplace_back(bindingtoVk(b));
+
+	createInfo.bindingCount = bindings.size();
+	createInfo.pBindings = bindings.data();
+
+	return Vk::create<VkDescriptorSetLayout>(vkCreateDescriptorSetLayout, device, &createInfo, nullptr);
+}
+
+VkDescriptorSetLayoutBinding Vk::DescriptorSetLayout::bindingtoVk(const sb::Shader::DescriptorSet::LayoutBinding &b)
+{
 	static const std::map<sb::Shader::Stage, VkShaderStageFlags> stageTable {
 		{sb::Shader::Stage::TesselationControl, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT},
 		{sb::Shader::Stage::TesselationEvaluation, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT},
@@ -707,26 +725,13 @@ VkDescriptorSetLayout Vk::DescriptorSetLayout::create(Device &device, const sb::
 		{sb::Shader::Stage::Fragment, VK_SHADER_STAGE_FRAGMENT_BIT}
 	};
 
-	VkDescriptorSetLayoutCreateInfo createInfo {};
-
-	createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-
-	std::vector<VkDescriptorSetLayoutBinding> bindings;
-	for (auto &b : layout.getBindings()) {
-		VkDescriptorSetLayoutBinding r {};
-		r.binding = b.binding;
-		r.descriptorType = descriptorType(b.descriptorType);
-		r.descriptorCount = b.descriptorCount;
-		for (auto &s : b.stages)
-			r.stageFlags |= stageTable.at(s);
-
-		bindings.emplace_back(r);
-	}
-
-	createInfo.bindingCount = bindings.size();
-	createInfo.pBindings = bindings.data();
-
-	return Vk::create<VkDescriptorSetLayout>(vkCreateDescriptorSetLayout, device, &createInfo, nullptr);
+	VkDescriptorSetLayoutBinding r {};
+	r.binding = b.binding;
+	r.descriptorType = descriptorType(b.descriptorType);
+	r.descriptorCount = b.descriptorCount;
+	for (auto &s : b.stages)
+		r.stageFlags |= stageTable.at(s);
+	return r;
 }
 
 template <>
@@ -738,8 +743,34 @@ void Vk::Device::Handle<VkDescriptorSetLayout>::destroy(Vk::Device &device, VkDe
 Vk::DescriptorSet::DescriptorSet(Vk::Device &dev, const Vk::DescriptorSetLayout &layout) :
 	Device::Handle<VkDescriptorPool>(dev, createPool(dev, layout)),
 	m_descriptor_set(create(layout)),
-	m_buffer(dev.allocator().createBuffer(256, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, std::vector<uint32_t>{*dev.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT)}))
-{					// dummy 256 bytes buffer for now, actual size incoming
+	m_buffer(dev.allocator().createBuffer(layout.getLayout().bindings_mapped_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, std::vector<uint32_t>{*dev.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT)}))
+{
+	auto &bmapped = layout.getLayout().bindings_mapped;
+
+	std::vector<VkWriteDescriptorSet> writes;
+	writes.reserve(bmapped.size());
+	std::vector<VkDescriptorBufferInfo> bufferInfos;
+	bufferInfos.reserve(bmapped.size());
+	for (auto &bm : layout.getLayout().bindings_mapped) {
+		VkWriteDescriptorSet w {};
+
+		w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		w.dstSet = m_descriptor_set;
+		w.dstBinding = bm.binding;
+		w.dstArrayElement = 0;
+		w.descriptorCount = 1;
+		w.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+
+		VkDescriptorBufferInfo buf_info;
+		buf_info.buffer = m_buffer;
+		buf_info.offset = bm.offset;
+		buf_info.range = bm.size;
+		w.pBufferInfo = &bufferInfos.emplace_back(buf_info);
+
+		writes.emplace_back(w);
+	}
+
+	vkUpdateDescriptorSets(dev, writes.size(), writes.data(), 0, nullptr);
 }
 
 void Vk::DescriptorSet::write(size_t offset, size_t range, const void *data)
@@ -757,7 +788,9 @@ VkDescriptorPool Vk::DescriptorSet::createPool(Device &dev, const DescriptorSetL
 	createInfo.maxSets = 1;
 
 	std::map<VkDescriptorType, size_t> typeCount;
-	for (auto &b : layout.getLayout().getBindings())
+	for (auto &b : layout.getLayout().bindings)
+		typeCount[descriptorType(b.descriptorType)] += b.descriptorCount;
+	for (auto &b : layout.getLayout().bindings_mapped)
 		typeCount[descriptorType(b.descriptorType)] += b.descriptorCount;
 	std::vector<VkDescriptorPoolSize> sizes;
 	for (auto &t : typeCount) {
@@ -770,7 +803,10 @@ VkDescriptorPool Vk::DescriptorSet::createPool(Device &dev, const DescriptorSetL
 	createInfo.poolSizeCount = sizes.size();
 	createInfo.pPoolSizes = sizes.data();
 
-	return Vk::create<VkDescriptorPool>(vkCreateDescriptorPool, dev, &createInfo, nullptr);
+	if (createInfo.poolSizeCount > 0)
+		return Vk::create<VkDescriptorPool>(vkCreateDescriptorPool, dev, &createInfo, nullptr);
+	else
+		return VK_NULL_HANDLE;
 }
 
 VkDescriptorSet Vk::DescriptorSet::create(const DescriptorSetLayout &layout)
@@ -782,7 +818,10 @@ VkDescriptorSet Vk::DescriptorSet::create(const DescriptorSetLayout &layout)
 	allocInfo.descriptorSetCount = 1;
 	allocInfo.pSetLayouts = &static_cast<const VkDescriptorSetLayout&>(layout);
 
-	return Vk::create<VkDescriptorSet>(vkAllocateDescriptorSets, static_cast<Device&>(*this), &allocInfo);
+	if (allocInfo.descriptorPool != VK_NULL_HANDLE)
+		return Vk::create<VkDescriptorSet>(vkAllocateDescriptorSets, static_cast<Device&>(*this), &allocInfo);
+	else
+		return VK_NULL_HANDLE;
 }
 
 template <>

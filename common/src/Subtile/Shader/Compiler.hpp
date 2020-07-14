@@ -223,9 +223,9 @@ class Shader::Compiler
 		virtual void write(token_output &o, Sbi sbi) const = 0;
 	};
 
+public:
 	class Variable;
 
-public:
 	enum class Set {
 		Material,
 		Object
@@ -286,6 +286,11 @@ private:
 		void add(Variable &var)
 		{
 			m_variables.emplace_back(var);
+		}
+
+		auto& getVariables(void) const
+		{
+			return m_variables;
 		}
 
 		static std::string getSignature(Set set, size_t binding)
@@ -398,7 +403,7 @@ private:
 		{
 			m_variables.emplace_back(var);
 
-			if (var.getType().getName() == "sampler2D")
+			if (var.getType().getParsed().is_opaque)
 				m_opaque.emplace_back(m_set, m_counter, var);
 			else {
 				if (!m_n_opaque)
@@ -608,7 +613,6 @@ public:
 		return m_stages;
 	}
 
-private:
 	class Variable : public Primitive
 	{
 		enum class Storage {
@@ -645,18 +649,37 @@ private:
 		class Type
 		{
 		public:
+			struct Parsed {
+				Parsed(const std::string &name, bool is_opaque = false, bool is_user_defined = false) :
+					name(name),
+					is_user_defined(is_user_defined),
+					is_opaque(is_opaque)
+				{
+				}
+
+				const std::string name;
+				bool is_user_defined;
+				bool is_opaque;
+			};
+
 			Type(tstream &s) :
 				m_name(s.poll()),
-				m_array(parseArray(s))
+				m_array(parseArray(s)),
+				m_parsed(parse())
 			{
 			}
 
-			const std::string& getName(void) const
+			auto& getName(void) const
 			{
 				return m_name;
 			}
 
-			const std::vector<size_t>& getArray(void) const
+			const Parsed& getParsed(void) const
+			{
+				return m_parsed;
+			}
+
+			auto& getArray(void) const
 			{
 				return m_array;
 			}
@@ -664,6 +687,133 @@ private:
 		private:
 			std::string m_name;
 			std::vector<size_t> m_array;
+			Parsed m_parsed;
+
+			static std::string typePrefix(const std::string &name)
+			{
+				static const std::string add("sb::Shader::Type::");
+
+				return add + name;
+			}
+
+			Parsed parse(void) const
+			{
+				static const std::map<std::string, std::string> scalars {
+					{"bool", "Bool"},
+					{"int", "Int"},
+					{"uint", "Uint"},
+					{"float", "Float"},
+					{"double", "Double"}
+				};
+
+				auto sgot = scalars.find(m_name);
+				if (sgot != scalars.end())
+					return Parsed(typePrefix(sgot->second));
+				auto vec = parseVec();
+				if (vec)
+					return *vec;
+				auto mat = parseMat();
+				if (mat)
+					return *mat;
+				auto opq = parseOpq();
+				if (opq)
+					return Parsed(*opq, true);
+				return Parsed(m_name, false, true);
+			}
+
+			static bool is_vec_num(char num)
+			{
+				static const std::set<char> table {
+					'2', '3', '4'
+				};
+
+				return table.find(num) != table.end();
+			}
+
+			std::optional<std::string> parseVec(void) const
+			{
+				static const std::string vecn("vecn");
+				static const std::string tvecn("tvecn");
+				static const std::map<char, std::string> tvec_table {
+					{'b', "Bool"},
+					{'i', "Int"},
+					{'u', "Uint"},
+					{'d', "Double"}
+				};
+
+				if (m_name.size() == vecn.size()) {
+					auto &num = m_name.at(3);
+					if (m_name.substr(0, 3) == "vec" && is_vec_num(num)) {
+						std::stringstream ss;
+
+						ss << typePrefix("Vec") << "<" << typePrefix("Float") << ", " << num << ">";
+						return ss.str();
+					}
+				}
+				if (m_name.size() == tvecn.size()) {
+					auto &num = m_name.at(4);
+					auto got = tvec_table.find(m_name.at(0));
+					if (got != tvec_table.end() && m_name.substr(1, 3) == "vec" && is_vec_num(num)) {
+						std::stringstream ss;
+
+						ss << typePrefix("Vec") << "<" << typePrefix(got->second) <<", " << num << ">";
+						return ss.str();
+					}
+				}
+				return std::nullopt;
+			}
+
+			std::optional<std::string> try_construct_mat(const std::string &basetype, const std::string &rest) const
+			{
+				if (rest.size() == 1) {
+					auto num = rest.at(0);
+					if (is_vec_num(num)) {
+						std::stringstream ss;
+						ss << typePrefix("Mat") << "<" << typePrefix(basetype) <<", " << num << ", " << num << ">";
+						return ss.str();
+					}
+				}
+				if (rest.size() == 3) {
+					auto c = rest.at(0);
+					auto r = rest.at(2);
+					if (rest.at(1) == 'x' && is_vec_num(c) && is_vec_num(r)) {
+						std::stringstream ss;
+						ss << typePrefix("Mat") << "<" << typePrefix(basetype) <<", " << c << ", " << r << ">";
+						return ss.str();
+					}
+				}
+				return std::nullopt;
+			}
+
+			std::optional<std::string> parseMat(void) const
+			{
+				static const std::string mat("mat");
+				static const std::string dmat("dmat");
+
+				if (m_name.substr(0, mat.size()) == mat) {
+					auto got = try_construct_mat("Float", m_name.substr(mat.size()));
+					if (got)
+						return *got;
+				}
+				if (m_name.substr(0, dmat.size()) == dmat) {
+					auto got = try_construct_mat("Double", m_name.substr(dmat.size()));
+					if (got)
+						return *got;
+				}
+				return std::nullopt;
+			}
+
+			//static std::map<std::string, s>
+
+			std::optional<std::string> parseOpq(void) const
+			{
+				//static const std::map<std::string, std::string> sampler_table;
+				//static const std::map<std::string, std::string> image_table = getImageTable("image");
+
+				if (m_name == "atomic_uint")
+					return typePrefix("AtomicUint");
+				return std::nullopt;
+			}
 		};
 
 	public:
@@ -808,6 +958,7 @@ private:
 		}
 	};
 
+private:
 	class Section : public Primitive
 	{
 		using StageTable = std::map<std::string, Shader::Stage>;

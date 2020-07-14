@@ -1,54 +1,20 @@
-geometry {
-	const int lol = 3;
-}
 
-geometry {
+vertex {
+	object mat4 mvp;
+
 	void main(void)
 	{
+		_sb_pos_out = _sb_pos_in;
 		return time;
 	}
 }
 
-{
-	object float time;
-	material sampler2D shared_material;
+fragment {
 
+	void main(void)
 	{
-		int somefunc(void)
-		{
-
-		}
-
-		int somefunc2(void)
-		{
-			
-		}
-
-		vertex {
-			void main(void)
-			{
-				_sb_pos_out = _sb_pos_in;
-				return time;
-			}
-		}
-
-		void somefunc3(void)
-		{
-			
-		}
-	}
-
-	fragment {
-		material sampler2D diffuse;
-		material sampler2D normal_map;
-		object mat4[3] mvp[56], mvp2[53][44215];
-		object mat4 add_cam;
-
-		void main(void)
-		{
-			_sb_output = vec4(1.0);
-			mvp * diffuse + time;
-			somestruct.time;
-		}
+		_sb_output = vec4(1.0);
+		mvp * diffuse + time;
+		somestruct.time;
 	}
 }

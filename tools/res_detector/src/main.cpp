@@ -87,38 +87,79 @@ class FolderPrinter
 		return res;
 	}
 
+	void addVariableToStructCollec(Util::CollectionBase &scope, sb::Shader::Compiler::Variable &var, std::optional<Id> &prev_id, std::vector<Id> &ids)
+	{
+		auto &t = var.getType();
+		auto &p = t.getParsed();
+		Type t_fin = p.name;
+		if (p.is_user_defined)
+			t_fin.assign(scope >> t_fin);
+
+		if (prev_id)
+			t_fin.assign("sb::Shader::Type::StructMember"_t.T(t_fin, Decltype(*prev_id)));
+		else
+			t_fin.assign("sb::Shader::Type::StructMember"_t.T(t_fin));
+		prev_id = scope += t_fin | Id(var.getName());
+		ids.emplace_back(*prev_id);
+	}
+
 	void shaderaddlayout(Util::CollectionBase &scope, sb::Shader::Compiler::Set set, const std::string &met_name, sb::Shader::Compiler &shader)
 	{
+		std::optional<Id> previous_id;
+		auto &mat_scope = scope += Struct | (met_name + std::string("Traits")) | S {};
+		auto &str = mat_scope += Struct | "MappedCollection" | S {};
+		auto str_ctor = str();
+		std::vector<Id> ids;
+
+		for (auto &sb : shader.getDescriptorSets())
+			if (sb.get().getSet() == set)
+				for (auto &b : sb.get().getBlocks()) {
+					auto &nopq = b.getGlslNonOpaque();
+					if (nopq) {
+						for (auto &no : nopq->getVariables())
+							addVariableToStructCollec(str, no.get(), previous_id, ids);
+					}
+				}
+		auto tfinal = "sb::Shader::Type::Struct"_t.T(str);
+		for (auto &i : ids)
+			tfinal.add(Decltype(str_ctor.M(i)));
+		auto mapped_str = mat_scope += Using | "Mapped" = tfinal;
+		/*for (auto &sb : shader.getDescriptorSets())
+			if (sb.get().getSet() == set)
+				for (auto &b : sb.get().getBlocks())
+					for (auto &v : b.getGlslOpaque())
+							addVariableToStruct(str, v.getVariable(), previous_id);*/
+
 		auto t = "sb::Shader::DescriptorSet::Layout"_t;
 
 		auto fwd = scope += t | Id(met_name)(Void) | Const | Override;
 		auto &impl = m_impl_out += t | fwd(Void) | Const | S {};
 
-		auto res = B {};
+		auto bmapped = B {};
+		auto bopq = B {};
 
 		for (auto &sb : shader.getDescriptorSets())
 			if (sb.get().getSet() == set) {
 				auto &blocks = sb.get().getBlocks();
-				auto b_init = B {};
 				for (auto &b : blocks) {
 					auto &nopq = b.getGlslNonOpaque();
 					if (nopq) {
 						auto &n = *nopq;
-						b_init.add(B {n.getBinding(), static_cast<size_t>(1), "sb::Shader::DescriptorType::UniformBuffer"_v, shaderStagesToBrace(b.getStages())});
+						auto off = Decltype(str_ctor.M(Vd(n.getVariables().begin()->get().getName())))>>"offset::value"_v;
+						auto size = Value(0);
+						size.assign(size + (Decltype(str_ctor.M(Vd(n.getVariables().rbegin()->get().getName())))>>"offset_end::value"_v) - off);
+						bmapped.add(B {B {n.getBinding(), static_cast<size_t>(1), "sb::Shader::DescriptorType::UniformBuffer"_v, shaderStagesToBrace(b.getStages())}, off, size});
 					}
 					for (auto &v : b.getGlslOpaque()) {
 						size_t count = 1;
 						auto &arr = v.getVariable().getArray();
 						if (arr.size() > 0)
 							count = arr.at(0);
-						b_init.add(B {v.getBinding(), count, "sb::Shader::DescriptorType::CombinedImageSampler"_v, shaderStagesToBrace(b.getStages())});
+						bopq.add(B {v.getBinding(), count, "sb::Shader::DescriptorType::CombinedImageSampler"_v, shaderStagesToBrace(b.getStages())});
 					}
 				}
-
-				res.add(b_init);
 			}
-
-		impl += Return | res;
+		impl += Return | B {bmapped, Sizeof(mapped_str), bopq};
 	}
 
 	Type addshader(Util::CollectionBase &scope, const std::string &id, const std::string &shaderpath)
@@ -163,11 +204,9 @@ class FolderPrinter
 					auto [type, id] = *got;
 					auto t = Type(type);
 
-					if (type == "sb::rs::Shader") {
-						auto t = addshader(scope, id, e.path().string());
-						addgetterstorage(scope, ctor, t, id, name);
-					} else
-						addgetterstorage(scope, ctor, t, id, name);
+					if (type == "sb::rs::Shader")
+						t.assign(addshader(scope, id, e.path().string()));
+					addgetterstorage(scope, ctor, t, id, name);
 				}
 			}
 		}
@@ -220,7 +259,7 @@ public:
 
 		auto hp = std::fs::path(hpath).filename().string();
 
-		impl += Pp::Include | hp;
+		impl.include(header);	// inline inclusion, ensure coherency of resource compilation
 
 		Util::CollectionBase *collec = std::addressof(header);
 		for (auto &n : ns)

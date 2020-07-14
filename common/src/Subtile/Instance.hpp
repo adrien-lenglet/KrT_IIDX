@@ -14,24 +14,6 @@ class SessionBase;
 
 class Instance
 {
-public:
-	Instance(bool isDebug = false, const std::string &name = "SUBTILE® Application");
-	~Instance(void);
-
-	void setInputs(const std::function<void (const Event::System::Observer::Input::Setter &setter)> &binder);
-
-	template <typename SessionType, typename ...ArgsTypes>
-	std::unique_ptr<SessionType> createSession(ArgsTypes &&...args);
-
-private:
-	friend World;
-	friend SessionBase;
-
-	std::unique_ptr<ISystem> m_system;
-	Event::System::Observer m_events;
-
-	void scanInputs(void);
-
 	using ShaderCache = Cache<util::ref_wrapper<rs::Shader>, std::unique_ptr<Shader>>;
 	ShaderCache m_shaders;
 
@@ -58,13 +40,62 @@ private:
 		ShaderCache::Ref m_ref;
 	};
 
-	UniqueShaderRef loadShader(rs::Shader &shaderres)
+public:
+	Instance(bool isDebug = false, const std::string &name = "SUBTILE® Application");
+	~Instance(void);
+
+	void setInputs(const std::function<void (const Event::System::Observer::Input::Setter &setter)> &binder);
+
+	template <typename SessionType, typename ...ArgsTypes>
+	std::unique_ptr<SessionType> createSession(ArgsTypes &&...args);
+
+	void scanInputs(void);
+
+	template <typename ResType>
+	class Shader
+	{
+		using Res = util::remove_cvr_t<ResType>;
+
+	public:
+		Shader(UniqueShaderRef &&shader_ref) :
+			m_ref(std::move(shader_ref))
+		{
+		}
+
+		auto material(void)
+		{
+			return sb::Shader::DescriptorSet::Handle<typename Res::materialTraits>(m_ref.material());
+		}
+
+		auto object(void)
+		{
+			return sb::Shader::DescriptorSet::Handle<typename Res::objectTraits>(m_ref.object());
+		}
+
+	private:
+		UniqueShaderRef m_ref;
+	};
+
+private:
+	friend World;
+	friend SessionBase;
+
+	std::unique_ptr<ISystem> m_system;
+	Event::System::Observer m_events;
+
+	UniqueShaderRef loadShaderRef(rs::Shader &shaderres)
 	{
 		auto got = m_shaders.find(shaderres);
 		if (got == m_shaders.end())
 			return m_shaders.emplace(shaderres, m_system->loadShader(shaderres));
 		else
 			return got->second.new_ref();
+	}
+
+	template <typename S>
+	decltype(auto) loadShader(S &&shaderres)
+	{
+		return Shader<std::remove_cv_t<std::remove_reference_t<S>>>(loadShaderRef(std::forward<S>(shaderres)));
 	}
 };
 
