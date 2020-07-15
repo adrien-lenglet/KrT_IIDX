@@ -46,7 +46,9 @@ using fboss = sb::Shader::Type::Struct<final_boss,
 EntityTest::EntityTest(void) :
 	entity1(add<EntityTest2>()),
 	entity2(add<EntityTest2>()),
-	m_shader(load(res.shaders().diffuse()))
+	m_shader(load(res.shaders().diffuse())),
+	m_material(m_shader.material()),
+	m_object(m_shader.object())
 {
 	bind(world.events.system.input.button.pressed("quit"), [this](){
 		//std::cout << "quit pressed" << std::endl;
@@ -62,9 +64,6 @@ EntityTest::EntityTest(void) :
 		pos.x += t;
 		transformed();
 	});
-
-	auto mat = m_shader.material();
-	auto obj = m_shader.object();
 
 	//std::cout << sb::Shader::Type::Vec<sb::Shader::Type::Float, 3>(glm::vec3(1.2)).y << std::endl;
 	//std::cout << util::csize_t<46>{} << std::endl;

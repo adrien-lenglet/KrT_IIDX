@@ -19,6 +19,8 @@ private:
 	EntityTest2 &entity1;
 	EntityTest2 &entity2;
 	sb::Instance::Shader<decltype(res.shaders().diffuse())> m_shader;
+	decltype(m_shader.material()) m_material;
+	decltype(m_shader.object()) m_object;
 };
 
 }

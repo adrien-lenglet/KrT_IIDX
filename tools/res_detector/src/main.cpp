@@ -166,7 +166,7 @@ class FolderPrinter
 	{
 		sb::Shader::Compiler compiled(shaderpath);
 
-		scope += Private;
+		//scope += Private;
 		auto &sh = scope += Class | (id + std::string("_type")) | C(Public | "sb::rs::Shader"_t) | S {Public};
 		auto ctor_fwd = sh += Ctor(Void);
 		m_impl_out += ctor_fwd(Void) | S {};

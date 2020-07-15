@@ -61,18 +61,27 @@ public:
 			m_ref(std::move(shader_ref))
 		{
 		}
-
-		auto material(void)
+		Shader(Shader<Res> &&other) :
+			m_ref(std::move(other.m_ref))
 		{
-			return sb::Shader::DescriptorSet::Handle<typename Res::materialTraits>(m_ref.material());
 		}
 
+		using Material = sb::Shader::DescriptorSet::Handle<typename Res::materialTraits>;
+		auto material(void)
+		{
+			return Material(m_ref.material());
+		}
+
+		using Object = sb::Shader::DescriptorSet::Handle<typename Res::objectTraits>;
 		auto object(void)
 		{
-			return sb::Shader::DescriptorSet::Handle<typename Res::objectTraits>(m_ref.object());
+			return Object(m_ref.object());
 		}
 
 	private:
+		template <typename>
+		friend class Shader;
+
 		UniqueShaderRef m_ref;
 	};
 
