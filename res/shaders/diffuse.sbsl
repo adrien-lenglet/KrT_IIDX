@@ -1,20 +1,22 @@
 
+object float time;
+
 vertex {
 	object mat4 mvp;
 
 	void main(void)
 	{
-		_sb_pos_out = _sb_pos_in;
-		return time;
+		gl_Position = mvp * vec4(in_pos, 1.0);
 	}
 }
 
 fragment {
 
+	material vec3 color;
+	material vec3 normal;
+
 	void main(void)
 	{
-		_sb_output = vec4(1.0);
-		mvp * diffuse + time;
-		somestruct.time;
+		gl_Color = color;
 	}
 }

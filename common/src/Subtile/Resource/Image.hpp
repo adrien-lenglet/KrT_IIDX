@@ -5,11 +5,11 @@
 namespace Subtile {
 namespace Resource {
 
-class Model : public File
+class Image : public File
 {
 public:
-	Model(void);
-	~Model(void) override;
+	Image(void);
+	~Image(void) override;
 };
 
 }

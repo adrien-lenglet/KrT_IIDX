@@ -12,6 +12,8 @@ public:
 	Folder(void);
 	~Folder(void) override;
 
+	void ship(const std::string &basedir) const override final;
+
 protected:
 	Folder(const std::string &name);	// root folder
 

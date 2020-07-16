@@ -3,7 +3,8 @@
 namespace Subtile {
 namespace Resource {
 
-Model::Model(void)
+Model::Model(void) :
+	File(true)
 {
 }
 

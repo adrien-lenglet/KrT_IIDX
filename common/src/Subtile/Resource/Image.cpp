@@ -1,14 +1,14 @@
-#include "Shader.hpp"
+#include "Image.hpp"
 
 namespace Subtile {
 namespace Resource {
 
-Shader::Shader(void) :
+Image::Image(void) :
 	File(true)
 {
 }
 
-Shader::~Shader(void)
+Image::~Image(void)
 {
 }
 

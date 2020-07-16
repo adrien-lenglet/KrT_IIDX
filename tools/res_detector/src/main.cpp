@@ -33,7 +33,7 @@ class FolderPrinter
 	{
 		static const std::map<std::string, std::string> exts = {
 			{".obj", "sb::rs::Model"},
-			{".png", "sb::rs::Texture"},
+			{".png", "sb::rs::Image"},
 			{".sbsl", "sb::rs::Shader"},
 		};
 
@@ -251,7 +251,7 @@ public:
 			Pp::Pragma | "once",
 			Pp::Include | "Subtile/Resource/Folder.hpp",
 			Pp::Include | "Subtile/Resource/Model.hpp",
-			Pp::Include | "Subtile/Resource/Texture.hpp",
+			Pp::Include | "Subtile/Resource/Image.hpp",
 			Pp::Include | "Subtile/Resource/Shader.hpp"
 		};
 

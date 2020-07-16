@@ -33,10 +33,14 @@ public:
 
 protected:
 	Folder& getParent(void);
+	std::string getPath(void) const;
+	static std::string mergePaths(const std::string &a, const std::string &b);
 
 private:
 	Folder *m_parent;
 	const std::string m_name;
+
+	virtual void ship(const std::string &basedir) const = 0;
 };
 
 }

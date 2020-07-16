@@ -1,12 +1,12 @@
 #pragma once
 
-#include "Element.hpp"
+#include "File.hpp"
 #include "../Shader.hpp"
 
 namespace Subtile {
 namespace Resource {
 
-class Shader : public Element
+class Shader : public File
 {
 public:
 	Shader(void);
