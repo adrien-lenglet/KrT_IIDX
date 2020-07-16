@@ -4,7 +4,7 @@ namespace Subtile {
 namespace Resource {
 
 Shader::Shader(void) :
-	File(true)
+	File(false)
 {
 }
 

@@ -22,11 +22,6 @@ define make_platforms
 	done
 endef
 
-define copy_bins
-	cp $(TARGET) $(1)
-	./common/res_ship $(1)
-endef
-
 resources:
 	$(MAKE) -C $(COMMON) resources_detect $(OPT)
 	$(MAKE) -C $(COMMON) resources $(OPT)
@@ -55,10 +50,15 @@ build:
 	mkdir build
 
 WIN_PUBLISH = build/windows
+WIN_DLLS = libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll glfw3.dll
 
 publish_windows: wipe_all_bin release_windows
 	mkdir -p $(WIN_PUBLISH)
-	$(call copy_bins, $(WIN_PUBLISH))
+	cp $(TARGET) $(WIN_PUBLISH)/$(TARGET).exe
+	./common/res_ship $(WIN_PUBLISH)
+	for dll in $(WIN_DLLS); do \
+		cp /mingw64/bin/$$dll $(WIN_PUBLISH); \
+	done
 
 linux: LIB = -lglfw -lvulkan
 linux: $(TARGET)
