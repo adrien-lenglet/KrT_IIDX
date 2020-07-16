@@ -1,0 +1,22 @@
+
+object float time;
+
+vertex {
+	object mat4 mvp;
+
+	void main(void)
+	{
+		gl_Position = mvp * vec4(in_pos, 1.0);
+	}
+}
+
+fragment {
+
+	material vec3 color;
+	material vec3 normal;
+
+	void main(void)
+	{
+		gl_Color = color;
+	}
+}

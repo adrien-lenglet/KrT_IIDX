@@ -1,0 +1,47 @@
+extern_world float time;
+
+vertex {
+	extern vec3 origin;
+
+	vec4 transform_pos(vec3 pos) {
+		return pos - origin;
+	}
+}
+
+fragment {
+	extern float bias;
+	extern float seed;
+	extern_entity texture2D diffuse;
+
+	vec4 light(vec3 pos, vec3 normal, vec2 uv, vec3 view) {
+		return sample(diffuse, vertex_uv) + vec4(bias);
+	}
+
+	// OR
+
+	vec4 color(vec3 pos, vec3 normal, vec2 uv, vec3 view) {
+		return sample(diffuse, vertex_uv) + vec4(bias);
+	}
+}
+
+// OR
+
+iso {
+
+	// IMPLICIT
+	/*struct SbIso {
+		vec4 color;
+		float depth;
+	};*/
+
+	Iso light(vec3 pos, vec3 view) {
+		return // ray trace primitive
+	}
+
+	// OR
+
+	Iso color(vec3 pos, vec3 view) {
+		return // ray trace primitive
+	}
+
+}

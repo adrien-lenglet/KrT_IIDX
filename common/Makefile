@@ -21,12 +21,12 @@ MACRO_FOLDER = $(SRC_FOLDER)/Subtile/Macro
 macro:
 	$(MAKE) -C $(MACRO_FOLDER)
 
-RES_DETECTOR = $(ROOT)/tools/res_detector/res_detector
+RES_DETECTOR = tools/res_detector/res_detector
 $(RES_DETECTOR): .FORCE
 	$(MAKE) -C $(dir $(RES_DETECTOR))
 
 resources_detect: $(RES_DETECTOR) .FORCE
-	$(RES_DETECTOR) $(ROOT)/res $(SRC_FOLDER)/Krt Krt
+	$(RES_DETECTOR) res $(SRC_FOLDER)/Krt Krt
 
 USER_RESOURCES_SRC = $(SRC_FOLDER)/Krt/res.resdecl.cpp
 USER_RESOURCES_HEADER = $(USER_RESOURCES_SRC:.cpp=.hpp)
@@ -72,7 +72,7 @@ clean_macros:
 
 clean_all: clean_libs clean
 
-TOOLS_FOLDER = $(ROOT)/tools
+TOOLS_FOLDER = tools
 TOOLS = $(TOOLS_FOLDER)/res_detector
 
 clean_tools:
