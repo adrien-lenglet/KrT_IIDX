@@ -26,7 +26,7 @@ $(RES_DETECTOR): .FORCE
 	$(MAKE) -C $(dir $(RES_DETECTOR))
 
 resources_detect: $(RES_DETECTOR) .FORCE
-	$(RES_DETECTOR) res $(SRC_FOLDER)/Krt Krt
+	$(RES_DETECTOR) ../res $(SRC_FOLDER)/Krt Krt
 
 USER_RESOURCES_SRC = $(SRC_FOLDER)/Krt/res.resdecl.cpp
 USER_RESOURCES_HEADER = $(USER_RESOURCES_SRC:.cpp=.hpp)
@@ -39,10 +39,11 @@ RESOURCE_DUMMY_MAIN = .sb_dummy_main.cpp
 RESOURCE_OUT = ./.sb_resource_make
 
 resources: $(RESOURCES_OBJ) $(USER_RESOURCES_OBJ)
-	#echo "int main(void) { return 0; }" > $(RESOURCE_DUMMY_MAIN)
-	#$(CXX) $(CXXFLAGS) $(RESOURCE_DUMMY_MAIN) $(RESOURCES_OBJ) $(USER_RESOURCES_OBJ) -o $(RESOURCE_OUT)
-	#$(RESOURCE_OUT)
-	#rm $(RESOURCE_DUMMY_MAIN) $(RESOURCE_OUT)
+
+RES_SHIP = res_ship
+
+$(RES_SHIP): $(RESOURCES_OBJ) $(USER_RESOURCES_OBJ)
+	$(CXX) $(CXXFLAGS) res_ship.cpp $(RESOURCES_OBJ) $(USER_RESOURCES_OBJ) -o $(RES_SHIP)
 
 LIB_SRC = $(wildcard $(LIB_SRC_FOLDER)/*.cpp)
 LIB_OBJ = $(LIB_SRC:.cpp=.o)
@@ -55,14 +56,13 @@ debug: DEFINE += -DDEBUG
 debug: all
 
 release: EXTRA += -O3
-release: all
+release: all $(RES_SHIP)
 
 $(TARGET): $(OBJ) $(LIB_OBJ)
 	ar rcs $(TARGET) $(OBJ) $(LIB_OBJ)
 
 clean:
-	rm -f $(OBJ)
-	rm -f $(TARGET)
+	rm -f $(OBJ) $(TARGET) $(RES_SHIP)
 
 clean_libs:
 	rm -f $(LIB_OBJ)

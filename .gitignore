@@ -1,7 +1,6 @@
 linux/libs/bin
 
 KrT_IIDX
-KrT_IIDX.exe
 glfw3.dll
 
 *.a
