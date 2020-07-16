@@ -11,7 +11,7 @@ CXXFLAGS = -std=c++17 $(CXXFLAGS_ADD)
 OBJ = common/obj.a
 
 TARGET = KrT_IIDX
-LIB = LOL
+LIB =
 
 $(TARGET): $(OBJ)
 	$(CXX) $(CXXFLAGS) $(LINK_OPT) $(OBJ) $(LIB) -o $(TARGET)
@@ -23,6 +23,8 @@ define make_platforms
 endef
 
 define copy_bins
+	cp $(TARGET) $(1)
+	./common/res_ship $(1)
 endef
 
 resources:

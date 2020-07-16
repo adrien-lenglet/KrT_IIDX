@@ -1,7 +1,4 @@
-linux/libs/bin
-
 KrT_IIDX
-glfw3.dll
 
 *.a
 *.o
@@ -12,4 +9,5 @@ glfw3.dll
 *.resdecl.cpp
 *.resdecl.hpp
 
-tools/res_detector/res_detector
+common/tools/res_detector/res_detector
+common/res_ship
