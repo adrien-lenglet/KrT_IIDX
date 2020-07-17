@@ -99,6 +99,7 @@ class Shader::Compiler
 		size_t m_ndx;
 	};
 
+public:
 	class token_output
 	{
 	public:
@@ -172,6 +173,7 @@ class Shader::Compiler
 
 	using tstream = token_stream;
 
+private:
 	static auto read(const std::string &path)
 	{
 		std::stringstream res;
@@ -297,7 +299,7 @@ private:
 		{
 			std::stringstream ss;
 
-			ss << "___uni_s" << static_cast<std::underlying_type_t<decltype(set)>>(set) << "_b" << binding;
+			ss << "_uni_s" << static_cast<std::underlying_type_t<decltype(set)>>(set) << "_b" << binding;
 			return ss.str();
 		}
 
@@ -602,6 +604,15 @@ private:
 				got = it;
 			}
 			got->second.add(prim);
+		}
+
+		auto getSet(void) const
+		{
+			std::set<Shader::Stage> res;
+
+			for (auto &p : *this)
+				res.emplace(p.first);
+			return res;
 		}
 	};
 

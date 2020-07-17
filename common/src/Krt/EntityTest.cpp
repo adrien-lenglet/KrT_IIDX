@@ -71,6 +71,9 @@ EntityTest::EntityTest(void) :
 	auto mat = shader.material();
 
 	mat.color = sb::vec3(2.3);
+
+	res.shaders().diffuse().getStages().at(sb::Shader::Stage::Fragment).getVk().getCompiled().read();
+	res.shaders().diffuse().getStages().at(sb::Shader::Stage::Vertex).getVk().getCompiled().read();
 }
 
 EntityTest::~EntityTest(void)

@@ -3,6 +3,7 @@ KrT_IIDX
 *.a
 *.o
 *.spv
+*.glsl
 
 *.hduped.hpp
 

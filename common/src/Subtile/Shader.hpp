@@ -1,6 +1,8 @@
 #pragma once
 
 #include <set>
+#include <vector>
+#include <memory>
 #include "Subtile/Math.hpp"
 #include <glm/detail/type_vec2.hpp>
 #include <glm/detail/type_vec3.hpp>
@@ -421,6 +423,8 @@ public:
 	enum class Sbi {  // shader binary interface
 		Vulkan
 	};
+
+	static const std::set<Sbi>& getSbi(void);
 
 	class Compiler;
 

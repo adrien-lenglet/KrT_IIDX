@@ -8,6 +8,8 @@
 namespace Subtile {
 namespace Resource {
 
+class Target;
+
 class File : public Element
 {
 public:
@@ -22,6 +24,9 @@ public:
 	Istream read(void) const;
 
 protected:
+	File(const std::string &name, bool ship);
+
+	friend Target;
 	virtual void beforeRead(void) const;
 
 private:

@@ -14,6 +14,12 @@ File::File(bool ship) :
 {
 }
 
+File::File(const std::string &name, bool ship) :
+	Element(Context(getStack().top().parent, name)),
+	m_ship(ship)
+{
+}
+
 File::Istream File::read(void) const
 {
 	beforeRead();

@@ -52,7 +52,10 @@ build:
 WIN_PUBLISH = build/windows
 WIN_DLLS = libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll glfw3.dll
 
-publish_windows: wipe_all_bin release_windows
+clean_windows_publish:
+	rm -rf $(WIN_PUBLISH)
+
+publish_windows: wipe_all_bin clean_windows_publish release_windows build
 	mkdir -p $(WIN_PUBLISH)
 	cp $(TARGET) $(WIN_PUBLISH)/$(TARGET).exe
 	./common/res_ship $(WIN_PUBLISH)
@@ -60,11 +63,25 @@ publish_windows: wipe_all_bin release_windows
 		cp /mingw64/bin/$$dll $(WIN_PUBLISH); \
 	done
 
-linux: LIB = -lglfw -lvulkan
+linux: LIB = -lglfw -lvulkan -Wl,-rpath,.
 linux: $(TARGET)
 
 debug_linux: debug linux
 release_linux: release linux
+
+LINUX_PUBLISH = build/linux
+LINUX_SOS = glfw
+
+clean_linux_publish:
+	rm -rf $(LINUX_PUBLISH)
+
+publish_linux: wipe_all_bin clean_linux_publish release_linux build
+	mkdir -p $(LINUX_PUBLISH)
+	cp $(TARGET) $(LINUX_PUBLISH)/$(TARGET)
+	./common/res_ship $(LINUX_PUBLISH)
+	for so in $(LINUX_SOS); do \
+		cp /usr/lib/lib$$so.so $(LINUX_PUBLISH); \
+	done
 
 clean_target:
 	rm -f $(TARGET)
@@ -77,7 +94,6 @@ clean_all: clean_target
 
 wipe_all_bin: clean_target
 	$(MAKE) -C $(COMMON) wipe_all_bin $(OPT)
-	rm -rf build
 
 wipe_all_build: clean_target
 	$(MAKE) -C $(COMMON) wipe_all_build $(OPT)

@@ -1,3 +1,4 @@
+#include <filesystem>
 #include "Element.hpp"
 
 namespace Subtile {
@@ -17,7 +18,8 @@ Element::Element(void) :
 
 Element::Element(const Element::Context &ctx) :
 	m_parent(ctx.parent),
-	m_name(ctx.name)
+	m_name(ctx.name),
+	m_id(computeId())
 {
 }
 
@@ -28,6 +30,16 @@ Element::~Element(void)
 Folder& Element::getParent(void)
 {
 	return *m_parent;
+}
+
+const std::string& Element::getName(void)
+{
+	return m_name;
+}
+
+const std::string& Element::getId(void)
+{
+	return m_id;
 }
 
 std::string Element::getPath(void) const
@@ -43,6 +55,13 @@ std::string Element::mergePaths(const std::string &a, const std::string &b)
 	static const std::string sep("/");
 
 	return a + sep + b;
+}
+
+std::string Element::computeId(void) const
+{
+	auto path = std::filesystem::path(m_name);
+
+	return path.stem().string();
 }
 
 }

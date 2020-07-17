@@ -1,5 +1,6 @@
 #include <iostream>
 #include <set>
+#include <cstring>
 #include "Vk.hpp"
 
 namespace Subtile {
@@ -776,7 +777,7 @@ Vk::DescriptorSet::DescriptorSet(Vk::Device &dev, const Vk::DescriptorSetLayout 
 void Vk::DescriptorSet::write(size_t offset, size_t range, const void *data)
 {
 	auto dst = m_buffer.map();
-	memcpy(&static_cast<char*>(dst)[offset], data, range);
+	std::memcpy(&static_cast<char*>(dst)[offset], data, range);
 	m_buffer.unmap();
 }
 

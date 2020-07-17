@@ -10,6 +10,6 @@ int main(int argc, char **argv)
 	for (int i = 1; i < argc; i++)
 		args.emplace_back(argv[i]);
 
-	Krt::res.ship(args.at(0));
+	sb::rs::Folder::Shipper(Krt::res).ship(args.at(0));
 	return 0;
 }

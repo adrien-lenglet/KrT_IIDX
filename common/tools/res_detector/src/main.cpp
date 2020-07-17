@@ -11,6 +11,7 @@
 
 #include "cpp_generator.hpp"
 #include "Subtile/Shader/Compiler.hpp"
+#include "Subtile/Resource/Shader.hpp"
 
 using namespace CppGenerator;
 
@@ -162,19 +163,42 @@ class FolderPrinter
 		impl += Return | B {bmapped, Sizeof(mapped_str), bopq};
 	}
 
-	Type addshader(Util::CollectionBase &scope, const std::string &id, const std::string &shaderpath)
+	Type addShader(Util::CollectionBase &scope, const std::string &id, const std::string &shaderpath, const std::fs::directory_entry &shaderentry)
 	{
+		static const Type shader_type("sb::rs::Shader");
 		sb::Shader::Compiler compiled(shaderpath);
 
 		//scope += Private;
-		auto &sh = scope += Class | (id + std::string("_type")) | C(Public | "sb::rs::Shader"_t) | S {Public};
+		auto &sh = scope += Class | (id + std::string("_type")) | C(Public | shader_type) | S {Public};
 		auto ctor_fwd = sh += Ctor(Void);
-		m_impl_out += ctor_fwd(Void) | S {};
+		auto &ctor = m_impl_out += ctor_fwd(Void) | S {};
 		auto dtor_fwd = sh += Dtor(Void);
 		m_impl_out += dtor_fwd(Void) | S {};
 
+		ctor /= shader_type(shaderStagesToBrace(compiled.getStages().getSet()));
+
 		shaderaddlayout(sh, sb::Shader::Compiler::Set::Material, "material", compiled);
 		shaderaddlayout(sh, sb::Shader::Compiler::Set::Object, "object", compiled);
+
+		auto name = shaderentry.path().parent_path().string() + std::string("/.") + id + std::string("_stages");
+		std::fs::create_directory(name);
+
+		for (auto &s : compiled.getStages()) {
+			for (auto &sbi : sb::Shader::getSbi()) {
+				sb::Shader::Compiler::token_output toks;
+				s.second.write(toks, sbi);
+				std::stringstream ss;
+				toks.write(ss);
+
+				auto data = ss.str();
+				auto path = name + std::string("/") + sb::rs::Shader::Stage::Source::getFileName(s.first, sbi);
+				if (data != Util::File::read(path)) {
+					std::ofstream file(path);
+					file << "#version 450\n";
+					file << data;
+				}
+			}
+		}
 
 		return sh;
 	}
@@ -205,7 +229,7 @@ class FolderPrinter
 					auto t = Type(type);
 
 					if (type == "sb::rs::Shader")
-						t.assign(addshader(scope, id, e.path().string()));
+						t.assign(addShader(scope, id, e.path().string(), e));
 					addgetterstorage(scope, ctor, t, id, name);
 				}
 			}
@@ -221,7 +245,7 @@ class FolderPrinter
 		auto ctor_fwd = cl += Ctor(Void);
 		auto &ctor = m_impl_out += ctor_fwd(Void) | S{};
 
-		ctor /= "sb::rs::Folder"_t(fname);
+		ctor /= "sb::rs::Folder"_t("is_root"_v, fname);
 
 		it_dir(root, cl, ctor);
 

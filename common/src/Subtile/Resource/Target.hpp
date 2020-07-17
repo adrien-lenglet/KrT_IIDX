@@ -9,13 +9,15 @@ namespace Resource {
 class Target : public File
 {
 public:
-	Target(const std::vector<std::reference_wrapper<Target>> &deps = {}, bool ship = false);
+	Target(const std::vector<std::reference_wrapper<File>> &deps = {}, bool ship = false);
 
 protected:
-	virtual void build(std::ostream &o) = 0;
+	void beforeRead(void) const override;
+
+	virtual void build(std::ostream &o) const = 0;
 
 private:
-	std::vector<std::reference_wrapper<Target>> m_deps;
+	std::vector<std::reference_wrapper<File>> m_deps;
 
 	bool is_up_to_date(void) const;
 };

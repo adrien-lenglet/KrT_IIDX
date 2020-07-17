@@ -51,6 +51,7 @@ namespace CppGenerator {
 	{
 		class File
 		{
+		public:
 			static std::string read(const std::string &path)
 			{
 				std::stringstream res;
@@ -59,8 +60,6 @@ namespace CppGenerator {
 				res << in.rdbuf();
 				return res.str();
 			}
-
-		public:
 			File(const std::string &path) :
 				m_path(path),
 				m_indent(0)
@@ -599,10 +598,7 @@ namespace CppGenerator {
 		public:
 			class Typed;
 
-			Identifier(const Identifier &other) :
-				Identifier(other.m_name)
-			{
-			}
+			Identifier(const Identifier &other) = default;
 
 			Identifier(const std::string &name) :
 				Value(Value::Direct(name)),
@@ -815,7 +811,7 @@ namespace CppGenerator {
 		auto operator=(V &&value);
 
 		template <typename ...Values>
-		Value operator()(Values &&...val);
+		Value operator()(Values &&...val) const;
 
 		template <typename O>
 		auto operator>>(O &&other);
@@ -2781,7 +2777,7 @@ namespace CppGenerator {
 	}
 
 	template <typename ...Values>
-	Value Type::operator()(Values &&...val)
+	Value Type::operator()(Values &&...val) const
 	{
 		std::stringstream ss;
 
