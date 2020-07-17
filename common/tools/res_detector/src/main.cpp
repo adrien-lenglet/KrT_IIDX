@@ -188,13 +188,13 @@ class FolderPrinter
 				sb::Shader::Compiler::token_output toks;
 				s.second.write(toks, sbi);
 				std::stringstream ss;
+				ss << "#version 450\n";
 				toks.write(ss);
 
 				auto data = ss.str();
 				auto path = name + std::string("/") + sb::rs::Shader::Stage::Source::getFileName(s.first, sbi);
 				if (data != Util::File::read(path)) {
-					std::ofstream file(path);
-					file << "#version 450\n";
+					std::ofstream file(path, std::ios::binary);
 					file << data;
 				}
 			}

@@ -7,6 +7,7 @@ vertex {
 	void main(void)
 	{
 		vec3 in_pos = vec3(2.3);
+		vec2 pos;
 		gl_Position = mvp * vec4(in_pos, 1.0);
 	}
 }
