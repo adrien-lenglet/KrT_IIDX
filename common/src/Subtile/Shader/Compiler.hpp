@@ -578,6 +578,14 @@ private:
 			}
 		}
 
+		void write(std::ostream &o, Sbi sbi) const
+		{
+			token_output toks;
+			o << "#version 450\n";
+			write(toks, sbi);
+			toks.write(o);
+		}
+
 		auto getStage(void)
 		{
 			return m_stage;

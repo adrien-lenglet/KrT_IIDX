@@ -713,7 +713,10 @@ VkDescriptorSetLayout Vk::DescriptorSetLayout::create(Device &device, const sb::
 	createInfo.bindingCount = bindings.size();
 	createInfo.pBindings = bindings.data();
 
-	return Vk::create<VkDescriptorSetLayout>(vkCreateDescriptorSetLayout, device, &createInfo, nullptr);
+	if (createInfo.bindingCount == 0)
+		return VK_NULL_HANDLE;
+	else
+		return Vk::create<VkDescriptorSetLayout>(vkCreateDescriptorSetLayout, device, &createInfo, nullptr);
 }
 
 VkDescriptorSetLayoutBinding Vk::DescriptorSetLayout::bindingtoVk(const sb::Shader::DescriptorSet::LayoutBinding &b)
@@ -771,7 +774,8 @@ Vk::DescriptorSet::DescriptorSet(Vk::Device &dev, const Vk::DescriptorSetLayout 
 		writes.emplace_back(w);
 	}
 
-	vkUpdateDescriptorSets(dev, writes.size(), writes.data(), 0, nullptr);
+	if (writes.size() > 0)
+		vkUpdateDescriptorSets(dev, writes.size(), writes.data(), 0, nullptr);
 }
 
 void Vk::DescriptorSet::write(size_t offset, size_t range, const void *data)
@@ -804,10 +808,10 @@ VkDescriptorPool Vk::DescriptorSet::createPool(Device &dev, const DescriptorSetL
 	createInfo.poolSizeCount = sizes.size();
 	createInfo.pPoolSizes = sizes.data();
 
-	if (createInfo.poolSizeCount > 0)
-		return Vk::create<VkDescriptorPool>(vkCreateDescriptorPool, dev, &createInfo, nullptr);
-	else
+	if (createInfo.poolSizeCount == 0)
 		return VK_NULL_HANDLE;
+	else
+		return Vk::create<VkDescriptorPool>(vkCreateDescriptorPool, dev, &createInfo, nullptr);
 }
 
 VkDescriptorSet Vk::DescriptorSet::create(const DescriptorSetLayout &layout)
@@ -819,10 +823,10 @@ VkDescriptorSet Vk::DescriptorSet::create(const DescriptorSetLayout &layout)
 	allocInfo.descriptorSetCount = 1;
 	allocInfo.pSetLayouts = &static_cast<const VkDescriptorSetLayout&>(layout);
 
-	if (allocInfo.descriptorPool != VK_NULL_HANDLE)
-		return Vk::create<VkDescriptorSet>(vkAllocateDescriptorSets, static_cast<Device&>(*this), &allocInfo);
-	else
+	if (allocInfo.descriptorPool == VK_NULL_HANDLE)
 		return VK_NULL_HANDLE;
+	else
+		return Vk::create<VkDescriptorSet>(vkAllocateDescriptorSets, static_cast<Device&>(*this), &allocInfo);
 }
 
 template <>

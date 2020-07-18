@@ -185,11 +185,8 @@ class FolderPrinter
 
 		for (auto &s : compiled.getStages()) {
 			for (auto &sbi : sb::Shader::getSbi()) {
-				sb::Shader::Compiler::token_output toks;
-				s.second.write(toks, sbi);
 				std::stringstream ss;
-				ss << "#version 450\n";
-				toks.write(ss);
+				s.second.write(ss, sbi);
 
 				auto data = ss.str();
 				auto path = name + std::string("/") + sb::rs::Shader::Stage::Source::getFileName(s.first, sbi);
