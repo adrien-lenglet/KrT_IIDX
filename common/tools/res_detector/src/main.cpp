@@ -113,14 +113,14 @@ class FolderPrinter
 		std::vector<Id> ids;
 
 		for (auto &sb : shader.getDescriptorSets())
-			if (sb.get().getSet() == set)
-				for (auto &b : sb.get().getBlocks()) {
-					auto &nopq = b.getGlslNonOpaque();
-					if (nopq) {
-						for (auto &no : nopq->getVariables())
-							addVariableToStructCollec(str, no.get(), previous_id, ids);
-					}
+			if (sb.get().getSet() == set) {
+				auto &b = sb.get().getBlock();
+				auto &nopq = b.getGlslNonOpaque();
+				if (nopq) {
+					for (auto &no : nopq->getVariables())
+						addVariableToStructCollec(str, no.get(), previous_id, ids);
 				}
+			}
 		auto tfinal = "sb::Shader::Type::Struct"_t.T(str);
 		for (auto &i : ids)
 			tfinal.add(Decltype(str_ctor.M(i)));
@@ -139,25 +139,25 @@ class FolderPrinter
 		auto bmapped = B {};
 		auto bopq = B {};
 
+		auto stages_set = shader.getStages().getSet();
+
 		for (auto &sb : shader.getDescriptorSets())
 			if (sb.get().getSet() == set) {
-				auto &blocks = sb.get().getBlocks();
-				for (auto &b : blocks) {
-					auto &nopq = b.getGlslNonOpaque();
-					if (nopq) {
-						auto &n = *nopq;
-						auto off = Decltype(str_ctor.M(Vd(n.getVariables().begin()->get().getName())))>>"offset::value"_v;
-						auto size = Value(0);
-						size.assign(size + (Decltype(str_ctor.M(Vd(n.getVariables().rbegin()->get().getName())))>>"offset_end::value"_v) - off);
-						bmapped.add(B {B {n.getBinding(), static_cast<size_t>(1), "sb::Shader::DescriptorType::UniformBuffer"_v, shaderStagesToBrace(b.getStages())}, off, size});
-					}
-					for (auto &v : b.getGlslOpaque()) {
-						size_t count = 1;
-						auto &arr = v.getVariable().getArray();
-						if (arr.size() > 0)
-							count = arr.at(0);
-						bopq.add(B {v.getBinding(), count, "sb::Shader::DescriptorType::CombinedImageSampler"_v, shaderStagesToBrace(b.getStages())});
-					}
+				auto &b = sb.get().getBlock();
+				auto &nopq = b.getGlslNonOpaque();
+				if (nopq) {
+					auto &n = *nopq;
+					auto off = Decltype(str_ctor.M(Vd(n.getVariables().begin()->get().getName())))>>"offset::value"_v;
+					auto size = Value(0);
+					size.assign(size + (Decltype(str_ctor.M(Vd(n.getVariables().rbegin()->get().getName())))>>"offset_end::value"_v) - off);
+					bmapped.add(B {B {n.getBinding(), static_cast<size_t>(1), "sb::Shader::DescriptorType::UniformBuffer"_v, shaderStagesToBrace(stages_set)}, off, size});
+				}
+				for (auto &v : b.getGlslOpaque()) {
+					size_t count = 1;
+					auto &arr = v.getVariable().getArray();
+					if (arr.size() > 0)
+						count = arr.at(0);
+					bopq.add(B {v.getBinding(), count, "sb::Shader::DescriptorType::CombinedImageSampler"_v, shaderStagesToBrace(stages_set)});
 				}
 			}
 		impl += Return | B {bmapped, Sizeof(mapped_str), bopq};

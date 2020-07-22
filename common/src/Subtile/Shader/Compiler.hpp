@@ -394,10 +394,9 @@ private:
 	class SharedBlock
 	{
 	public:
-		SharedBlock(Set set, Counter &counter, const std::set<Shader::Stage> &stages) :
+		SharedBlock(Set set, Counter &counter) :
 			m_set(set),
-			m_counter(counter),
-			m_stages(stages)
+			m_counter(counter)
 		{
 		}
 
@@ -412,11 +411,6 @@ private:
 					m_n_opaque.emplace(m_set, m_counter);
 				m_n_opaque->add(var);
 			}
-		}
-
-		auto& getStages(void) const
-		{
-			return m_stages;
 		}
 
 		std::optional<std::string> substituate(const std::string &in, Sbi sbi) const
@@ -453,7 +447,6 @@ private:
 	private:
 		Set m_set;
 		Counter &m_counter;
-		std::set<Shader::Stage> m_stages;
 		std::vector<std::reference_wrapper<Variable>> m_variables;
 		std::optional<GlslNonOpaqueBlock> m_n_opaque;
 		std::vector<GlslOpaqueVar> m_opaque;
@@ -463,7 +456,8 @@ private:
 	{
 	public:
 		DescriptorSet(Set set) :
-			m_set(set)
+			m_set(set),
+			m_block(m_set, m_counter)
 		{
 		}
 
@@ -472,28 +466,20 @@ private:
 			return m_set;
 		}
 
-		auto& getBlocks(void)
+		auto& getBlock(void)
 		{
-			return m_blocks;
+			return m_block;
 		}
 
-		auto& getBlocks(void) const
+		auto& getBlock(void) const
 		{
-			return m_blocks;
-		}
-
-		SharedBlock& forStages(const std::set<Shader::Stage> &stages)
-		{
-			for (auto &b : m_blocks)
-				if (b.getStages() == stages)
-					return b;
-			return m_blocks.emplace_back(m_set, m_counter, stages);	
+			return m_block;
 		}
 
 	private:
 		Set m_set;
 		Counter m_counter;
-		std::vector<SharedBlock> m_blocks;
+		SharedBlock m_block;
 	};
 
 	class DescriptorSets : public std::map<Set, DescriptorSet>
@@ -503,14 +489,14 @@ private:
 		{
 		}
 
-		SharedBlock& forStages(Set set, const std::set<Shader::Stage> &stages)
+		SharedBlock& forSet(Set set)
 		{
 			auto got = find(set);
 			if (got == end()) {
 				auto [it, succ] = emplace(set, set);
 				got = it;
 			}
-			return got->second.forStages(stages);
+			return got->second.getBlock();
 		}
 	};
 
@@ -537,7 +523,8 @@ private:
 	class Stage
 	{
 	public:
-		Stage(Shader::Stage stage) :
+		Stage(Compiler &compiler, Shader::Stage stage) :
+			m_compiler(compiler),
 			m_stage(stage)
 		{
 		}
@@ -547,15 +534,10 @@ private:
 			m_primitives.emplace_back(prim);
 		}
 
-		void add(SharedBlock &block)
-		{
-			m_shared_blocks.emplace_back(block);
-		}
-
 		void write(token_output &o, Sbi sbi) const
 		{
-			for (auto &b : m_shared_blocks)
-				b.get().write(o, sbi);
+			for (auto &b : m_compiler.getDescriptorSets())
+				b.get().getBlock().write(o, sbi);
 			token_output inter_o;
 			for (auto &p : m_primitives)
 				p.get().write(inter_o, sbi);
@@ -563,8 +545,8 @@ private:
 			for (auto &t : inter_o.getTokens()) {
 				bool has_subs = false;
 				if (last_token != ".") {
-					for (auto &b : m_shared_blocks) {
-						auto sub = b.get().substituate(t, sbi);
+					for (auto &b : m_compiler.getDescriptorSets()) {
+						auto sub = b.get().getBlock().substituate(t, sbi);
 						if (sub) {
 							o << *sub;
 							has_subs = true;
@@ -592,15 +574,16 @@ private:
 		}
 
 	private:
+		Compiler &m_compiler;
 		Shader::Stage m_stage;
-		std::vector<std::reference_wrapper<SharedBlock>> m_shared_blocks;
 		std::vector<std::reference_wrapper<Primitive>> m_primitives;
 	};
 
 	class Stages : public std::map<Shader::Stage, Stage>
 	{
 	public:
-		Stages(void)
+		Stages(Compiler &compiler) :
+			m_compiler(compiler)
 		{
 		}
 
@@ -608,7 +591,7 @@ private:
 		{
 			auto got = find(stage);
 			if (got == end()) {
-				auto [it, succ] = emplace(stage, stage);
+				auto [it, succ] = emplace(std::piecewise_construct, std::forward_as_tuple(stage), std::forward_as_tuple(m_compiler, stage));
 				got = it;
 			}
 			got->second.add(prim);
@@ -622,6 +605,9 @@ private:
 				res.emplace(p.first);
 			return res;
 		}
+
+	private:
+		Compiler &m_compiler;
 	};
 
 	Stages m_stages;
@@ -1072,7 +1058,7 @@ private:
 				auto &stages = m_compiler.getStages();
 				auto got = stages.find(stage);
 				if (got == stages.end()) {
-					auto [it, suc] = stages.emplace(stage, stage);
+					auto [it, suc] = stages.emplace(std::piecewise_construct, std::forward_as_tuple(stage), std::forward_as_tuple(m_compiler, stage));
 					got = it;
 				}
 				return &got->second;
@@ -1166,6 +1152,7 @@ inline void Shader::Compiler::GlslNonOpaqueBlock::write_vulkan(token_output &o) 
 }
 
 inline Shader::Compiler::Compiler(const std::string &path) :
+	m_stages(*this),
 	m_stream(token_stream(tokenize(read(path)))),
 	m_collec(m_stream, *this)
 {
@@ -1175,13 +1162,8 @@ inline Shader::Compiler::Compiler(const std::string &path) :
 		auto var = v.get();
 		auto set = var.getSet();
 		if (set)
-			m_blocks.forStages(*set, var.getStages()).add(v);
+			m_blocks.forSet(*set).add(v);
 	}
-
-	for (auto &pb : m_blocks)
-		for (auto &b : pb.second.getBlocks())
-			for (auto &s : b.getStages())
-				m_stages.at(s).add(b);
 
 	/*std::cout << "STAGES:" << std::endl;
 	for (auto &s : m_stages) {
