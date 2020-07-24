@@ -189,6 +189,25 @@ private:
 
 		PhysicalDevices enumerateDevices(Vk::Surface &surface);
 
+		template <typename T, typename C>
+		auto create(VkResult (*fun)(VkInstance, const C *createInfo, const VkAllocationCallbacks *pAllocator, T *res), const C &createInfo)
+		{
+			T res;
+
+			Vk::assert(fun(*this, &createInfo, nullptr, &res));
+			return res;
+		}
+
+		template <typename T, typename C, typename Val>
+		// Val is convertible to C
+		auto create(VkResult (*fun)(VkInstance, C *createInfo, const VkAllocationCallbacks *pAllocator, T *res), const Val &val)
+		{
+			T res;
+
+			Vk::assert(fun(*this, val, nullptr, &res));
+			return res;
+		}
+
 		template <typename T>
 		void destroy(void (*fun)(VkInstance, T obj, const VkAllocationCallbacks *pAllocator), T obj)
 		{
@@ -299,6 +318,7 @@ private:
 	};
 
 	class Device;
+	class VmaBuffer;
 
 	class Allocator : public Vk::Handle<VmaAllocator>
 	{
@@ -308,8 +328,7 @@ private:
 		template <typename VkHandle>
 		using Handle = HandleDep<Allocator, VkHandle>;
 
-		template <typename ...Args>
-		auto createBuffer(Args &&...args);
+		VmaBuffer createBuffer(const VkBufferCreateInfo &bufferCreateInfo, const VmaAllocationCreateInfo &allocationCreateInfo);
 
 	private:
 		Device &m_device;
@@ -361,7 +380,7 @@ private:
 			std::vector<VkDeviceQueueCreateInfo> m_vk_infos;
 		};
 
-		Device(const PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues);
+		Device(const PhysicalDevice &physicalDevice, VkDevice device);
 
 		const PhysicalDevice& physical(void) const;
 		Allocator& allocator(void);
@@ -371,12 +390,18 @@ private:
 		using Handle = HandleDep<Device, VkHandle>;
 
 		template <typename T, typename C>
-		auto create(VkResult (*fun)(VkDevice, const C *createInfo, const VkAllocationCallbacks *pAllocator, T *res), const C &createInfo)
+		auto createVk(VkResult (*fun)(VkDevice, const C *createInfo, const VkAllocationCallbacks *pAllocator, T *res), const C &createInfo)
 		{
 			T res;
 
 			Vk::assert(fun(*this, &createInfo, nullptr, &res));
 			return res;
+		}
+
+		template <typename T, typename Fun, typename C>
+		auto create(Fun &&fun, const C &createInfo)
+		{
+			return T(*this, createVk(std::forward<Fun>(fun), createInfo));
 		}
 
 		template <typename T>
@@ -385,18 +410,12 @@ private:
 			fun(*this, obj, nullptr);
 		}
 
-		ImageView createImageView(const VkImageViewCreateInfo &createInfo);
-		RenderPass createRenderPass(const VkRenderPassCreateInfo &createInfo);
-
 	private:
 		PhysicalDevice m_physical;
 		Allocator m_allocator;
 
 		VkDevice createDevice(const PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues);
 	};
-
-	Device::QueuesCreateInfo getDesiredQueues(const PhysicalDevice &dev);
-	Device createDevice(void);
 
 	class Allocation : public Allocator::Handle<VmaAllocation>
 	{
@@ -407,26 +426,22 @@ private:
 		void unmap(void);
 	};
 
-	class Buffer : public Allocation, public Device::Handle<VkBuffer>
+	class Buffer : public Device::Handle<VkBuffer>
 	{
-		Buffer(Device &dev, VmaAllocation allocation, VkBuffer buffer);
-		Buffer(Device &dev, std::tuple<VmaAllocation, VkBuffer> &&tup) :
-			Buffer(dev, std::get<0>(tup), std::get<1>(tup))
-		{
-		}
-
 	public:
-		template <typename ...Args>
-		Buffer(Device &dev, Args &&...args) :
-			Buffer(dev, create(std::forward<Args>(args)...))
-		{
-		}
+		Buffer(Device &dev, VkBuffer buffer);
+	};
 
-	private:
-		std::tuple<VmaAllocation, VkBuffer> create(Allocator &allocator, VkDeviceSize size, VkBufferUsageFlags usage, const std::vector<uint32_t> &queueFamilyIndexes);
+	class VmaBuffer : public Allocation, public Buffer
+	{
+	public:
+		VmaBuffer(Device &dev, VkBuffer buffer, VmaAllocation allocation);
 	};
 
 	Device m_device;
+	Device createDevice(void);
+	Device::QueuesCreateInfo getDesiredQueues(const PhysicalDevice &dev);
+
 	VkQueue m_graphics_queue;
 	VkQueue m_present_queue;
 
@@ -439,17 +454,17 @@ private:
 	class Swapchain : public Device::Handle<VkSwapchainKHR>
 	{
 	public:
-		Swapchain(const Glfw::Window &window, Device &device);
+		Swapchain(Vk::Device &device, VkSwapchainKHR swapchain);
 
 	private:
 		std::vector<VkImage> m_images;
 		std::vector<ImageView> m_views;
 
-		VkSwapchainKHR create(const Glfw::Window &window, Device &device);
 		std::vector<ImageView> createViews(Device &dev);
 	};
 
 	Swapchain m_swapchain;
+	Swapchain createSwapchain(void);
 
 	class RenderPass : public Device::Handle<VkRenderPass>
 	{
@@ -484,10 +499,11 @@ private:
 
 	private:
 		VkDescriptorSet m_descriptor_set;
-		Buffer m_buffer;
+		VmaBuffer m_buffer;
 
 		VkDescriptorPool createPool(Device &dev, const DescriptorSetLayout &layout);
 		VkDescriptorSet create(const DescriptorSetLayout &layout);
+		VmaBuffer createBuffer(const DescriptorSetLayout &layout);
 	};
 
 	class Shader : public sb::Shader
@@ -506,12 +522,6 @@ private:
 
 	std::unique_ptr<sb::Shader> loadShader(rs::Shader &shader) override;
 };
-
-template <typename ...Args>
-auto Vk::Allocator::createBuffer(Args &&...args)
-{
-	return Buffer(m_device, *this, std::forward<Args>(args)...);
-}
 
 }
 }

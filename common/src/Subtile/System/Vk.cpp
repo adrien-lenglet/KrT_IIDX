@@ -15,7 +15,7 @@ Vk::Vk(bool isDebug, Glfw &&glfw) :
 	m_device(createDevice()),
 	m_graphics_queue(m_device.getQueue(*m_device.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT), 0)),
 	m_present_queue(m_device.getQueue(*m_device.physical().queues().presentation(), 0)),
-	m_swapchain(m_glfw.getWindow(), m_device)
+	m_swapchain(createSwapchain())
 {
 }
 
@@ -79,6 +79,138 @@ void Vk::assert(VkResult res)
 	if (res == VK_SUCCESS)
 		return;
 	throw std::runtime_error(std::string("Vk::assert failed: ") + resultToString(res));
+}
+
+Vk::Instance::Instance(VkInstance instance) :
+	Vk::Handle<VkInstance>(instance)
+{
+}
+
+template <>
+void Vk::Handle<VkInstance>::destroy(VkInstance handle)
+{
+	vkDestroyInstance(handle, nullptr);
+}
+
+Vk::PhysicalDevices Vk::Instance::enumerateDevices(Vk::Surface &surface)
+{
+	return PhysicalDevices(*this, surface);
+}
+
+Vk::Instance Vk::createInstance(void)
+{
+	util::svec layers;
+	util::svec exts = m_glfw.getRequiredVkInstanceExts();
+
+	if (m_is_debug) {
+		layers.emplace_back("VK_LAYER_KHRONOS_validation");
+		exts.emplace_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+	}
+
+	VkApplicationInfo ai {};
+
+	ai.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+	ai.pApplicationName = "SUBTILE® Application";
+	ai.applicationVersion = VK_MAKE_VERSION(0, 0, 0);
+	ai.pEngineName = "SUBTILE®";
+	ai.engineVersion = VK_MAKE_VERSION(0, 0, 0);
+	ai.apiVersion = VK_API_VERSION_1_2;
+
+	VkInstanceCreateInfo createInfo {};
+
+	createInfo.pApplicationInfo = &ai;
+	auto clayers = layers.c_strs();
+	createInfo.enabledLayerCount = clayers.size();
+	createInfo.ppEnabledLayerNames = clayers.data();
+	auto cexts = exts.c_strs();
+	createInfo.enabledExtensionCount = cexts.size();
+	createInfo.ppEnabledExtensionNames = cexts.data();
+
+	return create<VkInstance>(vkCreateInstance, &createInfo, nullptr);
+}
+
+Vk::DebugMessenger::DebugMessenger(Instance &instance, VkDebugUtilsMessengerEXT messenger) :
+	Instance::Handle<VkDebugUtilsMessengerEXT>(instance, messenger)
+{
+}
+
+template <>
+void Vk::Instance::Handle<VkDebugUtilsMessengerEXT>::destroy(Instance &instance, VkDebugUtilsMessengerEXT handle)
+{
+	instance.destroy(instance.getProcAddr<PFN_vkDestroyDebugUtilsMessengerEXT>("vkDestroyDebugUtilsMessengerEXT"), handle);
+}
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL debug_messenger_cb(
+	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+	VkDebugUtilsMessageTypeFlagsEXT messageType,
+	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+	void*)
+{
+	static const std::map<VkDebugUtilsMessageSeverityFlagBitsEXT, std::string> sever_table {
+		{VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT, "VERBOSE"},
+		{VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT, "INFO"},
+		{VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT, "WARNING"},
+		{VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "ERROR"}
+	};
+
+	static const std::map<VkDebugUtilsMessageTypeFlagBitsEXT, std::string> type_table {
+		{VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT, "General"},
+		{VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT, "Validation"},
+		{VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT, "Performance"}
+	};
+
+	if (messageSeverity != VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT &&
+	messageSeverity != VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) {
+		auto comma = "";
+		std::cerr << "[";
+		for (auto &p : sever_table)
+			if (p.first & messageSeverity) {
+				std::cerr << p.second;
+				comma = ", ";
+			}
+		std::cerr << "] -> {";
+		comma = "";
+		for (auto &p : type_table)
+			if (p.first & messageType) {
+				std::cerr << p.second;
+				comma = ", ";
+			}
+		std::cerr << "}" << std::endl;
+
+		std::cerr << pCallbackData->pMessage << std::endl;
+	}
+
+	return VK_FALSE;
+}
+
+std::optional<Vk::DebugMessenger> Vk::createDebugMessenger(void)
+{
+	if (!m_is_debug)
+		return std::nullopt;
+
+	VkDebugUtilsMessengerCreateInfoEXT ci {};
+	ci.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+	ci.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+	ci.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+	ci.pfnUserCallback = debug_messenger_cb;
+
+	return DebugMessenger(m_instance, m_instance.create(m_instance.getProcAddr<PFN_vkCreateDebugUtilsMessengerEXT>("vkCreateDebugUtilsMessengerEXT"), ci));
+}
+
+Vk::Surface::Surface(Instance &instance, VkSurfaceKHR surface) :
+	Instance::Handle<VkSurfaceKHR>(instance, surface)
+{
+}
+
+template <>
+void Vk::Instance::Handle<VkSurfaceKHR>::destroy(Vk::Instance &instance, VkSurfaceKHR surface)
+{
+	instance.destroy(vkDestroySurfaceKHR, surface);
+}
+
+Vk::Surface Vk::createSurface(void)
+{
+	return Surface(m_instance, m_instance.create(glfwCreateWindowSurface, m_glfw.getWindow()));
 }
 
 Vk::PhysicalDevice::PhysicalDevice(VkPhysicalDevice device, Vk::Surface &surface) :
@@ -282,159 +414,42 @@ std::vector<Vk::PhysicalDevice> Vk::PhysicalDevices::enumerate(Instance &instanc
 	return res;
 }
 
-Vk::Instance::Instance(VkInstance instance) :
-	Vk::Handle<VkInstance>(instance)
+Vk::Allocator::Allocator(Vk::Device &device) :
+	Vk::Handle<VmaAllocator>(create(device)),
+	m_device(device)
 {
+}
+
+Vk::VmaBuffer Vk::Allocator::createBuffer(const VkBufferCreateInfo &bufferCreateInfo, const VmaAllocationCreateInfo &allocationCreateInfo)
+{
+	VmaAllocation resalloc;
+	VkBuffer resbuffer;
+	Vk::assert(vmaCreateBuffer(*this, &bufferCreateInfo, &allocationCreateInfo, &resbuffer, &resalloc, nullptr));
+
+	return VmaBuffer(m_device, resbuffer, resalloc);
+}
+
+VmaAllocator Vk::Allocator::create(Device &device)
+{
+	VmaAllocatorCreateInfo createInfo {};
+
+	createInfo.physicalDevice = device.physical();
+	createInfo.device = device;
+
+	return Vk::create<VmaAllocator>(vmaCreateAllocator, &createInfo);
 }
 
 template <>
-void Vk::Handle<VkInstance>::destroy(VkInstance handle)
+void Vk::Handle<VmaAllocator>::destroy(VmaAllocator allocator)
 {
-	vkDestroyInstance(handle, nullptr);
+	vmaDestroyAllocator(allocator);
 }
 
-Vk::Instance Vk::createInstance(void)
-{
-	util::svec layers;
-	util::svec exts = m_glfw.getRequiredVkInstanceExts();
-
-	if (m_is_debug) {
-		layers.emplace_back("VK_LAYER_KHRONOS_validation");
-		exts.emplace_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-	}
-
-	VkApplicationInfo ai {};
-
-	ai.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	ai.pApplicationName = "SUBTILE® Application";
-	ai.applicationVersion = VK_MAKE_VERSION(0, 0, 0);
-	ai.pEngineName = "SUBTILE®";
-	ai.engineVersion = VK_MAKE_VERSION(0, 0, 0);
-	ai.apiVersion = VK_API_VERSION_1_2;
-
-	VkInstanceCreateInfo createInfo {};
-
-	createInfo.pApplicationInfo = &ai;
-	auto clayers = layers.c_strs();
-	createInfo.enabledLayerCount = clayers.size();
-	createInfo.ppEnabledLayerNames = clayers.data();
-	auto cexts = exts.c_strs();
-	createInfo.enabledExtensionCount = cexts.size();
-	createInfo.ppEnabledExtensionNames = cexts.data();
-
-	return create<VkInstance>(vkCreateInstance, &createInfo, nullptr);
-}
-
-static VKAPI_ATTR VkBool32 VKAPI_CALL debug_messenger_cb(
-	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-	VkDebugUtilsMessageTypeFlagsEXT messageType,
-	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-	void*)
-{
-	static const std::map<VkDebugUtilsMessageSeverityFlagBitsEXT, std::string> sever_table {
-		{VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT, "VERBOSE"},
-		{VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT, "INFO"},
-		{VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT, "WARNING"},
-		{VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "ERROR"}
-	};
-
-	static const std::map<VkDebugUtilsMessageTypeFlagBitsEXT, std::string> type_table {
-		{VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT, "General"},
-		{VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT, "Validation"},
-		{VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT, "Performance"}
-	};
-
-	if (messageSeverity != VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT &&
-	messageSeverity != VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) {
-		auto comma = "";
-		std::cerr << "[";
-		for (auto &p : sever_table)
-			if (p.first & messageSeverity) {
-				std::cerr << p.second;
-				comma = ", ";
-			}
-		std::cerr << "] -> {";
-		comma = "";
-		for (auto &p : type_table)
-			if (p.first & messageType) {
-				std::cerr << p.second;
-				comma = ", ";
-			}
-		std::cerr << "}" << std::endl;
-
-		std::cerr << pCallbackData->pMessage << std::endl;
-	}
-
-	return VK_FALSE;
-}
-
-std::optional<Vk::DebugMessenger> Vk::createDebugMessenger(void)
-{
-	if (!m_is_debug)
-		return std::nullopt;
-
-	VkDebugUtilsMessengerCreateInfoEXT ci {};
-	ci.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-	ci.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-	ci.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-	ci.pfnUserCallback = debug_messenger_cb;
-
-	return DebugMessenger(m_instance, Vk::create<VkDebugUtilsMessengerEXT>(m_instance.getProcAddr<PFN_vkCreateDebugUtilsMessengerEXT>("vkCreateDebugUtilsMessengerEXT"), m_instance, &ci, nullptr));
-}
-
-Vk::DebugMessenger::DebugMessenger(Instance &instance, VkDebugUtilsMessengerEXT messenger) :
-	Instance::Handle<VkDebugUtilsMessengerEXT>(instance, messenger)
-{
-}
-
-template <>
-void Vk::Instance::Handle<VkDebugUtilsMessengerEXT>::destroy(Instance &instance, VkDebugUtilsMessengerEXT handle)
-{
-	instance.getProcAddr<PFN_vkDestroyDebugUtilsMessengerEXT>("vkDestroyDebugUtilsMessengerEXT")(instance, handle, nullptr);
-}
-
-Vk::Surface::Surface(Instance &instance, VkSurfaceKHR surface) :
-	Instance::Handle<VkSurfaceKHR>(instance, surface)
-{
-}
-template <>
-void Vk::Instance::Handle<VkSurfaceKHR>::destroy(Vk::Instance &instance, VkSurfaceKHR surface)
-{
-	instance.destroy(vkDestroySurfaceKHR, surface);
-}
-
-Vk::Surface Vk::createSurface(void)
-{
-	return Surface(m_instance, create<VkSurfaceKHR>(glfwCreateWindowSurface, m_instance, m_glfw.getWindow(), nullptr));
-}
-
-Vk::PhysicalDevices Vk::Instance::enumerateDevices(Vk::Surface &surface)
-{
-	return PhysicalDevices(*this, surface);
-}
-
-Vk::Device::Device(const PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues) :
-	Vk::Handle<VkDevice>(createDevice(physicalDevice, queues)),
+Vk::Device::Device(const PhysicalDevice &physicalDevice, VkDevice device) :
+	Vk::Handle<VkDevice>(device),
 	m_physical(physicalDevice),
 	m_allocator(*this)
 {
-}
-
-VkDevice Vk::Device::createDevice(const PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues)
-{
-	auto vk_queues = queues.getInfos();
-
-	VkDeviceCreateInfo createInfo {};
-	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-	createInfo.queueCreateInfoCount = vk_queues.size();
-	createInfo.pQueueCreateInfos = vk_queues.data();
-	createInfo.pEnabledFeatures = &physicalDevice.features();
-
-	auto cexts = PhysicalDevice::required_extensions.c_strs();
-	createInfo.enabledExtensionCount = cexts.size();
-	createInfo.ppEnabledExtensionNames = cexts.data();
-
-	return Vk::create<VkDevice>(vkCreateDevice, physicalDevice, &createInfo, nullptr);
 }
 
 Vk::Device::QueueCreateInfo::QueueCreateInfo(uint32_t family_ndx, const std::vector<float> &priorities) :
@@ -493,6 +508,27 @@ VkQueue Vk::Device::getQueue(uint32_t family_ndx, uint32_t ndx)
 	return get<VkQueue>(vkGetDeviceQueue, *this, family_ndx, ndx);
 }
 
+Vk::Device Vk::createDevice(void)
+{
+	auto devs = m_instance.enumerateDevices(m_surface);
+	auto &phys = devs.getBest();
+	auto queues = getDesiredQueues(phys);
+
+	auto vk_queues = queues.getInfos();
+
+	VkDeviceCreateInfo createInfo {};
+	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	createInfo.queueCreateInfoCount = vk_queues.size();
+	createInfo.pQueueCreateInfos = vk_queues.data();
+	createInfo.pEnabledFeatures = &phys.features();
+
+	auto cexts = PhysicalDevice::required_extensions.c_strs();
+	createInfo.enabledExtensionCount = cexts.size();
+	createInfo.ppEnabledExtensionNames = cexts.data();
+
+	return Device(phys, Vk::create<VkDevice>(vkCreateDevice, phys, &createInfo, nullptr));
+}
+
 Vk::Device::QueuesCreateInfo Vk::getDesiredQueues(const Vk::PhysicalDevice &dev)
 {
 	auto &queues = dev.queues();
@@ -502,36 +538,6 @@ Vk::Device::QueuesCreateInfo Vk::getDesiredQueues(const Vk::PhysicalDevice &dev)
 	for (auto &q : unique_queues)
 		res.add(q, std::vector<float>{1.0f});
 	return res;
-}
-
-Vk::Device Vk::createDevice(void)
-{
-	auto devs = m_instance.enumerateDevices(m_surface);
-	auto &phys = devs.getBest();
-
-	return Device(phys, getDesiredQueues(phys));
-}
-
-Vk::Allocator::Allocator(Vk::Device &device) :
-	Vk::Handle<VmaAllocator>(create(device)),
-	m_device(device)
-{
-}
-
-VmaAllocator Vk::Allocator::create(Device &device)
-{
-	VmaAllocatorCreateInfo createInfo {};
-
-	createInfo.physicalDevice = device.physical();
-	createInfo.device = device;
-
-	return Vk::create<VmaAllocator>(vmaCreateAllocator, &createInfo);
-}
-
-template <>
-void Vk::Handle<VmaAllocator>::destroy(VmaAllocator allocator)
-{
-	vmaDestroyAllocator(allocator);
 }
 
 Vk::Allocation::Allocation(Allocator &allocator, VmaAllocation alloc) :
@@ -558,8 +564,7 @@ void Vk::Allocation::unmap(void)
 	vmaUnmapMemory(static_cast<Allocator&>(*this), *this);
 }
 
-Vk::Buffer::Buffer(Vk::Device &dev, VmaAllocation allocation, VkBuffer buffer) :
-	Allocation(dev.allocator(), allocation),
+Vk::Buffer::Buffer(Vk::Device &dev, VkBuffer buffer) :
 	Device::Handle<VkBuffer>(dev, buffer)
 {
 }
@@ -570,35 +575,15 @@ void Vk::Device::Handle<VkBuffer>::destroy(Vk::Device &device, VkBuffer buffer)
 	device.destroy(vkDestroyBuffer, buffer);
 }
 
-std::tuple<VmaAllocation, VkBuffer> Vk::Buffer::create(Vk::Allocator &allocator, VkDeviceSize size, VkBufferUsageFlags usage, const std::vector<uint32_t> &queueFamilyIndexes)
+Vk::VmaBuffer::VmaBuffer(Device &dev, VkBuffer buffer, VmaAllocation allocation) :
+	Allocation(dev.allocator(), allocation),
+	Buffer(dev, buffer)
 {
-	VkBufferCreateInfo bufferCreateInfo {};
-
-	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferCreateInfo.size = size;
-	bufferCreateInfo.usage = usage;
-	bufferCreateInfo.sharingMode = queueFamilyIndexes.size() > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
-	bufferCreateInfo.queueFamilyIndexCount = queueFamilyIndexes.size();
-	bufferCreateInfo.pQueueFamilyIndices = queueFamilyIndexes.data();
-
-	VmaAllocationCreateInfo allocCreateInfo {};
-
-	allocCreateInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-
-	VmaAllocation resalloc;
-	VkBuffer resbuffer;
-	Vk::assert(vmaCreateBuffer(allocator, &bufferCreateInfo, &allocCreateInfo, &resbuffer, &resalloc, nullptr));
-	return std::make_tuple(resalloc, resbuffer);
 }
 
 Vk::ImageView::ImageView(Vk::Device &device, VkImageView imageView) :
 	Device::Handle<VkImageView>(device, imageView)
 {
-}
-
-Vk::ImageView Vk::Device::createImageView(const VkImageViewCreateInfo &createInfo)
-{
-	return ImageView(*this, create(vkCreateImageView, createInfo));
 }
 
 template <>
@@ -607,45 +592,11 @@ void Vk::Device::Handle<VkImageView>::destroy(Vk::Device &device, VkImageView im
 	device.destroy(vkDestroyImageView, imageView);
 }
 
-Vk::Swapchain::Swapchain(const Glfw::Window &window, Vk::Device &device) :
-	Device::Handle<VkSwapchainKHR>(device, create(window, device)),
+Vk::Swapchain::Swapchain(Vk::Device &device, VkSwapchainKHR swapchain) :
+	Device::Handle<VkSwapchainKHR>(device, swapchain),
 	m_images(enumerate<VkImage>(vkGetSwapchainImagesKHR, device, *this)),
 	m_views(createViews(device))
 {
-}
-
-VkSwapchainKHR Vk::Swapchain::create(const Glfw::Window &window, Vk::Device &device)
-{
-	VkSwapchainCreateInfoKHR createInfo {};
-	auto &phys = device.physical();
-	auto &surface = phys.surface();
-
-	createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-	createInfo.surface = surface;
-	createInfo.minImageCount = surface.capabilities().minImageCount + 1;
-	if (surface.capabilities().maxImageCount > 0)
-		createInfo.minImageCount = std::min(createInfo.minImageCount, surface.capabilities().maxImageCount);
-	auto fmt = surface.chooseFormat();
-	createInfo.imageFormat = fmt.format;
-	createInfo.imageColorSpace = fmt.colorSpace;
-	auto winsize = window.getSize();
-	createInfo.imageExtent = surface.chooseExtent(VkExtent2D{static_cast<uint32_t>(winsize.x), static_cast<uint32_t>(winsize.y)});
-	createInfo.imageArrayLayers = 1;
-	createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-	auto &queues = phys.queues();
-	std::set<uint32_t> unique_queues {*queues.indexOf(VK_QUEUE_GRAPHICS_BIT), *queues.presentation()};
-	std::vector<uint32_t> queues_ndx(unique_queues.begin(), unique_queues.end());
-	createInfo.imageSharingMode = queues_ndx.size() > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
-	createInfo.queueFamilyIndexCount = queues_ndx.size();
-	createInfo.pQueueFamilyIndices = queues_ndx.data();
-	createInfo.preTransform = surface.capabilities().currentTransform;
-	createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	createInfo.presentMode = surface.choosePresentMode();
-	createInfo.clipped = VK_TRUE;
-	createInfo.oldSwapchain = VK_NULL_HANDLE;
-
-	return Vk::create<VkSwapchainKHR>(vkCreateSwapchainKHR, device, &createInfo, nullptr);
 }
 
 std::vector<Vk::ImageView> Vk::Swapchain::createViews(Vk::Device &dev)
@@ -663,7 +614,7 @@ std::vector<Vk::ImageView> Vk::Swapchain::createViews(Vk::Device &dev)
 
 	for (auto &i : m_images) {
 		ci.image = i;
-		res.emplace_back(dev.createImageView(ci));
+		res.emplace_back(dev.create<ImageView>(vkCreateImageView, ci));
 	}
 	return res;
 }
@@ -672,6 +623,40 @@ template <>
 void Vk::Device::Handle<VkSwapchainKHR>::destroy(Vk::Device &device, VkSwapchainKHR swapchain)
 {
 	device.destroy(vkDestroySwapchainKHR, swapchain);
+}
+
+Vk::Swapchain Vk::createSwapchain(void)
+{
+	auto &phys = m_device.physical();
+	auto &surface = phys.surface();
+
+	VkSwapchainCreateInfoKHR ci {};
+	ci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	ci.surface = surface;
+	ci.minImageCount = surface.capabilities().minImageCount + 1;
+	if (surface.capabilities().maxImageCount > 0)
+		ci.minImageCount = std::min(ci.minImageCount, surface.capabilities().maxImageCount);
+	auto fmt = surface.chooseFormat();
+	ci.imageFormat = fmt.format;
+	ci.imageColorSpace = fmt.colorSpace;
+	auto winsize = m_glfw.getWindow().getSize();
+	ci.imageExtent = surface.chooseExtent(VkExtent2D{static_cast<uint32_t>(winsize.x), static_cast<uint32_t>(winsize.y)});
+	ci.imageArrayLayers = 1;
+	ci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+	auto &queues = phys.queues();
+	std::set<uint32_t> unique_queues {*queues.indexOf(VK_QUEUE_GRAPHICS_BIT), *queues.presentation()};
+	std::vector<uint32_t> queues_ndx(unique_queues.begin(), unique_queues.end());
+	ci.imageSharingMode = queues_ndx.size() > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
+	ci.queueFamilyIndexCount = queues_ndx.size();
+	ci.pQueueFamilyIndices = queues_ndx.data();
+	ci.preTransform = surface.capabilities().currentTransform;
+	ci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	ci.presentMode = surface.choosePresentMode();
+	ci.clipped = VK_TRUE;
+	ci.oldSwapchain = VK_NULL_HANDLE;
+
+	return m_device.create<Swapchain>(vkCreateSwapchainKHR, ci);
 }
 
 Vk::RenderPass::RenderPass(Device &dev, VkRenderPass renderPass) :
@@ -683,11 +668,6 @@ template <>
 void Vk::Device::Handle<VkRenderPass>::destroy(Vk::Device &device, VkRenderPass renderPass)
 {
 	device.destroy(vkDestroyRenderPass, renderPass);
-}
-
-Vk::RenderPass Vk::Device::createRenderPass(const VkRenderPassCreateInfo &createInfo)
-{
-	return RenderPass(*this, create(vkCreateRenderPass, createInfo));
 }
 
 VkDescriptorType Vk::descriptorType(sb::Shader::DescriptorType type)
@@ -760,7 +740,7 @@ void Vk::Device::Handle<VkDescriptorSetLayout>::destroy(Vk::Device &device, VkDe
 Vk::DescriptorSet::DescriptorSet(Vk::Device &dev, const Vk::DescriptorSetLayout &layout) :
 	Device::Handle<VkDescriptorPool>(dev, createPool(dev, layout)),
 	m_descriptor_set(create(layout)),
-	m_buffer(dev.allocator().createBuffer(layout.getLayout().bindings_mapped_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, std::vector<uint32_t>{*dev.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT)}))
+	m_buffer(createBuffer(layout))
 {
 	auto &bmapped = layout.getLayout().bindings_mapped;
 
@@ -840,6 +820,25 @@ VkDescriptorSet Vk::DescriptorSet::create(const DescriptorSetLayout &layout)
 		return VK_NULL_HANDLE;
 	else
 		return Vk::create<VkDescriptorSet>(vkAllocateDescriptorSets, static_cast<Device&>(*this), &allocInfo);
+}
+
+Vk::VmaBuffer Vk::DescriptorSet::createBuffer(const DescriptorSetLayout &layout)
+{
+	Device &dev = *this;
+	std::vector<uint32_t> queues {*dev.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT)};
+
+	VkBufferCreateInfo bci {};
+	bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bci.size = layout.getLayout().bindings_mapped_size;
+	bci.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+	bci.sharingMode = queues.size() > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
+	bci.queueFamilyIndexCount = queues.size();
+	bci.pQueueFamilyIndices = queues.data();
+
+	VmaAllocationCreateInfo aci {};
+	aci.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+	return dev.allocator().createBuffer(bci, aci);
 }
 
 template <>
