@@ -484,6 +484,7 @@ private:
 		std::vector<ImageView> createViews(Device &dev);
 	};
 
+	const VkSurfaceFormatKHR &m_swapchain_format;
 	Swapchain m_swapchain;
 	Swapchain createSwapchain(void);
 
@@ -493,7 +494,8 @@ private:
 		RenderPass(Device &dev, VkRenderPass renderPass);
 	};
 
-	//RenderPass m_default_render_pass;
+	RenderPass m_default_render_pass;
+	RenderPass createDefaultRenderPass(void);
 
 	static VkDescriptorType descriptorType(sb::Shader::DescriptorType type);
 
@@ -527,6 +529,8 @@ private:
 		VmaBuffer createBuffer(const DescriptorSetLayout &layout);
 	};
 
+	using PipelineLayout = Device::Handle<VkPipelineLayout>;
+
 	class Shader : public sb::Shader
 	{
 	public:
@@ -539,6 +543,8 @@ private:
 		Device &m_device;
 		DescriptorSetLayout m_material_layout;
 		DescriptorSetLayout m_object_layout;
+		PipelineLayout m_pipeline_layout;
+		PipelineLayout createPipelineLayout(void);
 	};
 
 	std::unique_ptr<sb::Shader> loadShader(rs::Shader &shader) override;

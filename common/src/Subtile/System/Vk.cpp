@@ -15,7 +15,9 @@ Vk::Vk(bool isDebug, Glfw &&glfw) :
 	m_device(createDevice()),
 	m_graphics_queue(m_device.getQueue(*m_device.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT), 0)),
 	m_present_queue(m_device.getQueue(*m_device.physical().queues().presentation(), 0)),
-	m_swapchain(createSwapchain())
+	m_swapchain_format(m_device.physical().surface().chooseFormat()),
+	m_swapchain(createSwapchain()),
+	m_default_render_pass(createDefaultRenderPass())
 {
 }
 
@@ -636,9 +638,8 @@ Vk::Swapchain Vk::createSwapchain(void)
 	ci.minImageCount = surface.capabilities().minImageCount + 1;
 	if (surface.capabilities().maxImageCount > 0)
 		ci.minImageCount = std::min(ci.minImageCount, surface.capabilities().maxImageCount);
-	auto fmt = surface.chooseFormat();
-	ci.imageFormat = fmt.format;
-	ci.imageColorSpace = fmt.colorSpace;
+	ci.imageFormat = m_swapchain_format.format;
+	ci.imageColorSpace = m_swapchain_format.colorSpace;
 	auto winsize = m_glfw.getWindow().getSize();
 	ci.imageExtent = surface.chooseExtent(VkExtent2D{static_cast<uint32_t>(winsize.x), static_cast<uint32_t>(winsize.y)});
 	ci.imageArrayLayers = 1;
@@ -668,6 +669,39 @@ template <>
 void Vk::Device::Handle<VkRenderPass>::destroy(Vk::Device &device, VkRenderPass renderPass)
 {
 	device.destroy(vkDestroyRenderPass, renderPass);
+}
+
+Vk::RenderPass Vk::createDefaultRenderPass(void)
+{
+	std::vector<VkAttachmentDescription> atts;
+	VkAttachmentDescription att {};
+	att.format = m_swapchain_format.format;
+	att.samples = VK_SAMPLE_COUNT_1_BIT;
+	att.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	att.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	att.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	atts.emplace_back(att);
+
+	std::vector<VkAttachmentReference> colorAtts;
+	VkAttachmentReference colorAtt;
+	colorAtt.attachment = 0;
+	colorAtt.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	colorAtts.emplace_back(colorAtt);
+
+	std::vector<VkSubpassDescription> subs;
+	VkSubpassDescription sub {};
+	sub.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	sub.colorAttachmentCount = colorAtts.size();
+	sub.pColorAttachments = colorAtts.data();
+	subs.emplace_back(sub);
+
+	VkRenderPassCreateInfo ci {};
+	ci.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	ci.attachmentCount = atts.size();
+	ci.pAttachments = atts.data();
+	ci.subpassCount = subs.size();
+	ci.pSubpasses = subs.data();
+	return m_device.create<RenderPass>(vkCreateRenderPass, ci);
 }
 
 VkDescriptorType Vk::descriptorType(sb::Shader::DescriptorType type)
@@ -732,7 +766,7 @@ VkDescriptorSetLayoutBinding Vk::DescriptorSetLayout::bindingtoVk(const sb::Shad
 template <>
 void Vk::Device::Handle<VkDescriptorSetLayout>::destroy(Vk::Device &device, VkDescriptorSetLayout layout)
 {
-	vkDestroyDescriptorSetLayout(device, layout, nullptr);
+	device.destroy(vkDestroyDescriptorSetLayout, layout);
 }
 
 Vk::DescriptorSet::DescriptorSet(Vk::Device &dev, const Vk::DescriptorSetLayout &layout) :
@@ -841,15 +875,36 @@ Vk::VmaBuffer Vk::DescriptorSet::createBuffer(const DescriptorSetLayout &layout)
 template <>
 void Vk::Device::Handle<VkDescriptorPool>::destroy(Vk::Device &device, VkDescriptorPool pool)
 {
-	vkDestroyDescriptorPool(device, pool, nullptr);
+	device.destroy(vkDestroyDescriptorPool, pool);
+}
+
+template <>
+void Vk::Device::Handle<VkPipelineLayout>::destroy(Vk::Device &device, VkPipelineLayout pipelineLayout)
+{
+	device.destroy(vkDestroyPipelineLayout, pipelineLayout);
 }
 
 Vk::Shader::Shader(Vk::Device &device, rs::Shader &shader) :
 	m_device(device),
 	m_material_layout(device, shader.material()),
-	m_object_layout(device, shader.object())
+	m_object_layout(device, shader.object()),
+	m_pipeline_layout(createPipelineLayout())
 {
 	static_cast<void>(shader);
+}
+
+Vk::PipelineLayout Vk::Shader::createPipelineLayout(void)
+{
+	std::vector<VkDescriptorSetLayout> layouts {
+		m_material_layout,
+		m_object_layout
+	};
+
+	VkPipelineLayoutCreateInfo ci {};
+	ci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	ci.setLayoutCount = layouts.size();
+	ci.pSetLayouts = layouts.data();
+	return m_device.create<PipelineLayout>(vkCreatePipelineLayout, ci);
 }
 
 std::unique_ptr<sb::Shader::DescriptorSet> Vk::Shader::material(void)
