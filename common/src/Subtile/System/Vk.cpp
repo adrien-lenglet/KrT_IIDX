@@ -35,6 +35,11 @@ const std::map<std::string, System::IInput&>& Vk::getInputs(void)
 	return m_glfw.getInputs();
 }
 
+const VkAllocationCallbacks* Vk::getAllocator(void) const
+{
+	return nullptr;
+}
+
 const std::string& Vk::resultToString(VkResult res)
 {
 	static const std::map<VkResult, std::string> table {
@@ -83,15 +88,16 @@ void Vk::assert(VkResult res)
 	throw std::runtime_error(std::string("Vk::assert failed: ") + resultToString(res));
 }
 
-Vk::Instance::Instance(VkInstance instance) :
-	Vk::Handle<VkInstance>(instance)
+Vk::Instance::Instance(Vk &vk, VkInstance instance) :
+	Vk::Handle<VkInstance>(instance),
+	m_vk(vk)
 {
 }
 
 template <>
 void Vk::Handle<VkInstance>::destroy(VkInstance handle)
 {
-	vkDestroyInstance(handle, nullptr);
+	vkDestroyInstance(handle, static_cast<Instance&>(*this).m_vk.getAllocator());
 }
 
 Vk::PhysicalDevices Vk::Instance::enumerateDevices(Vk::Surface &surface)
@@ -128,7 +134,7 @@ Vk::Instance Vk::createInstance(void)
 	createInfo.enabledExtensionCount = cexts.size();
 	createInfo.ppEnabledExtensionNames = cexts.data();
 
-	return create<VkInstance>(vkCreateInstance, &createInfo, nullptr);
+	return Vk::Instance(*this, create<VkInstance>(vkCreateInstance, &createInfo, getAllocator()));
 }
 
 Vk::DebugMessenger::DebugMessenger(Instance &instance, VkDebugUtilsMessengerEXT messenger) :
@@ -447,8 +453,9 @@ void Vk::Handle<VmaAllocator>::destroy(VmaAllocator allocator)
 	vmaDestroyAllocator(allocator);
 }
 
-Vk::Device::Device(const PhysicalDevice &physicalDevice, VkDevice device) :
+Vk::Device::Device(Instance &instance, const PhysicalDevice &physicalDevice, VkDevice device) :
 	Vk::Handle<VkDevice>(device),
+	m_instance(instance),
 	m_physical(physicalDevice),
 	m_allocator(*this)
 {
@@ -492,7 +499,7 @@ const std::vector<VkDeviceQueueCreateInfo>& Vk::Device::QueuesCreateInfo::getInf
 template <>
 void Vk::Handle<VkDevice>::destroy(VkDevice device)
 {
-	vkDestroyDevice(device, nullptr);
+	vkDestroyDevice(device, static_cast<Device&>(*this).m_instance.m_vk.getAllocator());
 }
 
 const Vk::PhysicalDevice& Vk::Device::physical(void) const
@@ -528,7 +535,7 @@ Vk::Device Vk::createDevice(void)
 	createInfo.enabledExtensionCount = cexts.size();
 	createInfo.ppEnabledExtensionNames = cexts.data();
 
-	return Device(phys, Vk::create<VkDevice>(vkCreateDevice, phys, &createInfo, nullptr));
+	return Device(m_instance, phys, Vk::create<VkDevice>(vkCreateDevice, phys, &createInfo, getAllocator()));
 }
 
 Vk::Device::QueuesCreateInfo Vk::getDesiredQueues(const Vk::PhysicalDevice &dev)

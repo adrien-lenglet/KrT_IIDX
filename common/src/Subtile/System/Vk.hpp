@@ -26,6 +26,8 @@ public:
 	void scanInputs(void) override;
 	const std::map<std::string, System::IInput&>& getInputs(void) override;
 
+	const VkAllocationCallbacks* getAllocator(void) const;
+
 private:
 	bool m_is_debug;
 	Glfw m_glfw;
@@ -168,11 +170,16 @@ private:
 
 	class PhysicalDevices;
 	class Surface;
+	class Device;
 
 	class Instance : public Handle<VkInstance>
 	{
+		friend Handle<VkInstance>;
+		friend Handle<VkDevice>;
+		friend Device;
+
 	public:
-		Instance(VkInstance instance);
+		Instance(Vk &vk, VkInstance instance);
 
 		template <typename FunType>
 		FunType getProcAddr(const char *name) const
@@ -194,7 +201,7 @@ private:
 		{
 			T res;
 
-			Vk::assert(fun(*this, &createInfo, nullptr, &res));
+			Vk::assert(fun(*this, &createInfo, m_vk.getAllocator(), &res));
 			return res;
 		}
 
@@ -204,7 +211,7 @@ private:
 		{
 			T res;
 
-			Vk::assert(fun(*this, val, nullptr, &res));
+			Vk::assert(fun(*this, val, m_vk.getAllocator(), &res));
 			return res;
 		}
 
@@ -217,8 +224,11 @@ private:
 		template <typename T>
 		void destroy(void (*fun)(VkInstance, T obj, const VkAllocationCallbacks *pAllocator), T obj)
 		{
-			fun(*this, obj, nullptr);
+			fun(*this, obj, m_vk.getAllocator());
 		}
+
+	private:
+		Vk &m_vk;
 	};
 
 	Instance m_instance;
@@ -323,7 +333,6 @@ private:
 		std::vector<Vk::PhysicalDevice> enumerate(Vk::Instance &instance, Vk::Surface &surface);
 	};
 
-	class Device;
 	class VmaBuffer;
 
 	class Allocator : public Vk::Handle<VmaAllocator>
@@ -347,6 +356,8 @@ private:
 
 	class Device : public Handle<VkDevice>
 	{
+		friend Handle<VkDevice>;
+
 	public:
 		class QueueCreateInfo
 		{
@@ -386,7 +397,7 @@ private:
 			std::vector<VkDeviceQueueCreateInfo> m_vk_infos;
 		};
 
-		Device(const PhysicalDevice &physicalDevice, VkDevice device);
+		Device(Instance &instance, const PhysicalDevice &physicalDevice, VkDevice device);
 
 		const PhysicalDevice& physical(void) const;
 		Allocator& allocator(void);
@@ -400,7 +411,7 @@ private:
 		{
 			T res;
 
-			Vk::assert(fun(*this, &createInfo, nullptr, &res));
+			Vk::assert(fun(*this, &createInfo, m_instance.m_vk.getAllocator(), &res));
 			return res;
 		}
 
@@ -428,10 +439,11 @@ private:
 		template <typename T>
 		void destroy(void (*fun)(VkDevice, T obj, const VkAllocationCallbacks *pAllocator), T obj)
 		{
-			fun(*this, obj, nullptr);
+			fun(*this, obj, m_instance.m_vk.getAllocator());
 		}
 
 	private:
+		Instance &m_instance;
 		PhysicalDevice m_physical;
 		Allocator m_allocator;
 
