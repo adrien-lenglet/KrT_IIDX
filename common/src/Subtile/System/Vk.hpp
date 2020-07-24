@@ -98,7 +98,7 @@ private:
 		Handle(Handle &&other) :
 			m_handle(other.m_handle)
 		{
-			m_handle = VK_NULL_HANDLE;
+			other.m_handle = VK_NULL_HANDLE;
 		}
 
 		~Handle(void)
@@ -132,7 +132,7 @@ private:
 			m_dep(other.m_dep),
 			m_handle(other.m_handle)
 		{
-			m_handle = VK_NULL_HANDLE;
+			other.m_handle = VK_NULL_HANDLE;
 		}
 
 		~HandleDep(void)
@@ -415,6 +415,15 @@ private:
 			return res;
 		}
 
+		template <typename T, typename C, typename VkHandle1>
+		auto createVk(VkResult (*fun)(VkDevice, VkHandle1, uint32_t createInfoCount, const C *createInfos, const VkAllocationCallbacks *pAllocator, T *res), const C &createInfo)
+		{
+			T res;
+
+			Vk::assert(fun(*this, VK_NULL_HANDLE, 1, &createInfo, m_instance.m_vk.getAllocator(), &res));
+			return res;
+		}
+
 		template <typename T, typename Fun, typename C>
 		auto create(Fun &&fun, const C &createInfo)
 		{
@@ -542,10 +551,14 @@ private:
 	};
 
 	using PipelineLayout = Device::Handle<VkPipelineLayout>;
+	using ShaderModule = Device::Handle<VkShaderModule>;
+	using Pipeline = Device::Handle<VkPipeline>;
 
 	class Shader : public sb::Shader
 	{
 	public:
+		static VkShaderStageFlagBits sbStageToVk(Subtile::Shader::Stage stage);
+
 		Shader(Device &device, rs::Shader &shader);
 
 		std::unique_ptr<sb::Shader::DescriptorSet> material(void) override;
@@ -557,6 +570,10 @@ private:
 		DescriptorSetLayout m_object_layout;
 		PipelineLayout m_pipeline_layout;
 		PipelineLayout createPipelineLayout(void);
+		std::vector<std::pair<VkShaderStageFlagBits, ShaderModule>> m_shader_modules;
+		std::vector<std::pair<VkShaderStageFlagBits, ShaderModule>> createShaderModules(Vk::Device &device, rs::Shader &shader);
+		Pipeline m_pipeline;
+		Pipeline createPipeline(Vk::Device &device, rs::Shader &shader);
 	};
 
 	std::unique_ptr<sb::Shader> loadShader(rs::Shader &shader) override;

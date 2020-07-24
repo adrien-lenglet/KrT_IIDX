@@ -1,6 +1,7 @@
 #include <iostream>
 #include <set>
 #include <cstring>
+#include <sstream>
 #include "Vk.hpp"
 
 namespace Subtile {
@@ -684,6 +685,7 @@ Vk::RenderPass Vk::createDefaultRenderPass(void)
 	VkAttachmentDescription att {};
 	att.format = m_swapchain_format.format;
 	att.samples = VK_SAMPLE_COUNT_1_BIT;
+	att.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	att.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	att.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	att.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
@@ -891,11 +893,38 @@ void Vk::Device::Handle<VkPipelineLayout>::destroy(Vk::Device &device, VkPipelin
 	device.destroy(vkDestroyPipelineLayout, pipelineLayout);
 }
 
+template <>
+void Vk::Device::Handle<VkShaderModule>::destroy(Vk::Device &device, VkShaderModule shaderModule)
+{
+	device.destroy(vkDestroyShaderModule, shaderModule);
+}
+
+template <>
+void Vk::Device::Handle<VkPipeline>::destroy(Vk::Device &device, VkPipeline pipeline)
+{
+	device.destroy(vkDestroyPipeline, pipeline);
+}
+
+VkShaderStageFlagBits Vk::Shader::sbStageToVk(Subtile::Shader::Stage stage)
+{
+	static const std::map<Subtile::Shader::Stage, VkShaderStageFlagBits> table {
+		{Subtile::Shader::Stage::TesselationControl, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT},
+		{Subtile::Shader::Stage::TesselationEvaluation, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT},
+		{Subtile::Shader::Stage::Geometry, VK_SHADER_STAGE_GEOMETRY_BIT},
+		{Subtile::Shader::Stage::Vertex, VK_SHADER_STAGE_VERTEX_BIT},
+		{Subtile::Shader::Stage::Fragment, VK_SHADER_STAGE_FRAGMENT_BIT}
+	};
+
+	return table.at(stage);
+}
+
 Vk::Shader::Shader(Vk::Device &device, rs::Shader &shader) :
 	m_device(device),
 	m_material_layout(device, shader.material()),
 	m_object_layout(device, shader.object()),
-	m_pipeline_layout(createPipelineLayout())
+	m_pipeline_layout(createPipelineLayout()),
+	m_shader_modules(createShaderModules(device, shader)),
+	m_pipeline(createPipeline(device, shader))
 {
 	static_cast<void>(shader);
 }
@@ -912,6 +941,45 @@ Vk::PipelineLayout Vk::Shader::createPipelineLayout(void)
 	ci.setLayoutCount = layouts.size();
 	ci.pSetLayouts = layouts.data();
 	return m_device.create<PipelineLayout>(vkCreatePipelineLayout, ci);
+}
+
+std::vector<std::pair<VkShaderStageFlagBits, Vk::ShaderModule>> Vk::Shader::createShaderModules(Vk::Device &device, rs::Shader &shader)
+{
+	std::vector<std::pair<VkShaderStageFlagBits, Vk::ShaderModule>> res;
+
+	for (auto &sp : shader.getStages()) {
+		std::stringstream ss;
+		ss << sp.second.getVk().getCompiled().read().rdbuf();
+		auto bin = ss.str();
+
+		VkShaderModuleCreateInfo ci {};
+		ci.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+		ci.codeSize = bin.size();
+		ci.pCode = reinterpret_cast<uint32_t*>(bin.data());
+
+		res.emplace_back(sbStageToVk(sp.first), device.create<ShaderModule>(vkCreateShaderModule, ci));
+	}
+	return res;
+}
+
+Vk::Pipeline Vk::Shader::createPipeline(Vk::Device &device, rs::Shader &shader)
+{
+	std::vector<VkPipelineShaderStageCreateInfo> stages;
+	for (auto &sp : m_shader_modules) {
+		VkPipelineShaderStageCreateInfo ci {};
+		ci.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		ci.stage = sp.first;
+		ci.module = sp.second;
+		ci.pName = "main";
+		stages.emplace_back(ci);
+	}
+
+	VkGraphicsPipelineCreateInfo ci {};
+	ci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	ci.stageCount = stages.size();
+	ci.pStages = stages.data();
+
+	return device.create<Pipeline>(vkCreateGraphicsPipelines, ci);
 }
 
 std::unique_ptr<sb::Shader::DescriptorSet> Vk::Shader::material(void)

@@ -106,7 +106,6 @@ void Shader::Stage::VkSource::Compiled::build(std::ostream &o) const
 	auto cmd = std::string("glslangValidator.exe ") + m_src.getPath() + std::string(" -V -o ") + output;
 	if (system(cmd.c_str()) != 0)
 		throw std::runtime_error("Vulkan shader compilation failed");
-
 	{
 		std::ifstream file(output, std::ios::binary);
 		o << file.rdbuf();
