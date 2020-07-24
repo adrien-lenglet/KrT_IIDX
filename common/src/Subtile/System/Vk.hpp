@@ -5,6 +5,7 @@
 #include "../ISystem.hpp"
 #include "Glfw.hpp"
 #include "Subtile/Shader.hpp"
+#include "Subtile/Model.hpp"
 
 #undef assert
 
@@ -399,6 +400,7 @@ private:
 
 		Device(Instance &instance, const PhysicalDevice &physicalDevice, VkDevice device);
 
+		Vk& vk(void);
 		const PhysicalDevice& physical(void) const;
 		Allocator& allocator(void);
 		VkQueue getQueue(uint32_t family_ndx, uint32_t ndx);
@@ -517,6 +519,7 @@ private:
 
 	RenderPass m_default_render_pass;
 	RenderPass createDefaultRenderPass(void);
+	RenderPass& getDefaultRenderPass(void);
 
 	static VkDescriptorType descriptorType(sb::Shader::DescriptorType type);
 

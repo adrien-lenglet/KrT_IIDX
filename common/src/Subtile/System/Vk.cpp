@@ -503,6 +503,11 @@ void Vk::Handle<VkDevice>::destroy(VkDevice device)
 	vkDestroyDevice(device, static_cast<Device&>(*this).m_instance.m_vk.getAllocator());
 }
 
+Vk& Vk::Device::vk(void)
+{
+	return m_instance.m_vk;
+}
+
 const Vk::PhysicalDevice& Vk::Device::physical(void) const
 {
 	return m_physical;
@@ -711,6 +716,11 @@ Vk::RenderPass Vk::createDefaultRenderPass(void)
 	ci.subpassCount = subs.size();
 	ci.pSubpasses = subs.data();
 	return m_device.create<RenderPass>(vkCreateRenderPass, ci);
+}
+
+Vk::RenderPass& Vk::getDefaultRenderPass(void)
+{
+	return m_default_render_pass;
 }
 
 VkDescriptorType Vk::descriptorType(sb::Shader::DescriptorType type)
@@ -962,7 +972,7 @@ std::vector<std::pair<VkShaderStageFlagBits, Vk::ShaderModule>> Vk::Shader::crea
 	return res;
 }
 
-Vk::Pipeline Vk::Shader::createPipeline(Vk::Device &device, rs::Shader &shader)
+Vk::Pipeline Vk::Shader::createPipeline(Vk::Device &device, rs::Shader&)
 {
 	std::vector<VkPipelineShaderStageCreateInfo> stages;
 	for (auto &sp : m_shader_modules) {
@@ -974,10 +984,82 @@ Vk::Pipeline Vk::Shader::createPipeline(Vk::Device &device, rs::Shader &shader)
 		stages.emplace_back(ci);
 	}
 
+	std::vector<VkVertexInputBindingDescription> vertexBindings;
+	VkVertexInputBindingDescription vertexBinding;
+	vertexBinding.binding = 0;
+	vertexBinding.stride = sizeof(sb::Vertex);
+	vertexBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+	vertexBindings.emplace_back(vertexBinding);
+	std::vector<VkVertexInputAttributeDescription> vertexAttributes {	// location, binding, format, offset
+		{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(sb::Vertex, pos)},
+		{1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(sb::Vertex, normal)},
+		{2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(sb::Vertex, uv)}
+	};
+	VkPipelineVertexInputStateCreateInfo vertexInput {};
+	vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	vertexInput.vertexBindingDescriptionCount = vertexBindings.size();
+	vertexInput.pVertexBindingDescriptions = vertexBindings.data();
+	vertexInput.vertexAttributeDescriptionCount = vertexAttributes.size();
+	vertexInput.pVertexAttributeDescriptions = vertexAttributes.data();
+
+	VkPipelineInputAssemblyStateCreateInfo inputAssembly {};
+	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+	std::vector<VkViewport> viewports {	// x, y, w, h, minDepth, maxDepth
+		{0.0f, 0.0f, 1600.0f, 900.0f, 0.0f, 1.0f}	// NOTE: temporary, use dynamic states
+	};
+	std::vector<VkRect2D> scissors {
+		{{0, 0}, {1600, 900}}	// NOTE: temporary, use dynamic states
+	};
+	VkPipelineViewportStateCreateInfo viewport {};
+	viewport.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	viewport.viewportCount = viewports.size();
+	viewport.pViewports = viewports.data();
+	viewport.scissorCount = scissors.size();
+	viewport.pScissors = scissors.data();
+
+	VkPipelineRasterizationStateCreateInfo rasterization {};
+	rasterization.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	rasterization.polygonMode = VK_POLYGON_MODE_FILL;
+	rasterization.cullMode = VK_CULL_MODE_BACK_BIT;
+	rasterization.frontFace = VK_FRONT_FACE_CLOCKWISE;
+
+	VkPipelineMultisampleStateCreateInfo multisample {};
+	multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+	std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
+	VkPipelineColorBlendAttachmentState colorBlendAttachment {};
+	colorBlendAttachment.blendEnable = VK_TRUE;
+	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+	colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+	colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+	colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+	colorBlendAttachments.emplace_back(colorBlendAttachment);
+	VkPipelineColorBlendStateCreateInfo colorBlend {};
+	colorBlend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+	colorBlend.attachmentCount = colorBlendAttachments.size();
+	colorBlend.pAttachments = colorBlendAttachments.data();
+	for (size_t i = 0; i < 4; i++)
+		colorBlend.blendConstants[i] = 1.0f;
+
 	VkGraphicsPipelineCreateInfo ci {};
 	ci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	ci.stageCount = stages.size();
 	ci.pStages = stages.data();
+	ci.pVertexInputState = &vertexInput;
+	ci.pInputAssemblyState = &inputAssembly;
+	ci.pViewportState = &viewport;
+	ci.pRasterizationState = &rasterization;
+	ci.pMultisampleState = &multisample;
+	ci.pColorBlendState = &colorBlend;
+	ci.layout = m_pipeline_layout;
+	ci.renderPass = device.vk().getDefaultRenderPass();
+	ci.subpass = 0;
 
 	return device.create<Pipeline>(vkCreateGraphicsPipelines, ci);
 }
