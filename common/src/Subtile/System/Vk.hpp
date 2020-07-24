@@ -190,7 +190,7 @@ private:
 		PhysicalDevices enumerateDevices(Vk::Surface &surface);
 
 		template <typename T, typename C>
-		auto create(VkResult (*fun)(VkInstance, const C *createInfo, const VkAllocationCallbacks *pAllocator, T *res), const C &createInfo)
+		auto createVk(VkResult (*fun)(VkInstance, const C *createInfo, const VkAllocationCallbacks *pAllocator, T *res), const C &createInfo)
 		{
 			T res;
 
@@ -200,12 +200,18 @@ private:
 
 		template <typename T, typename C, typename Val>
 		// Val is convertible to C
-		auto create(VkResult (*fun)(VkInstance, C *createInfo, const VkAllocationCallbacks *pAllocator, T *res), const Val &val)
+		auto createVk(VkResult (*fun)(VkInstance, C *createInfo, const VkAllocationCallbacks *pAllocator, T *res), const Val &val)
 		{
 			T res;
 
 			Vk::assert(fun(*this, val, nullptr, &res));
 			return res;
+		}
+
+		template <typename T, typename Fun, typename C>
+		auto create(Fun &&fun, const C &createInfo)
+		{
+			return T(*this, createVk(std::forward<Fun>(fun), createInfo));
 		}
 
 		template <typename T>
@@ -402,6 +408,21 @@ private:
 		auto create(Fun &&fun, const C &createInfo)
 		{
 			return T(*this, createVk(std::forward<Fun>(fun), createInfo));
+		}
+
+		template <typename T, typename C>
+		auto allocateVk(VkResult (*fun)(VkDevice, const C *allocInfo, T *res), const C &createInfo)
+		{
+			T res;
+
+			Vk::assert(fun(*this, &createInfo, &res));
+			return res;
+		}
+
+		template <typename T, typename C>
+		void allocateVks(VkResult (*fun)(VkDevice, const C *allocInfo, T *res), const C &createInfo, T *dst)
+		{
+			Vk::assert(fun(*this, &createInfo, dst));
 		}
 
 		template <typename T>

@@ -194,7 +194,7 @@ std::optional<Vk::DebugMessenger> Vk::createDebugMessenger(void)
 	ci.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 	ci.pfnUserCallback = debug_messenger_cb;
 
-	return DebugMessenger(m_instance, m_instance.create(m_instance.getProcAddr<PFN_vkCreateDebugUtilsMessengerEXT>("vkCreateDebugUtilsMessengerEXT"), ci));
+	return m_instance.create<DebugMessenger>(m_instance.getProcAddr<PFN_vkCreateDebugUtilsMessengerEXT>("vkCreateDebugUtilsMessengerEXT"), ci);
 }
 
 Vk::Surface::Surface(Instance &instance, VkSurfaceKHR surface) :
@@ -210,7 +210,7 @@ void Vk::Instance::Handle<VkSurfaceKHR>::destroy(Vk::Instance &instance, VkSurfa
 
 Vk::Surface Vk::createSurface(void)
 {
-	return Surface(m_instance, m_instance.create(glfwCreateWindowSurface, m_glfw.getWindow()));
+	return m_instance.create<Surface>(glfwCreateWindowSurface, m_glfw.getWindow());
 }
 
 Vk::PhysicalDevice::PhysicalDevice(VkPhysicalDevice device, Vk::Surface &surface) :
@@ -693,23 +693,21 @@ const sb::Shader::DescriptorSet::Layout& Vk::DescriptorSetLayout::getLayout(void
 
 VkDescriptorSetLayout Vk::DescriptorSetLayout::create(Device &device, const sb::Shader::DescriptorSet::Layout &layout)
 {
-	VkDescriptorSetLayoutCreateInfo createInfo {};
-
-	createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-
 	std::vector<VkDescriptorSetLayoutBinding> bindings;
 	for (auto &b : layout.bindings_mapped)
 		bindings.emplace_back(bindingtoVk(b));
 	for (auto &b : layout.bindings)
 		bindings.emplace_back(bindingtoVk(b));
 
-	createInfo.bindingCount = bindings.size();
-	createInfo.pBindings = bindings.data();
+	VkDescriptorSetLayoutCreateInfo ci {};
+	ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	ci.bindingCount = bindings.size();
+	ci.pBindings = bindings.data();
 
-	if (createInfo.bindingCount == 0)
+	if (ci.bindingCount == 0)
 		return VK_NULL_HANDLE;
 	else
-		return Vk::create<VkDescriptorSetLayout>(vkCreateDescriptorSetLayout, device, &createInfo, nullptr);
+		return device.createVk(vkCreateDescriptorSetLayout, ci);
 }
 
 VkDescriptorSetLayoutBinding Vk::DescriptorSetLayout::bindingtoVk(const sb::Shader::DescriptorSet::LayoutBinding &b)
@@ -780,11 +778,6 @@ void Vk::DescriptorSet::write(size_t offset, size_t range, const void *data)
 
 VkDescriptorPool Vk::DescriptorSet::createPool(Device &dev, const DescriptorSetLayout &layout)
 {
-	VkDescriptorPoolCreateInfo createInfo {};
-
-	createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	createInfo.maxSets = 1;
-
 	std::map<VkDescriptorType, size_t> typeCount;
 	for (auto &b : layout.getLayout().bindings)
 		typeCount[descriptorType(b.descriptorType)] += b.descriptorCount;
@@ -798,28 +791,32 @@ VkDescriptorPool Vk::DescriptorSet::createPool(Device &dev, const DescriptorSetL
 		sizes.emplace_back(s);
 	}
 
-	createInfo.poolSizeCount = sizes.size();
-	createInfo.pPoolSizes = sizes.data();
+	VkDescriptorPoolCreateInfo ci {};
+	ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	ci.maxSets = 1;
+	ci.poolSizeCount = sizes.size();
+	ci.pPoolSizes = sizes.data();
 
-	if (createInfo.poolSizeCount == 0)
+	if (ci.poolSizeCount == 0)
 		return VK_NULL_HANDLE;
 	else
-		return Vk::create<VkDescriptorPool>(vkCreateDescriptorPool, dev, &createInfo, nullptr);
+		return dev.createVk(vkCreateDescriptorPool, ci);
 }
 
 VkDescriptorSet Vk::DescriptorSet::create(const DescriptorSetLayout &layout)
 {
-	VkDescriptorSetAllocateInfo allocInfo {};
+	Device &dev = *this;
 
-	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	allocInfo.descriptorPool = *this;
-	allocInfo.descriptorSetCount = 1;
-	allocInfo.pSetLayouts = &static_cast<const VkDescriptorSetLayout&>(layout);
+	VkDescriptorSetAllocateInfo ai {};
+	ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	ai.descriptorPool = *this;
+	ai.descriptorSetCount = 1;
+	ai.pSetLayouts = &static_cast<const VkDescriptorSetLayout&>(layout);
 
-	if (allocInfo.descriptorPool == VK_NULL_HANDLE)
+	if (ai.descriptorPool == VK_NULL_HANDLE)
 		return VK_NULL_HANDLE;
 	else
-		return Vk::create<VkDescriptorSet>(vkAllocateDescriptorSets, static_cast<Device&>(*this), &allocInfo);
+		return dev.allocateVk(vkAllocateDescriptorSets, ai);
 }
 
 Vk::VmaBuffer Vk::DescriptorSet::createBuffer(const DescriptorSetLayout &layout)
