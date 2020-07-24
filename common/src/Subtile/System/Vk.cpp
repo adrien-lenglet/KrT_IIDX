@@ -7,8 +7,11 @@ namespace Subtile {
 namespace System {
 
 Vk::Vk(bool isDebug, Glfw &&glfw) :
+	m_is_debug(isDebug),
 	m_glfw(std::move(glfw)),
-	m_instance(isDebug, m_glfw),
+	m_instance(createInstance()),
+	m_debug_messenger(createDebugMessenger()),
+	m_surface(createSurface()),
 	m_device(createDevice()),
 	m_graphics_queue(m_device.getQueue(*m_device.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT), 0)),
 	m_present_queue(m_device.getQueue(*m_device.physical().queues().presentation(), 0)),
@@ -250,8 +253,8 @@ Vk::PhysicalDevice::Surface::operator VkSurfaceKHR(void) const
 	return m_vk_surface;
 }
 
-Vk::PhysicalDevices::PhysicalDevices(Vk::Instance &instance) :
-	m_devices(enumerate(instance))
+Vk::PhysicalDevices::PhysicalDevices(Vk::Instance &instance, Vk::Surface &surface) :
+	m_devices(enumerate(instance, surface))
 {
 }
 
@@ -267,12 +270,7 @@ const Vk::PhysicalDevice& Vk::PhysicalDevices::getBest(void) const
 	return cands.rbegin()->second.get();
 }
 
-Vk::Surface& Vk::Instance::getSurface(void)
-{
-	return m_surface;
-}
-
-std::vector<Vk::PhysicalDevice> Vk::PhysicalDevices::enumerate(Instance &instance)
+std::vector<Vk::PhysicalDevice> Vk::PhysicalDevices::enumerate(Instance &instance, Vk::Surface &surface)
 {
 	auto devices = Vk::enumerate<VkPhysicalDevice>(vkEnumeratePhysicalDevices, instance);
 
@@ -280,50 +278,13 @@ std::vector<Vk::PhysicalDevice> Vk::PhysicalDevices::enumerate(Instance &instanc
 	res.reserve(devices.size());
 
 	for (auto &d : devices)
-		res.emplace_back(d, instance.getSurface());
+		res.emplace_back(d, surface);
 	return res;
 }
 
-Vk::Instance::Instance(bool isDebug, Glfw &glfw) :
-	Vk::Handle<VkInstance>(createInstance(
-		isDebug ? util::svec{"VK_LAYER_KHRONOS_validation"} : util::svec{},
-		glfw.getRequiredVkInstanceExts() + (isDebug ? util::svec{VK_EXT_DEBUG_UTILS_EXTENSION_NAME} : util::svec{})
-	)),
-	m_messenger(createMessenger(isDebug)),
-	m_surface(glfw.getWindow(), *this)
+Vk::Instance::Instance(VkInstance instance) :
+	Vk::Handle<VkInstance>(instance)
 {
-}
-
-VkInstance Vk::Instance::createInstance(const util::svec &layers, const util::svec &extensions)
-{
-	VkApplicationInfo appinfo {};
-
-	appinfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	appinfo.pApplicationName = "SUBTILE® Application";
-	appinfo.applicationVersion = VK_MAKE_VERSION(0, 0, 0);
-	appinfo.pEngineName = "SUBTILE®";
-	appinfo.engineVersion = VK_MAKE_VERSION(0, 0, 0);
-	appinfo.apiVersion = VK_API_VERSION_1_2;
-
-	VkInstanceCreateInfo createInfo {};
-
-	createInfo.pApplicationInfo = &appinfo;
-	auto clayers = layers.c_strs();
-	createInfo.enabledLayerCount = clayers.size();
-	createInfo.ppEnabledLayerNames = clayers.data();
-	auto cexts = extensions.c_strs();
-	createInfo.enabledExtensionCount = cexts.size();
-	createInfo.ppEnabledExtensionNames = cexts.data();
-
-	return create<VkInstance>(vkCreateInstance, &createInfo, nullptr);
-}
-
-std::optional<Vk::Instance::Messenger> Vk::Instance::createMessenger(bool isDebug)
-{
-	if (isDebug)
-		return *this;
-	else
-		return std::nullopt;
 }
 
 template <>
@@ -332,12 +293,39 @@ void Vk::Handle<VkInstance>::destroy(VkInstance handle)
 	vkDestroyInstance(handle, nullptr);
 }
 
-Vk::Instance::Messenger::Messenger(Instance &instance) :
-	Handle<VkDebugUtilsMessengerEXT>(instance, create(instance))
+Vk::Instance Vk::createInstance(void)
 {
+	util::svec layers;
+	util::svec exts = m_glfw.getRequiredVkInstanceExts();
+
+	if (m_is_debug) {
+		layers.emplace_back("VK_LAYER_KHRONOS_validation");
+		exts.emplace_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+	}
+
+	VkApplicationInfo ai {};
+
+	ai.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+	ai.pApplicationName = "SUBTILE® Application";
+	ai.applicationVersion = VK_MAKE_VERSION(0, 0, 0);
+	ai.pEngineName = "SUBTILE®";
+	ai.engineVersion = VK_MAKE_VERSION(0, 0, 0);
+	ai.apiVersion = VK_API_VERSION_1_2;
+
+	VkInstanceCreateInfo createInfo {};
+
+	createInfo.pApplicationInfo = &ai;
+	auto clayers = layers.c_strs();
+	createInfo.enabledLayerCount = clayers.size();
+	createInfo.ppEnabledLayerNames = clayers.data();
+	auto cexts = exts.c_strs();
+	createInfo.enabledExtensionCount = cexts.size();
+	createInfo.ppEnabledExtensionNames = cexts.data();
+
+	return create<VkInstance>(vkCreateInstance, &createInfo, nullptr);
 }
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL validation_cb(
+static VKAPI_ATTR VkBool32 VKAPI_CALL debug_messenger_cb(
 	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 	VkDebugUtilsMessageTypeFlagsEXT messageType,
 	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
@@ -380,16 +368,23 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL validation_cb(
 	return VK_FALSE;
 }
 
-VkDebugUtilsMessengerEXT Vk::Instance::Messenger::create(Instance &instance)
+std::optional<Vk::DebugMessenger> Vk::createDebugMessenger(void)
 {
-	VkDebugUtilsMessengerCreateInfoEXT createInfo {};
+	if (!m_is_debug)
+		return std::nullopt;
 
-	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-	createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-	createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-	createInfo.pfnUserCallback = validation_cb;
+	VkDebugUtilsMessengerCreateInfoEXT ci {};
+	ci.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+	ci.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+	ci.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+	ci.pfnUserCallback = debug_messenger_cb;
 
-	return Vk::create<VkDebugUtilsMessengerEXT>(instance.getProcAddr<PFN_vkCreateDebugUtilsMessengerEXT>("vkCreateDebugUtilsMessengerEXT"), instance, &createInfo, nullptr);
+	return DebugMessenger(m_instance, Vk::create<VkDebugUtilsMessengerEXT>(m_instance.getProcAddr<PFN_vkCreateDebugUtilsMessengerEXT>("vkCreateDebugUtilsMessengerEXT"), m_instance, &ci, nullptr));
+}
+
+Vk::DebugMessenger::DebugMessenger(Instance &instance, VkDebugUtilsMessengerEXT messenger) :
+	Instance::Handle<VkDebugUtilsMessengerEXT>(instance, messenger)
+{
 }
 
 template <>
@@ -398,19 +393,34 @@ void Vk::Instance::Handle<VkDebugUtilsMessengerEXT>::destroy(Instance &instance,
 	instance.getProcAddr<PFN_vkDestroyDebugUtilsMessengerEXT>("vkDestroyDebugUtilsMessengerEXT")(instance, handle, nullptr);
 }
 
-Vk::PhysicalDevices Vk::Instance::enumerateDevices(void)
+Vk::Surface::Surface(Instance &instance, VkSurfaceKHR surface) :
+	Instance::Handle<VkSurfaceKHR>(instance, surface)
 {
-	return *this;
+}
+template <>
+void Vk::Instance::Handle<VkSurfaceKHR>::destroy(Vk::Instance &instance, VkSurfaceKHR surface)
+{
+	instance.destroy(vkDestroySurfaceKHR, surface);
+}
+
+Vk::Surface Vk::createSurface(void)
+{
+	return Surface(m_instance, create<VkSurfaceKHR>(glfwCreateWindowSurface, m_instance, m_glfw.getWindow(), nullptr));
+}
+
+Vk::PhysicalDevices Vk::Instance::enumerateDevices(Vk::Surface &surface)
+{
+	return PhysicalDevices(*this, surface);
 }
 
 Vk::Device::Device(const PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues) :
-	Vk::Handle<VkDevice>(create(physicalDevice, queues)),
+	Vk::Handle<VkDevice>(createDevice(physicalDevice, queues)),
 	m_physical(physicalDevice),
 	m_allocator(*this)
 {
 }
 
-VkDevice Vk::Device::create(const PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues)
+VkDevice Vk::Device::createDevice(const PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues)
 {
 	auto vk_queues = queues.getInfos();
 
@@ -483,17 +493,6 @@ VkQueue Vk::Device::getQueue(uint32_t family_ndx, uint32_t ndx)
 	return get<VkQueue>(vkGetDeviceQueue, *this, family_ndx, ndx);
 }
 
-Vk::Surface::Surface(Glfw::Window &window, Vk::Instance &instance) :
-	Instance::Handle<VkSurfaceKHR>(instance, create<VkSurfaceKHR>(glfwCreateWindowSurface, instance, window, nullptr))
-{
-}
-
-template <>
-void Vk::Instance::Handle<VkSurfaceKHR>::destroy(Vk::Instance &instance, VkSurfaceKHR surface)
-{
-	vkDestroySurfaceKHR(instance, surface, nullptr);
-}
-
 Vk::Device::QueuesCreateInfo Vk::getDesiredQueues(const Vk::PhysicalDevice &dev)
 {
 	auto &queues = dev.queues();
@@ -507,7 +506,7 @@ Vk::Device::QueuesCreateInfo Vk::getDesiredQueues(const Vk::PhysicalDevice &dev)
 
 Vk::Device Vk::createDevice(void)
 {
-	auto devs = m_instance.enumerateDevices();
+	auto devs = m_instance.enumerateDevices(m_surface);
 	auto &phys = devs.getBest();
 
 	return Device(phys, getDesiredQueues(phys));
@@ -568,7 +567,7 @@ Vk::Buffer::Buffer(Vk::Device &dev, VmaAllocation allocation, VkBuffer buffer) :
 template <>
 void Vk::Device::Handle<VkBuffer>::destroy(Vk::Device &device, VkBuffer buffer)
 {
-	vkDestroyBuffer(device, buffer, nullptr);
+	device.destroy(vkDestroyBuffer, buffer);
 }
 
 std::tuple<VmaAllocation, VkBuffer> Vk::Buffer::create(Vk::Allocator &allocator, VkDeviceSize size, VkBufferUsageFlags usage, const std::vector<uint32_t> &queueFamilyIndexes)
@@ -597,27 +596,15 @@ Vk::ImageView::ImageView(Vk::Device &device, VkImageView imageView) :
 {
 }
 
-VkImageView Vk::ImageView::create(Vk::Device &device, VkImage image, VkImageViewType viewType, VkFormat format, const VkImageSubresourceRange &subres)
+Vk::ImageView Vk::Device::createImageView(const VkImageViewCreateInfo &createInfo)
 {
-	VkImageViewCreateInfo createInfo {};
-
-	createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	createInfo.image = image;
-	createInfo.viewType = viewType;
-	createInfo.format = format;
-	createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-	createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-	createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-	createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-	createInfo.subresourceRange = subres;
-
-	return Vk::create<VkImageView>(vkCreateImageView, device, &createInfo, nullptr);
+	return ImageView(*this, create(vkCreateImageView, createInfo));
 }
 
 template <>
 void Vk::Device::Handle<VkImageView>::destroy(Vk::Device &device, VkImageView imageView)
 {
-	vkDestroyImageView(device, imageView, nullptr);
+	device.destroy(vkDestroyImageView, imageView);
 }
 
 Vk::Swapchain::Swapchain(const Glfw::Window &window, Vk::Device &device) :
@@ -665,16 +652,42 @@ std::vector<Vk::ImageView> Vk::Swapchain::createViews(Vk::Device &dev)
 {
 	std::vector<Vk::ImageView> res;
 
-	auto fmt = dev.physical().surface().chooseFormat().format;
-	for (auto &i : m_images)
-		res.emplace_back(dev, i, VK_IMAGE_VIEW_TYPE_2D, fmt);
+	VkImageViewCreateInfo ci {};
+
+	ci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	ci.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	ci.format = dev.physical().surface().chooseFormat().format;
+	ci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	ci.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+	ci.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+	for (auto &i : m_images) {
+		ci.image = i;
+		res.emplace_back(dev.createImageView(ci));
+	}
 	return res;
 }
 
 template <>
 void Vk::Device::Handle<VkSwapchainKHR>::destroy(Vk::Device &device, VkSwapchainKHR swapchain)
 {
-	vkDestroySwapchainKHR(device, swapchain, nullptr);
+	device.destroy(vkDestroySwapchainKHR, swapchain);
+}
+
+Vk::RenderPass::RenderPass(Device &dev, VkRenderPass renderPass) :
+	Device::Handle<VkRenderPass>(dev, renderPass)
+{
+}
+
+template <>
+void Vk::Device::Handle<VkRenderPass>::destroy(Vk::Device &device, VkRenderPass renderPass)
+{
+	device.destroy(vkDestroyRenderPass, renderPass);
+}
+
+Vk::RenderPass Vk::Device::createRenderPass(const VkRenderPassCreateInfo &createInfo)
+{
+	return RenderPass(*this, create(vkCreateRenderPass, createInfo));
 }
 
 VkDescriptorType Vk::descriptorType(sb::Shader::DescriptorType type)

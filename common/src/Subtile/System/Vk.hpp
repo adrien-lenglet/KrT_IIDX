@@ -27,6 +27,7 @@ public:
 	const std::map<std::string, System::IInput&>& getInputs(void) override;
 
 private:
+	bool m_is_debug;
 	Glfw m_glfw;
 
 	static const std::string& resultToString(VkResult res);
@@ -143,6 +144,11 @@ private:
 			return m_handle;
 		}
 
+		VkHandle getHandle(void) const
+		{
+			return m_handle;
+		}
+
 	private:
 		DepType &m_dep;
 
@@ -161,14 +167,15 @@ private:
 	};
 
 	class PhysicalDevices;
+	class Surface;
 
 	class Instance : public Handle<VkInstance>
 	{
 	public:
-		Instance(bool isDebug, Glfw &window);
+		Instance(VkInstance instance);
 
 		template <typename FunType>
-		FunType getProcAddr(const char *name)
+		FunType getProcAddr(const char *name) const
 		{
 			auto res = vkGetInstanceProcAddr(m_handle, name);
 
@@ -180,33 +187,35 @@ private:
 		template <typename VkHandle>
 		using Handle = HandleDep<Instance, VkHandle>;
 
-		class Surface : public Handle<VkSurfaceKHR>
+		PhysicalDevices enumerateDevices(Vk::Surface &surface);
+
+		template <typename T>
+		void destroy(void (*fun)(VkInstance, T obj, const VkAllocationCallbacks *pAllocator), T obj)
 		{
-		public:
-			Surface(Glfw::Window &window, Instance &instance);
-		};
-
-		Surface& getSurface(void);
-		PhysicalDevices enumerateDevices(void);
-
-	private:
-		class Messenger : public Handle<VkDebugUtilsMessengerEXT>
-		{
-		public:
-			Messenger(Instance &instance);
-
-		private:
-			VkDebugUtilsMessengerEXT create(Instance &instance);
-		};
-
-		std::optional<Messenger> m_messenger;
-		Surface m_surface;
-
-		VkInstance createInstance(const util::svec &layers, const util::svec &extensions);
-		std::optional<Messenger> createMessenger(bool isDebug);
+			fun(*this, obj, nullptr);
+		}
 	};
 
-	using Surface = typename Instance::Surface;
+	Instance m_instance;
+	Instance createInstance(void);
+
+	class DebugMessenger : public Instance::Handle<VkDebugUtilsMessengerEXT>
+	{
+	public:
+		DebugMessenger(Instance &instance, VkDebugUtilsMessengerEXT messenger);
+	};
+
+	std::optional<DebugMessenger> m_debug_messenger;
+	std::optional<DebugMessenger> createDebugMessenger(void);
+
+	class Surface : public Instance::Handle<VkSurfaceKHR>
+	{
+	public:
+		Surface(Instance &instance, VkSurfaceKHR surface);
+	};
+
+	Surface m_surface;
+	Surface createSurface(void);
 
 	class PhysicalDevice
 	{
@@ -279,17 +288,16 @@ private:
 	class PhysicalDevices
 	{
 	public:
-		PhysicalDevices(Instance &instance);
+		PhysicalDevices(Vk::Instance &instance, Vk::Surface &surface);
 
 		const PhysicalDevice& getBest(void) const;
 
 	private:
 		std::vector<PhysicalDevice> m_devices;
 
-		std::vector<Vk::PhysicalDevice> enumerate(Instance &instance);
+		std::vector<Vk::PhysicalDevice> enumerate(Vk::Instance &instance, Vk::Surface &surface);
 	};
 
-	Instance m_instance;
 	class Device;
 
 	class Allocator : public Vk::Handle<VmaAllocator>
@@ -308,6 +316,9 @@ private:
 
 		VmaAllocator create(Device &device);
 	};
+
+	class ImageView;
+	class RenderPass;
 
 	class Device : public Handle<VkDevice>
 	{
@@ -359,14 +370,29 @@ private:
 		template <typename VkHandle>
 		using Handle = HandleDep<Device, VkHandle>;
 
-		template <typename ...Args>
-		auto createImageView(Args &&...args);
+		template <typename T, typename C>
+		auto create(VkResult (*fun)(VkDevice, const C *createInfo, const VkAllocationCallbacks *pAllocator, T *res), const C &createInfo)
+		{
+			T res;
+
+			Vk::assert(fun(*this, &createInfo, nullptr, &res));
+			return res;
+		}
+
+		template <typename T>
+		void destroy(void (*fun)(VkDevice, T obj, const VkAllocationCallbacks *pAllocator), T obj)
+		{
+			fun(*this, obj, nullptr);
+		}
+
+		ImageView createImageView(const VkImageViewCreateInfo &createInfo);
+		RenderPass createRenderPass(const VkRenderPassCreateInfo &createInfo);
 
 	private:
 		PhysicalDevice m_physical;
 		Allocator m_allocator;
 
-		VkDevice create(const PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues);
+		VkDevice createDevice(const PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues);
 	};
 
 	Device::QueuesCreateInfo getDesiredQueues(const PhysicalDevice &dev);
@@ -406,17 +432,8 @@ private:
 
 	class ImageView : public Device::Handle<VkImageView>
 	{
-		ImageView(Device &device, VkImageView imageView);
-
 	public:
-		template <typename ...Args>
-		ImageView(Device &device, Args &&...args) :
-			ImageView(device, create(device, std::forward<Args>(args)...))
-		{
-		}
-
-	private:
-		VkImageView create(Device &device, VkImage image, VkImageViewType viewType, VkFormat format, const VkImageSubresourceRange &subres = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
+		ImageView(Device &device, VkImageView imageView);
 	};
 
 	class Swapchain : public Device::Handle<VkSwapchainKHR>
@@ -433,6 +450,14 @@ private:
 	};
 
 	Swapchain m_swapchain;
+
+	class RenderPass : public Device::Handle<VkRenderPass>
+	{
+	public:
+		RenderPass(Device &dev, VkRenderPass renderPass);
+	};
+
+	//RenderPass m_default_render_pass;
 
 	static VkDescriptorType descriptorType(sb::Shader::DescriptorType type);
 
@@ -481,12 +506,6 @@ private:
 
 	std::unique_ptr<sb::Shader> loadShader(rs::Shader &shader) override;
 };
-
-template <typename ...Args>
-auto Vk::Device::createImageView(Args &&...args)
-{
-	return Vk::ImageView(*this, std::forward<Args>(args)...);
-}
 
 template <typename ...Args>
 auto Vk::Allocator::createBuffer(Args &&...args)
