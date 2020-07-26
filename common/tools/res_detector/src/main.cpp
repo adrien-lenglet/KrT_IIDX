@@ -154,7 +154,7 @@ class FolderPrinter
 				}
 				for (auto &v : b.getGlslOpaque()) {
 					size_t count = 1;
-					auto &arr = v.getVariable().getArray();
+					auto &arr = v.getVariable().getType().getArray();
 					if (arr.size() > 0)
 						count = arr.at(0);
 					bopq.add(B {v.getBinding(), count, "sb::Shader::DescriptorType::CombinedImageSampler"_v, shaderStagesToBrace(stages_set)});

@@ -618,6 +618,218 @@ public:
 		return m_stages;
 	}
 
+	class Type
+	{
+		static std::vector<size_t> parseArray(tstream &s)
+		{
+			std::vector<size_t> res;
+
+			while (s.peek() == "[") {
+				s.poll();
+				res.emplace_back(util::stot(std::stoull, s.poll()));
+				s.expect("]");
+			}
+			return res;
+		}
+
+	public:
+		struct Parsed {
+			Parsed(const std::string &name, bool is_opaque = false, bool is_user_defined = false) :
+				name(name),
+				is_user_defined(is_user_defined),
+				is_opaque(is_opaque)
+			{
+			}
+
+			std::string name;
+			bool is_user_defined;
+			bool is_opaque;
+		};
+
+		Type(tstream &s) :
+			m_name(s.poll()),
+			m_base_array(parseArray(s)),
+			m_array(m_base_array),
+			m_parsed(parse())
+		{
+		}
+
+		struct build_comma_t {};
+		static inline constexpr build_comma_t build_comma {};
+
+		Type(build_comma_t, const Type &other) :
+			m_name(other.m_name),
+			m_base_array(other.m_base_array),
+			m_array(m_base_array),
+			m_parsed(parse())
+		{
+		}
+
+		auto& getName(void) const
+		{
+			return m_name;
+		}
+
+		auto& getArray(void) const
+		{
+			return m_array;
+		}
+
+		const Parsed& getParsed(void) const
+		{
+			return m_parsed;
+		}
+
+		void extend(tstream &s)
+		{
+			auto array = parseArray(s);
+
+			for (auto &e : m_array)
+				array.emplace_back(e);
+			m_array = array;
+			m_parsed = parse();
+		}
+
+		void write(token_output &o) const
+		{
+			o << m_name;
+			for (auto &a : m_array)
+				o << "[" << a << "]";
+		}
+
+	private:
+		std::string m_name;
+		std::vector<size_t> m_base_array;
+		std::vector<size_t> m_array;
+		Parsed m_parsed;
+
+		static std::string typePrefix(const std::string &name)
+		{
+			static const std::string add("sb::Shader::Type::");
+
+			return add + name;
+		}
+
+		Parsed parse(void) const
+		{
+			static const std::map<std::string, std::string> scalars {
+				{"bool", "Bool"},
+				{"int", "Int"},
+				{"uint", "Uint"},
+				{"float", "Float"},
+				{"double", "Double"}
+			};
+
+			auto sgot = scalars.find(m_name);
+			if (sgot != scalars.end())
+				return Parsed(typePrefix(sgot->second));
+			auto vec = parseVec();
+			if (vec)
+				return *vec;
+			auto mat = parseMat();
+			if (mat)
+				return *mat;
+			auto opq = parseOpq();
+			if (opq)
+				return Parsed(*opq, true);
+			return Parsed(m_name, false, true);
+		}
+
+		static bool is_vec_num(char num)
+		{
+			static const std::set<char> table {
+				'2', '3', '4'
+			};
+
+			return table.find(num) != table.end();
+		}
+
+		std::optional<std::string> parseVec(void) const
+		{
+			static const std::string vecn("vecn");
+			static const std::string tvecn("tvecn");
+			static const std::map<char, std::string> tvec_table {
+				{'b', "Bool"},
+				{'i', "Int"},
+				{'u', "Uint"},
+				{'d', "Double"}
+			};
+
+			if (m_name.size() == vecn.size()) {
+				auto &num = m_name.at(3);
+				if (m_name.substr(0, 3) == "vec" && is_vec_num(num)) {
+					std::stringstream ss;
+
+					ss << typePrefix("Vec") << "<" << typePrefix("Float") << ", " << num << ">";
+					return ss.str();
+				}
+			}
+			if (m_name.size() == tvecn.size()) {
+				auto &num = m_name.at(4);
+				auto got = tvec_table.find(m_name.at(0));
+				if (got != tvec_table.end() && m_name.substr(1, 3) == "vec" && is_vec_num(num)) {
+					std::stringstream ss;
+
+					ss << typePrefix("Vec") << "<" << typePrefix(got->second) <<", " << num << ">";
+					return ss.str();
+				}
+			}
+			return std::nullopt;
+		}
+
+		std::optional<std::string> try_construct_mat(const std::string &basetype, const std::string &rest) const
+		{
+			if (rest.size() == 1) {
+				auto num = rest.at(0);
+				if (is_vec_num(num)) {
+					std::stringstream ss;
+					ss << typePrefix("Mat") << "<" << typePrefix(basetype) <<", " << num << ", " << num << ">";
+					return ss.str();
+				}
+			}
+			if (rest.size() == 3) {
+				auto c = rest.at(0);
+				auto r = rest.at(2);
+				if (rest.at(1) == 'x' && is_vec_num(c) && is_vec_num(r)) {
+					std::stringstream ss;
+					ss << typePrefix("Mat") << "<" << typePrefix(basetype) <<", " << c << ", " << r << ">";
+					return ss.str();
+				}
+			}
+			return std::nullopt;
+		}
+
+		std::optional<std::string> parseMat(void) const
+		{
+			static const std::string mat("mat");
+			static const std::string dmat("dmat");
+
+			if (m_name.substr(0, mat.size()) == mat) {
+				auto got = try_construct_mat("Float", m_name.substr(mat.size()));
+				if (got)
+					return *got;
+			}
+			if (m_name.substr(0, dmat.size()) == dmat) {
+				auto got = try_construct_mat("Double", m_name.substr(dmat.size()));
+				if (got)
+					return *got;
+			}
+			return std::nullopt;
+		}
+
+		//static std::map<std::string, s>
+
+		std::optional<std::string> parseOpq(void) const
+		{
+			//static const std::map<std::string, std::string> sampler_table;
+			//static const std::map<std::string, std::string> image_table = getImageTable("image");
+
+			if (m_name == "atomic_uint")
+				return typePrefix("AtomicUint");
+			return std::nullopt;
+		}
+	};
+
 	class Variable : public Primitive
 	{
 		enum class Storage {
@@ -639,195 +851,19 @@ public:
 			return table;
 		}
 
-		static std::vector<size_t> parseArray(tstream &s)
+		std::string getId(tstream &s)
 		{
-			std::vector<size_t> res;
+			auto res = s.poll();
 
-			while (s.peek() == "[") {
-				s.poll();
-				res.emplace_back(util::stot(std::stoull, s.poll()));
-				s.expect("]");
-			}
+			m_type.extend(s);
 			return res;
 		}
-
-		class Type
-		{
-		public:
-			struct Parsed {
-				Parsed(const std::string &name, bool is_opaque = false, bool is_user_defined = false) :
-					name(name),
-					is_user_defined(is_user_defined),
-					is_opaque(is_opaque)
-				{
-				}
-
-				const std::string name;
-				bool is_user_defined;
-				bool is_opaque;
-			};
-
-			Type(tstream &s) :
-				m_name(s.poll()),
-				m_array(parseArray(s)),
-				m_parsed(parse())
-			{
-			}
-
-			auto& getName(void) const
-			{
-				return m_name;
-			}
-
-			const Parsed& getParsed(void) const
-			{
-				return m_parsed;
-			}
-
-			auto& getArray(void) const
-			{
-				return m_array;
-			}
-
-		private:
-			std::string m_name;
-			std::vector<size_t> m_array;
-			Parsed m_parsed;
-
-			static std::string typePrefix(const std::string &name)
-			{
-				static const std::string add("sb::Shader::Type::");
-
-				return add + name;
-			}
-
-			Parsed parse(void) const
-			{
-				static const std::map<std::string, std::string> scalars {
-					{"bool", "Bool"},
-					{"int", "Int"},
-					{"uint", "Uint"},
-					{"float", "Float"},
-					{"double", "Double"}
-				};
-
-				auto sgot = scalars.find(m_name);
-				if (sgot != scalars.end())
-					return Parsed(typePrefix(sgot->second));
-				auto vec = parseVec();
-				if (vec)
-					return *vec;
-				auto mat = parseMat();
-				if (mat)
-					return *mat;
-				auto opq = parseOpq();
-				if (opq)
-					return Parsed(*opq, true);
-				return Parsed(m_name, false, true);
-			}
-
-			static bool is_vec_num(char num)
-			{
-				static const std::set<char> table {
-					'2', '3', '4'
-				};
-
-				return table.find(num) != table.end();
-			}
-
-			std::optional<std::string> parseVec(void) const
-			{
-				static const std::string vecn("vecn");
-				static const std::string tvecn("tvecn");
-				static const std::map<char, std::string> tvec_table {
-					{'b', "Bool"},
-					{'i', "Int"},
-					{'u', "Uint"},
-					{'d', "Double"}
-				};
-
-				if (m_name.size() == vecn.size()) {
-					auto &num = m_name.at(3);
-					if (m_name.substr(0, 3) == "vec" && is_vec_num(num)) {
-						std::stringstream ss;
-
-						ss << typePrefix("Vec") << "<" << typePrefix("Float") << ", " << num << ">";
-						return ss.str();
-					}
-				}
-				if (m_name.size() == tvecn.size()) {
-					auto &num = m_name.at(4);
-					auto got = tvec_table.find(m_name.at(0));
-					if (got != tvec_table.end() && m_name.substr(1, 3) == "vec" && is_vec_num(num)) {
-						std::stringstream ss;
-
-						ss << typePrefix("Vec") << "<" << typePrefix(got->second) <<", " << num << ">";
-						return ss.str();
-					}
-				}
-				return std::nullopt;
-			}
-
-			std::optional<std::string> try_construct_mat(const std::string &basetype, const std::string &rest) const
-			{
-				if (rest.size() == 1) {
-					auto num = rest.at(0);
-					if (is_vec_num(num)) {
-						std::stringstream ss;
-						ss << typePrefix("Mat") << "<" << typePrefix(basetype) <<", " << num << ", " << num << ">";
-						return ss.str();
-					}
-				}
-				if (rest.size() == 3) {
-					auto c = rest.at(0);
-					auto r = rest.at(2);
-					if (rest.at(1) == 'x' && is_vec_num(c) && is_vec_num(r)) {
-						std::stringstream ss;
-						ss << typePrefix("Mat") << "<" << typePrefix(basetype) <<", " << c << ", " << r << ">";
-						return ss.str();
-					}
-				}
-				return std::nullopt;
-			}
-
-			std::optional<std::string> parseMat(void) const
-			{
-				static const std::string mat("mat");
-				static const std::string dmat("dmat");
-
-				if (m_name.substr(0, mat.size()) == mat) {
-					auto got = try_construct_mat("Float", m_name.substr(mat.size()));
-					if (got)
-						return *got;
-				}
-				if (m_name.substr(0, dmat.size()) == dmat) {
-					auto got = try_construct_mat("Double", m_name.substr(dmat.size()));
-					if (got)
-						return *got;
-				}
-				return std::nullopt;
-			}
-
-			//static std::map<std::string, s>
-
-			std::optional<std::string> parseOpq(void) const
-			{
-				//static const std::map<std::string, std::string> sampler_table;
-				//static const std::map<std::string, std::string> image_table = getImageTable("image");
-
-				if (m_name == "atomic_uint")
-					return typePrefix("AtomicUint");
-				return std::nullopt;
-			}
-		};
 
 	public:
 		Variable(tstream &s, Compiler &compiler) :
 			m_storage(storageTable().find(s.poll())->second),
 			m_type(s),
-			m_id(s.poll()),
-			m_array_ext(parseArray(s)),
-			m_array(mergeArrays()),
+			m_id(getId(s)),
 			m_value(getValue(s))
 		{
 			compiler.addVariable(*this);
@@ -835,10 +871,8 @@ public:
 
 		Variable(tstream &s, Variable &first, Compiler &compiler) :
 			m_storage(first.m_storage),
-			m_type(first.m_type),
-			m_id(s.poll()),
-			m_array_ext(parseArray(s)),
-			m_array(mergeArrays()),
+			m_type(Type::build_comma, first.m_type),
+			m_id(getId(s)),
 			m_value(getValue(s))
 		{
 			compiler.addVariable(*this);
@@ -851,9 +885,8 @@ public:
 
 		void declare(token_output &o) const
 		{
-			o << m_type.getName() << m_id;
-			for (auto &a : m_array)
-				o << "[" << a << "]";
+			m_type.write(o);
+			o << m_id;
 			if (m_value) {
 				o << "=";
 				for (auto &v : *m_value)
@@ -910,29 +943,13 @@ public:
 			return m_type;
 		}
 
-		auto& getArray(void) const
-		{
-			return m_array;
-		}
-
 	private:
 		Storage m_storage;
 		Type m_type;
 		std::string m_id;
-		std::vector<size_t> m_array_ext;
-		std::vector<size_t> m_array;
 		std::optional<std::vector<std::string>> m_value;
 
 		std::set<Shader::Stage> m_stages;
-
-		std::vector<size_t> mergeArrays(void) const
-		{
-			std::vector<size_t> res = m_array_ext;
-
-			for (auto &e : m_type.getArray())
-				res.emplace_back(e);
-			return res;
-		}
 
 		std::optional<std::vector<std::string>> getValue(tstream &s)
 		{

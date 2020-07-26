@@ -4,6 +4,9 @@ object float time;
 vertex {
 	object mat4 mvp;
 
+	//out vec3 vtx_pos;
+	//out vec3 vtx_normal;
+
 	void main(void)
 	{
 		vec3 in_pos = vec3(2.3);
