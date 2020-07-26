@@ -8,6 +8,7 @@
 #include <optional>
 #include <set>
 #include "../Shader.hpp"
+#include "cpp_generator.hpp"
 #include "util.hpp"
 #include "util/string.hpp"
 #include "util/sstream.hpp"
@@ -404,7 +405,7 @@ private:
 		{
 			m_variables.emplace_back(var);
 
-			if (var.getType().getParsed().is_opaque)
+			if (var.getType().parse(sb::Shader::Compiler::Type::Layout::Irrelevant).is_opaque)
 				m_opaque.emplace_back(m_set, m_counter, var);
 			else {
 				if (!m_n_opaque)
@@ -649,8 +650,7 @@ public:
 		Type(tstream &s) :
 			m_name(s.poll()),
 			m_base_array(parseArray(s)),
-			m_array(m_base_array),
-			m_parsed(parse())
+			m_array(m_base_array)
 		{
 		}
 
@@ -660,8 +660,7 @@ public:
 		Type(build_comma_t, const Type &other) :
 			m_name(other.m_name),
 			m_base_array(other.m_base_array),
-			m_array(m_base_array),
-			m_parsed(parse())
+			m_array(m_base_array)
 		{
 		}
 
@@ -675,11 +674,6 @@ public:
 			return m_array;
 		}
 
-		const Parsed& getParsed(void) const
-		{
-			return m_parsed;
-		}
-
 		void extend(tstream &s)
 		{
 			auto array = parseArray(s);
@@ -687,7 +681,6 @@ public:
 			for (auto &e : m_array)
 				array.emplace_back(e);
 			m_array = array;
-			m_parsed = parse();
 		}
 
 		void write(token_output &o) const
@@ -697,20 +690,14 @@ public:
 				o << "[" << a << "]";
 		}
 
-	private:
-		std::string m_name;
-		std::vector<size_t> m_base_array;
-		std::vector<size_t> m_array;
-		Parsed m_parsed;
-
-		static std::string typePrefix(const std::string &name)
+		enum class Layout
 		{
-			static const std::string add("sb::Shader::Type::");
+			Std140,
+			Std430,
+			Irrelevant = Std140
+		};
 
-			return add + name;
-		}
-
-		Parsed parse(void) const
+		Parsed parse(Layout layout) const
 		{
 			static const std::map<std::string, std::string> scalars {
 				{"bool", "Bool"},
@@ -726,13 +713,25 @@ public:
 			auto vec = parseVec();
 			if (vec)
 				return *vec;
-			auto mat = parseMat();
+			auto mat = parseMat(layout);
 			if (mat)
 				return *mat;
 			auto opq = parseOpq();
 			if (opq)
 				return Parsed(*opq, true);
 			return Parsed(m_name, false, true);
+		}
+
+	private:
+		std::string m_name;
+		std::vector<size_t> m_base_array;
+		std::vector<size_t> m_array;
+
+		static std::string typePrefix(const std::string &name)
+		{
+			static const std::string add("sb::Shader::Type::");
+
+			return add + name;
 		}
 
 		static bool is_vec_num(char num)
@@ -777,13 +776,23 @@ public:
 			return std::nullopt;
 		}
 
-		std::optional<std::string> try_construct_mat(const std::string &basetype, const std::string &rest) const
+		static std::string layoutToType(Layout layout)
+		{
+			static const std::map<Layout, std::string> table {
+				{Layout::Std140, "Std140"},
+				{Layout::Std430, "Std430"}
+			};
+
+			return typePrefix(table.at(layout));
+		}
+
+		std::optional<std::string> try_construct_mat(const std::string &basetype, const std::string &rest, Layout layout) const
 		{
 			if (rest.size() == 1) {
 				auto num = rest.at(0);
 				if (is_vec_num(num)) {
 					std::stringstream ss;
-					ss << typePrefix("Mat") << "<" << typePrefix(basetype) <<", " << num << ", " << num << ">";
+					ss << typePrefix("Mat") << "<" << typePrefix(basetype) <<", " << num << ", " << num << ", " << layoutToType(layout) << ">";
 					return ss.str();
 				}
 			}
@@ -792,25 +801,25 @@ public:
 				auto r = rest.at(2);
 				if (rest.at(1) == 'x' && is_vec_num(c) && is_vec_num(r)) {
 					std::stringstream ss;
-					ss << typePrefix("Mat") << "<" << typePrefix(basetype) <<", " << c << ", " << r << ">";
+					ss << typePrefix("Mat") << "<" << typePrefix(basetype) <<", " << c << ", " << r << ", " << layoutToType(layout) << ">";
 					return ss.str();
 				}
 			}
 			return std::nullopt;
 		}
 
-		std::optional<std::string> parseMat(void) const
+		std::optional<std::string> parseMat(Layout layout) const
 		{
 			static const std::string mat("mat");
 			static const std::string dmat("dmat");
 
 			if (m_name.substr(0, mat.size()) == mat) {
-				auto got = try_construct_mat("Float", m_name.substr(mat.size()));
+				auto got = try_construct_mat("Float", m_name.substr(mat.size()), layout);
 				if (got)
 					return *got;
 			}
 			if (m_name.substr(0, dmat.size()) == dmat) {
-				auto got = try_construct_mat("Double", m_name.substr(dmat.size()));
+				auto got = try_construct_mat("Double", m_name.substr(dmat.size()), layout);
 				if (got)
 					return *got;
 			}

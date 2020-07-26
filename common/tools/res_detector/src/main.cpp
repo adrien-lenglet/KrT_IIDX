@@ -90,16 +90,17 @@ class FolderPrinter
 
 	void addVariableToStructCollec(Util::CollectionBase &scope, sb::Shader::Compiler::Variable &var, std::optional<Id> &prev_id, std::vector<Id> &ids)
 	{
+		static const auto std140 = "sb::Shader::Type::Std140"_t;
 		auto &t = var.getType();
-		auto &p = t.getParsed();
+		auto p = t.parse(sb::Shader::Compiler::Type::Layout::Std140);
 		Type t_fin = p.name;
 		if (p.is_user_defined)
 			t_fin.assign(scope >> t_fin);
 
 		if (prev_id)
-			t_fin.assign("sb::Shader::Type::StructMember"_t.T(t_fin, Decltype(*prev_id)));
+			t_fin.assign("sb::Shader::Type::StructMember"_t.T(t_fin, std140, Decltype(*prev_id)));
 		else
-			t_fin.assign("sb::Shader::Type::StructMember"_t.T(t_fin));
+			t_fin.assign("sb::Shader::Type::StructMember"_t.T(t_fin, std140));
 		prev_id = scope += t_fin | Id(var.getName());
 		ids.emplace_back(*prev_id);
 	}

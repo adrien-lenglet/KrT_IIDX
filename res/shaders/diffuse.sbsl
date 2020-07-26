@@ -2,7 +2,7 @@
 object float time;
 
 vertex {
-	object mat4 mvp;
+	object mat4[4] mvp[5];
 
 	//out vec3 vtx_pos;
 	//out vec3 vtx_normal;

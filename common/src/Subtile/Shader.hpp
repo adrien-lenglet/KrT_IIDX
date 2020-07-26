@@ -161,9 +161,12 @@ public:
 				{
 				}
 			};
+
+			template <typename T>
+			using align = typename T::ealign;
 		};
 
-		template <typename T, size_t Size, class Layout = Std140>
+		template <typename T, size_t Size, class Layout>
 		struct Array
 		{
 			Array(void) = default;
@@ -287,7 +290,7 @@ public:
 			padded_type m_values[Size];
 		};
 
-		template <typename S, size_t C, size_t R, class Layout = Std140>
+		template <typename S, size_t C, size_t R, class Layout>
 		class Mat : public Array<Vec<S, R>, C, Layout>
 		{
 			using col_type = Array<Vec<S, R>, C, Layout>;
@@ -321,8 +324,8 @@ public:
 		};
 
 	public:
-		template <typename T, typename PrevType = FirstStructMember>
-		struct StructMember : private util::pad<util::align_v<PrevType::offset_end::value, T::ealign::value> - PrevType::offset_end::value>, public T
+		template <typename T, typename Layout, typename PrevType = FirstStructMember>
+		struct StructMember : private util::pad<util::align_v<PrevType::offset_end::value, Layout::template align<T>::value> - PrevType::offset_end::value>, public T
 		{
 			StructMember(void) = default;
 			template <typename ...Args>
@@ -334,7 +337,7 @@ public:
 			using salign = typename T::salign;
 			using balign = typename T::balign;
 			using ealign = typename T::ealign;
-			using offset = util::align<PrevType::offset_end::value, T::ealign::value>;
+			using offset = util::align<PrevType::offset_end::value, Layout::template align<T>::value>;
 			using size = util::csize_t<sizeof(T)>;
 			using type = T;
 			using offset_end = util::csize_t<offset::value + sizeof(T)>;
