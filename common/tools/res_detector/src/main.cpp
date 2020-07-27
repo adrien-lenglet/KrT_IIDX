@@ -231,6 +231,26 @@ class FolderPrinter
 		return sh;
 	}
 
+	class FileError : public std::runtime_error
+	{
+	public:
+		template <typename ...Args>
+		FileError(Args &&...args) :
+			std::runtime_error(computeErrMsg(std::forward<Args>(args)...))
+		{
+		}
+
+	private:
+		static std::string computeErrMsg(const std::string &type, const std::string &path, const std::string &what)
+		{
+			std::stringstream ss;
+
+			ss << "[" << type << "]: " << path << " fatal error:" << std::endl;
+			ss << what << std::endl;
+			return ss.str();
+		}
+	};
+
 	template <typename T>
 	void it_dir(const T &itbase, Util::CollectionBase &scope, Util::CollectionFunctionBase &ctor)
 	{
@@ -256,8 +276,13 @@ class FolderPrinter
 					auto [type, id] = *got;
 					auto t = Type(type);
 
-					if (type == "sb::rs::Shader")
-						t.assign(addShader(scope, id, e.path().string(), e));
+					if (type == "sb::rs::Shader") {
+						try {
+							t.assign(addShader(scope, id, e.path().string(), e));
+						} catch (const std::exception &excep) {
+							throw FileError(type, e.path().string(), excep.what());
+						}
+					}
 					addgetterstorage(scope, ctor, t, id, name);
 				}
 			}
@@ -356,7 +381,13 @@ int main(int argc, char **argv)
 
 	auto in = getOutpath(input, output, ".resdecl.cpp");
 	auto out = getOutpath(input, output, ".resdecl.hpp");
-	ResourceCompiler::run(input, ns, in, out);
+
+	try {
+		ResourceCompiler::run(input, ns, in, out);
+	} catch (const std::exception &e) {
+		std::cerr << e.what() << std::endl;
+		throw;
+	}
 
 	return 0;
 }
