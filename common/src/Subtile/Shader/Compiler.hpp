@@ -405,7 +405,7 @@ private:
 		{
 			m_variables.emplace_back(var);
 
-			if (var.getType().parse(sb::Shader::Compiler::Type::Layout::Irrelevant).is_opaque)
+			if (var.getType().parse("whatever").is_opaque)
 				m_opaque.emplace_back(m_set, m_counter, var);
 			else {
 				if (!m_n_opaque)
@@ -697,25 +697,28 @@ public:
 			Irrelevant = Std140
 		};
 
-		Parsed parse(Layout layout) const
+		static std::string layoutToType(Layout layout)
 		{
-			static const std::map<std::string, std::string> scalars {
-				{"bool", "Bool"},
-				{"int", "Int"},
-				{"uint", "Uint"},
-				{"float", "Float"},
-				{"double", "Double"}
+			static const std::map<Layout, std::string> table {
+				{Layout::Std140, "Std140"},
+				{Layout::Std430, "Std430"}
 			};
 
-			auto sgot = scalars.find(m_name);
-			if (sgot != scalars.end())
-				return Parsed(typePrefix(sgot->second));
-			auto vec = parseVec();
-			if (vec)
-				return *vec;
-			auto mat = parseMat(layout);
-			if (mat)
-				return *mat;
+			return typePrefix(table.at(layout));
+		}
+
+		Parsed parse(const std::string &layout) const
+		{
+			auto nopq = parseNOpq(layout);
+			if (nopq) {
+				for (auto it = m_array.crbegin(); it != m_array.crend(); it++) {
+					auto &a = *it;
+					std::stringstream ss;
+					ss << typePrefix("Array") << "<" << nopq->name << ", " << a << ", " << layout << ">";
+					nopq->name = ss.str();
+				}
+				return *nopq;
+			}
 			auto opq = parseOpq();
 			if (opq)
 				return Parsed(*opq, true);
@@ -776,23 +779,13 @@ public:
 			return std::nullopt;
 		}
 
-		static std::string layoutToType(Layout layout)
-		{
-			static const std::map<Layout, std::string> table {
-				{Layout::Std140, "Std140"},
-				{Layout::Std430, "Std430"}
-			};
-
-			return typePrefix(table.at(layout));
-		}
-
-		std::optional<std::string> try_construct_mat(const std::string &basetype, const std::string &rest, Layout layout) const
+		std::optional<std::string> try_construct_mat(const std::string &basetype, const std::string &rest, const std::string &layout) const
 		{
 			if (rest.size() == 1) {
 				auto num = rest.at(0);
 				if (is_vec_num(num)) {
 					std::stringstream ss;
-					ss << typePrefix("Mat") << "<" << typePrefix(basetype) <<", " << num << ", " << num << ", " << layoutToType(layout) << ">";
+					ss << typePrefix("Mat") << "<" << typePrefix(basetype) <<", " << num << ", " << num << ", " << layout << ">";
 					return ss.str();
 				}
 			}
@@ -801,14 +794,14 @@ public:
 				auto r = rest.at(2);
 				if (rest.at(1) == 'x' && is_vec_num(c) && is_vec_num(r)) {
 					std::stringstream ss;
-					ss << typePrefix("Mat") << "<" << typePrefix(basetype) <<", " << c << ", " << r << ", " << layoutToType(layout) << ">";
+					ss << typePrefix("Mat") << "<" << typePrefix(basetype) <<", " << c << ", " << r << ", " << layout << ">";
 					return ss.str();
 				}
 			}
 			return std::nullopt;
 		}
 
-		std::optional<std::string> parseMat(Layout layout) const
+		std::optional<std::string> parseMat(const std::string &layout) const
 		{
 			static const std::string mat("mat");
 			static const std::string dmat("dmat");
@@ -823,6 +816,28 @@ public:
 				if (got)
 					return *got;
 			}
+			return std::nullopt;
+		}
+
+		std::optional<Parsed> parseNOpq(const std::string &layout) const
+		{
+			static const std::map<std::string, std::string> scalars {
+				{"bool", "Bool"},
+				{"int", "Int"},
+				{"uint", "Uint"},
+				{"float", "Float"},
+				{"double", "Double"}
+			};
+
+			auto sgot = scalars.find(m_name);
+			if (sgot != scalars.end())
+				return Parsed(typePrefix(sgot->second));
+			auto vec = parseVec();
+			if (vec)
+				return *vec;
+			auto mat = parseMat(layout);
+			if (mat)
+				return *mat;
 			return std::nullopt;
 		}
 

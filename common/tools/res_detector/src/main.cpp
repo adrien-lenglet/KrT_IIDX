@@ -88,49 +88,48 @@ class FolderPrinter
 		return res;
 	}
 
-	void addVariableToStructCollec(Util::CollectionBase &scope, sb::Shader::Compiler::Variable &var, std::optional<Id> &prev_id, std::vector<Id> &ids)
+	auto createShaderStruct(Util::CollectionBase &scope, Util::CollectionBase &user_structs_scope, const std::string &name, const std::vector<std::reference_wrapper<sb::Shader::Compiler::Variable>> &variables, const std::string &layout)
 	{
-		static const auto std140 = "sb::Shader::Type::Std140"_t;
-		auto &t = var.getType();
-		auto p = t.parse(sb::Shader::Compiler::Type::Layout::Std140);
-		Type t_fin = p.name;
-		if (p.is_user_defined)
-			t_fin.assign(scope >> t_fin);
+		auto layout_c = Type(layout);
+		auto &s = scope += Struct | (name + std::string("Collection")) | S {};
 
-		if (prev_id)
-			t_fin.assign("sb::Shader::Type::StructMember"_t.T(t_fin, std140, Decltype(*prev_id)));
-		else
-			t_fin.assign("sb::Shader::Type::StructMember"_t.T(t_fin, std140));
-		prev_id = scope += t_fin | Id(var.getName());
-		ids.emplace_back(*prev_id);
+		std::vector<Id> ids;
+		std::optional<Id> prev_id;
+		for (auto &var : variables) {
+			auto &v = var.get();
+			auto p = v.getType().parse(layout);
+			Type t = p.name;
+			if (p.is_user_defined)
+				t.assign((user_structs_scope >> t).T(layout_c));
+
+			if (prev_id)
+				t.assign("sb::Shader::Type::StructMember"_t.T(t, layout_c, Decltype(*prev_id)));
+			else
+				t.assign("sb::Shader::Type::StructMember"_t.T(t, layout_c));
+			prev_id = s += t | Id(v.getName());
+			ids.emplace_back(*prev_id);
+		}
+		auto tfinal = "sb::Shader::Type::Struct"_t.T(s);
+		for (auto &i : ids)
+			tfinal.add(Decltype(s().M(i)));
+		auto mapped_str = scope += Using | name = tfinal;
+		return mapped_str;
 	}
 
-	void shaderaddlayout(Util::CollectionBase &scope, sb::Shader::Compiler::Set set, const std::string &met_name, sb::Shader::Compiler &shader)
+	void shaderAddLayout(Util::CollectionBase &scope, Util::CollectionBase &user_structs_scope, sb::Shader::Compiler::Set set, const std::string &met_name, sb::Shader::Compiler &shader)
 	{
 		std::optional<Id> previous_id;
 		auto &mat_scope = scope += Struct | (met_name + std::string("Traits")) | S {};
-		auto &str = mat_scope += Struct | "MappedCollection" | S {};
-		auto str_ctor = str();
-		std::vector<Id> ids;
 
+		std::vector<std::reference_wrapper<sb::Shader::Compiler::Variable>> vars;
 		for (auto &sb : shader.getDescriptorSets())
 			if (sb.get().getSet() == set) {
-				auto &b = sb.get().getBlock();
-				auto &nopq = b.getGlslNonOpaque();
-				if (nopq) {
+				auto &nopq = sb.get().getBlock().getGlslNonOpaque();
+				if (nopq)
 					for (auto &no : nopq->getVariables())
-						addVariableToStructCollec(str, no.get(), previous_id, ids);
-				}
+						vars.emplace_back(no);
 			}
-		auto tfinal = "sb::Shader::Type::Struct"_t.T(str);
-		for (auto &i : ids)
-			tfinal.add(Decltype(str_ctor.M(i)));
-		auto mapped_str = mat_scope += Using | "Mapped" = tfinal;
-		/*for (auto &sb : shader.getDescriptorSets())
-			if (sb.get().getSet() == set)
-				for (auto &b : sb.get().getBlocks())
-					for (auto &v : b.getGlslOpaque())
-							addVariableToStruct(str, v.getVariable(), previous_id);*/
+		auto mapped_str = createShaderStruct(mat_scope, user_structs_scope, "Mapped", vars, "sb::Shader::Type::Std140");
 
 		auto t = "sb::Shader::DescriptorSet::Layout"_t;
 
@@ -148,9 +147,9 @@ class FolderPrinter
 				auto &nopq = b.getGlslNonOpaque();
 				if (nopq) {
 					auto &n = *nopq;
-					auto off = Decltype(str_ctor.M(Vd(n.getVariables().begin()->get().getName())))>>"offset::value"_v;
+					auto off = Decltype(mapped_str().M(Vd(n.getVariables().begin()->get().getName())))>>"offset::value"_v;
 					auto size = Value(0);
-					size.assign(size + (Decltype(str_ctor.M(Vd(n.getVariables().rbegin()->get().getName())))>>"offset_end::value"_v) - off);
+					size.assign(size + (Decltype(mapped_str().M(Vd(n.getVariables().rbegin()->get().getName())))>>"offset_end::value"_v) - off);
 					bmapped.add(B {B {n.getBinding(), static_cast<size_t>(1), "sb::Shader::DescriptorType::UniformBuffer"_v, shaderStagesToBrace(stages_set)}, off, size});
 				}
 				for (auto &v : b.getGlslOpaque()) {
@@ -178,8 +177,10 @@ class FolderPrinter
 
 		ctor /= shader_type(shaderStagesToBrace(compiled.getStages().getSet()));
 
-		shaderaddlayout(sh, sb::Shader::Compiler::Set::Material, "material", compiled);
-		shaderaddlayout(sh, sb::Shader::Compiler::Set::Object, "object", compiled);
+		auto &u_structs = sh += Struct | "UserStructs" | S {};
+
+		shaderAddLayout(sh, u_structs, sb::Shader::Compiler::Set::Material, "material", compiled);
+		shaderAddLayout(sh, u_structs, sb::Shader::Compiler::Set::Object, "object", compiled);
 
 		auto name = shaderentry.path().parent_path().string() + std::string("/.") + id + std::string("_stages");
 		std::fs::create_directory(name);
