@@ -269,6 +269,7 @@ private:
 
 public:
 	class Variable;
+	class Struct;
 
 	enum class Set {
 		Material,
@@ -545,11 +546,21 @@ private:
 	DescriptorSets m_blocks;
 
 	std::vector<std::reference_wrapper<Variable>> m_variables;
+	std::vector<std::reference_wrapper<Struct>> m_structs;
 
 public:
 	void addVariable(Variable &variable)
 	{
 		m_variables.emplace_back(variable);
+	}
+	void addStruct(Struct &s)
+	{
+		m_structs.emplace_back(s);
+	}
+
+	auto& getStructs(void) const
+	{
+		return m_structs;
 	}
 
 	auto getDescriptorSets(void) const
@@ -897,12 +908,15 @@ public:
 
 	class Variable : public Primitive
 	{
+	public:
 		enum class Storage {
+			Inline,
 			Const,
 			Material,
 			Object
 		};
 
+	private:
 		using StorageTable = std::map<std::string, Storage>;
 
 		static auto& storageTable(void)
@@ -925,22 +939,25 @@ public:
 		}
 
 	public:
-		Variable(tstream &s, Compiler &compiler) :
-			m_storage(storageTable().find(s.poll())->second),
+		Variable(tstream &s, Storage storage) :
+			m_storage(storage),
 			m_type(s),
 			m_id(getId(s)),
 			m_value(getValue(s))
 		{
-			compiler.addVariable(*this);
 		}
 
-		Variable(tstream &s, Variable &first, Compiler &compiler) :
+		Variable(tstream &s) :
+			Variable(s, storageTable().at(s.poll()))
+		{
+		}
+
+		Variable(tstream &s, Variable &first) :
 			m_storage(first.m_storage),
 			m_type(Type::build_comma, first.m_type),
 			m_id(getId(s)),
 			m_value(getValue(s))
 		{
-			compiler.addVariable(*this);
 		}
 
 		static bool isComingUp(tstream &s)
@@ -1042,6 +1059,78 @@ public:
 			else
 				o << "layout" << "(" << "set" << "=" << (storage_to_set.at(m_storage)) << "," << "binding" << "=" << 0 << ")" << "uniform";
 			declare(o);
+		}
+	};
+
+	class Struct : public Primitive
+	{
+	public:
+		Struct(tstream &s) :
+			m_name(getName(s)),
+			m_variables(getVariables(s))
+		{
+			s.expect(";");
+		}
+
+		static bool isComingUp(tstream &s)
+		{
+			return s.peek() == "struct";
+		}
+
+		void write(token_output &o, Sbi sbi) const override
+		{
+			if (sbi == Sbi::Vulkan) {
+				write_vulkan(o);
+			} else
+				throw std::runtime_error("Can't output variable for such interface");
+		}
+
+		auto& getName(void) const
+		{
+			return m_name;
+		}
+
+		auto& getVariables(void) const
+		{
+			return m_variables;
+		}
+
+	private:
+		std::string m_name;
+		util::unique_vector<Variable> m_variables;
+
+		std::string getName(tstream &s)
+		{
+			s.expect("struct");
+			return s.poll();
+		}
+
+		util::unique_vector<Variable> getVariables(tstream &s)
+		{
+			util::unique_vector<Variable> res;
+
+			s.expect("{");
+			while (s.peek() != "}") {
+				auto &first = res.emplace(s, Variable::Storage::Inline);
+				while (s.peek() == ",") {
+					s.poll();
+					res.emplace(s, first);
+				}
+				s.expect(";");
+			}
+			s.poll();
+
+			return res;
+		}
+
+		void write_vulkan(token_output &o) const
+		{
+			o << "struct" << m_name << "{";
+			for (auto &v : m_variables) {
+				v.declare(o);
+				std::cout << v.getName() << std::endl;
+			}
+			o << "}" << ";";
 		}
 	};
 
@@ -1214,11 +1303,14 @@ inline void Shader::Compiler::Section::poll(tstream &s, Compiler &compiler)
 	}
 	if (Section::isComingUp(s))
 		m_primitives.emplace<Section>(s, compiler);
-	else if (Variable::isComingUp(s)) {
-		auto &first = m_primitives.emplace<Variable>(s, compiler);
+	else if (Struct::isComingUp(s)) {
+		compiler.addStruct(m_primitives.emplace<Struct>(s));
+	} else if (Variable::isComingUp(s)) {
+		auto &first = m_primitives.emplace<Variable>(s);
+		compiler.addVariable(first);
 		while (s.peek() == ",") {
 			s.poll();
-			m_primitives.emplace<Variable>(s, first, compiler);
+			compiler.addVariable(m_primitives.emplace<Variable>(s, first));
 		}
 		s.expect(";");
 	} else

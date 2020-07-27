@@ -2,6 +2,13 @@
 object float time;
 
 vertex {
+	struct loool {
+		int[5] a, b[8];
+		uint e;
+		vec3 d;
+		float[4][65] c[3];
+	};
+
 	object mat4[4] mvp[5];
 	object loool test;
 
