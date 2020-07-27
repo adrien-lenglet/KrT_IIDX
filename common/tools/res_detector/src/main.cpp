@@ -201,8 +201,7 @@ class FolderPrinter
 		ctor /= shader_type(shaderStagesToBrace(compiled.getStages().getSet()));
 
 		auto &u_structs = sh += Struct | "Struct" | S {};
-		for (auto &ustr : compiled.getStructs()) {
-			auto &us_desc = ustr.get();
+		for (auto &us_desc : compiled.getStructs()) {
 			std::vector<std::reference_wrapper<const sb::Shader::Compiler::Variable>> vars;
 			for (auto &v : us_desc.getVariables())
 				vars.emplace_back(v);

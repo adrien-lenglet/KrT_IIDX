@@ -152,7 +152,7 @@ public:
 		struct Std140
 		{
 			template <typename T>
-			struct ArrayPad : public T, private util::pad<util::align_v<sizeof(T), util::csize::max_v<T::ealign, 16>> - sizeof(T)>
+			struct ArrayPad : public T, private util::pad<util::align_v<sizeof(T), util::align_v<T::ealign::value, 16>> - sizeof(T)>
 			{
 				ArrayPad(void) = default;
 				template <typename ...Args>
@@ -169,7 +169,7 @@ public:
 		struct Std430
 		{
 			template <typename T>
-			struct ArrayPad : public T, private util::pad<util::align_v<sizeof(T), T::balign> - sizeof(T)>
+			struct ArrayPad : public T, private util::pad<util::align_v<sizeof(T), T::balign::value> - sizeof(T)>
 			{
 				ArrayPad(void) = default;
 				template <typename ...Args>

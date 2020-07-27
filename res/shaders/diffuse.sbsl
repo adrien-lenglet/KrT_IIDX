@@ -2,14 +2,17 @@
 object float time;
 
 vertex {
+	struct lol1 { int wow;};
+
 	struct loool {
 		int[5] a, b[8];
 		uint e;
 		vec3 d;
 		float[4][65] c[3];
+		lol1 fin;
 	};
 
-	object mat4[4] mvp[5];
+	object mat4 mvp;
 	object loool test;
 
 	//out vec3 vtx_pos;

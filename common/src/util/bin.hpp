@@ -356,4 +356,12 @@ using align_t = typename align<Args...>::type;
 template <size_t ...Args>
 static inline constexpr size_t align_v = align_t<Args...>{};
 
+static inline constexpr size_t align_dyn(size_t offset, size_t alignment)
+{
+	if (offset % alignment == 0)
+		return offset;
+	else
+		return offset - offset % alignment + alignment;
+}
+
 }

@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <optional>
+#include <functional>
 #include <set>
 #include "../Shader.hpp"
 #include "cpp_generator.hpp"
@@ -546,16 +547,18 @@ private:
 	DescriptorSets m_blocks;
 
 	std::vector<std::reference_wrapper<Variable>> m_variables;
-	std::vector<std::reference_wrapper<Struct>> m_structs;
+	std::vector<Struct> m_structs;
 
 public:
 	void addVariable(Variable &variable)
 	{
 		m_variables.emplace_back(variable);
 	}
-	void addStruct(Struct &s)
+
+	template <typename ...Args>
+	void addStruct(Args &&...args)
 	{
-		m_structs.emplace_back(s);
+		m_structs.emplace_back(std::forward<Args>(args)...);
 	}
 
 	auto& getStructs(void) const
@@ -589,6 +592,8 @@ private:
 
 		void write(token_output &o, Sbi sbi) const
 		{
+			for (auto &s : m_compiler.getStructs())
+				s.write(o, sbi);
 			for (auto &b : m_compiler.getDescriptorSets())
 				b.get().getBlock().write(o, sbi);
 			token_output inter_o;
@@ -697,6 +702,37 @@ public:
 			std::string name;
 			bool is_user_defined;
 			bool is_opaque;
+
+			size_t salign = 0;
+			size_t balign = 0;
+			size_t ealign = 0;
+			size_t loc_size = 0;
+
+			size_t bsize = 0;
+			size_t esize = 0;
+
+			void set_all_sizes(size_t size)
+			{
+				bsize = size;
+				esize = size;
+			}
+
+			void spec_array(const std::vector<size_t> &array, const std::string &layout)
+			{
+				for (auto it = array.crbegin(); it != array.crend(); it++) {
+					auto &a = *it;
+					std::stringstream ss;
+					ss << typePrefix("Array") << "<" << name << ", " << a << ", " << layout << ">";
+					name = ss.str();
+				}
+				size_t els = 0;
+				for (auto &a : array)
+					els += a;
+				loc_size *= els;
+				ealign = util::align_dyn(ealign, 16);
+				bsize *= els;
+				esize *= els;
+			}
 		};
 
 		Type(tstream &s) :
@@ -762,15 +798,8 @@ public:
 		Parsed parse(const std::string &layout) const
 		{
 			auto nopq = parseNOpq(layout);
-			if (nopq) {
-				for (auto it = m_array.crbegin(); it != m_array.crend(); it++) {
-					auto &a = *it;
-					std::stringstream ss;
-					ss << typePrefix("Array") << "<" << nopq->name << ", " << a << ", " << layout << ">";
-					nopq->name = ss.str();
-				}
+			if (nopq)
 				return *nopq;
-			}
 			auto opq = parseOpq();
 			if (opq)
 				return Parsed(*opq, true);
@@ -798,73 +827,129 @@ public:
 			return table.find(num) != table.end();
 		}
 
-		std::optional<std::string> parseVec(void) const
+		class Scalar
+		{
+		public:
+			Scalar(const std::string &name, size_t size) :
+				name(name),
+				size(size)
+			{
+			}
+
+			const std::string name;
+			const size_t size;
+		};
+
+		static auto& Bool(void)
+		{
+			static const Scalar res("Bool", sizeof(sb::Shader::Type::Bool));
+			return res;
+		}
+		static auto& Int(void)
+		{
+			static const Scalar res("Int", sizeof(sb::Shader::Type::Int));
+			return res;
+		}
+		static auto& Uint(void)
+		{
+			static const Scalar res("Uint", sizeof(sb::Shader::Type::Uint));
+			return res;
+		}
+		static auto& Float(void)
+		{
+			static const Scalar res("Float", sizeof(sb::Shader::Type::Float));
+			return res;
+		}
+		static auto& Double(void)
+		{
+			static const Scalar res("Double", sizeof(sb::Shader::Type::Double));
+			return res;
+		}
+
+		static Parsed contructVec(const Scalar &base, size_t size)
+		{
+			std::stringstream ss;
+
+			ss << typePrefix("Vec") << "<" << typePrefix(base.name) << ", " << size << ">";
+
+			Parsed res(ss.str());
+			res.salign = base.size;
+			res.balign = res.salign * (size == 2 ? 2 : 4);
+			res.ealign = res.balign;
+			res.loc_size = base.size == sizeof(double) && size > 2 ? 2 : 1;
+			res.set_all_sizes(base.size * size);
+			return res;
+		}
+
+		std::optional<Parsed> parseVec(void) const
 		{
 			static const std::string vecn("vecn");
 			static const std::string tvecn("tvecn");
-			static const std::map<char, std::string> tvec_table {
-				{'b', "Bool"},
-				{'i', "Int"},
-				{'u', "Uint"},
-				{'d', "Double"}
+			static const std::map<char, Scalar> tvec_table {
+				{'b', Bool()},
+				{'i', Int()},
+				{'u', Uint()},
+				{'d', Double()}
 			};
 
 			if (m_name.size() == vecn.size()) {
 				auto &num = m_name.at(3);
-				if (m_name.substr(0, 3) == "vec" && is_vec_num(num)) {
-					std::stringstream ss;
-
-					ss << typePrefix("Vec") << "<" << typePrefix("Float") << ", " << num << ">";
-					return ss.str();
-				}
+				if (m_name.substr(0, 3) == "vec" && is_vec_num(num))
+					return contructVec(Float(), num - '0');
 			}
 			if (m_name.size() == tvecn.size()) {
 				auto &num = m_name.at(4);
 				auto got = tvec_table.find(m_name.at(0));
-				if (got != tvec_table.end() && m_name.substr(1, 3) == "vec" && is_vec_num(num)) {
-					std::stringstream ss;
-
-					ss << typePrefix("Vec") << "<" << typePrefix(got->second) <<", " << num << ">";
-					return ss.str();
-				}
+				if (got != tvec_table.end() && m_name.substr(1, 3) == "vec" && is_vec_num(num))
+					return contructVec(got->second, num - '0');
 			}
 			return std::nullopt;
 		}
 
-		std::optional<std::string> try_construct_mat(const std::string &basetype, const std::string &rest, const std::string &layout) const
+
+		static Parsed constructMat(const Scalar &basetype, size_t c, size_t r, const std::string &layout)
+		{
+			std::stringstream ss;
+			ss << typePrefix("Mat") << "<" << typePrefix(basetype.name) <<", " << c << ", " << r << ", " << layout << ">";
+
+			auto vec = contructVec(basetype, c);
+			Parsed res(ss.str());
+			res.salign = vec.salign;
+			res.balign = vec.balign;
+			res.ealign = res.balign;
+			res.bsize = res.balign * r;
+			res.esize = res.ealign * r;
+			return res;
+		}
+
+		std::optional<Parsed> try_construct_mat(const Scalar &basetype, const std::string &rest, const std::string &layout) const
 		{
 			if (rest.size() == 1) {
 				auto num = rest.at(0);
-				if (is_vec_num(num)) {
-					std::stringstream ss;
-					ss << typePrefix("Mat") << "<" << typePrefix(basetype) <<", " << num << ", " << num << ", " << layout << ">";
-					return ss.str();
-				}
+				if (is_vec_num(num))
+					return constructMat(basetype, num - '0', num - '0', layout);
 			}
 			if (rest.size() == 3) {
 				auto c = rest.at(0);
 				auto r = rest.at(2);
-				if (rest.at(1) == 'x' && is_vec_num(c) && is_vec_num(r)) {
-					std::stringstream ss;
-					ss << typePrefix("Mat") << "<" << typePrefix(basetype) <<", " << c << ", " << r << ", " << layout << ">";
-					return ss.str();
-				}
+				if (rest.at(1) == 'x' && is_vec_num(c) && is_vec_num(r))
+					return constructMat(basetype, c - '0', r - '0', layout);
 			}
 			return std::nullopt;
 		}
 
-		std::optional<std::string> parseMat(const std::string &layout) const
+		std::optional<Parsed> parseMat(const std::string &layout) const
 		{
 			static const std::string mat("mat");
 			static const std::string dmat("dmat");
 
 			if (m_name.substr(0, mat.size()) == mat) {
-				auto got = try_construct_mat("Float", m_name.substr(mat.size()), layout);
+				auto got = try_construct_mat(Float(), m_name.substr(mat.size()), layout);
 				if (got)
 					return *got;
 			}
 			if (m_name.substr(0, dmat.size()) == dmat) {
-				auto got = try_construct_mat("Double", m_name.substr(dmat.size()), layout);
+				auto got = try_construct_mat(Double(), m_name.substr(dmat.size()), layout);
 				if (got)
 					return *got;
 			}
@@ -873,23 +958,36 @@ public:
 
 		std::optional<Parsed> parseNOpq(const std::string &layout) const
 		{
-			static const std::map<std::string, std::string> scalars {
-				{"bool", "Bool"},
-				{"int", "Int"},
-				{"uint", "Uint"},
-				{"float", "Float"},
-				{"double", "Double"}
+			static const std::map<std::string, Scalar> scalars {
+				{"bool", Bool()},
+				{"int", Int()},
+				{"uint", Uint()},
+				{"float", Float()},
+				{"double", Double()}
 			};
 
 			auto sgot = scalars.find(m_name);
-			if (sgot != scalars.end())
-				return Parsed(typePrefix(sgot->second));
+			if (sgot != scalars.end()) {
+				auto &scalar = sgot->second;
+				Parsed res(typePrefix(sgot->second.name));
+				res.salign = scalar.size;
+				res.balign = res.salign;
+				res.ealign = res.balign;
+				res.loc_size = 1;
+				res.set_all_sizes(scalar.size);
+				res.spec_array(m_array, layout);
+				return res;
+			}
 			auto vec = parseVec();
-			if (vec)
+			if (vec) {
+				vec->spec_array(m_array, layout);
 				return *vec;
+			}
 			auto mat = parseMat(layout);
-			if (mat)
+			if (mat) {
+				mat->spec_array(m_array, layout);
 				return *mat;
+			}
 			return std::nullopt;
 		}
 
@@ -1062,12 +1160,19 @@ public:
 		}
 	};
 
-	class Struct : public Primitive
+	class Struct
 	{
 	public:
 		Struct(tstream &s) :
 			m_name(getName(s)),
-			m_variables(getVariables(s))
+			m_variables(getVariables(s)),
+			m_variables_parsed(getVariablesParsed()),
+			m_salign(computeAlign(&Type::Parsed::salign)),
+			m_balign(computeAlign(&Type::Parsed::balign)),
+			m_ealign(util::align_dyn(computeAlign(&Type::Parsed::ealign), 16)),
+			m_loc_size(computeLocSize()),
+			m_bsize(computeSize(&Type::Parsed::bsize, &Type::Parsed::balign)),
+			m_esize(computeSize(&Type::Parsed::esize, &Type::Parsed::ealign))
 		{
 			s.expect(";");
 		}
@@ -1077,7 +1182,7 @@ public:
 			return s.peek() == "struct";
 		}
 
-		void write(token_output &o, Sbi sbi) const override
+		void write(token_output &o, Sbi sbi) const
 		{
 			if (sbi == Sbi::Vulkan) {
 				write_vulkan(o);
@@ -1095,9 +1200,24 @@ public:
 			return m_variables;
 		}
 
+		auto getSalign(void) const { return m_salign; }
+		auto getBalign(void) const { return m_balign; }
+		auto getEalign(void) const { return m_ealign; }
+		auto getLocSize(void) const { return m_loc_size; }
+		auto getBsize(void) const { return m_bsize; }
+		auto getEsize(void) const { return m_esize; }
+
 	private:
 		std::string m_name;
 		util::unique_vector<Variable> m_variables;
+		std::vector<Type::Parsed> m_variables_parsed;
+		size_t m_salign;
+		size_t m_balign;
+		size_t m_ealign;
+		size_t m_loc_size;
+
+		size_t m_bsize;
+		size_t m_esize;
 
 		std::string getName(tstream &s)
 		{
@@ -1123,14 +1243,52 @@ public:
 			return res;
 		}
 
+		std::vector<Type::Parsed> getVariablesParsed(void)
+		{
+			std::vector<Type::Parsed> res;
+
+			for (auto &v : m_variables)
+				res.emplace_back(v.getType().parse("nolayout"));
+			return res;
+		}
+
 		void write_vulkan(token_output &o) const
 		{
 			o << "struct" << m_name << "{";
-			for (auto &v : m_variables) {
+			for (auto &v : m_variables)
 				v.declare(o);
-				std::cout << v.getName() << std::endl;
-			}
 			o << "}" << ";";
+		}
+
+		size_t computeAlign(size_t Type::Parsed::*resolver)
+		{
+			size_t res = 0;
+
+			for (auto &p : m_variables_parsed)
+				res = std::max(res, p.*resolver);
+			return res;
+		}
+
+		size_t computeLocSize(void)
+		{
+			size_t res = 0;
+
+			for (auto &p : m_variables_parsed)
+				res += p.loc_size;
+			return res;
+		}
+
+		size_t computeSize(size_t Type::Parsed::*size_resolver, size_t Type::Parsed::*align_resolver)
+		{
+			size_t res = 0;
+
+			for (auto &p : m_variables_parsed) {
+				auto size = p.*size_resolver;
+				auto align = p.*align_resolver;
+				res = util::align_dyn(res, align);
+				res += size;
+			}
+			return res;
 		}
 	};
 
@@ -1304,7 +1462,7 @@ inline void Shader::Compiler::Section::poll(tstream &s, Compiler &compiler)
 	if (Section::isComingUp(s))
 		m_primitives.emplace<Section>(s, compiler);
 	else if (Struct::isComingUp(s)) {
-		compiler.addStruct(m_primitives.emplace<Struct>(s));
+		compiler.addStruct(s);
 	} else if (Variable::isComingUp(s)) {
 		auto &first = m_primitives.emplace<Variable>(s);
 		compiler.addVariable(first);
