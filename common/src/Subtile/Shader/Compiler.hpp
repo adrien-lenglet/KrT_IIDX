@@ -444,11 +444,11 @@ private:
 		{
 		}
 
-		void add(Variable &var)
+		void add(Variable &var, Compiler &compiler)
 		{
 			m_variables.emplace_back(var);
 
-			if (var.getType().parse("whatever").is_opaque)
+			if (var.getType().parse("whatever", compiler).is_opaque)
 				m_opaque.emplace_back(m_set, m_counter, var);
 			else {
 				if (!m_n_opaque)
@@ -795,7 +795,7 @@ public:
 			return typePrefix(table.at(layout));
 		}
 
-		Parsed parse(const std::string &layout) const
+		Parsed parse(const std::string &layout, Compiler &compiler) const
 		{
 			auto nopq = parseNOpq(layout);
 			if (nopq)
@@ -803,7 +803,20 @@ public:
 			auto opq = parseOpq();
 			if (opq)
 				return Parsed(*opq, true);
-			return Parsed(m_name, false, true);
+			for (auto &s : compiler.getStructs()) {
+				if (s.getName() == m_name) {
+					Parsed res(m_name, false, true);
+
+					res.salign = s.getSalign();
+					res.balign = s.getBalign();
+					res.ealign = s.getEalign();
+					res.loc_size = s.getLocSize();
+					res.bsize = s.getBsize();
+					res.esize = s.getEsize();
+					return res;
+				}
+			}
+			throw std::runtime_error(std::string("Unknown type '") + m_name + std::string("'"));
 		}
 
 	private:
@@ -1163,10 +1176,10 @@ public:
 	class Struct
 	{
 	public:
-		Struct(tstream &s) :
+		Struct(tstream &s, Compiler &compiler) :
 			m_name(getName(s)),
 			m_variables(getVariables(s)),
-			m_variables_parsed(getVariablesParsed()),
+			m_variables_parsed(getVariablesParsed(compiler)),
 			m_salign(computeAlign(&Type::Parsed::salign)),
 			m_balign(computeAlign(&Type::Parsed::balign)),
 			m_ealign(util::align_dyn(computeAlign(&Type::Parsed::ealign), 16)),
@@ -1190,7 +1203,7 @@ public:
 				throw std::runtime_error("Can't output variable for such interface");
 		}
 
-		auto& getName(void) const
+		const std::string& getName(void) const
 		{
 			return m_name;
 		}
@@ -1200,12 +1213,12 @@ public:
 			return m_variables;
 		}
 
-		auto getSalign(void) const { return m_salign; }
-		auto getBalign(void) const { return m_balign; }
-		auto getEalign(void) const { return m_ealign; }
-		auto getLocSize(void) const { return m_loc_size; }
-		auto getBsize(void) const { return m_bsize; }
-		auto getEsize(void) const { return m_esize; }
+		size_t getSalign(void) const { return m_salign; }
+		size_t getBalign(void) const { return m_balign; }
+		size_t getEalign(void) const { return m_ealign; }
+		size_t getLocSize(void) const { return m_loc_size; }
+		size_t getBsize(void) const { return m_bsize; }
+		size_t getEsize(void) const { return m_esize; }
 
 	private:
 		std::string m_name;
@@ -1243,12 +1256,12 @@ public:
 			return res;
 		}
 
-		std::vector<Type::Parsed> getVariablesParsed(void)
+		std::vector<Type::Parsed> getVariablesParsed(Compiler &compiler)
 		{
 			std::vector<Type::Parsed> res;
 
 			for (auto &v : m_variables)
-				res.emplace_back(v.getType().parse("nolayout"));
+				res.emplace_back(v.getType().parse("nolayout", compiler));
 			return res;
 		}
 
@@ -1462,7 +1475,7 @@ inline void Shader::Compiler::Section::poll(tstream &s, Compiler &compiler)
 	if (Section::isComingUp(s))
 		m_primitives.emplace<Section>(s, compiler);
 	else if (Struct::isComingUp(s)) {
-		compiler.addStruct(s);
+		compiler.addStruct(s, compiler);
 	} else if (Variable::isComingUp(s)) {
 		auto &first = m_primitives.emplace<Variable>(s);
 		compiler.addVariable(first);
@@ -1494,7 +1507,7 @@ inline Shader::Compiler::Compiler(const std::string &path) :
 		auto var = v.get();
 		auto set = var.getSet();
 		if (set)
-			m_blocks.forSet(*set).add(v);
+			m_blocks.forSet(*set).add(v, *this);
 	}
 
 	/*std::cout << "STAGES:" << std::endl;
