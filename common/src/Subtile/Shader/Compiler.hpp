@@ -201,7 +201,48 @@ private:
 
 		std::string buf;
 		BufType buf_type = BufType::Whitespace;
+		size_t next_i = 0;
+		bool is_sl_comment = false;
+		bool is_comment = false;
+		size_t delay = 0;
 		for (auto c : str) {
+			next_i++;
+
+			if (delay > 0) {
+				delay--;
+				continue;
+			}
+
+			std::optional<char> next;
+			if (next_i < str.size())
+				next = str.at(next_i);
+
+			if (is_sl_comment) {
+				if (c == '\n') {
+					is_sl_comment = false;
+					continue;
+				}
+			}
+			if (is_comment) {
+				if (c == '*' && next == '/') {
+					is_comment = false;
+					delay = 1;
+					continue;
+				}
+			}
+
+			if (c == '/' && next == '/') {
+				flush_buffer(buf, buf_type, res);
+				is_sl_comment = true;
+			}
+			if (c == '/' && next == '*') {
+				flush_buffer(buf, buf_type, res);
+				is_comment = true;
+			}
+
+			if (is_sl_comment || is_comment)
+				continue;
+
 			auto t = c_type(c);
 			if (t != buf_type) {
 				flush_buffer(buf, buf_type, res);
