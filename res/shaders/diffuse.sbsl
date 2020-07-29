@@ -15,12 +15,12 @@ vertex {
 	object mat4 mvp;
 	object loool test;
 
-	in dvec3 in_pos;
-	in vec3[2] in_normal[4];
+	in vec3 in_pos;
+	in vec3 in_normal;
 	in vec2 in_uv;
 
-	//out vec3 vtx_pos;
-	//out vec3 vtx_normal;
+	out vec3 vtx_pos;
+	out vec3 vtx_normal;
 
 	void main(void)
 	{
@@ -35,8 +35,10 @@ fragment {
 	material vec3 color;
 	material vec3 normal;
 
+	out vec3 screen_color;
+
 	void main(void)
 	{
-		vec3 c = color;
+		screen_color = color;
 	}
 }

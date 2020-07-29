@@ -586,12 +586,11 @@ private:
 				Out
 			};
 
-			InterfaceInOut(Variable &var, Dir dir, size_t &loc_acc) :
+			InterfaceInOut(Variable &var, Dir dir, size_t loc) :
 				m_var(var),
 				m_dir(dir),
-				m_loc(loc_acc)
+				m_loc(loc)
 			{
-				loc_acc += var.getType().parse("nolayout").loc_size;
 			}
 
 			void write(token_output &o) const
@@ -627,18 +626,33 @@ private:
 		{
 			m_in_variables.emplace_back(var);
 		}
+		void addOut(Variable &var)
+		{
+			m_out_variables.emplace_back(var);
+		}
 
 		void done(void) // called when all primitives are in stages (build in / out blocks)
 		{
 			if (m_in_variables.size() > 0) {
 				if (&m_compiler.getStages().begin()->second == this) {
 					size_t loc = 0;
-					for (auto &var : m_in_variables)
+					for (auto &var : m_in_variables) {
 						m_interface_ios.emplace_back(var, InterfaceInOut::Dir::In, loc);
+						loc += var.get().getType().parse("nolayout").loc_size;
+					}
 				} else if (m_stage == Shader::Stage::Fragment) {
 					throw std::runtime_error("Input attachment not handled yet");
 				} else
 					throw std::runtime_error("In variable must be declared only in the first stage of the pipeline");
+			}
+
+			size_t loc = 0;
+			for (auto &var : m_out_variables) {
+				m_interface_ios.emplace_back(var, InterfaceInOut::Dir::Out, loc);
+				auto after = m_compiler.getStages().stageAfter(m_stage);
+				if (after)
+					after->m_interface_ios.emplace_back(var, InterfaceInOut::Dir::In, loc);
+				loc += var.get().getType().parse("nolayout").loc_size;
 			}
 		}
 
@@ -690,6 +704,7 @@ private:
 		Shader::Stage m_stage;
 		std::vector<std::reference_wrapper<Primitive>> m_primitives;
 		std::vector<std::reference_wrapper<Variable>> m_in_variables;
+		std::vector<std::reference_wrapper<Variable>> m_out_variables;
 
 		std::vector<InterfaceInOut> m_interface_ios;
 	};
@@ -719,6 +734,18 @@ private:
 			for (auto &p : *this)
 				res.emplace(p.first);
 			return res;
+		}
+
+		Stage* stageAfter(Shader::Stage stage)
+		{
+			auto got = find(stage);
+			if (got == end())
+				throw std::runtime_error("Base stage not found for neighbor search");
+			++got;
+			if (got == end())
+				return nullptr;
+			else
+				return &got->second;
 		}
 
 	private:
@@ -1181,6 +1208,8 @@ public:
 				addStage(stage.getStage());
 			} else if (m_storage == Storage::In) {
 				stage.addIn(*this);
+			} else if (m_storage == Storage::Out) {
+				stage.addOut(*this);
 			} else
 				stage.add(*this);
 		}
