@@ -28,22 +28,23 @@ $(RES_DETECTOR): .FORCE
 resources_detect: $(RES_DETECTOR) .FORCE
 	$(RES_DETECTOR) ../res $(SRC_FOLDER)/Krt Krt
 
+%.res_detector.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
 USER_RESOURCES_SRC = $(SRC_FOLDER)/Krt/res.resdecl.cpp
 USER_RESOURCES_HEADER = $(USER_RESOURCES_SRC:.cpp=.hpp)
-USER_RESOURCES_OBJ = $(USER_RESOURCES_SRC:.cpp=.o)
-
-RESOURCES_SRC = $(wildcard $(SRC_FOLDER)/Subtile/Resource/*.cpp)
-RESOURCES_OBJ = $(RESOURCES_SRC:.cpp=.o)
+RESOURCES_SRC = $(USER_RESOURCES_SRC) $(wildcard $(SRC_FOLDER)/Subtile/Resource/*.cpp) $(wildcard $(SRC_FOLDER)/Subtile/Shader.cpp)
+RESOURCES_OBJ = $(RESOURCES_SRC:.cpp=.res_detector.o)
 
 RESOURCE_DUMMY_MAIN = .sb_dummy_main.cpp
 RESOURCE_OUT = ./.sb_resource_make
 
-resources: $(RESOURCES_OBJ) $(USER_RESOURCES_OBJ)
+resources: $(RESOURCES_OBJ)
 
 RES_SHIP = res_ship
 
-$(RES_SHIP): $(RESOURCES_OBJ) $(USER_RESOURCES_OBJ)
-	$(CXX) $(CXXFLAGS) res_ship.cpp $(RESOURCES_OBJ) $(USER_RESOURCES_OBJ) -o $(RES_SHIP)
+$(RES_SHIP): $(RESOURCES_OBJ)
+	$(CXX) $(CXXFLAGS) res_ship.cpp $(RESOURCES_OBJ) -o $(RES_SHIP)
 
 LIB_SRC = $(wildcard $(LIB_SRC_FOLDER)/*.cpp)
 LIB_OBJ = $(LIB_SRC:.cpp=.o)
@@ -62,7 +63,7 @@ $(TARGET): $(OBJ) $(LIB_OBJ)
 	ar rcs $(TARGET) $(OBJ) $(LIB_OBJ)
 
 clean:
-	rm -f $(OBJ) $(TARGET) $(RES_SHIP)
+	rm -f $(OBJ) $(TARGET) $(RESOURCES_OBJ) $(RES_SHIP)
 
 clean_libs:
 	rm -f $(LIB_OBJ)

@@ -26,6 +26,10 @@ void Target::beforeRead(void) const
 
 bool Target::is_up_to_date(void) const
 {
+#ifndef DEBUG
+	return true;
+#endif
+
 	auto p = std::filesystem::path(getPath());
 
 	if (!std::filesystem::exists(p))
