@@ -444,11 +444,11 @@ private:
 		{
 		}
 
-		void add(Variable &var, Compiler &compiler)
+		void add(Variable &var)
 		{
 			m_variables.emplace_back(var);
 
-			if (var.getType().parse("whatever", compiler).is_opaque)
+			if (var.getType().parse("whatever").is_opaque)
 				m_opaque.emplace_back(m_set, m_counter, var);
 			else {
 				if (!m_n_opaque)
@@ -578,6 +578,39 @@ public:
 private:
 	class Stage
 	{
+		class InterfaceInOut
+		{
+		public:
+			enum class Dir {
+				In,
+				Out
+			};
+
+			InterfaceInOut(Variable &var, Dir dir, size_t &loc_acc) :
+				m_var(var),
+				m_dir(dir),
+				m_loc(loc_acc)
+			{
+				loc_acc += var.getType().parse("nolayout").loc_size;
+			}
+
+			void write(token_output &o) const
+			{
+				static const std::map<Dir, std::string> io_table {
+					{Dir::In, "in"},
+					{Dir::Out, "out"}
+				};
+
+				o << "layout" << "(" << "location" << "=" << m_loc << ")" << io_table.at(m_dir);
+				m_var.declare(o);
+			}
+
+		private:
+			Variable &m_var;
+			Dir m_dir;
+			size_t m_loc;
+		};
+
 	public:
 		Stage(Compiler &compiler, Shader::Stage stage) :
 			m_compiler(compiler),
@@ -590,10 +623,31 @@ private:
 			m_primitives.emplace_back(prim);
 		}
 
+		void addIn(Variable &var)
+		{
+			m_in_variables.emplace_back(var);
+		}
+
+		void done(void) // called when all primitives are in stages (build in / out blocks)
+		{
+			if (m_in_variables.size() > 0) {
+				if (&m_compiler.getStages().begin()->second == this) {
+					size_t loc = 0;
+					for (auto &var : m_in_variables)
+						m_interface_ios.emplace_back(var, InterfaceInOut::Dir::In, loc);
+				} else if (m_stage == Shader::Stage::Fragment) {
+					throw std::runtime_error("Input attachment not handled yet");
+				} else
+					throw std::runtime_error("In variable must be declared only in the first stage of the pipeline");
+			}
+		}
+
 		void write(token_output &o, Sbi sbi) const
 		{
 			for (auto &s : m_compiler.getStructs())
-				s.write(o, sbi);
+				s.write(o);
+			for (auto &io : m_interface_ios)
+				io.write(o);
 			for (auto &b : m_compiler.getDescriptorSets())
 				b.get().getBlock().write(o, sbi);
 			token_output inter_o;
@@ -635,6 +689,9 @@ private:
 		Compiler &m_compiler;
 		Shader::Stage m_stage;
 		std::vector<std::reference_wrapper<Primitive>> m_primitives;
+		std::vector<std::reference_wrapper<Variable>> m_in_variables;
+
+		std::vector<InterfaceInOut> m_interface_ios;
 	};
 
 	class Stages : public std::map<Shader::Stage, Stage>
@@ -671,7 +728,7 @@ private:
 	Stages m_stages;
 
 public:
-	auto& getStages(void)
+	Stages& getStages(void)
 	{
 		return m_stages;
 	}
@@ -719,15 +776,18 @@ public:
 
 			void spec_array(const std::vector<size_t> &array, const std::string &layout)
 			{
+				if (array.size() == 0)
+					return;
+
 				for (auto it = array.crbegin(); it != array.crend(); it++) {
 					auto &a = *it;
 					std::stringstream ss;
 					ss << typePrefix("Array") << "<" << name << ", " << a << ", " << layout << ">";
 					name = ss.str();
 				}
-				size_t els = 0;
+				size_t els = 1;
 				for (auto &a : array)
-					els += a;
+					els *= a;
 				loc_size *= els;
 				ealign = util::align_dyn(ealign, 16);
 				bsize *= els;
@@ -735,7 +795,8 @@ public:
 			}
 		};
 
-		Type(tstream &s) :
+		Type(Compiler &compiler, tstream &s) :
+			m_compiler(compiler),
 			m_name(s.poll()),
 			m_base_array(parseArray(s)),
 			m_array(m_base_array)
@@ -746,6 +807,7 @@ public:
 		static inline constexpr build_comma_t build_comma {};
 
 		Type(build_comma_t, const Type &other) :
+			m_compiler(other.m_compiler),
 			m_name(other.m_name),
 			m_base_array(other.m_base_array),
 			m_array(m_base_array)
@@ -795,7 +857,7 @@ public:
 			return typePrefix(table.at(layout));
 		}
 
-		Parsed parse(const std::string &layout, Compiler &compiler) const
+		Parsed parse(const std::string &layout) const
 		{
 			auto nopq = parseNOpq(layout);
 			if (nopq)
@@ -803,7 +865,7 @@ public:
 			auto opq = parseOpq();
 			if (opq)
 				return Parsed(*opq, true);
-			for (auto &s : compiler.getStructs()) {
+			for (auto &s : m_compiler.getStructs()) {
 				if (s.getName() == m_name) {
 					Parsed res(m_name, false, true);
 
@@ -820,6 +882,7 @@ public:
 		}
 
 	private:
+		Compiler &m_compiler;
 		std::string m_name;
 		std::vector<size_t> m_base_array;
 		std::vector<size_t> m_array;
@@ -1024,7 +1087,9 @@ public:
 			Inline,
 			Const,
 			Material,
-			Object
+			Object,
+			In,
+			Out
 		};
 
 	private:
@@ -1035,7 +1100,9 @@ public:
 			static const StorageTable table {
 				{"const", Storage::Const},
 				{"material", Storage::Material},
-				{"object", Storage::Object}
+				{"object", Storage::Object},
+				{"in", Storage::In},
+				{"out", Storage::Out}
 			};
 
 			return table;
@@ -1050,20 +1117,22 @@ public:
 		}
 
 	public:
-		Variable(tstream &s, Storage storage) :
+		Variable(Compiler &compiler, tstream &s, Storage storage) :
+			m_compiler(compiler),
 			m_storage(storage),
-			m_type(s),
+			m_type(compiler, s),
 			m_id(getId(s)),
 			m_value(getValue(s))
 		{
 		}
 
-		Variable(tstream &s) :
-			Variable(s, storageTable().at(s.poll()))
+		Variable(Compiler &compiler, tstream &s) :
+			Variable(compiler, s, storageTable().at(s.poll()))
 		{
 		}
 
 		Variable(tstream &s, Variable &first) :
+			m_compiler(first.m_compiler),
 			m_storage(first.m_storage),
 			m_type(Type::build_comma, first.m_type),
 			m_id(getId(s)),
@@ -1106,6 +1175,16 @@ public:
 			m_stages.emplace(stage);
 		}
 
+		void addToStage(Stage &stage)
+		{
+			if (isUniform()) {
+				addStage(stage.getStage());
+			} else if (m_storage == Storage::In) {
+				stage.addIn(*this);
+			} else
+				stage.add(*this);
+		}
+
 		const std::set<Shader::Stage>& getStages(void) const
 		{
 			return m_stages;
@@ -1137,6 +1216,7 @@ public:
 		}
 
 	private:
+		Compiler &m_compiler;
 		Storage m_storage;
 		Type m_type;
 		std::string m_id;
@@ -1165,6 +1245,9 @@ public:
 				{Storage::Object, 1}
 			};
 
+			if (m_storage == Storage::In || m_storage == Storage::Out)
+				return;
+
 			if (m_storage == Storage::Const)
 				o << "const";
 			else
@@ -1177,9 +1260,10 @@ public:
 	{
 	public:
 		Struct(tstream &s, Compiler &compiler) :
+			m_compiler(compiler),
 			m_name(getName(s)),
 			m_variables(getVariables(s)),
-			m_variables_parsed(getVariablesParsed(compiler)),
+			m_variables_parsed(getVariablesParsed()),
 			m_salign(computeAlign(&Type::Parsed::salign)),
 			m_balign(computeAlign(&Type::Parsed::balign)),
 			m_ealign(util::align_dyn(computeAlign(&Type::Parsed::ealign), 16)),
@@ -1195,12 +1279,12 @@ public:
 			return s.peek() == "struct";
 		}
 
-		void write(token_output &o, Sbi sbi) const
+		void write(token_output &o) const
 		{
-			if (sbi == Sbi::Vulkan) {
-				write_vulkan(o);
-			} else
-				throw std::runtime_error("Can't output variable for such interface");
+			o << "struct" << m_name << "{";
+			for (auto &v : m_variables)
+				v.declare(o);
+			o << "}" << ";";
 		}
 
 		const std::string& getName(void) const
@@ -1221,6 +1305,7 @@ public:
 		size_t getEsize(void) const { return m_esize; }
 
 	private:
+		Compiler &m_compiler;
 		std::string m_name;
 		util::unique_vector<Variable> m_variables;
 		std::vector<Type::Parsed> m_variables_parsed;
@@ -1244,7 +1329,7 @@ public:
 
 			s.expect("{");
 			while (s.peek() != "}") {
-				auto &first = res.emplace(s, Variable::Storage::Inline);
+				auto &first = res.emplace(m_compiler, s, Variable::Storage::Inline);
 				while (s.peek() == ",") {
 					s.poll();
 					res.emplace(s, first);
@@ -1256,21 +1341,13 @@ public:
 			return res;
 		}
 
-		std::vector<Type::Parsed> getVariablesParsed(Compiler &compiler)
+		std::vector<Type::Parsed> getVariablesParsed(void)
 		{
 			std::vector<Type::Parsed> res;
 
 			for (auto &v : m_variables)
-				res.emplace_back(v.getType().parse("nolayout", compiler));
+				res.emplace_back(v.getType().parse("nolayout"));
 			return res;
-		}
-
-		void write_vulkan(token_output &o) const
-		{
-			o << "struct" << m_name << "{";
-			for (auto &v : m_variables)
-				v.declare(o);
-			o << "}" << ";";
 		}
 
 		size_t computeAlign(size_t Type::Parsed::*resolver)
@@ -1356,10 +1433,7 @@ private:
 			if (m_stage) {
 				auto var = dynamic_cast<Variable*>(&prim);
 				if (var) {
-					if (var->isUniform()) {
-						var->addStage(m_stage->getStage());
-					} else
-						m_stage->add(prim);
+					var->addToStage(*m_stage);
 				} else
 					m_stage->add(prim);
 			}
@@ -1477,7 +1551,7 @@ inline void Shader::Compiler::Section::poll(tstream &s, Compiler &compiler)
 	else if (Struct::isComingUp(s)) {
 		compiler.addStruct(s, compiler);
 	} else if (Variable::isComingUp(s)) {
-		auto &first = m_primitives.emplace<Variable>(s);
+		auto &first = m_primitives.emplace<Variable>(compiler, s);
 		compiler.addVariable(first);
 		while (s.peek() == ",") {
 			s.poll();
@@ -1507,8 +1581,11 @@ inline Shader::Compiler::Compiler(const std::string &path) :
 		auto var = v.get();
 		auto set = var.getSet();
 		if (set)
-			m_blocks.forSet(*set).add(v, *this);
+			m_blocks.forSet(*set).add(v);
 	}
+
+	for (auto &s : m_stages)
+		s.second.done();
 
 	/*std::cout << "STAGES:" << std::endl;
 	for (auto &s : m_stages) {

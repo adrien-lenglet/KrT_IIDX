@@ -15,13 +15,17 @@ vertex {
 	object mat4 mvp;
 	object loool test;
 
+	in dvec3 in_pos;
+	in vec3[2] in_normal[4];
+	in vec2 in_uv;
+
 	//out vec3 vtx_pos;
 	//out vec3 vtx_normal;
 
 	void main(void)
 	{
-		vec3 in_pos = vec3(2.3);
-		vec2 pos;
+		//vec3 in_pos = vec3(2.3);
+		//vec2 pos;
 		gl_Position = mvp * vec4(in_pos, 1.0);
 	}
 }
