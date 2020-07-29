@@ -24,6 +24,74 @@ public:
 		Fragment
 	};
 
+	struct VertexInput
+	{
+		enum class Format
+		{
+			Bool,
+			Int,
+			Uint,
+			Float,
+			Double,
+
+			Vec2,
+			Vec3,
+			Vec4,
+
+			Bvec2,
+			Bvec3,
+			Bvec4,
+
+			Ivec2,
+			Ivec3,
+			Ivec4,
+
+			Uvec2,
+			Uvec3,
+			Uvec4,
+
+			Dvec2,
+			Dvec3,
+			Dvec4
+		};
+
+		struct Attribute
+		{
+			Format format;
+			size_t offset;
+			size_t location;
+		};
+
+		size_t size;
+		std::vector<Attribute> attributes;
+
+		class Creator
+		{
+		public:
+			template <typename V>
+			Creator(V &&vertex, VertexInput &res) :
+				m_base(&vertex),
+				m_loc_acc(0),
+				m_attributes(res.attributes)
+			{
+			}
+
+			void addAttr(const void *ptr, Format format)
+			{
+				m_attributes.emplace_back(Attribute {format, reinterpret_cast<size_t>(ptr) - reinterpret_cast<size_t>(m_base), m_loc_acc});
+				if (format == Format::Dvec3 || format == Format::Dvec4)
+					m_loc_acc += 2;
+				else
+					m_loc_acc += 1;
+			}
+
+		private:
+			void *m_base;
+			size_t m_loc_acc;
+			std::vector<Attribute> &m_attributes;
+		};
+	};
+
 	struct Type {
 
 		class Bool : public util::scalar<bool>, private util::pad<sizeof(uint32_t) - sizeof(bool)>
@@ -34,6 +102,11 @@ public:
 			Bool(Args &&...args) :
 				util::scalar<bool>(std::forward<Args>(args)...)
 			{
+			}
+
+			void createVertexInput(VertexInput::Creator &creator) const
+			{
+				creator.addAttr(this, VertexInput::Format::Bool);
 			}
 
 			using salign = util::csize_t<sizeof(uint32_t)>;
@@ -51,6 +124,11 @@ public:
 			{
 			}
 
+			void createVertexInput(VertexInput::Creator &creator) const
+			{
+				creator.addAttr(this, VertexInput::Format::Int);
+			}
+
 			using salign = util::csize_t<sizeof(type)>;
 			using balign = salign;
 			using ealign = balign;
@@ -64,6 +142,11 @@ public:
 			Uint(Args &&...args) :
 				util::scalar<uint32_t>(std::forward<Args>(args)...)
 			{
+			}
+
+			void createVertexInput(VertexInput::Creator &creator) const
+			{
+				creator.addAttr(this, VertexInput::Format::Uint);
 			}
 
 			using salign = util::csize_t<sizeof(type)>;
@@ -81,6 +164,11 @@ public:
 			{
 			}
 
+			void createVertexInput(VertexInput::Creator &creator) const
+			{
+				creator.addAttr(this, VertexInput::Format::Float);
+			}
+
 			using salign = util::csize_t<sizeof(type)>;
 			using balign = salign;
 			using ealign = balign;
@@ -94,6 +182,11 @@ public:
 			Double(Args &&...args) :
 				util::scalar<double>(std::forward<Args>(args)...)
 			{
+			}
+
+			void createVertexInput(VertexInput::Creator &creator) const
+			{
+				creator.addAttr(this, VertexInput::Format::Double);
 			}
 
 			using salign = util::csize_t<sizeof(type)>;
@@ -114,6 +207,8 @@ public:
 			{
 			}
 
+			void createVertexInput(VertexInput::Creator &creator) const;
+
 			using salign = typename S::salign;
 			using balign = util::csize_t<salign{} * 2>;
 			using ealign = balign;
@@ -129,6 +224,8 @@ public:
 			{
 			}
 
+			void createVertexInput(VertexInput::Creator &creator) const;
+
 			using salign = typename S::salign;
 			using balign = util::csize_t<salign{} * 4>;
 			using ealign = balign;
@@ -143,6 +240,8 @@ public:
 				glm::vec<4, S, glm::defaultp>(std::forward<Args>(args)...)
 			{
 			}
+
+			void createVertexInput(VertexInput::Creator &creator) const;
 
 			using salign = typename S::salign;
 			using balign = util::csize_t<salign{} * 4>;
@@ -251,6 +350,7 @@ public:
 
 			class const_iterator
 			{
+			public:
 				const_iterator(const Array &array, size_t ndx = 0) :
 					m_array(array),
 					m_ndx(ndx)
@@ -302,6 +402,12 @@ public:
 			using ealign = util::csize_t<util::align_v<T::ealign::value, 16>>;
 
 			using padded_type = typename Layout::template ArrayPad<T>;
+
+			void createVertexInput(VertexInput::Creator &creator) const
+			{
+				for (auto &e : *this)
+					e.createVertexInput(creator);
+			}
 
 		private:
 			padded_type m_values[Size];

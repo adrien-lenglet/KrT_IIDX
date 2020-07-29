@@ -17,6 +17,7 @@ public:
 
 	virtual sb::Shader::DescriptorSet::Layout material(void) const = 0;
 	virtual sb::Shader::DescriptorSet::Layout object(void) const = 0;
+	virtual sb::Shader::VertexInput vertexInput(void) const = 0;
 
 	class Stage
 	{

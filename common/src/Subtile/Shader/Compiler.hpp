@@ -258,8 +258,10 @@ private:
 	}
 
 	class Stages;
+public:
 	class Stage;
 
+private:
 	class Primitive
 	{
 	public:
@@ -575,9 +577,9 @@ public:
 		return res;
 	}
 
-private:
 	class Stage
 	{
+	public:
 		class InterfaceInOut
 		{
 		public:
@@ -604,13 +606,27 @@ private:
 				m_var.declare(o);
 			}
 
+			auto& getVariable(void) const
+			{
+				return m_var;
+			}
+
+			auto getDir(void) const
+			{
+				return m_dir;
+			}
+
+			auto getLocation(void) const
+			{
+				return m_loc;
+			}
+
 		private:
 			Variable &m_var;
 			Dir m_dir;
 			size_t m_loc;
 		};
 
-	public:
 		Stage(Compiler &compiler, Shader::Stage stage) :
 			m_compiler(compiler),
 			m_stage(stage)
@@ -629,6 +645,11 @@ private:
 		void addOut(Variable &var)
 		{
 			m_out_variables.emplace_back(var);
+		}
+
+		auto& getInterface(void) const
+		{
+			return m_interface_ios;
 		}
 
 		void done(void) // called when all primitives are in stages (build in / out blocks)
@@ -709,6 +730,7 @@ private:
 		std::vector<InterfaceInOut> m_interface_ios;
 	};
 
+private:
 	class Stages : public std::map<Shader::Stage, Stage>
 	{
 	public:

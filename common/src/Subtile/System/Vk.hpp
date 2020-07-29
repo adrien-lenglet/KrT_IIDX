@@ -561,6 +561,7 @@ private:
 	{
 	public:
 		static VkShaderStageFlagBits sbStageToVk(Subtile::Shader::Stage stage);
+		static VkFormat vertexInputFormatToVk(sb::Shader::VertexInput::Format);
 
 		Shader(Device &device, rs::Shader &shader);
 

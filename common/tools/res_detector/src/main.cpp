@@ -128,6 +128,11 @@ class FolderPrinter
 			prev_id = s += t | Id(v.getName());
 			ids.emplace_back(*prev_id);
 		}
+
+		auto &vertex_input = s += Void | Id("createVertexInput")("sb::Shader::VertexInput::Creator"_t | &N | Id("creator")) | Const | S {};
+		for (auto &i : ids)
+			vertex_input += i.M("createVertexInput"_v("creator"_v));
+
 		auto s_w_param = Type(s);
 		if constexpr (isTemplate)
 			s_w_param.assign(s_w_param.T("Layout"_t));
@@ -186,6 +191,26 @@ class FolderPrinter
 		impl += Return | B {bmapped, Sizeof(mapped_str), bopq};
 	}
 
+	void shaderAddVertexInput(Util::CollectionBase &scope, Util::CollectionBase &user_structs_scope, sb::Shader::Compiler &shader)
+	{
+		std::vector<std::reference_wrapper<const sb::Shader::Compiler::Variable>> vars;
+		for (auto &io : shader.getStages().begin()->second.getInterface())
+			if (io.getDir() == sb::Shader::Compiler::Stage::InterfaceInOut::Dir::In) {
+				vars.emplace_back(io.getVariable());
+			}
+		auto vertex_t = createShaderStruct<false>(scope, user_structs_scope, "Vertex", vars, "sb::Shader::Type::Std430");
+
+		auto t = "sb::Shader::VertexInput"_t;
+		auto fwd = scope += t | Id("vertexInput")(Void) | Const | Override;
+		auto &impl = m_impl_out += t | fwd(Void) | Const | S {};
+
+		auto res = impl += t | "res" | B {Sizeof(vertex_t), B {}};
+		auto vertex = impl += vertex_t | "vertex";
+		auto creator = impl += t>>"Creator"_t | Id("creator")(vertex, res);
+		impl += "vertex"_v.M("createVertexInput"_v(creator));
+		impl += Return | "res"_v;
+	}
+
 	Type addShader(Util::CollectionBase &scope, const std::string &id, const std::string &shaderpath, const std::fs::directory_entry &shaderentry)
 	{
 		static const Type shader_type("sb::rs::Shader");
@@ -211,9 +236,10 @@ class FolderPrinter
 		shaderAddLayout(sh, u_structs, sb::Shader::Compiler::Set::Material, "material", compiled);
 		shaderAddLayout(sh, u_structs, sb::Shader::Compiler::Set::Object, "object", compiled);
 
+		shaderAddVertexInput(sh, u_structs, compiled);
+
 		auto name = shaderentry.path().parent_path().string() + std::string("/.") + id + std::string("_stages");
 		std::fs::create_directory(name);
-
 		for (auto &s : compiled.getStages()) {
 			for (auto &sbi : sb::Shader::getSbi()) {
 				std::stringstream ss;

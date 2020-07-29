@@ -4,11 +4,11 @@
 
 namespace Subtile {
 
-struct Vertex
+/*struct Vertex
 {
 	math::vec3 pos;
 	math::vec3 normal;
 	math::vec2 uv;
-};
+};*/
 
 }

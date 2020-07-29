@@ -928,6 +928,39 @@ VkShaderStageFlagBits Vk::Shader::sbStageToVk(Subtile::Shader::Stage stage)
 	return table.at(stage);
 }
 
+VkFormat Vk::Shader::vertexInputFormatToVk(sb::Shader::VertexInput::Format format)
+{
+	static const std::map<sb::Shader::VertexInput::Format, VkFormat> table {
+		{sb::Shader::VertexInput::Format::Bool, VK_FORMAT_R32_UINT},
+		{sb::Shader::VertexInput::Format::Int, VK_FORMAT_R32_SINT},
+		{sb::Shader::VertexInput::Format::Uint, VK_FORMAT_R32_UINT},
+		{sb::Shader::VertexInput::Format::Float, VK_FORMAT_R32_SFLOAT},
+		{sb::Shader::VertexInput::Format::Double, VK_FORMAT_R64_SFLOAT},
+
+		{sb::Shader::VertexInput::Format::Vec2, VK_FORMAT_R32G32_SFLOAT},
+		{sb::Shader::VertexInput::Format::Vec3, VK_FORMAT_R32G32B32_SFLOAT},
+		{sb::Shader::VertexInput::Format::Vec4, VK_FORMAT_R32G32B32A32_SFLOAT},
+
+		{sb::Shader::VertexInput::Format::Bvec2, VK_FORMAT_R32G32_UINT},
+		{sb::Shader::VertexInput::Format::Bvec3, VK_FORMAT_R32G32B32_UINT},
+		{sb::Shader::VertexInput::Format::Bvec4, VK_FORMAT_R32G32B32A32_UINT},
+
+		{sb::Shader::VertexInput::Format::Ivec2, VK_FORMAT_R32G32_SINT},
+		{sb::Shader::VertexInput::Format::Ivec3, VK_FORMAT_R32G32B32_SINT},
+		{sb::Shader::VertexInput::Format::Ivec4, VK_FORMAT_R32G32B32A32_SINT},
+
+		{sb::Shader::VertexInput::Format::Uvec2, VK_FORMAT_R32G32_UINT},
+		{sb::Shader::VertexInput::Format::Uvec3, VK_FORMAT_R32G32B32_UINT},
+		{sb::Shader::VertexInput::Format::Uvec4, VK_FORMAT_R32G32B32A32_UINT},
+
+		{sb::Shader::VertexInput::Format::Dvec2, VK_FORMAT_R64G64_SFLOAT},
+		{sb::Shader::VertexInput::Format::Dvec3, VK_FORMAT_R64G64B64_SFLOAT},
+		{sb::Shader::VertexInput::Format::Dvec4, VK_FORMAT_R64G64B64A64_SFLOAT}
+	};
+
+	return table.at(format);
+}
+
 Vk::Shader::Shader(Vk::Device &device, rs::Shader &shader) :
 	m_device(device),
 	m_material_layout(device, shader.material()),
@@ -972,7 +1005,7 @@ std::vector<std::pair<VkShaderStageFlagBits, Vk::ShaderModule>> Vk::Shader::crea
 	return res;
 }
 
-Vk::Pipeline Vk::Shader::createPipeline(Vk::Device &device, rs::Shader&)
+Vk::Pipeline Vk::Shader::createPipeline(Vk::Device &device, rs::Shader &shader)
 {
 	std::vector<VkPipelineShaderStageCreateInfo> stages;
 	for (auto &sp : m_shader_modules) {
@@ -984,17 +1017,22 @@ Vk::Pipeline Vk::Shader::createPipeline(Vk::Device &device, rs::Shader&)
 		stages.emplace_back(ci);
 	}
 
+	auto rsVertexInput = shader.vertexInput();
 	std::vector<VkVertexInputBindingDescription> vertexBindings;
 	VkVertexInputBindingDescription vertexBinding;
 	vertexBinding.binding = 0;
-	vertexBinding.stride = sizeof(sb::Vertex);
+	vertexBinding.stride = rsVertexInput.size;
 	vertexBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 	vertexBindings.emplace_back(vertexBinding);
-	std::vector<VkVertexInputAttributeDescription> vertexAttributes {	// location, binding, format, offset
-		{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(sb::Vertex, pos)},
-		{1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(sb::Vertex, normal)},
-		{2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(sb::Vertex, uv)}
-	};
+	std::vector<VkVertexInputAttributeDescription> vertexAttributes;
+	for (auto &a : rsVertexInput.attributes) {
+		VkVertexInputAttributeDescription attr;
+		attr.location = a.location;
+		attr.binding = 0;
+		attr.format = vertexInputFormatToVk(a.format);
+		attr.offset = a.offset;
+		vertexAttributes.emplace_back(attr);
+	}
 	VkPipelineVertexInputStateCreateInfo vertexInput {};
 	vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 	vertexInput.vertexBindingDescriptionCount = vertexBindings.size();
