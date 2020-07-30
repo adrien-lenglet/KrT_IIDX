@@ -112,6 +112,8 @@ public:
 			using salign = util::csize_t<sizeof(uint32_t)>;
 			using balign = salign;
 			using ealign = balign;
+
+			using to_std = Bool;
 		};
 
 		class Int : public util::scalar<int32_t>
@@ -132,6 +134,8 @@ public:
 			using salign = util::csize_t<sizeof(type)>;
 			using balign = salign;
 			using ealign = balign;
+
+			using to_std = int32_t;
 		};
 
 		class Uint : public util::scalar<uint32_t>
@@ -152,6 +156,8 @@ public:
 			using salign = util::csize_t<sizeof(type)>;
 			using balign = salign;
 			using ealign = balign;
+
+			using to_std = uint32_t;
 		};
 
 		class Float : public util::scalar<float>
@@ -172,6 +178,8 @@ public:
 			using salign = util::csize_t<sizeof(type)>;
 			using balign = salign;
 			using ealign = balign;
+
+			using to_std = float;
 		};
 
 		class Double : public util::scalar<double>
@@ -192,18 +200,20 @@ public:
 			using salign = util::csize_t<sizeof(type)>;
 			using balign = salign;
 			using ealign = balign;
+
+			using to_std = double;
 		};
 
 		template <typename S, size_t Size>
 		struct Vec;
 
 		template <typename S>
-		struct Vec<S, 2> : public glm::vec<2, S, glm::defaultp>
+		struct Vec<S, 2> : public glm::vec<2, typename S::to_std, glm::defaultp>
 		{
 			Vec(void) = default;
 			template <typename ...Args>
 			Vec(Args &&...args) :
-				glm::vec<2, S, glm::defaultp>(std::forward<Args>(args)...)
+				glm::vec<2, typename S::to_std, glm::defaultp>(std::forward<Args>(args)...)
 			{
 			}
 
@@ -215,12 +225,12 @@ public:
 		};
 
 		template <typename S>
-		struct Vec<S, 3> : public glm::vec<3, S, glm::defaultp>
+		struct Vec<S, 3> : public glm::vec<3, typename S::to_std, glm::defaultp>
 		{
 			Vec(void) = default;
 			template <typename ...Args>
 			Vec(Args &&...args) :
-				glm::vec<3, S, glm::defaultp>(std::forward<Args>(args)...)
+				glm::vec<3, typename S::to_std, glm::defaultp>(std::forward<Args>(args)...)
 			{
 			}
 
@@ -232,12 +242,12 @@ public:
 		};
 
 		template <typename S>
-		struct Vec<S, 4> : public glm::vec<4, S, glm::defaultp>
+		struct Vec<S, 4> : public glm::vec<4, typename S::to_std, glm::defaultp>
 		{
 			Vec(void) = default;
 			template <typename ...Args>
 			Vec(Args &&...args) :
-				glm::vec<4, S, glm::defaultp>(std::forward<Args>(args)...)
+				glm::vec<4, typename S::to_std, glm::defaultp>(std::forward<Args>(args)...)
 			{
 			}
 
@@ -614,6 +624,14 @@ public:
 
 	virtual std::unique_ptr<DescriptorSet> material(void) = 0;
 	virtual std::unique_ptr<DescriptorSet> object(void) = 0;
+
+	class Model
+	{
+	public:
+		virtual ~Model(void) = default;
+	};
+
+	virtual std::unique_ptr<Model> model(size_t count, size_t stride, const void *data) = 0;
 
 	/*
 	template <typename ShaderRs>

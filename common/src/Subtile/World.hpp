@@ -1,5 +1,6 @@
 #pragma once
 
+#include <random>
 #include "Entity.hpp"
 #include "Event/World/Observer.hpp"
 
@@ -28,6 +29,9 @@ public:
 		return res;
 	}
 
+	double urandf(void);
+	double srandf(void);
+
 private:
 	friend SessionBase;
 	friend Entity;
@@ -36,6 +40,8 @@ private:
 
 	template <typename S>
 	decltype(auto) loadShader(S &&shaderres);
+
+	std::mt19937_64 m_rand_gen;
 };
 
 }

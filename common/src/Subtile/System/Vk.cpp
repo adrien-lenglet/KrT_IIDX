@@ -824,6 +824,9 @@ Vk::DescriptorSet::DescriptorSet(Vk::Device &dev, const Vk::DescriptorSetLayout 
 
 void Vk::DescriptorSet::write(size_t offset, size_t range, const void *data)
 {
+	if (range == 0)
+		return;
+
 	auto dst = m_buffer.map();
 	std::memcpy(&static_cast<char*>(dst)[offset], data, range);
 	m_buffer.unmap();
@@ -889,6 +892,38 @@ Vk::VmaBuffer Vk::DescriptorSet::createBuffer(const DescriptorSetLayout &layout)
 	aci.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
 	return dev.allocator().createBuffer(bci, aci);
+}
+
+Vk::Model::Model(Vk::Device &dev, size_t count, size_t stride, const void *data) :
+	m_count(count),
+	m_buffer(createBuffer(dev, count * stride))
+{
+	if (count > 0) {
+		auto dst = m_buffer.map();
+		std::memcpy(dst, data, count * stride);
+		m_buffer.unmap();
+	}
+}
+
+Vk::VmaBuffer Vk::Model::createBuffer(Device &dev, size_t size)
+{
+	std::vector<uint32_t> queues {*dev.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT)};
+
+	VkBufferCreateInfo bci {};
+	bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bci.size = size;
+	bci.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	bci.sharingMode = queues.size() > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
+	bci.queueFamilyIndexCount = queues.size();
+	bci.pQueueFamilyIndices = queues.data();
+
+	VmaAllocationCreateInfo aci {};
+	aci.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+	if (size == 0)
+		return Vk::VmaBuffer(dev, VK_NULL_HANDLE, VK_NULL_HANDLE);
+	else
+		return dev.allocator().createBuffer(bci, aci);
 }
 
 template <>
@@ -1110,6 +1145,11 @@ std::unique_ptr<sb::Shader::DescriptorSet> Vk::Shader::material(void)
 std::unique_ptr<sb::Shader::DescriptorSet> Vk::Shader::object(void)
 {
 	return std::make_unique<Vk::DescriptorSet>(m_device, m_object_layout);
+}
+
+std::unique_ptr<sb::Shader::Model> Vk::Shader::model(size_t count, size_t stride, const void *data)
+{
+	return std::make_unique<Vk::Model>(m_device, count, stride, data);
 }
 
 std::unique_ptr<sb::Shader> Vk::loadShader(rs::Shader &shader)

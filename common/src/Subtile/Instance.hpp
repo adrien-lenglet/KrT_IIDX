@@ -5,6 +5,7 @@
 #include "IInput.hpp"
 #include "Event/System/Observer.hpp"
 #include "Resource/Shader.hpp"
+#include "Model.hpp"
 #include "Cache.hpp"
 
 namespace Subtile {
@@ -34,6 +35,11 @@ class Instance
 		std::unique_ptr<Shader::DescriptorSet> object(void) override
 		{
 			return (*m_ref)->object();
+		}
+
+		std::unique_ptr<Shader::Model> model(size_t count, size_t stride, const void *data) override
+		{
+			return (*m_ref)->model(count, stride, data);
 		}
 
 	private:
@@ -76,6 +82,17 @@ public:
 		auto object(void)
 		{
 			return Object(m_ref.object());
+		}
+
+		using Model = sb::Model<typename Res::Vertex>;
+		auto model(const Model &in)
+		{
+			return m_ref.model(in.vertex_count(), sizeof(typename Model::Vertex), in.vertex_data());
+		}
+
+		auto model(void)
+		{
+			return m_ref.model(0, sizeof(typename Model::Vertex), nullptr);
 		}
 
 	private:

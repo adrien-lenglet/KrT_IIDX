@@ -553,6 +553,18 @@ private:
 		VmaBuffer createBuffer(const DescriptorSetLayout &layout);
 	};
 
+	class Model : public sb::Shader::Model
+	{
+	public:
+		Model(Device &dev, size_t count, size_t stride, const void *data);
+
+	private:
+		size_t m_count;
+		VmaBuffer m_buffer;
+
+		VmaBuffer createBuffer(Device &dev, size_t size);
+	};
+
 	using PipelineLayout = Device::Handle<VkPipelineLayout>;
 	using ShaderModule = Device::Handle<VkShaderModule>;
 	using Pipeline = Device::Handle<VkPipeline>;
@@ -567,6 +579,7 @@ private:
 
 		std::unique_ptr<sb::Shader::DescriptorSet> material(void) override;
 		std::unique_ptr<sb::Shader::DescriptorSet> object(void) override;
+		std::unique_ptr<sb::Shader::Model> model(size_t count, size_t stride, const void *data) override;
 
 	private:
 		Device &m_device;

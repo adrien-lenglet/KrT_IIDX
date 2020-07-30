@@ -21,6 +21,9 @@ private:
 	sb::Instance::Shader<decltype(res.shaders().diffuse())> m_shader;
 	decltype(m_shader.material()) m_material;
 	decltype(m_shader.object()) m_object;
+	decltype(m_shader.model()) m_model;
+
+	decltype(m_model) createModel(void);
 };
 
 }

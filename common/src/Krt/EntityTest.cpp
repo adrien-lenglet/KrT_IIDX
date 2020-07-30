@@ -12,7 +12,8 @@ EntityTest::EntityTest(void) :
 	entity2(add<EntityTest2>()),
 	m_shader(load(res.shaders().diffuse())),
 	m_material(m_shader.material()),
-	m_object(m_shader.object())
+	m_object(m_shader.object()),
+	m_model(createModel())
 {
 	bind(world.events.system.input.button.pressed("quit"), [this](){
 		//std::cout << "quit pressed" << std::endl;
@@ -28,20 +29,26 @@ EntityTest::EntityTest(void) :
 		pos.x += t;
 		transformed();
 	});
-
-	auto shader = load(res.shaders().diffuse());
-
-	auto obj = shader.object();
-	auto mat = shader.material();
-
-	mat.color = sb::vec3(2.3);
-
-	res.shaders().diffuse().getStages().at(sb::Shader::Stage::Fragment).getVk().getCompiled().read();
-	res.shaders().diffuse().getStages().at(sb::Shader::Stage::Vertex).getVk().getCompiled().read();
 }
 
 EntityTest::~EntityTest(void)
 {
+}
+
+decltype(EntityTest::m_model) EntityTest::createModel(void)
+{
+	std::vector<decltype(m_shader)::Model::Triangle> triangles;
+	for (size_t i = 0; i < 10; i++){
+		decltype(m_shader)::Model::Vertex vtx;
+		for (size_t i = 0; i < 3; i++)
+			vtx.in_pos[i] = world.srandf() * 50.0;
+		for (size_t i = 0; i < 3; i++)
+			vtx.in_normal[i] = world.srandf();
+		vtx.in_normal = sb::math::normalize(vtx.in_normal);
+		for (size_t i = 0; i < 2; i++)
+			vtx.in_uv[i] = world.urandf();
+	}
+	return m_shader.model(std::move(triangles));
 }
 
 }
