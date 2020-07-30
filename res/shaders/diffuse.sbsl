@@ -1,10 +1,12 @@
-/*
-set camera;
-set object;
-set material;
-*/
+/*set material {
+	vec3 color;
+	vec3 normal;
+};
 
-object float time;
+set object {
+	float time;
+	mat4 mvp;
+};*/
 
 vertex {
 	in vec3 in_pos;

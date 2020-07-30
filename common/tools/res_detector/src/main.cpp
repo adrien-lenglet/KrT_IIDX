@@ -254,6 +254,11 @@ class FolderPrinter
 			}
 		}
 
+		sh += Static | "sb::Instance::Shader"_t.T(sh) | Id("loaded")(Void) | S
+		{
+			"throw"_v
+		};
+
 		return sh;
 	}
 
@@ -352,6 +357,7 @@ public:
 
 		header | S {
 			Pp::Pragma | "once",
+			Pp::Include | "Subtile/Instance.hpp",
 			Pp::Include | "Subtile/Resource/Folder.hpp",
 			Pp::Include | "Subtile/Resource/Model.hpp",
 			Pp::Include | "Subtile/Resource/Image.hpp",

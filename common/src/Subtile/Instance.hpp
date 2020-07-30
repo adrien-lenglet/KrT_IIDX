@@ -92,6 +92,9 @@ public:
 
 		auto model(void)
 		{
+			// don't actually thow a fatal error for a misuse
+			std::cerr << "Shader::model() called at runtime with no argument, use it on static time with decltype for the return type" << std::endl;
+
 			return m_ref.model(0, sizeof(typename Model::Vertex), nullptr);
 		}
 

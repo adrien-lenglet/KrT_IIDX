@@ -38,15 +38,21 @@ EntityTest::~EntityTest(void)
 decltype(EntityTest::m_model) EntityTest::createModel(void)
 {
 	std::vector<decltype(m_shader)::Model::Triangle> triangles;
-	for (size_t i = 0; i < 10; i++){
-		decltype(m_shader)::Model::Vertex vtx;
+	auto gen_vtx = [this](){
+		decltype(m_shader)::Model::Vertex res;
 		for (size_t i = 0; i < 3; i++)
-			vtx.in_pos[i] = world.srandf() * 50.0;
+			res.in_pos[i] = world.srandf() * 50.0;
 		for (size_t i = 0; i < 3; i++)
-			vtx.in_normal[i] = world.srandf();
-		vtx.in_normal = sb::math::normalize(vtx.in_normal);
+			res.in_normal[i] = world.srandf();
+		res.in_normal = sb::math::normalize(res.in_normal);
 		for (size_t i = 0; i < 2; i++)
-			vtx.in_uv[i] = world.urandf();
+			res.in_uv[i] = world.urandf();
+		return res;
+	};
+
+	for (size_t i = 0; i < 10; i++) {
+		decltype(m_shader)::Model::Triangle tri {gen_vtx(), gen_vtx(), gen_vtx()};
+		triangles.emplace_back(tri);
 	}
 	return m_shader.model(std::move(triangles));
 }
