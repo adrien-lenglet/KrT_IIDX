@@ -11,7 +11,6 @@ namespace Subtile {
 
 class Instance;
 class SessionBase;
-class Entity;
 
 namespace Event {
 namespace System {

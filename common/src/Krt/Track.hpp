@@ -1,14 +1,17 @@
 #pragma once
 
 #include "Subtile/World.hpp"
-#include "EntityTest.hpp"
 #include "Subtile/Camera.hpp"
 
 namespace Krt {
 
+class EntityTest;
+
 class Track : public sb::World
 {
 public:
+	using Entity = sb::Entity<Track>;
+
 	Track(void);
 	~Track(void) override;
 
@@ -20,3 +23,5 @@ private:
 };
 
 }
+
+#include "EntityTest.hpp"

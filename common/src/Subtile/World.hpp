@@ -9,7 +9,7 @@ namespace Subtile {
 class SessionBase;
 class Instance;
 
-class World : public Entity
+class World : public Entity<World>
 {
 public:
 	World(void);
@@ -25,7 +25,7 @@ public:
 			return m_children.emplace<EntityType>(std::forward<Args>(args)...);
 		}), &world, this);
 		getEntityStack().pop();
-		res.setAbsolute();
+		//res.setAbsolute();
 		return res;
 	}
 
@@ -34,7 +34,8 @@ public:
 
 private:
 	friend SessionBase;
-	friend Entity;
+	template <typename WorldType>
+	friend class Entity;
 
 	static util::stack<std::reference_wrapper<Instance>>& getInstanceStack(void);
 
@@ -53,11 +54,5 @@ namespace Subtile {
 	decltype(auto) World::loadShader(S &&shaderres)
 	{
 		return instance.loadShader(std::forward<S>(shaderres));
-	}
-
-	template <typename R>
-	decltype(auto) Entity::worldLoadShader(R &&res)
-	{
-		return world.loadShader(std::forward<R>(res));
 	}
 }

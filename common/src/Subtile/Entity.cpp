@@ -3,18 +3,28 @@
 
 namespace Subtile {
 
-Entity::Entity(void) :
-	world(getCtx().top().getWorld(*this)),
-	m_parent(getCtx().top().getParent())
+EntityBase::Context::Context(World *world, EntityBase *parent) :
+	m_world(world),
+	m_parent(parent)
+{
+}
+
+EntityBase* EntityBase::Context::getParent(void) const
+{
+	return m_parent;
+}
+
+EntityBase::EntityBase(EntityBase *parent) :
+	m_parent(parent)
 {
 	getEntityStack().emplace(*this);
 }
 
-Entity::~Entity(void)
+EntityBase::~EntityBase(void)
 {
 }
 
-void Entity::destroy(void)
+void EntityBase::destroy(void)
 {
 	auto &p = getParent();
 	auto got = p.m_children.find(*this);
@@ -24,7 +34,7 @@ void Entity::destroy(void)
 	p.m_children.erase(got);
 }
 
-Entity& Entity::getParent(void)
+EntityBase& EntityBase::getParent(void)
 {
 	if (m_parent)
 		return *m_parent;
@@ -32,16 +42,16 @@ Entity& Entity::getParent(void)
 		throw std::runtime_error("No parent associated with this entity");
 }
 
-util::stack<Entity::Context>& Entity::getCtx(void)
+util::stack<EntityBase::Context>& EntityBase::getCtx(void)
 {
-	static thread_local util::stack<Entity::Context> res;
+	static thread_local util::stack<EntityBase::Context> res;
 
 	return res;
 }
 
-util::stack<std::reference_wrapper<Entity>>& Entity::getEntityStack(void)
+util::stack<std::reference_wrapper<EntityBase>>& EntityBase::getEntityStack(void)
 {
-	static thread_local util::stack<std::reference_wrapper<Entity>> res;
+	static thread_local util::stack<std::reference_wrapper<EntityBase>> res;
 
 	return res;
 }

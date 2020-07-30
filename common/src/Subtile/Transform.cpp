@@ -5,7 +5,7 @@
 
 namespace Subtile {
 
-rt_scc(Transform<Entity>,
+/*rt_scc(Transform<Entity>,
 	template <>
 	scp::Transform(void) :
 		scale(1.0),
@@ -98,6 +98,6 @@ rt_scc(Transform<Entity>,
 		for (auto &c : getFinal().m_children)
 			c.parentMoved();
 	}
-)
+)*/
 
 }

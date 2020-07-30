@@ -6,7 +6,7 @@ namespace Subtile {
 
 class World;
 
-template <class Final>
+/*template <class Final>
 class Transform
 {
 	template <class Extended, size_t off>
@@ -117,6 +117,6 @@ private:
 	void updateWorld(void);
 	void setAbsolute(void);
 	void parentMoved(void);
-};
+};*/
 
 }

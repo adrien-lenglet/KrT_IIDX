@@ -1,10 +1,10 @@
 #pragma once
 
-#include "Subtile/Entity.hpp"
+#include "Track.hpp"
 
 namespace Krt {
 
-class EntityTest2 : public sb::Entity
+class EntityTest2 : public Track::Entity
 {
 public:
 	EntityTest2(void);

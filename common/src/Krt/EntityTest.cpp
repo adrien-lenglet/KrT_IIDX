@@ -25,10 +25,10 @@ EntityTest::EntityTest(void) :
 		trigger(got_score, 7.92);
 	});
 
-	bind(world.events.update, [this](auto &t){
+	/*bind(world.events.update, [this](auto &t){
 		pos.x += t;
 		transformed();
-	});
+	});*/
 }
 
 EntityTest::~EntityTest(void)

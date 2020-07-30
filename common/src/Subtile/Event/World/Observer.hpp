@@ -4,8 +4,6 @@
 
 namespace Subtile {
 
-class Entity;
-
 namespace Event {
 namespace World {
 
@@ -30,7 +28,6 @@ public:
 	} update;
 
 private:
-	friend Entity;
 	friend SessionBase;
 
 	void updateEvents(void);

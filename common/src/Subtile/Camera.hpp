@@ -4,7 +4,7 @@
 
 namespace Subtile {
 
-class Camera : public Entity
+class Camera : public Entity<World>
 {
 public:
 	Camera(void);

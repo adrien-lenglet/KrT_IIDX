@@ -1,12 +1,13 @@
 #pragma once
 
-#include "Subtile/Entity.hpp"
-#include "EntityTest2.hpp"
+#include "Track.hpp"
 #include "res.resdecl.hpp"
 
 namespace Krt {
 
-class EntityTest : public sb::Entity
+class EntityTest2;
+
+class EntityTest : public Track::Entity
 {
 public:
 	EntityTest(void);
@@ -27,3 +28,5 @@ private:
 };
 
 }
+
+#include "EntityTest2.hpp"

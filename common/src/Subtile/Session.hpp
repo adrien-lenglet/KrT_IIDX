@@ -100,11 +100,11 @@ namespace Subtile {
 	auto& SessionBase::addWorld(ArgsTypes &&...args)
 	{
 		auto &res = World::getInstanceStack().emplace_frame(std::function([&]() -> auto& {
-			return Entity::getCtx().emplace_frame(std::function([&]() -> auto& {
+			return EntityBase::getCtx().emplace_frame(std::function([&]() -> auto& {
 				return m_worlds.emplace<WorldType>(std::forward<ArgsTypes>(args)...);
 			}), nullptr, nullptr);
 		}), m_instance);
-		Entity::getEntityStack().pop();
+		EntityBase::getEntityStack().pop();
 		return res;
 	}
 }
