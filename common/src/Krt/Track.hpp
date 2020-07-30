@@ -17,6 +17,7 @@ public:
 
 	Event<> done;
 	sb::Camera &camera;
+	int track_data = 96;
 
 private:
 	EntityTest &entity;

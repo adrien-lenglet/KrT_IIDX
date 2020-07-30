@@ -30,3 +30,4 @@ private:
 }
 
 #include "EntityTest2.hpp"
+#include "EntityTest3.hpp"

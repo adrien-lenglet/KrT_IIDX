@@ -110,6 +110,8 @@ class Entity : public EntityBase
 	}
 
 public:
+	using world_type = WorldType;
+
 	Entity(void) :
 		Entity(getCtx().top())
 	{
@@ -121,6 +123,8 @@ protected:
 	template <class EntityType, typename ...Args>
 	EntityType& add(Args &&...args)
 	{
+		static_assert(std::is_base_of_v<typename EntityType::world_type, world_type>, "Incompatible entity");
+
 		auto &res = getCtx().emplace_frame(std::function([&]() -> auto& {
 			return m_children.emplace<EntityType>(std::forward<Args>(args)...);
 		}), &world, this);
