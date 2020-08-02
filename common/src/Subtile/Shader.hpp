@@ -634,9 +634,6 @@ public:
 		};
 	};
 
-	//virtual std::unique_ptr<DescriptorSet> material(void) = 0;
-	//virtual std::unique_ptr<DescriptorSet> object(void) = 0;
-
 	class Model
 	{
 	public:

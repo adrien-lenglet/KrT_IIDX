@@ -587,8 +587,6 @@ private:
 
 		Shader(Device &device, rs::Shader &shader);
 
-		//std::unique_ptr<sb::Shader::DescriptorSet> material(void) override;
-		//std::unique_ptr<sb::Shader::DescriptorSet> object(void) override;
 		std::unique_ptr<sb::Shader::Model> model(size_t count, size_t stride, const void *data) override;
 		std::unique_ptr<sb::Shader::DescriptorSet> set(size_t ndx) override;
 

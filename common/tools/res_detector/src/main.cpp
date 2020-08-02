@@ -156,7 +156,7 @@ class FolderPrinter
 		return table.at(type);
 	}
 
-	void shaderAddLayout(Util::CollectionBase &scope, Util::CollectionBase &user_structs_scope, const sb::Shader::Compiler::Set &set, Util::CollectionFunctionBase &func)
+	Util::CollectionBase& shaderAddLayout(Util::CollectionBase &scope, Util::CollectionBase &user_structs_scope, const sb::Shader::Compiler::Set &set, Util::CollectionFunctionBase &func)
 	{
 		auto &set_scope = scope += Struct | set.getName() | S {};
 		std::vector<std::reference_wrapper<const sb::Shader::Compiler::Variable>> vars;
@@ -180,6 +180,7 @@ class FolderPrinter
 		impl += Return | gen_bindings;
 
 		func += "res"_v.M("emplace_back"_v("new sb::Shader::DescriptorSet::Layout::Resolver::Inline"_v("sys"_v, Vd(impl.getValue())())));
+		return set_scope;
 	}
 
 	void shaderAddVertexInput(Util::CollectionBase &scope, Util::CollectionBase &user_structs_scope, sb::Shader::Compiler &shader)
@@ -225,14 +226,25 @@ class FolderPrinter
 		}
 
 		auto &u_sets = sh += Struct | "Set" | S {};
-		auto &runtime = sh += Struct | "Runtime" | S {};
+		auto &runtime = sh += Template(Typename | Id("Up")) || Struct | "Runtime" | S {};
 
 		auto vec_resolver = "sb::rs::Shader::DescriptorSetLayouts"_t;
 		auto desc_layout_fwd = sh += vec_resolver | Id("loadDescriptorSetLayouts")("sb::ISystem"_t | &N | Id("sys")) | Const | Override;
 		auto &desc_layout = m_impl_out += vec_resolver | desc_layout_fwd("sb::ISystem"_t | &N | Id("sys")) | Const | S {};
 		auto desc_layout_res = desc_layout += vec_resolver | Id("res");
-		for (auto &set : compiled.getSets())
-			shaderAddLayout(u_sets, u_structs, set, desc_layout);
+		size_t ndx = 0;
+		for (auto &set : compiled.getSets()) {
+			auto cur_ndx = ndx++;
+
+			auto &set_scope = shaderAddLayout(u_sets, u_structs, set, desc_layout);
+
+			auto handle = runtime += Using | (std::string("_") + set.get().getName() + std::string("_t")) = "sb::Shader::DescriptorSet::Handle"_t.T(set_scope);
+			runtime += Auto | Id(set.get().getName())(Void) | S
+			{
+				Using | "Accesser" = Type("typename Up::_RefAccesser"),
+				Return | handle("Accesser"_t(StaticCast("Up&"_t, *"this"_v)).M("getRef"_v().M("set"_v(cur_ndx))))
+			};
+		}
 		desc_layout += Return | desc_layout_res;
 
 		shaderAddVertexInput(sh, u_structs, compiled);

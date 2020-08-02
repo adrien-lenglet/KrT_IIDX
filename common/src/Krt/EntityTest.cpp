@@ -25,6 +25,8 @@ EntityTest::EntityTest(void) :
 		trigger(got_score, 7.92);
 	});
 
+	auto mat = m_shader.material();
+
 	/*bind(world.events.update, [this](auto &t){
 		pos.x += t;
 		transformed();

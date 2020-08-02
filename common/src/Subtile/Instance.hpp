@@ -53,10 +53,12 @@ public:
 	void scanInputs(void);
 
 	template <typename ResType>
-	class Shader : public util::remove_cvr_t<ResType>::Runtime
+	class Shader : public util::remove_cvr_t<ResType>::template Runtime<Shader<ResType>>
 	{
 		using Res = util::remove_cvr_t<ResType>;
-		friend typename Res::Runtime;
+
+		//template <typename Up>
+		//friend class Runtime;
 
 	public:
 		Shader(UniqueShaderRef &&shader_ref) :
@@ -93,6 +95,26 @@ public:
 
 			return m_ref.model(0, sizeof(typename Model::Vertex), nullptr);
 		}
+
+		class _RefAccesser;
+		friend _RefAccesser;
+
+		class _RefAccesser
+		{
+		public:
+			_RefAccesser(Shader &shader) :
+				m_shader(shader)
+			{
+			}
+
+			UniqueShaderRef& getRef(void)
+			{
+				return m_shader.m_ref;
+			}
+
+		private:
+			Shader &m_shader;
+		};
 
 	private:
 		template <typename>
