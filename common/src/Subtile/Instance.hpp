@@ -27,19 +27,14 @@ class Instance
 		{
 		}
 
-		std::unique_ptr<Shader::DescriptorSet> material(void) override
-		{
-			return (*m_ref)->material();
-		}
-
-		std::unique_ptr<Shader::DescriptorSet> object(void) override
-		{
-			return (*m_ref)->object();
-		}
-
 		std::unique_ptr<Shader::Model> model(size_t count, size_t stride, const void *data) override
 		{
 			return (*m_ref)->model(count, stride, data);
+		}
+
+		std::unique_ptr<Shader::DescriptorSet> set(size_t ndx) override
+		{
+			return (*m_ref)->set(ndx);
 		}
 
 	private:
@@ -58,9 +53,10 @@ public:
 	void scanInputs(void);
 
 	template <typename ResType>
-	class Shader
+	class Shader : public util::remove_cvr_t<ResType>::Runtime
 	{
 		using Res = util::remove_cvr_t<ResType>;
+		friend typename Res::Runtime;
 
 	public:
 		Shader(UniqueShaderRef &&shader_ref) :
@@ -72,7 +68,7 @@ public:
 		{
 		}
 
-		using Material = sb::Shader::DescriptorSet::Handle<typename Res::materialTraits>;
+		/*using Material = sb::Shader::DescriptorSet::Handle<typename Res::materialTraits>;
 		auto material(void)
 		{
 			return Material(m_ref.material());
@@ -82,7 +78,7 @@ public:
 		auto object(void)
 		{
 			return Object(m_ref.object());
-		}
+		}*/
 
 		using Model = sb::Model<typename Res::Vertex>;
 		auto model(const Model &in)

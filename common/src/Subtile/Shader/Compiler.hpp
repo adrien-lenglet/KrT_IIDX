@@ -636,6 +636,14 @@ public:
 			return m_array;
 		}
 
+		auto getArrayElems(void) const
+		{
+			size_t res = 1;
+			for (auto &a : m_array)
+				res *= a;
+			return res;
+		}
+
 		void extend(tstream &s)
 		{
 			auto array = parseArray(s);
@@ -1173,7 +1181,7 @@ public:
 	class GlslMappedBlock
 	{
 	public:
-		GlslMappedBlock(size_t &set, size_t binding, const std::string &name) :
+		GlslMappedBlock(Set &set, size_t binding, const std::string &name) :
 			m_set(set),
 			m_binding(binding),
 			m_name(name)
@@ -1193,15 +1201,26 @@ public:
 			m_variables.emplace_back(var);
 		}
 
+		auto getLayoutBinding(void) const
+		{
+			sb::Shader::DescriptorSet::Layout::DescriptionBinding res;
+
+			res.binding = m_binding;
+			res.descriptorCount = 0;
+			res.descriptorType = sb::Shader::DescriptorType::UniformBuffer;
+			res.stages = m_set.getStages();
+			return res;
+		}
+
 	private:
-		size_t &m_set;
+		Set &m_set;
 		size_t m_binding;
 		const std::string &m_name;
 		std::vector<std::reference_wrapper<Variable>> m_variables;
 
 		void write_vulkan(token_output &o) const
 		{
-			o << "layout" << "(" << "std140" << "," << "set" << "=" << m_set << "," << "binding" << "=" << m_binding << ")" << "uniform" << (std::string("_") + m_name + std::string("_t_")) << "{";
+			o << "layout" << "(" << "std140" << "," << "set" << "=" << m_set.getNdx() << "," << "binding" << "=" << m_binding << ")" << "uniform" << (std::string("_") + m_name + std::string("_t_")) << "{";
 			for (auto &v : m_variables)
 				v.get().declare(o);
 			o << "}" << m_name << ";";
@@ -1211,7 +1230,7 @@ public:
 	class GlslOpaqueVar
 	{
 	public:
-		GlslOpaqueVar(size_t &set, size_t binding, Variable &variable) :
+		GlslOpaqueVar(Set &set, size_t binding, Variable &variable) :
 			m_set(set),
 			m_binding(binding),
 			m_variable(variable)
@@ -1226,14 +1245,25 @@ public:
 				throw std::runtime_error("Sbi not supported");
 		}
 
+		auto getLayoutBinding(void) const
+		{
+			sb::Shader::DescriptorSet::Layout::DescriptionBinding res;
+
+			res.binding = m_binding;
+			res.descriptorCount = m_variable.getType().getArrayElems();
+			res.descriptorType = sb::Shader::DescriptorType::CombinedImageSampler;
+			res.stages = m_set.getStages();
+			return res;
+		}
+
 	private:
-		size_t &m_set;
+		Set &m_set;
 		size_t m_binding;
 		Variable &m_variable;
 
 		void write_vulkan(token_output &o) const
 		{
-			o << "layout" << "(" << "std140" << "," << "set" << "=" << m_set << "," << "binding" << "=" << m_binding << ")" << "uniform";
+			o << "layout" << "(" << "std140" << "," << "set" << "=" << m_set.getNdx() << "," << "binding" << "=" << m_binding << ")" << "uniform";
 			m_variable.declare(o);
 		}
 	};
@@ -1255,6 +1285,16 @@ public:
 			return s.peek() == "set";
 		}
 
+		size_t getNdx(void) const
+		{
+			return m_set_ndx;
+		}
+
+		const std::set<sb::Shader::Stage>& getStages(void) const
+		{
+			return m_stages;
+		}
+
 		void write(token_output &o, Sbi sbi) const override
 		{
 			if (sbiIsGlsl(sbi)) {
@@ -1271,6 +1311,19 @@ public:
 			m_stages.emplace(stage.getStage());
 			stage.add(*this);
 		};
+
+		auto& getName(void) const { return m_name; }
+		auto& getVariables(void) const { return m_variables; }
+		auto getLayout(void) const
+		{
+			sb::Shader::DescriptorSet::Layout::Description res;
+
+			if (m_mapped_block)
+				res.emplace_back(m_mapped_block->getLayoutBinding());
+			for (auto &o : m_opaque_vars)
+				res.emplace_back(o.getLayoutBinding());
+			return res;
+		}
 
 	private:
 		size_t m_set_ndx;
@@ -1311,10 +1364,10 @@ public:
 			auto parsed = var.getType().parse("nolayout");
 
 			if (parsed.is_opaque) {
-				m_opaque_vars.emplace_back(m_set_ndx, m_binding_counter.next(), var);
+				m_opaque_vars.emplace_back(*this, m_binding_counter.next(), var);
 			} else {
 				if (!m_mapped_block)
-					m_mapped_block.emplace(m_set_ndx, m_binding_counter.next(), m_name);
+					m_mapped_block.emplace(*this, m_binding_counter.next(), m_name);
 				m_mapped_block->add(var);
 			}
 		}

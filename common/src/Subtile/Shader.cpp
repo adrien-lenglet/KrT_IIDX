@@ -89,4 +89,32 @@ void Shader::Type::Vec<Shader::Type::Double, 4>::createVertexInput(Shader::Verte
 	creator.addAttr(this, VertexInput::Format::Dvec4);
 }
 
+bool Shader::descriptorTypeIsMapped(DescriptorType type)
+{
+	static const std::set<DescriptorType> table {
+		DescriptorType::UniformBuffer
+	};
+
+	return table.find(type) != table.end();
+}
+
+bool Shader::DescriptorSet::Layout::DescriptionBinding::isMapped(void) const
+{
+	return descriptorTypeIsMapped(descriptorType);
+}
+
+Shader::DescriptorSet::Layout::Resolver::Inline::Inline(ISystem &sys, const Layout::Description &desc) :
+	m_layout(sys.createDescriptorSetLayout(desc))
+{
+}
+
+Shader::DescriptorSet::Layout::Resolver::Inline::~Inline(void)
+{
+}
+
+const Shader::DescriptorSet::Layout& Shader::DescriptorSet::Layout::Resolver::Inline::resolve(void) const
+{
+	return *m_layout;
+}
+
 }

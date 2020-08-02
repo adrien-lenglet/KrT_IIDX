@@ -11,8 +11,8 @@ EntityTest::EntityTest(void) :
 	entity1(add<EntityTest2>()),
 	entity2(add<EntityTest2>()),
 	m_shader(load(res.shaders().diffuse())),
-	m_material(m_shader.material()),
-	m_object(m_shader.object()),
+	//m_material(m_shader.material()),
+	//m_object(m_shader.object()),
 	m_model(createModel())
 {
 	bind(world.events.system.input.button.pressed("quit"), [this](){

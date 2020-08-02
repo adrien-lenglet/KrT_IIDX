@@ -1,6 +1,7 @@
 #pragma once
 
 #include <set>
+#include <map>
 #include <vector>
 #include <memory>
 #include "Subtile/Math.hpp"
@@ -10,6 +11,8 @@
 #include "util/bin.hpp"
 
 namespace Subtile {
+
+class ISystem;
 
 class Shader
 {
@@ -570,30 +573,39 @@ public:
 		CombinedImageSampler
 	};
 
+	static bool descriptorTypeIsMapped(DescriptorType type);
+
 	class DescriptorSet
 	{
 	public:
-		class LayoutBinding
-		{
-		public:
-			size_t binding;
-			size_t descriptorCount;
-			DescriptorType descriptorType;
-			std::set<Stage> stages;
-		};
-
-		struct LayoutBindingMapped : public LayoutBinding
-		{
-			size_t offset;
-			size_t size;
-		};
-
 		class Layout
 		{
 		public:
-			std::vector<LayoutBindingMapped> bindings_mapped;
-			size_t bindings_mapped_size;
-			std::vector<LayoutBinding> bindings;
+			class DescriptionBinding
+			{
+			public:
+				size_t binding;
+				size_t descriptorCount;	// buffer size when descriptorType is UniformBuffer
+				DescriptorType descriptorType;
+				std::set<Stage> stages;
+
+				bool isMapped(void) const;
+			};
+			using Description = std::vector<DescriptionBinding>;
+
+			virtual ~Layout(void) = default;
+
+			class Inline;
+
+			class Resolver
+			{
+			public:
+				virtual ~Resolver(void) = default;
+
+				virtual const Layout& resolve(void) const = 0;
+
+				class Inline;
+			};
 		};
 
 		virtual ~DescriptorSet(void) = default;
@@ -622,8 +634,8 @@ public:
 		};
 	};
 
-	virtual std::unique_ptr<DescriptorSet> material(void) = 0;
-	virtual std::unique_ptr<DescriptorSet> object(void) = 0;
+	//virtual std::unique_ptr<DescriptorSet> material(void) = 0;
+	//virtual std::unique_ptr<DescriptorSet> object(void) = 0;
 
 	class Model
 	{
@@ -632,6 +644,7 @@ public:
 	};
 
 	virtual std::unique_ptr<Model> model(size_t count, size_t stride, const void *data) = 0;
+	virtual std::unique_ptr<DescriptorSet> set(size_t ndx) = 0;
 
 	/*
 	template <typename ShaderRs>
@@ -639,6 +652,107 @@ public:
 	template <typename ShaderRs>
 	using Object = DescriptorSet::Handle<typename Shader::Rs::objectTraits>;
 	*/
+};
+
+}
+
+#include "Resource/File.hpp"
+#include "Resource/Target.hpp"
+
+namespace Subtile {
+namespace Resource {
+
+class Shader : public File
+{
+public:
+	Shader(const std::set<sb::Shader::Stage> &stages);
+	~Shader(void) override;
+
+	virtual sb::Shader::VertexInput vertexInput(void) const = 0;
+	using DescriptorSetLayouts = std::vector<std::unique_ptr<sb::Shader::DescriptorSet::Layout::Resolver>>;
+	virtual DescriptorSetLayouts loadDescriptorSetLayouts(ISystem &sys) const = 0;
+
+	class Stage
+	{
+		static const std::string& getStageName(sb::Shader::Stage stage);
+
+	public:
+		Stage(Folder &folder, sb::Shader::Stage stage);
+
+		class Source : public File
+		{
+		public:
+			static std::string getFileName(sb::Shader::Stage stage, sb::Shader::Sbi sbi);
+
+			Source(sb::Shader::Stage stage, sb::Shader::Sbi sbi);
+
+			decltype(auto) getPath(void) const
+			{
+				return File::getPath();
+			}
+
+		protected:
+			static const std::string& getSbiName(sb::Shader::Sbi sbi);
+		};
+
+		class VkSource : public Source
+		{
+		public:
+			VkSource(Folder &folder, sb::Shader::Stage stage, sb::Shader::Sbi sbi);
+
+			class Compiled : public Target
+			{
+			public:
+				Compiled(Source &src);
+
+			protected:
+				void build(std::ostream &o) const override;
+
+			private:
+				Source &m_src;
+			};
+
+			const Compiled& getCompiled(void) const;
+
+		private:
+			Compiled &m_compiled;
+
+			static std::string getCompiledName(sb::Shader::Stage stage, sb::Shader::Sbi sbi);
+		};
+
+		const VkSource& getVk(void) const;
+
+	private:
+		VkSource &m_vk;
+	};
+
+	const std::map<sb::Shader::Stage, Stage>& getStages(void) const;
+
+private:
+	Folder &m_stages_folder;
+	const std::map<sb::Shader::Stage, Stage> m_stages;
+
+	std::map<sb::Shader::Stage, Stage> createStages(const std::set<sb::Shader::Stage> &stages);
+};
+
+}
+}
+
+#include "Subtile/ISystem.hpp"
+
+namespace Subtile
+{
+
+class Shader::DescriptorSet::Layout::Resolver::Inline : public Shader::DescriptorSet::Layout::Resolver
+{
+public:
+	Inline(ISystem &sys, const Layout::Description &desc);
+	~Inline(void) override;
+
+	const Layout& resolve(void) const override;
+
+private:
+	std::unique_ptr<Layout> m_layout;
 };
 
 }

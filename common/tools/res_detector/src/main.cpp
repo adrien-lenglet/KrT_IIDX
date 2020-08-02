@@ -91,10 +91,12 @@ class FolderPrinter
 	template <bool isTemplate>
 	decltype(auto) createShaderStructCollec(Util::CollectionBase &scope, const std::string &name)
 	{
+		auto a_name = std::string("_") + name + std::string("Collection");
+
 		if constexpr (isTemplate)
-			return scope += Template(Typename | "Layout") || Struct | (name + std::string("Collection")) | S {};
+			return scope += Template(Typename | "Layout") || Struct | a_name | S {};
 		else
-			return scope += Struct | (name + std::string("Collection")) | S {};
+			return scope += Struct | a_name | S {};
 	}
 
 	template <bool isTemplate>
@@ -144,51 +146,40 @@ class FolderPrinter
 		return mapped_str;
 	}
 
-	void shaderAddLayout(Util::CollectionBase &scope, Util::CollectionBase &user_structs_scope, const std::string &met_name, sb::Shader::Compiler &shader)
+	Value getDescriptorType(sb::Shader::DescriptorType type)
 	{
-		std::optional<Id> previous_id;
-		auto &mat_scope = scope += Struct | (met_name + std::string("Traits")) | S {};
+		static const std::map<sb::Shader::DescriptorType, Value> table {
+			{sb::Shader::DescriptorType::UniformBuffer, "sb::Shader::DescriptorType::UniformBuffer"_v},
+			{sb::Shader::DescriptorType::CombinedImageSampler, "sb::Shader::DescriptorType::CombinedImageSampler"_v}
+		};
 
+		return table.at(type);
+	}
+
+	void shaderAddLayout(Util::CollectionBase &scope, Util::CollectionBase &user_structs_scope, const sb::Shader::Compiler::Set &set, Util::CollectionFunctionBase &func)
+	{
+		auto &set_scope = scope += Struct | set.getName() | S {};
 		std::vector<std::reference_wrapper<const sb::Shader::Compiler::Variable>> vars;
-		/*for (auto &sb : shader.getDescriptorSets())
-			if (sb.get().getSet() == set) {
-				auto &nopq = sb.get().getBlock().getGlslNonOpaque();
-				if (nopq)
-					for (auto &no : nopq->getVariables())
-						vars.emplace_back(no);
-			}*/
-		auto mapped_str = createShaderStruct<false>(mat_scope, user_structs_scope, "Mapped", vars, "sb::Shader::Type::Std140");
+		for (auto &v : set.getVariables())
+			vars.emplace_back(v);
+		auto mapped_str = createShaderStruct<false>(set_scope, user_structs_scope, "Mapped", vars, "sb::Shader::Type::Std140");
 
-		auto t = "sb::Shader::DescriptorSet::Layout"_t;
+		auto t = "sb::Shader::DescriptorSet::Layout::Description"_t;
 
-		auto fwd = scope += t | Id(met_name)(Void) | Const | Override;
-		auto &impl = m_impl_out += t | fwd(Void) | Const | S {};
+		auto fwd = set_scope += Static | t | Id("getLayout")(Void);
+		auto &impl = m_impl_out += t | fwd(Void) | S {};
 
-		auto bmapped = B {};
-		auto bopq = B {};
+		auto gen_bindings = B {};
+		auto layout = set.getLayout();
+		for (auto &b : layout) {
+			Value count = b.descriptorCount;
+			if (sb::Shader::descriptorTypeIsMapped(b.descriptorType))
+				count.assign(Sizeof(mapped_str));
+			gen_bindings.add(B {b.binding, count, getDescriptorType(b.descriptorType), shaderStagesToBrace(b.stages)});
+		}
+		impl += Return | gen_bindings;
 
-		auto stages_set = shader.getStages().getSet();
-
-		/*for (auto &sb : shader.getDescriptorSets())
-			if (sb.get().getSet() == set) {
-				auto &b = sb.get().getBlock();
-				auto &nopq = b.getGlslNonOpaque();
-				if (nopq) {
-					auto &n = *nopq;
-					auto off = Decltype(mapped_str().M(Vd(n.getVariables().begin()->get().getName())))>>"offset::value"_v;
-					auto size = Value(0);
-					size.assign(size + (Decltype(mapped_str().M(Vd(n.getVariables().rbegin()->get().getName())))>>"offset_end::value"_v) - off);
-					bmapped.add(B {B {n.getBinding(), static_cast<size_t>(1), "sb::Shader::DescriptorType::UniformBuffer"_v, shaderStagesToBrace(stages_set)}, off, size});
-				}
-				for (auto &v : b.getGlslOpaque()) {
-					size_t count = 1;
-					auto &arr = v.getVariable().getType().getArray();
-					if (arr.size() > 0)
-						count = arr.at(0);
-					bopq.add(B {v.getBinding(), count, "sb::Shader::DescriptorType::CombinedImageSampler"_v, shaderStagesToBrace(stages_set)});
-				}
-			}*/
-		impl += Return | B {bmapped, Sizeof(mapped_str), bopq};
+		func += "res"_v.M("emplace_back"_v("new sb::Shader::DescriptorSet::Layout::Resolver::Inline"_v("sys"_v, Vd(impl.getValue())())));
 	}
 
 	void shaderAddVertexInput(Util::CollectionBase &scope, Util::CollectionBase &user_structs_scope, sb::Shader::Compiler &shader)
@@ -233,8 +224,16 @@ class FolderPrinter
 			createShaderStruct<true>(u_structs, u_structs, us_desc.getName(), vars, "Layout");
 		}
 
-		shaderAddLayout(sh, u_structs, "material", compiled);
-		shaderAddLayout(sh, u_structs, "object", compiled);
+		auto &u_sets = sh += Struct | "Set" | S {};
+		auto &runtime = sh += Struct | "Runtime" | S {};
+
+		auto vec_resolver = "sb::rs::Shader::DescriptorSetLayouts"_t;
+		auto desc_layout_fwd = sh += vec_resolver | Id("loadDescriptorSetLayouts")("sb::ISystem"_t | &N | Id("sys")) | Const | Override;
+		auto &desc_layout = m_impl_out += vec_resolver | desc_layout_fwd("sb::ISystem"_t | &N | Id("sys")) | Const | S {};
+		auto desc_layout_res = desc_layout += vec_resolver | Id("res");
+		for (auto &set : compiled.getSets())
+			shaderAddLayout(u_sets, u_structs, set, desc_layout);
+		desc_layout += Return | desc_layout_res;
 
 		shaderAddVertexInput(sh, u_structs, compiled);
 

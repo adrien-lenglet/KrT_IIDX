@@ -282,7 +282,14 @@ private:
 
 		operator VkPhysicalDevice(void) const;
 
-		const VkPhysicalDeviceProperties& properties(void) const;
+		struct Properties : public VkPhysicalDeviceProperties
+		{
+			Properties(const VkPhysicalDeviceProperties &props);
+
+			size_t getAlignmentFor(sb::Shader::DescriptorType type) const;
+		};
+
+		const Properties& properties(void) const;
 		const VkPhysicalDeviceFeatures& features(void) const;
 		const Surface& surface(void) const;
 
@@ -313,7 +320,7 @@ private:
 	private:
 		VkPhysicalDevice m_device;
 		Vk::Surface &m_surface;
-		const VkPhysicalDeviceProperties m_props;
+		const Properties m_props;
 		const VkPhysicalDeviceFeatures m_features;
 		const QueueFamilies m_queue_families;
 		Surface m_phys_surface;
@@ -523,19 +530,22 @@ private:
 
 	static VkDescriptorType descriptorType(sb::Shader::DescriptorType type);
 
-	class DescriptorSetLayout : public Device::Handle<VkDescriptorSetLayout>
+	class DescriptorSetLayout : public sb::Shader::DescriptorSet::Layout, public Device::Handle<VkDescriptorSetLayout>
 	{
 	public:
-		DescriptorSetLayout(Device &device, const sb::Shader::DescriptorSet::Layout &layout);
+		DescriptorSetLayout(Device &device, const sb::Shader::DescriptorSet::Layout::Description &layout);
+		~DescriptorSetLayout(void);
 
-		const sb::Shader::DescriptorSet::Layout& getLayout(void) const;
+		const sb::Shader::DescriptorSet::Layout::Description& getDescription(void) const;
 
 	private:
-		const sb::Shader::DescriptorSet::Layout m_layout;
+		const sb::Shader::DescriptorSet::Layout::Description m_desc;
 
-		VkDescriptorSetLayout create(Device &device, const sb::Shader::DescriptorSet::Layout &layout);
-		VkDescriptorSetLayoutBinding bindingtoVk(const sb::Shader::DescriptorSet::LayoutBinding &binding);
+		VkDescriptorSetLayout create(Device &device, const sb::Shader::DescriptorSet::Layout::Description &layout);
+		VkDescriptorSetLayoutBinding bindingtoVk(const sb::Shader::DescriptorSet::Layout::DescriptionBinding &binding);
 	};
+
+	std::unique_ptr<sb::Shader::DescriptorSet::Layout> createDescriptorSetLayout(const sb::Shader::DescriptorSet::Layout::Description &desc) override;
 
 	class DescriptorSet : public sb::Shader::DescriptorSet, private Device::Handle<VkDescriptorPool>
 	{
@@ -577,14 +587,14 @@ private:
 
 		Shader(Device &device, rs::Shader &shader);
 
-		std::unique_ptr<sb::Shader::DescriptorSet> material(void) override;
-		std::unique_ptr<sb::Shader::DescriptorSet> object(void) override;
+		//std::unique_ptr<sb::Shader::DescriptorSet> material(void) override;
+		//std::unique_ptr<sb::Shader::DescriptorSet> object(void) override;
 		std::unique_ptr<sb::Shader::Model> model(size_t count, size_t stride, const void *data) override;
+		std::unique_ptr<sb::Shader::DescriptorSet> set(size_t ndx) override;
 
 	private:
 		Device &m_device;
-		DescriptorSetLayout m_material_layout;
-		DescriptorSetLayout m_object_layout;
+		rs::Shader::DescriptorSetLayouts m_layouts;
 		PipelineLayout m_pipeline_layout;
 		PipelineLayout createPipelineLayout(void);
 		std::vector<std::pair<VkShaderStageFlagBits, ShaderModule>> m_shader_modules;
