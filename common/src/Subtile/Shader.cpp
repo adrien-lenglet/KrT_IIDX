@@ -98,6 +98,10 @@ bool Shader::descriptorTypeIsMapped(DescriptorType type)
 	return table.find(type) != table.end();
 }
 
+Shader::DescriptorSet::~DescriptorSet(void)
+{
+}
+
 bool Shader::DescriptorSet::Layout::DescriptionBinding::isMapped(void) const
 {
 	return descriptorTypeIsMapped(descriptorType);

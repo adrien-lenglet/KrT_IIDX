@@ -242,7 +242,7 @@ Vk::PhysicalDevice::Properties::Properties(const VkPhysicalDeviceProperties &pro
 {
 }
 
-size_t Vk::PhysicalDevice::Properties::getAlignmentFor(sb::Shader::DescriptorType type) const
+size_t Vk::PhysicalDevice::Properties::getAlignment(sb::Shader::DescriptorType type) const
 {
 	if (type == sb::Shader::DescriptorType::UniformBuffer)
 		return limits.minUniformBufferOffsetAlignment;
@@ -839,7 +839,7 @@ Vk::DescriptorSet::DescriptorSet(Vk::Device &dev, const Vk::DescriptorSetLayout 
 		w.descriptorCount = 1;
 		w.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 
-		size = util::align_dyn(size, dev.physical().properties().getAlignmentFor(b.descriptorType));
+		size = util::align_dyn(size, dev.physical().properties().getAlignment(b.descriptorType));
 
 		VkDescriptorBufferInfo buf_info;
 		buf_info.buffer = m_buffer;
@@ -913,7 +913,7 @@ Vk::VmaBuffer Vk::DescriptorSet::createBuffer(const DescriptorSetLayout &layout)
 	size_t size = 0;
 	for (auto &b : layout.getDescription())
 		if (b.isMapped()) {
-			size = util::align_dyn(size, dev.physical().properties().getAlignmentFor(b.descriptorType));
+			size = util::align_dyn(size, dev.physical().properties().getAlignment(b.descriptorType));
 			size += b.descriptorCount;
 		}
 

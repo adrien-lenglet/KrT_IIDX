@@ -286,7 +286,7 @@ private:
 		{
 			Properties(const VkPhysicalDeviceProperties &props);
 
-			size_t getAlignmentFor(sb::Shader::DescriptorType type) const;
+			size_t getAlignment(sb::Shader::DescriptorType type) const;
 		};
 
 		const Properties& properties(void) const;

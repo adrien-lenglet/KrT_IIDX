@@ -96,13 +96,13 @@ public:
 			return m_ref.model(0, sizeof(typename Model::Vertex), nullptr);
 		}
 
-		class _RefAccesser;
-		friend _RefAccesser;
+		class RefAccessor;
+		friend RefAccessor;
 
-		class _RefAccesser
+		class RefAccessor
 		{
 		public:
-			_RefAccesser(Shader &shader) :
+			RefAccessor(Shader &shader) :
 				m_shader(shader)
 			{
 			}

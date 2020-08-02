@@ -623,6 +623,11 @@ public:
 	class DescriptorSet
 	{
 	public:
+		virtual ~DescriptorSet(void);
+
+		virtual void write(size_t offset, size_t range, const void *data) = 0;
+		//virtual void bindCombinedImageSampler(RImage &img) = 0;
+
 		class Layout
 		{
 		public:
@@ -653,11 +658,6 @@ public:
 			};
 		};
 
-		virtual ~DescriptorSet(void) = default;
-
-		virtual void write(size_t offset, size_t range, const void *data) = 0;
-		//virtual void bindCombinedImageSampler(RImage &img) = 0;
-
 		template <typename Traits>
 		class Handle : public Traits::Mapped
 		{
@@ -687,13 +687,6 @@ public:
 
 	virtual std::unique_ptr<Model> model(size_t count, size_t stride, const void *data) = 0;
 	virtual std::unique_ptr<DescriptorSet> set(size_t ndx) = 0;
-
-	/*
-	template <typename ShaderRs>
-	using Material = DescriptorSet::Handle<typename Shader::Rs::materialTraits>;
-	template <typename ShaderRs>
-	using Object = DescriptorSet::Handle<typename Shader::Rs::objectTraits>;
-	*/
 };
 
 }

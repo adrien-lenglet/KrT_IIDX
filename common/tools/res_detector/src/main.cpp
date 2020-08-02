@@ -229,24 +229,39 @@ class FolderPrinter
 		}
 
 		auto &u_sets = sh += Struct | "Set" | S {};
-		auto &runtime = sh += Template(Typename | Id("Up")) || Struct | "Runtime" | S {};
+		auto &runtime = sh += Template(Typename | Id("Up")) || Class | "Runtime" | S
+		{
+			Auto | &N | Id("_get_ref")(Void) | S
+			{
+				Using | "Accesser" = Type("typename Up::RefAccessor"),
+				Return | "Accesser"_t(StaticCast("Up&"_t, *"this"_v)).M("getRef"_v())
+			},
+		Public
+		};
 
 		auto vec_resolver = "sb::rs::Shader::DescriptorSetLayouts"_t;
 		auto desc_layout_fwd = sh += vec_resolver | Id("loadDescriptorSetLayouts")("sb::ISystem"_t | &N | Id("sys")) | Const | Override;
 		auto &desc_layout = m_impl_out += vec_resolver | desc_layout_fwd("sb::ISystem"_t | &N | Id("sys")) | Const | S {};
 		auto desc_layout_res = desc_layout += vec_resolver | Id("res");
 		size_t ndx = 0;
+		Util::CollectionBase *last_set = nullptr;
 		for (auto &set : compiled.getSets()) {
 			auto cur_ndx = ndx++;
 
 			auto &set_scope = shaderAddLayout(u_sets, u_structs, set, desc_layout);
 
+			//Util::CollectionBase
+
+			//auto *creator_scope = std::addressof(runtime);
+			//if (last_set)
+
 			auto handle = runtime += Using | (std::string("_") + set.get().getName() + std::string("_t")) = "sb::Shader::DescriptorSet::Handle"_t.T(set_scope);
 			runtime += Auto | Id(set.get().getName())(Void) | S
 			{
-				Using | "Accesser" = Type("typename Up::_RefAccesser"),
-				Return | handle("Accesser"_t(StaticCast("Up&"_t, *"this"_v)).M("getRef"_v().M("set"_v(cur_ndx))))
+				Return | handle("_get_ref"_v().M("set"_v(cur_ndx)))
 			};
+
+			last_set = std::addressof(set_scope);
 		}
 		desc_layout += Return | desc_layout_res;
 
