@@ -299,210 +299,18 @@ private:
 		return table.find(sbi) != table.end();
 	}
 
-	class GlslNonOpaqueBlock
+	Counter m_set_counter;
+
+public:
+	auto gen_set_ndx(void)
 	{
-	public:
-		GlslNonOpaqueBlock(Counter &counter) :
-			m_binding(counter.next())
-		{
-		}
+		return m_set_counter.next();
+	}
 
-		void write(token_output &o, Sbi sbi) const
-		{
-			if (sbi == Sbi::Vulkan)
-				write_vulkan(o);
-			else
-				throw std::runtime_error("Sbi not supported");
-		}
+	class Set;
 
-		void add(Variable &var)
-		{
-			m_variables.emplace_back(var);
-		}
-
-		auto& getVariables(void) const
-		{
-			return m_variables;
-		}
-
-		static std::string getSignature(size_t set, size_t binding)
-		{
-			std::stringstream ss;
-
-			ss << "_uni_s" << set << "_b" << binding;
-			return ss.str();
-		}
-
-		std::string getType(void) const
-		{
-			return getSignature(m_set, m_binding) + std::string("_t");
-		}
-
-		static std::string getVarName(size_t set, size_t binding)
-		{
-			return getSignature(set, binding) + std::string("_v");
-		}
-
-		std::string getVarName(void) const
-		{
-			return getVarName(m_set, m_binding);
-		}
-
-		std::optional<std::string> substituate(const std::string &in) const
-		{
-			for (auto &v : m_variables) {
-				auto &name = v.get().getName();
-				if (name == in)
-					return getVarName() + std::string(".") + name;
-			}
-			return std::nullopt;
-		}
-
-		auto getBinding(void) const
-		{
-			return m_binding;
-		}
-
-	private:
-		size_t m_set;
-		size_t m_binding;
-		std::vector<std::reference_wrapper<Variable>> m_variables;
-
-		void write_vulkan(token_output &o) const;
-	};
-
-	class GlslOpaqueVar
-	{
-	public:
-		GlslOpaqueVar(Counter &counter, Variable &variable) :
-			m_binding(counter.next()),
-			m_variable(variable)
-		{
-		}
-
-		void write(token_output &o, Sbi sbi) const
-		{
-			if (sbi == Sbi::Vulkan)
-				write_vulkan(o);
-			else
-				throw std::runtime_error("Sbi not supported");
-		}
-
-		auto getSet(void) const
-		{
-			return m_set;
-		}
-
-		auto getBinding(void) const
-		{
-			return m_binding;
-		}
-
-		auto& getVariable(void) const
-		{
-			return m_variable;
-		}
-
-	private:
-		size_t m_set;
-		size_t m_binding;
-		Variable &m_variable;
-
-		void write_vulkan(token_output &o) const
-		{
-			o << "layout" << "(" << "std140" << "," << "set" << "=" << m_set << "," << "binding" << "=" << m_binding << ")" << "uniform";
-			m_variable.declare(o);
-		}
-	};
-
-	/*class SharedBlock
-	{
-	public:
-		SharedBlock(Set set, Counter &counter) :
-			m_set(set),
-			m_counter(counter)
-		{
-		}
-
-		void add(Variable &var)
-		{
-			m_variables.emplace_back(var);
-
-			if (var.getType().parse("whatever").is_opaque)
-				m_opaque.emplace_back(m_set, m_counter, var);
-			else {
-				if (!m_n_opaque)
-					m_n_opaque.emplace(m_set, m_counter);
-				m_n_opaque->add(var);
-			}
-		}
-
-		std::optional<std::string> substituate(const std::string &in, Sbi sbi) const
-		{
-			if (sbiIsGlsl(sbi)) {
-				if (m_n_opaque)
-					return m_n_opaque->substituate(in);
-				return std::nullopt;
-			} else
-				throw std::runtime_error("Unsupported SBI");
-		}
-
-		void write(token_output &o, Sbi sbi) const
-		{
-			if (sbiIsGlsl(sbi)) {
-				if (m_n_opaque)
-					m_n_opaque->write(o, sbi);
-				for (auto &opq : m_opaque)
-					opq.write(o, sbi);
-			} else
-				throw std::runtime_error("Unsupported SBI");
-		}
-
-		auto& getGlslNonOpaque(void) const
-		{
-			return m_n_opaque;
-		}
-
-		auto& getGlslOpaque(void) const
-		{
-			return m_opaque;
-		}
-
-	private:
-		Set m_set;
-		Counter &m_counter;
-		std::vector<std::reference_wrapper<Variable>> m_variables;
-		std::optional<GlslNonOpaqueBlock> m_n_opaque;
-		std::vector<GlslOpaqueVar> m_opaque;
-	};*/
-
-	class Set
-	{
-	public:
-		Set(void)
-		{
-		}
-
-		void write(token_output &o, Sbi sbi)
-		{
-			static_cast<void>(o);
-			static_cast<void>(sbi);
-		}
-
-	private:
-		Counter m_counter;
-		//SharedBlock m_block;
-	};
-
-	class Sets : public std::vector<Set>
-	{
-	public:
-		Sets(void)
-		{
-		}
-	};
-
-	Sets m_blocks;
+private:
+	std::vector<std::reference_wrapper<Set>> m_sets;
 
 	std::vector<std::reference_wrapper<Variable>> m_variables;
 	std::vector<Struct> m_structs;
@@ -526,7 +334,12 @@ public:
 
 	auto& getSets(void)
 	{
-		return m_blocks;
+		return m_sets;
+	}
+
+	void addSet(Set &set)
+	{
+		m_sets.emplace_back(set);
 	}
 
 	class Stage
@@ -635,8 +448,6 @@ public:
 				s.write(o);
 			for (auto &io : m_interface_ios)
 				io.write(o);
-			for (auto &b : m_compiler.getSets())
-				b.write(o, sbi);
 			token_output inter_o;
 			for (auto &p : m_primitives)
 				p.get().write(inter_o, sbi);
@@ -1359,6 +1170,156 @@ public:
 		}
 	};
 
+	class GlslMappedBlock
+	{
+	public:
+		GlslMappedBlock(size_t &set, size_t binding, const std::string &name) :
+			m_set(set),
+			m_binding(binding),
+			m_name(name)
+		{
+		}
+
+		void write(token_output &o, Sbi sbi) const
+		{
+			if (sbi == Sbi::Vulkan)
+				write_vulkan(o);
+			else
+				throw std::runtime_error("Sbi not supported");
+		}
+
+		void add(Variable &var)
+		{
+			m_variables.emplace_back(var);
+		}
+
+	private:
+		size_t &m_set;
+		size_t m_binding;
+		const std::string &m_name;
+		std::vector<std::reference_wrapper<Variable>> m_variables;
+
+		void write_vulkan(token_output &o) const
+		{
+			o << "layout" << "(" << "std140" << "," << "set" << "=" << m_set << "," << "binding" << "=" << m_binding << ")" << "uniform" << (std::string("_") + m_name + std::string("_t_")) << "{";
+			for (auto &v : m_variables)
+				v.get().declare(o);
+			o << "}" << m_name << ";";
+		}
+	};
+
+	class GlslOpaqueVar
+	{
+	public:
+		GlslOpaqueVar(size_t &set, size_t binding, Variable &variable) :
+			m_set(set),
+			m_binding(binding),
+			m_variable(variable)
+		{
+		}
+
+		void write(token_output &o, Sbi sbi) const
+		{
+			if (sbi == Sbi::Vulkan)
+				write_vulkan(o);
+			else
+				throw std::runtime_error("Sbi not supported");
+		}
+
+	private:
+		size_t &m_set;
+		size_t m_binding;
+		Variable &m_variable;
+
+		void write_vulkan(token_output &o) const
+		{
+			o << "layout" << "(" << "std140" << "," << "set" << "=" << m_set << "," << "binding" << "=" << m_binding << ")" << "uniform";
+			m_variable.declare(o);
+		}
+	};
+
+	class Set : public Primitive
+	{
+	public:
+		Set(tstream &s, Compiler &compiler) :
+			m_set_ndx(compiler.gen_set_ndx()),
+			m_name(getName(s)),
+			m_variables(getVariables(s, compiler))
+		{
+			s.expect(";");
+			compiler.addSet(*this);
+		}
+
+		static bool isComingUp(tstream &s)
+		{
+			return s.peek() == "set";
+		}
+
+		void write(token_output &o, Sbi sbi) const override
+		{
+			if (sbiIsGlsl(sbi)) {
+				if (m_mapped_block)
+					m_mapped_block->write(o, sbi);
+				for (auto &opq : m_opaque_vars)
+					opq.write(o, sbi);
+			} else
+				throw std::runtime_error("Unsupported SBI");
+		}
+
+		void addToStage(Stage &stage)
+		{
+			m_stages.emplace(stage.getStage());
+			stage.add(*this);
+		};
+
+	private:
+		size_t m_set_ndx;
+		Counter m_binding_counter;
+		std::string m_name;
+		std::optional<GlslMappedBlock> m_mapped_block;
+		std::vector<GlslOpaqueVar> m_opaque_vars;
+		std::set<sb::Shader::Stage> m_stages;
+
+		util::unique_vector<Variable> m_variables;
+
+		std::string getName(tstream &s)
+		{
+			s.expect("set");
+			return s.poll();
+		}
+
+		util::unique_vector<Variable> getVariables(tstream &s, Compiler &compiler)
+		{
+			util::unique_vector<Variable> res;
+
+			s.expect("{");
+			while (s.peek() != "}") {
+				auto &first = res.emplace(compiler, s, Variable::Storage::Inline);
+				varAdded(first);
+				while (s.peek() == ",") {
+					s.poll();
+					varAdded(res.emplace(s, first));
+				}
+				s.expect(";");
+			}
+			s.poll();
+			return res;
+		}
+
+		void varAdded(Variable &var)
+		{
+			auto parsed = var.getType().parse("nolayout");
+
+			if (parsed.is_opaque) {
+				m_opaque_vars.emplace_back(m_set_ndx, m_binding_counter.next(), var);
+			} else {
+				if (!m_mapped_block)
+					m_mapped_block.emplace(m_set_ndx, m_binding_counter.next(), m_name);
+				m_mapped_block->add(var);
+			}
+		}
+	};
+
 private:
 	class Section : public Primitive
 	{
@@ -1411,8 +1372,13 @@ private:
 				auto var = dynamic_cast<Variable*>(&prim);
 				if (var) {
 					var->addToStage(*m_stage);
-				} else
-					m_stage->add(prim);
+				} else {
+					auto set = dynamic_cast<Set*>(&prim);
+					if (set)
+						set->addToStage(*m_stage);
+					else
+						m_stage->add(prim);
+				}
 			}
 			for (auto &p : m_primitives) {
 				auto s = dynamic_cast<Section*>(&p);
@@ -1527,6 +1493,8 @@ inline void Shader::Compiler::Section::poll(tstream &s, Compiler &compiler)
 		m_primitives.emplace<Section>(s, compiler);
 	else if (Struct::isComingUp(s)) {
 		compiler.addStruct(s, compiler);
+	} else if (Set::isComingUp(s)) {
+		m_primitives.emplace<Set>(s, compiler);
 	} else if (Variable::isComingUp(s)) {
 		auto &first = m_primitives.emplace<Variable>(compiler, s);
 		compiler.addVariable(first);
@@ -1537,14 +1505,6 @@ inline void Shader::Compiler::Section::poll(tstream &s, Compiler &compiler)
 		s.expect(";");
 	} else
 		m_primitives.emplace<Function>(s);
-}
-
-inline void Shader::Compiler::GlslNonOpaqueBlock::write_vulkan(token_output &o) const
-{
-	o << "layout" << "(" << "std140" << "," << "set" << "=" << m_set << "," << "binding" << "=" << m_binding << ")" << "uniform" << getType() << "{";
-	for (auto &v : m_variables)
-		v.get().declare(o);
-	o << "}" << getVarName() << ";";
 }
 
 inline Shader::Compiler::Compiler(const std::string &path) :
