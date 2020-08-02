@@ -9,6 +9,7 @@
 #include <glm/detail/type_vec3.hpp>
 #include <glm/detail/type_vec4.hpp>
 #include "util/bin.hpp"
+#include "util.hpp"
 
 namespace Subtile {
 
@@ -97,6 +98,24 @@ public:
 
 	struct Type {
 
+		template <typename T>
+		class CreateVertexInputAccessor
+		{
+		public:
+			CreateVertexInputAccessor(const T &value) :
+				m_value(value)
+			{
+			}
+
+			void create(VertexInput::Creator &creator) const
+			{
+				m_value.createVertexInput(creator);
+			}
+
+		private:
+			const T &m_value;
+		};
+
 		class Bool : public util::scalar<bool>, private util::pad<sizeof(uint32_t) - sizeof(bool)>
 		{
 		public:
@@ -107,16 +126,19 @@ public:
 			{
 			}
 
-			void createVertexInput(VertexInput::Creator &creator) const
-			{
-				creator.addAttr(this, VertexInput::Format::Bool);
-			}
-
 			using salign = util::csize_t<sizeof(uint32_t)>;
 			using balign = salign;
 			using ealign = balign;
 
 			using to_std = Bool;
+
+		private:
+			void createVertexInput(VertexInput::Creator &creator) const
+			{
+				creator.addAttr(this, VertexInput::Format::Bool);
+			}
+			template <typename>
+			friend class CreateVertexInputAccessor;
 		};
 
 		class Int : public util::scalar<int32_t>
@@ -129,16 +151,19 @@ public:
 			{
 			}
 
-			void createVertexInput(VertexInput::Creator &creator) const
-			{
-				creator.addAttr(this, VertexInput::Format::Int);
-			}
-
 			using salign = util::csize_t<sizeof(type)>;
 			using balign = salign;
 			using ealign = balign;
 
 			using to_std = int32_t;
+
+		private:
+			void createVertexInput(VertexInput::Creator &creator) const
+			{
+				creator.addAttr(this, VertexInput::Format::Int);
+			}
+			template <typename>
+			friend class CreateVertexInputAccessor;
 		};
 
 		class Uint : public util::scalar<uint32_t>
@@ -151,16 +176,19 @@ public:
 			{
 			}
 
-			void createVertexInput(VertexInput::Creator &creator) const
-			{
-				creator.addAttr(this, VertexInput::Format::Uint);
-			}
-
 			using salign = util::csize_t<sizeof(type)>;
 			using balign = salign;
 			using ealign = balign;
 
 			using to_std = uint32_t;
+
+		private:
+			void createVertexInput(VertexInput::Creator &creator) const
+			{
+				creator.addAttr(this, VertexInput::Format::Uint);
+			}
+			template <typename>
+			friend class CreateVertexInputAccessor;
 		};
 
 		class Float : public util::scalar<float>
@@ -173,16 +201,19 @@ public:
 			{
 			}
 
-			void createVertexInput(VertexInput::Creator &creator) const
-			{
-				creator.addAttr(this, VertexInput::Format::Float);
-			}
-
 			using salign = util::csize_t<sizeof(type)>;
 			using balign = salign;
 			using ealign = balign;
 
 			using to_std = float;
+
+		private:
+			void createVertexInput(VertexInput::Creator &creator) const
+			{
+				creator.addAttr(this, VertexInput::Format::Float);
+			}
+			template <typename>
+			friend class CreateVertexInputAccessor;
 		};
 
 		class Double : public util::scalar<double>
@@ -195,16 +226,19 @@ public:
 			{
 			}
 
-			void createVertexInput(VertexInput::Creator &creator) const
-			{
-				creator.addAttr(this, VertexInput::Format::Double);
-			}
-
 			using salign = util::csize_t<sizeof(type)>;
 			using balign = salign;
 			using ealign = balign;
 
 			using to_std = double;
+
+		private:
+			void createVertexInput(VertexInput::Creator &creator) const
+			{
+				creator.addAttr(this, VertexInput::Format::Double);
+			}
+			template <typename>
+			friend class CreateVertexInputAccessor;
 		};
 
 		template <typename S, size_t Size>
@@ -220,11 +254,14 @@ public:
 			{
 			}
 
-			void createVertexInput(VertexInput::Creator &creator) const;
-
 			using salign = typename S::salign;
 			using balign = util::csize_t<salign{} * 2>;
 			using ealign = balign;
+
+		private:
+			void createVertexInput(VertexInput::Creator &creator) const;
+			template <typename>
+			friend class CreateVertexInputAccessor;
 		};
 
 		template <typename S>
@@ -237,11 +274,14 @@ public:
 			{
 			}
 
-			void createVertexInput(VertexInput::Creator &creator) const;
-
 			using salign = typename S::salign;
 			using balign = util::csize_t<salign{} * 4>;
 			using ealign = balign;
+
+		private:
+			void createVertexInput(VertexInput::Creator &creator) const;
+			template <typename>
+			friend class CreateVertexInputAccessor;
 		};
 
 		template <typename S>
@@ -254,11 +294,14 @@ public:
 			{
 			}
 
-			void createVertexInput(VertexInput::Creator &creator) const;
-
 			using salign = typename S::salign;
 			using balign = util::csize_t<salign{} * 4>;
 			using ealign = balign;
+
+		private:
+			void createVertexInput(VertexInput::Creator &creator) const;
+			template <typename>
+			friend class CreateVertexInputAccessor;
 		};
 
 		struct Std140
@@ -416,14 +459,16 @@ public:
 
 			using padded_type = typename Layout::template ArrayPad<T>;
 
+		private:
+			padded_type m_values[Size];
+
 			void createVertexInput(VertexInput::Creator &creator) const
 			{
 				for (auto &e : *this)
-					e.createVertexInput(creator);
+					CreateVertexInputAccessor<util::remove_cvr_t<decltype(e)>>(e).create(creator);
 			}
-
-		private:
-			padded_type m_values[Size];
+			template <typename>
+			friend class CreateVertexInputAccessor;
 		};
 
 		template <typename S, size_t C, size_t R, class Layout>

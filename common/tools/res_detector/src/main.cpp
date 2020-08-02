@@ -131,9 +131,12 @@ class FolderPrinter
 			ids.emplace_back(*prev_id);
 		}
 
+		s += Private;
+
 		auto &vertex_input = s += Void | Id("createVertexInput")("sb::Shader::VertexInput::Creator"_t | &N | Id("creator")) | Const | S {};
 		for (auto &i : ids)
-			vertex_input += i.M("createVertexInput"_v("creator"_v));
+			vertex_input += "sb::Shader::Type::CreateVertexInputAccessor"_t(i).M("create"_v("creator"_v));
+		s += "template <typename> friend class sb::Shader::Type::CreateVertexInputAccessor"_v;
 
 		auto s_w_param = Type(s);
 		if constexpr (isTemplate)
@@ -199,7 +202,7 @@ class FolderPrinter
 		auto res = impl += t | "res" | B {Sizeof(vertex_t), B {}};
 		auto vertex = impl += vertex_t | "vertex";
 		auto creator = impl += t>>"Creator"_t | Id("creator")(vertex, res);
-		impl += "vertex"_v.M("createVertexInput"_v(creator));
+		impl += "sb::Shader::Type::CreateVertexInputAccessor"_t("vertex"_v).M("create"_v(creator));
 		impl += Return | "res"_v;
 	}
 

@@ -26,6 +26,8 @@ EntityTest::EntityTest(void) :
 	});
 
 	auto mat = m_shader.material();
+	mat.normal = sb::math::vec3(1.0f);
+	mat.upload();
 
 	/*bind(world.events.update, [this](auto &t){
 		pos.x += t;
