@@ -16,24 +16,19 @@ vertex {
 	out vec3 vtx_pos;
 	out vec3 vtx_normal;
 
-	object mat4 mvp;
-
 	void main(void)
 	{
 		//vec3 in_pos = vec3(2.3);
 		//vec2 pos;
-		gl_Position = mvp * vec4(in_pos, 1.0);
+		gl_Position = object.mvp * vec4(in_pos, 1.0);
 	}
 }
 
 fragment {
 	out vec3 screen_color;
 
-	material vec3 color;
-	material vec3 normal;
-
 	void main(void)
 	{
-		screen_color = color;
+		screen_color = material.color;
 	}
 }

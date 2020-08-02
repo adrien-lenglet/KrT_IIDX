@@ -274,11 +274,6 @@ public:
 	class Variable;
 	class Struct;
 
-	enum class Set {
-		Material,
-		Object
-	};
-
 private:
 	class Counter
 	{
@@ -297,16 +292,6 @@ private:
 		size_t m_ndx;
 	};
 
-	static auto setToBindingNdx(Set set)
-	{
-		static const std::map<Set, size_t> table {
-			{Set::Material, 0},
-			{Set::Object, 1}
-		};
-
-		return table.at(set);
-	}
-
 	static auto sbiIsGlsl(Sbi sbi)
 	{
 		static const std::set<Sbi> table {Sbi::Vulkan};
@@ -317,8 +302,7 @@ private:
 	class GlslNonOpaqueBlock
 	{
 	public:
-		GlslNonOpaqueBlock(Set set, Counter &counter) :
-			m_set(set),
+		GlslNonOpaqueBlock(Counter &counter) :
 			m_binding(counter.next())
 		{
 		}
@@ -341,11 +325,11 @@ private:
 			return m_variables;
 		}
 
-		static std::string getSignature(Set set, size_t binding)
+		static std::string getSignature(size_t set, size_t binding)
 		{
 			std::stringstream ss;
 
-			ss << "_uni_s" << static_cast<std::underlying_type_t<decltype(set)>>(set) << "_b" << binding;
+			ss << "_uni_s" << set << "_b" << binding;
 			return ss.str();
 		}
 
@@ -354,7 +338,7 @@ private:
 			return getSignature(m_set, m_binding) + std::string("_t");
 		}
 
-		static std::string getVarName(Set set, size_t binding)
+		static std::string getVarName(size_t set, size_t binding)
 		{
 			return getSignature(set, binding) + std::string("_v");
 		}
@@ -374,18 +358,13 @@ private:
 			return std::nullopt;
 		}
 
-		auto getSet(void) const
-		{
-			return setToBindingNdx(m_set);
-		}
-
 		auto getBinding(void) const
 		{
 			return m_binding;
 		}
 
 	private:
-		Set m_set;
+		size_t m_set;
 		size_t m_binding;
 		std::vector<std::reference_wrapper<Variable>> m_variables;
 
@@ -395,8 +374,7 @@ private:
 	class GlslOpaqueVar
 	{
 	public:
-		GlslOpaqueVar(Set set, Counter &counter, Variable &variable) :
-			m_set(set),
+		GlslOpaqueVar(Counter &counter, Variable &variable) :
 			m_binding(counter.next()),
 			m_variable(variable)
 		{
@@ -412,7 +390,7 @@ private:
 
 		auto getSet(void) const
 		{
-			return setToBindingNdx(m_set);
+			return m_set;
 		}
 
 		auto getBinding(void) const
@@ -426,18 +404,18 @@ private:
 		}
 
 	private:
-		Set m_set;
+		size_t m_set;
 		size_t m_binding;
 		Variable &m_variable;
 
 		void write_vulkan(token_output &o) const
 		{
-			o << "layout" << "(" << "std140" << "," << "set" << "=" << setToBindingNdx(m_set) << "," << "binding" << "=" << m_binding << ")" << "uniform";
+			o << "layout" << "(" << "std140" << "," << "set" << "=" << m_set << "," << "binding" << "=" << m_binding << ")" << "uniform";
 			m_variable.declare(o);
 		}
 	};
 
-	class SharedBlock
+	/*class SharedBlock
 	{
 	public:
 		SharedBlock(Set set, Counter &counter) :
@@ -496,57 +474,35 @@ private:
 		std::vector<std::reference_wrapper<Variable>> m_variables;
 		std::optional<GlslNonOpaqueBlock> m_n_opaque;
 		std::vector<GlslOpaqueVar> m_opaque;
-	};
+	};*/
 
-	class DescriptorSet
+	class Set
 	{
 	public:
-		DescriptorSet(Set set) :
-			m_set(set),
-			m_block(m_set, m_counter)
+		Set(void)
 		{
 		}
 
-		auto getSet(void) const
+		void write(token_output &o, Sbi sbi)
 		{
-			return m_set;
-		}
-
-		auto& getBlock(void)
-		{
-			return m_block;
-		}
-
-		auto& getBlock(void) const
-		{
-			return m_block;
+			static_cast<void>(o);
+			static_cast<void>(sbi);
 		}
 
 	private:
-		Set m_set;
 		Counter m_counter;
-		SharedBlock m_block;
+		//SharedBlock m_block;
 	};
 
-	class DescriptorSets : public std::map<Set, DescriptorSet>
+	class Sets : public std::vector<Set>
 	{
 	public:
-		DescriptorSets(void)
+		Sets(void)
 		{
-		}
-
-		SharedBlock& forSet(Set set)
-		{
-			auto got = find(set);
-			if (got == end()) {
-				auto [it, succ] = emplace(set, set);
-				got = it;
-			}
-			return got->second.getBlock();
 		}
 	};
 
-	DescriptorSets m_blocks;
+	Sets m_blocks;
 
 	std::vector<std::reference_wrapper<Variable>> m_variables;
 	std::vector<Struct> m_structs;
@@ -568,13 +524,9 @@ public:
 		return m_structs;
 	}
 
-	auto getDescriptorSets(void) const
+	auto& getSets(void)
 	{
-		std::vector<std::reference_wrapper<const DescriptorSet>> res;
-
-		for (auto &b : m_blocks)
-			res.emplace_back(b.second);
-		return res;
+		return m_blocks;
 	}
 
 	class Stage
@@ -683,8 +635,8 @@ public:
 				s.write(o);
 			for (auto &io : m_interface_ios)
 				io.write(o);
-			for (auto &b : m_compiler.getDescriptorSets())
-				b.get().getBlock().write(o, sbi);
+			for (auto &b : m_compiler.getSets())
+				b.write(o, sbi);
 			token_output inter_o;
 			for (auto &p : m_primitives)
 				p.get().write(inter_o, sbi);
@@ -692,14 +644,14 @@ public:
 			for (auto &t : inter_o.getTokens()) {
 				bool has_subs = false;
 				if (last_token != ".") {
-					for (auto &b : m_compiler.getDescriptorSets()) {
+					/*for (auto &b : m_compiler.getDescriptorSets()) {
 						auto sub = b.get().getBlock().substituate(t, sbi);
 						if (sub) {
 							o << *sub;
 							has_subs = true;
 							break;
 						}
-					}
+					}*/
 				}
 				if (!has_subs)
 					o << t;
@@ -1135,8 +1087,6 @@ public:
 		enum class Storage {
 			Inline,
 			Const,
-			Material,
-			Object,
 			In,
 			Out
 		};
@@ -1148,8 +1098,6 @@ public:
 		{
 			static const StorageTable table {
 				{"const", Storage::Const},
-				{"material", Storage::Material},
-				{"object", Storage::Object},
 				{"in", Storage::In},
 				{"out", Storage::Out}
 			};
@@ -1214,11 +1162,6 @@ public:
 				throw std::runtime_error("Can't output variable for such interface");
 		}
 
-		bool isUniform(void) const
-		{
-			return m_storage == Storage::Material || m_storage == Storage::Object;
-		}
-
 		void addStage(Shader::Stage stage)
 		{
 			m_stages.emplace(stage);
@@ -1226,9 +1169,7 @@ public:
 
 		void addToStage(Stage &stage)
 		{
-			if (isUniform()) {
-				addStage(stage.getStage());
-			} else if (m_storage == Storage::In) {
+			if (m_storage == Storage::In) {
 				stage.addIn(*this);
 			} else if (m_storage == Storage::Out) {
 				stage.addOut(*this);
@@ -1239,21 +1180,6 @@ public:
 		const std::set<Shader::Stage>& getStages(void) const
 		{
 			return m_stages;
-		}
-
-		std::optional<Set> getSet(void) const
-		{
-			static const std::map<Storage, Set> table {
-				{Storage::Material, Set::Material},
-				{Storage::Object, Set::Object}
-			};
-
-			auto got = table.find(m_storage);
-			if (got == table.end())
-				return std::nullopt;
-			else
-				return got->second;
-	
 		}
 
 		const std::string& getName(void) const
@@ -1291,18 +1217,18 @@ public:
 
 		void write_vulkan(token_output &o) const
 		{
-			static const std::map<Storage, size_t> storage_to_set {
+			/*static const std::map<Storage, size_t> storage_to_set {
 				{Storage::Material, 0},
 				{Storage::Object, 1}
-			};
+			};*/
 
 			if (m_storage == Storage::In || m_storage == Storage::Out)
 				return;
 
 			if (m_storage == Storage::Const)
 				o << "const";
-			else
-				o << "layout" << "(" << "set" << "=" << (storage_to_set.at(m_storage)) << "," << "binding" << "=" << 0 << ")" << "uniform";
+			/*else
+				o << "layout" << "(" << "set" << "=" << (storage_to_set.at(m_storage)) << "," << "binding" << "=" << 0 << ")" << "uniform";*/
 			declare(o);
 		}
 	};
@@ -1615,7 +1541,7 @@ inline void Shader::Compiler::Section::poll(tstream &s, Compiler &compiler)
 
 inline void Shader::Compiler::GlslNonOpaqueBlock::write_vulkan(token_output &o) const
 {
-	o << "layout" << "(" << "std140" << "," << "set" << "=" << setToBindingNdx(m_set) << "," << "binding" << "=" << m_binding << ")" << "uniform" << getType() << "{";
+	o << "layout" << "(" << "std140" << "," << "set" << "=" << m_set << "," << "binding" << "=" << m_binding << ")" << "uniform" << getType() << "{";
 	for (auto &v : m_variables)
 		v.get().declare(o);
 	o << "}" << getVarName() << ";";
@@ -1628,12 +1554,12 @@ inline Shader::Compiler::Compiler(const std::string &path) :
 {
 	m_collec.dispatch();
 
-	for (auto &v : m_variables) {
+	/*for (auto &v : m_variables) {
 		auto var = v.get();
 		auto set = var.getSet();
 		if (set)
 			m_blocks.forSet(*set).add(v);
-	}
+	}*/
 
 	for (auto &s : m_stages)
 		s.second.done();

@@ -144,19 +144,19 @@ class FolderPrinter
 		return mapped_str;
 	}
 
-	void shaderAddLayout(Util::CollectionBase &scope, Util::CollectionBase &user_structs_scope, sb::Shader::Compiler::Set set, const std::string &met_name, sb::Shader::Compiler &shader)
+	void shaderAddLayout(Util::CollectionBase &scope, Util::CollectionBase &user_structs_scope, const std::string &met_name, sb::Shader::Compiler &shader)
 	{
 		std::optional<Id> previous_id;
 		auto &mat_scope = scope += Struct | (met_name + std::string("Traits")) | S {};
 
 		std::vector<std::reference_wrapper<const sb::Shader::Compiler::Variable>> vars;
-		for (auto &sb : shader.getDescriptorSets())
+		/*for (auto &sb : shader.getDescriptorSets())
 			if (sb.get().getSet() == set) {
 				auto &nopq = sb.get().getBlock().getGlslNonOpaque();
 				if (nopq)
 					for (auto &no : nopq->getVariables())
 						vars.emplace_back(no);
-			}
+			}*/
 		auto mapped_str = createShaderStruct<false>(mat_scope, user_structs_scope, "Mapped", vars, "sb::Shader::Type::Std140");
 
 		auto t = "sb::Shader::DescriptorSet::Layout"_t;
@@ -169,7 +169,7 @@ class FolderPrinter
 
 		auto stages_set = shader.getStages().getSet();
 
-		for (auto &sb : shader.getDescriptorSets())
+		/*for (auto &sb : shader.getDescriptorSets())
 			if (sb.get().getSet() == set) {
 				auto &b = sb.get().getBlock();
 				auto &nopq = b.getGlslNonOpaque();
@@ -187,7 +187,7 @@ class FolderPrinter
 						count = arr.at(0);
 					bopq.add(B {v.getBinding(), count, "sb::Shader::DescriptorType::CombinedImageSampler"_v, shaderStagesToBrace(stages_set)});
 				}
-			}
+			}*/
 		impl += Return | B {bmapped, Sizeof(mapped_str), bopq};
 	}
 
@@ -233,8 +233,8 @@ class FolderPrinter
 			createShaderStruct<true>(u_structs, u_structs, us_desc.getName(), vars, "Layout");
 		}
 
-		shaderAddLayout(sh, u_structs, sb::Shader::Compiler::Set::Material, "material", compiled);
-		shaderAddLayout(sh, u_structs, sb::Shader::Compiler::Set::Object, "object", compiled);
+		shaderAddLayout(sh, u_structs, "material", compiled);
+		shaderAddLayout(sh, u_structs, "object", compiled);
 
 		shaderAddVertexInput(sh, u_structs, compiled);
 

@@ -19,6 +19,8 @@ public:
 	sb::Camera &camera;
 	int track_data = 96;
 
+	//sb::RenderPass main_pass;
+
 private:
 	EntityTest &entity;
 };
