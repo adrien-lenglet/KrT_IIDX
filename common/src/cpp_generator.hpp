@@ -1143,7 +1143,7 @@ namespace CppGenerator {
 			{
 			}
 
-			auto toFunc(void) const;
+			auto toFunc(void);
 			auto operator|(Block&&);
 			auto operator|(const Type &type);
 			auto operator|(const Storage &storage);
@@ -4416,7 +4416,7 @@ namespace CppGenerator {
 		}
 
 		template <typename ArgsType>
-		auto IdentifierFunArgs<ArgsType>::toFunc(void) const
+		auto IdentifierFunArgs<ArgsType>::toFunc(void)
 		{
 			return FuncNoReturn(Storage(), m_name, std::move(m_args));
 		}

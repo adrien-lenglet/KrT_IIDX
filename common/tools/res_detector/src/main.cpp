@@ -227,6 +227,7 @@ class FolderPrinter
 				vars.emplace_back(v);
 			createShaderStruct<true>(u_structs, u_structs, us_desc.getName(), vars, "Layout");
 		}
+		shaderAddVertexInput(sh, u_structs, compiled);
 
 		auto ref_acc = "sb::Shader::DescriptorSet::RefAccessor"_t.T("Up"_t);
 		auto unique_ref = "sb::Shader::UniqueRef"_t;
@@ -235,9 +236,10 @@ class FolderPrinter
 		auto &runtime = sh += Class | "Runtime" | S
 		{
 			unique_ref | &N | Id("m_ref"),
-		Public,
-			Ctor(unique_ref | &N | Id("ref")) | C(Id("m_ref")("ref"_v)) | S {}
+		Public
 		};
+		auto runtime_ctor_fwd = runtime += Ctor(unique_ref | &N | Id("ref"));
+		m_impl_out += runtime_ctor_fwd(unique_ref | &N | Id("ref")) | C(Id("m_ref")("ref"_v)) | S {};
 
 		auto vec_resolver = "sb::rs::Shader::DescriptorSetLayouts"_t;
 		auto desc_layout_fwd = sh += vec_resolver | Id("loadDescriptorSetLayouts")("sb::ISystem"_t | &N | Id("sys")) | Const | Override;
@@ -257,9 +259,10 @@ class FolderPrinter
 			auto &set_runtime = set_scope += Class | "Runtime" | C(Public | set_scope>>"Mapped"_t) | S
 			{
 				unique_ref | &N | Id("m_ref"),
-			Public,
-				Ctor(unique_ref | &N | Id("ref")) | C(Id("m_ref")("ref"_v)) | S {}
+			Public
 			};
+			auto set_runtime_fwd = set_runtime += Ctor(unique_ref | &N | Id("ref"));
+			m_impl_out += set_runtime_fwd(unique_ref | &N | Id("ref")) | C(Id("m_ref")("ref"_v)) | S {};
 			set_runtimes.emplace_back(set_runtime);
 		}
 		size_t ndx = 0;
@@ -274,18 +277,16 @@ class FolderPrinter
 
 			auto dst_ctor = last_set ? last_set : std::addressof(runtime);
 
-			auto handle_name = std::string("_") + set.get().getName() + std::string("_t");
-			auto handle = (*dst_ctor) += Using | handle_name = "sb::Shader::DescriptorSet::Handle"_t.T(set_scope);
-			(*dst_ctor) += Auto | Id(set.get().getName())(Void) | S
+			auto handle_t = "sb::Shader::DescriptorSet::Handle"_t.T(set_scope);
+			auto creator = (*dst_ctor) += handle_t | Id(set.get().getName())(Void);
+			m_impl_out += handle_t | creator(Void) | S
 			{
-				Return | Type(handle_name)("m_ref"_v, cur_ndx, nullptr)
+				Return | handle_t("m_ref"_v, cur_ndx, nullptr)
 			};
 
 			last_set = std::addressof(set_runtime);
 		}
 		desc_layout += Return | desc_layout_res;
-
-		shaderAddVertexInput(sh, u_structs, compiled);
 
 		auto name = shaderentry.path().parent_path().string() + std::string("/.") + id + std::string("_stages");
 		std::fs::create_directory(name);
@@ -303,10 +304,10 @@ class FolderPrinter
 			}
 		}
 
-		/*sh += Static | "sb::Instance::Shader"_t.T(sh) | Id("loaded")(Void) | S
+		sh += Static | "sb::Shader::Loaded"_t.T(sh) | Id("loaded")(Void) | S
 		{
 			"throw"_v
-		};*/
+		};
 
 		return sh;
 	}
