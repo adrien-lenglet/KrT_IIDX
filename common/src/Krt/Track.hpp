@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Subtile/World.hpp"
+#include "Subtile/Render.hpp"
 #include "Subtile/Camera.hpp"
 
 namespace Krt {
@@ -19,7 +20,7 @@ public:
 	sb::Camera &camera;
 	int track_data = 96;
 
-	//sb::RenderPass main_pass;
+	sb::Render::Pass render;
 
 private:
 	EntityTest &entity;

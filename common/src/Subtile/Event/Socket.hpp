@@ -6,6 +6,10 @@
 
 namespace Subtile {
 
+namespace Render {
+class Pass;
+}
+
 namespace Event {
 
 template <typename ObserverType, typename ...ArgsType>
@@ -38,6 +42,9 @@ public:
 		triggered.trigger(*this, std::forward<PayloadTypes>(args)...);
 	}
 
+	template <typename RenderType>
+	void bind(Render::Pass &pass, const RenderType &render);
+
 private:
 	Binding::Dependency::Socket m_dependencies;
 };
@@ -46,3 +53,16 @@ private:
 }
 
 #include "Observer.hpp"
+#include "../Render.hpp"
+
+namespace Subtile {
+namespace Event {
+
+template <typename RenderType>
+void Socket::bind(Render::Pass &pass, const RenderType &render)
+{
+	pass.bind(m_dependencies, render);
+}
+
+}
+}

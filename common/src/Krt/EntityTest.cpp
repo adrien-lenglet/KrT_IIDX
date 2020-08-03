@@ -11,8 +11,8 @@ EntityTest::EntityTest(void) :
 	entity1(add<EntityTest2>()),
 	entity2(add<EntityTest2>()),
 	m_shader(load(res.shaders().diffuse())),
-	//m_material(m_shader.material()),
-	//m_object(m_shader.object()),
+	m_material(m_shader.material()),
+	m_object(m_material.object()),
 	m_model(createModel())
 {
 	bind(world.events.system.input.button.pressed("quit"), [this](){
@@ -25,13 +25,7 @@ EntityTest::EntityTest(void) :
 		trigger(got_score, 7.92);
 	});
 
-	//auto render = m_shader.render(m_model);
-
-	auto mat = m_shader.material();
-	auto obj = mat.object();
-	//auto sub_obj = obj.sub_object();
-
-	auto render = obj.render(m_model);
+	bind(world.render, m_object.render(m_model));
 
 	/*bind(world.events.update, [this](auto &t){
 		pos.x += t;

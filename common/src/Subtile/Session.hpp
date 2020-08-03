@@ -3,6 +3,7 @@
 #include "ISystem.hpp"
 #include "Event/System/Observer.hpp"
 #include "Screen/Layout.hpp"
+#include "Event/Socket.hpp"
 #include "Math.hpp"
 #include "util.hpp"
 

@@ -6,7 +6,7 @@
 #include <functional>
 #include <optional>
 #include <type_traits>
-#include "Socket.hpp"
+#include "../Binding.hpp"
 #include "util.hpp"
 
 namespace Subtile {
@@ -272,5 +272,3 @@ private:
 
 }
 }
-
-#include "Socket.hpp"

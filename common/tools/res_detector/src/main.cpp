@@ -291,11 +291,12 @@ class FolderPrinter
 			auto dst_ctor = last_set ? last_set : std::addressof(runtime);
 
 			auto handle_t = "sb::Shader::DescriptorSet::Handle"_t.T(set_scope);
-			auto creator = (*dst_ctor) += handle_t | Id(set.get().getName())(Void);
-			m_impl_out += handle_t | creator(Void) | S
-			{
-				Return | handle_t("m_ref"_v, cur_ndx, nullptr)
-			};
+			auto creator_fwd = (*dst_ctor) += handle_t | Id(set.get().getName())(Void);
+			auto &creator = m_impl_out += handle_t | creator_fwd(Void) | S {};
+			if (last_set == nullptr)
+				creator += Return | handle_t("m_ref"_v, cur_ndx, nullptr);
+			else
+				creator += Return | handle_t("m_ref"_v, cur_ndx, nullptr);
 			set_runtime += Using | "can_render" = "std::integral_constant"_t.T(Bool, Type(Value(inv_ndx == 0 ? true : false).getValue()));
 			set_runtime += Using | "shader" = sh;
 

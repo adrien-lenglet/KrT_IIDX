@@ -6,7 +6,7 @@
 namespace Subtile {
 namespace System {
 
-class IInput : Event::Observer
+class IInput : public Event::Observer
 {
 public:
 	virtual ~IInput(void) = default;

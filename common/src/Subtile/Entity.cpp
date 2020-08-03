@@ -24,6 +24,11 @@ EntityBase::~EntityBase(void)
 {
 }
 
+void EntityBase::destroy_children(void)
+{
+	m_children.clear();
+}
+
 void EntityBase::destroy(void)
 {
 	auto &p = getParent();

@@ -54,6 +54,7 @@ public:
 	virtual ~EntityBase(void) = 0;
 
 protected:
+	void destroy_children(void);
 	void destroy(void);
 
 	template <typename ...PayloadTypes>

@@ -24,6 +24,7 @@ Track::Track(void) :
 
 Track::~Track(void)
 {
+	destroy_children();
 }
 
 }

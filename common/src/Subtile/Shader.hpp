@@ -673,15 +673,37 @@ public:
 		class BaseHandle
 		{
 		public:
-			BaseHandle(std::unique_ptr<DescriptorSet> &&desc_set, DescriptorSet *parent);
+			BaseHandle(std::unique_ptr<DescriptorSet> &&desc_set, BaseHandle *parent);
+
+			class Getter
+			{
+			public:
+				Getter(BaseHandle &handle) :
+					m_handle(handle)
+				{
+				}
+
+				decltype(auto) getParent(void)
+				{
+					return m_handle.getParent();
+				}
+				decltype(auto) getSet(void)
+				{
+					return m_handle.getSet();
+				}
+
+			private:
+				BaseHandle &m_handle;
+			};
 
 		protected:
 			std::unique_ptr<DescriptorSet> m_set;
 
 		private:
-			DescriptorSet *m_parent;
+			BaseHandle *m_parent;
 
-			DescriptorSet* getParent(void);
+			friend Getter;
+			BaseHandle* getParent(void);
 			DescriptorSet& getSet(void);
 		};
 
@@ -745,7 +767,7 @@ public:
 	class Render
 	{
 	public:
-		Render(Shader &shader, DescriptorSet *last_set, const Model &model) :
+		Render(Shader &shader, DescriptorSet::BaseHandle *last_set, const Model &model) :
 			m_shader(shader),
 			m_last_set(last_set),
 			m_model(model)
@@ -757,11 +779,13 @@ public:
 		template <typename Up, typename Traits>
 		class FromDescriptorSet;
 
-		void inhibit_warning();	// TO REMOVE
+		Shader& getShader(void) const;
+		DescriptorSet::BaseHandle* getLastSet(void) const;
+		const Model& getModel(void) const;
 
 	private:
 		Shader &m_shader;
-		DescriptorSet *m_last_set;
+		DescriptorSet::BaseHandle *m_last_set;
 		const Model &m_model;
 	};
 };
@@ -991,7 +1015,8 @@ public:
 
 	auto render(const Shader::Model::Handle<typename Traits::Runtime::shader::Model> &model)
 	{
-		return Render(UniqueRef::Getter<typename Traits::Runtime>(static_cast<typename Traits::Runtime&>(static_cast<Up&>(*this))).get().getShader(), nullptr, Shader::Model::BaseHandle::Getter(static_cast<const Shader::Model::BaseHandle&>(model)).getModel());
+		auto &up = static_cast<Up&>(*this);
+		return Render(UniqueRef::Getter<typename Traits::Runtime>(static_cast<typename Traits::Runtime&>(up)).get().getShader(), &static_cast<Shader::DescriptorSet::BaseHandle&>(up), Shader::Model::BaseHandle::Getter(static_cast<const Shader::Model::BaseHandle&>(model)).getModel());
 	}
 };
 
@@ -1004,7 +1029,7 @@ class Shader::DescriptorSet::Handle :
 	using Mapped = typename Traits::Mapped;
 
 public:
-	Handle(UniqueRef &ref, size_t set_ndx, DescriptorSet *parent) :
+	Handle(UniqueRef &ref, size_t set_ndx, BaseHandle *parent) :
 		BaseHandle(ref.set(set_ndx), parent),
 		Traits::Runtime(ref)
 	{
