@@ -753,7 +753,11 @@ public:
 		}
 
 		template <typename Up, typename ResType>
-		class Root;
+		class FromRoot;
+		template <typename Up, typename Traits>
+		class FromDescriptorSet;
+
+		void inhibit_warning();	// TO REMOVE
 
 	private:
 		Shader &m_shader;
@@ -888,6 +892,24 @@ public:
 		return **m_ref;
 	}
 
+	template <typename T>
+	class Getter
+	{
+	public:
+		Getter(T &holder) :
+			m_holder(holder)
+		{
+		}
+
+		auto& get(void)
+		{
+			return m_holder.m_ref;
+		}
+
+	private:
+		T &m_holder;
+	};
+
 private:
 	Cache::Ref m_ref;
 };
@@ -901,38 +923,22 @@ public:
 	{
 	}
 
-	class Getter
-	{
-	public:
-		Getter(UniqueRefHolder &holder) :
-			m_holder(holder)
-		{
-		}
-
-		auto& get(void)
-		{
-			return m_holder.m_ref;
-		}
-
-	private:
-		UniqueRefHolder &m_holder;
-	};
-
-	friend Getter;
+	template <typename>
+	friend class UniqueRef::Getter;
 
 protected:
 	UniqueRef m_ref;
 };
 
 template <typename Up, typename ResType>
-class Shader::Render::Root
+class Shader::Render::FromRoot
 {
 public:
-	Root(void) = default;
+	FromRoot(void) = default;
 
 	auto render(const Shader::Model::Handle<typename ResType::Model> &model)
 	{
-		return Render(UniqueRefHolder::Getter(static_cast<Up&>(*this)).get().getShader(), nullptr, Shader::Model::BaseHandle::Getter(static_cast<const Shader::Model::BaseHandle&>(model)).getModel());
+		return Render(UniqueRef::Getter<UniqueRefHolder>(static_cast<Up&>(*this)).get().getShader(), nullptr, Shader::Model::BaseHandle::Getter(static_cast<const Shader::Model::BaseHandle&>(model)).getModel());
 	}
 };
 
@@ -940,7 +946,7 @@ template <typename ResType>
 class Shader::Loaded :
 	public Shader::UniqueRefHolder,
 	public util::remove_cvr_t<ResType>::Runtime,
-	public util::conditional_un_t<util::remove_cvr_t<ResType>::Runtime::can_render::value, Render::Root<Loaded<ResType>, ResType>>
+	public util::conditional_un_t<util::remove_cvr_t<ResType>::Runtime::can_render::value, Render::FromRoot<Loaded<ResType>, ResType>>
 {
 	using Res = util::remove_cvr_t<ResType>;
 
@@ -951,7 +957,7 @@ public:
 	{
 	}
 	Loaded(Loaded<Res> &&other) :
-		UniqueRefHolder(std::move(UniqueRefHolder::Getter(other).get())),
+		UniqueRefHolder(std::move(UniqueRef::Getter<UniqueRefHolder>(other).get())),
 		util::remove_cvr_t<ResType>::Runtime(m_ref)
 	{
 	}
@@ -976,8 +982,24 @@ private:
 	friend class Loaded;
 };
 
+
+template <typename Up, typename Traits>
+class Shader::Render::FromDescriptorSet
+{
+public:
+	FromDescriptorSet(void) = default;
+
+	auto render(const Shader::Model::Handle<typename Traits::Runtime::shader::Model> &model)
+	{
+		return Render(UniqueRef::Getter<typename Traits::Runtime>(static_cast<typename Traits::Runtime&>(static_cast<Up&>(*this))).get().getShader(), nullptr, Shader::Model::BaseHandle::Getter(static_cast<const Shader::Model::BaseHandle&>(model)).getModel());
+	}
+};
+
 template <typename Traits>
-class Shader::DescriptorSet::Handle : public Shader::DescriptorSet::BaseHandle, public Traits::Runtime
+class Shader::DescriptorSet::Handle :
+	public Shader::DescriptorSet::BaseHandle,
+	public Traits::Runtime,
+	public util::conditional_un_t<Traits::Runtime::can_render::value, Shader::Render::FromDescriptorSet<Handle<Traits>, Traits>>
 {
 	using Mapped = typename Traits::Mapped;
 

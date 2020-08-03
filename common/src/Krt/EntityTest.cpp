@@ -25,11 +25,13 @@ EntityTest::EntityTest(void) :
 		trigger(got_score, 7.92);
 	});
 
-	auto render = m_shader.render(m_model);
+	//auto render = m_shader.render(m_model);
 
-	/*auto mat = m_shader.material();
+	auto mat = m_shader.material();
 	auto obj = mat.object();
-	auto sub_obj = obj.sub_object();*/
+	//auto sub_obj = obj.sub_object();
+
+	auto render = obj.render(m_model);
 
 	/*bind(world.events.update, [this](auto &t){
 		pos.x += t;

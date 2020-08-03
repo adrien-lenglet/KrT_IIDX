@@ -1,4 +1,4 @@
-/*fragment {
+fragment {
 	set material {
 		vec3 color;
 		vec3 normal;
@@ -11,10 +11,10 @@ vertex {
 		mat4 mvp;
 	};
 
-	set sub_object {
+	/*set sub_object {
 		uint lol;
 		double xdd;
-	};
+	};*/
 
 	in vec3 in_pos;
 	in vec3 in_normal;
@@ -38,9 +38,9 @@ fragment {
 	{
 		screen_color = material.color;
 	}
-}*/
+}
 
-vertex {
+/*vertex {
 
 	in vec3 in_pos;
 	in vec3 in_normal;
@@ -64,4 +64,4 @@ fragment {
 	{
 		screen_color = vec3(1.0);
 	}
-}
+}*/

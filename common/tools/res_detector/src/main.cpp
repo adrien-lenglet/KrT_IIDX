@@ -241,7 +241,10 @@ class FolderPrinter
 		Public
 		};
 		auto runtime_ctor_fwd = runtime += Ctor(unique_ref | &N | Id("ref"));
-		m_impl_out += runtime_ctor_fwd(unique_ref | &N | Id("ref")) | C(Id("m_ref")("ref"_v)) | S {};
+		m_impl_out += runtime_ctor_fwd(unique_ref | &N | Id("ref")) | C(Id("m_ref")("ref"_v)) | S
+		{
+			StaticCast(Void, "m_ref"_v)
+		};
 
 		auto vec_resolver = "sb::rs::Shader::DescriptorSetLayouts"_t;
 		auto desc_layout_fwd = sh += vec_resolver | Id("loadDescriptorSetLayouts")("sb::ISystem"_t | &N | Id("sys")) | Const | Override;
@@ -264,10 +267,14 @@ class FolderPrinter
 			auto &set_runtime = set_scope += Class | "Runtime" | C(Public | set_scope>>"Mapped"_t) | S
 			{
 				unique_ref | &N | Id("m_ref"),
+				"template <typename> friend class sb::Shader::UniqueRef::Getter"_v,
 			Public
 			};
 			auto set_runtime_fwd = set_runtime += Ctor(unique_ref | &N | Id("ref"));
-			m_impl_out += set_runtime_fwd(unique_ref | &N | Id("ref")) | C(Id("m_ref")("ref"_v)) | S {};
+			m_impl_out += set_runtime_fwd(unique_ref | &N | Id("ref")) | C(Id("m_ref")("ref"_v)) | S
+			{
+				StaticCast(Void, "m_ref"_v)
+			};
 			set_runtimes.emplace_back(set_runtime);
 		}
 		size_t ndx = 0;
