@@ -4,7 +4,10 @@
 #include <map>
 #include <vector>
 #include <memory>
-#include "Subtile/Math.hpp"
+#include <iostream>
+#include "Math.hpp"
+#include "Cache.hpp"
+#include "Model.hpp"
 #include <glm/detail/type_vec2.hpp>
 #include <glm/detail/type_vec3.hpp>
 #include <glm/detail/type_vec4.hpp>
@@ -14,11 +17,20 @@
 namespace Subtile {
 
 class ISystem;
+namespace Resource {
+	class Shader;
+}
 
 class Shader
 {
 public:
 	virtual ~Shader(void) = default;
+
+	using Cache = sb::Cache<util::ref_wrapper<Resource::Shader>, std::unique_ptr<Shader>>;
+	class UniqueRef;
+	class UniqueRefHolder;
+	template <typename ResType>
+	class Loaded;
 
 	enum class Stage {
 		TesselationControl,
@@ -658,25 +670,23 @@ public:
 			};
 		};
 
-		template <typename Traits>
-		class Handle : public Traits::Mapped
+		class BaseHandle
 		{
-			using Mapped = typename Traits::Mapped;
-
 		public:
-			Handle(std::unique_ptr<DescriptorSet> &&desc_set) :
-				m_set(std::move(desc_set))
-			{
-			}
+			BaseHandle(std::unique_ptr<DescriptorSet> &&desc_set, DescriptorSet *parent);
 
-			void upload(void)
-			{
-				m_set->write(0, sizeof(Mapped), &static_cast<Mapped&>(*this));
-			}
+		protected:
+			std::unique_ptr<DescriptorSet> m_set;
 
 		private:
-			std::unique_ptr<DescriptorSet> m_set;
+			DescriptorSet *m_parent;
+
+			DescriptorSet* getParent(void);
+			DescriptorSet& getSet(void);
 		};
+
+		template <typename Traits>
+		class Handle;
 	};
 
 	class Model
@@ -771,6 +781,7 @@ private:
 };
 
 }
+
 }
 
 #include "Subtile/ISystem.hpp"
@@ -788,6 +799,115 @@ public:
 
 private:
 	std::unique_ptr<Layout> m_layout;
+};
+
+class Shader::UniqueRef : public Shader
+{
+public:
+	template <typename ...Args>
+	UniqueRef(Args &&...args) :
+		m_ref(std::forward<Args>(args)...)
+	{
+	}
+
+	std::unique_ptr<Shader::Model> model(size_t count, size_t stride, const void *data) override
+	{
+		return (*m_ref)->model(count, stride, data);
+	}
+
+	std::unique_ptr<Shader::DescriptorSet> set(size_t ndx) override
+	{
+		return (*m_ref)->set(ndx);
+	}
+
+private:
+	Cache::Ref m_ref;
+};
+
+class Shader::UniqueRefHolder
+{
+public:
+	template <typename ...Args>
+	UniqueRefHolder(Args &&...args) :
+		m_ref(std::forward<Args>(args)...)
+	{
+	}
+
+	class Getter
+	{
+	public:
+		Getter(UniqueRefHolder &holder) :
+			m_holder(holder)
+		{
+		}
+
+		auto& get(void)
+		{
+			return m_holder.m_ref;
+		}
+
+	private:
+		UniqueRefHolder &m_holder;
+	};
+
+	friend Getter;
+
+protected:
+	UniqueRef m_ref;
+};
+
+template <typename ResType>
+class Shader::Loaded : private Shader::UniqueRefHolder, public util::remove_cvr_t<ResType>::Runtime
+{
+	using Res = util::remove_cvr_t<ResType>;
+
+public:
+	Loaded(UniqueRef &&shader_ref) :
+		UniqueRefHolder(std::move(shader_ref)),
+		util::remove_cvr_t<ResType>::Runtime(m_ref)
+	{
+	}
+	Loaded(Loaded<Res> &&other) :
+		UniqueRefHolder(std::move(UniqueRefHolder::Getter(other).get())),
+		util::remove_cvr_t<ResType>::Runtime(m_ref)
+	{
+	}
+
+	using Model = sb::Model<typename Res::Vertex>;
+	auto model(const Model &in)
+	{
+		return m_ref.model(in.vertex_count(), sizeof(typename Model::Vertex), in.vertex_data());
+	}
+
+	auto model(void)
+	{
+		// don't actually thow a fatal error for a misuse
+		std::cerr << "Shader::model() called at runtime with no argument, use it on static time with decltype for the return type" << std::endl;
+
+		return m_ref.model(0, sizeof(typename Model::Vertex), nullptr);
+	}
+
+private:
+	template <typename>
+	friend class Loaded;
+};
+
+template <typename Traits>
+class Shader::DescriptorSet::Handle : public Shader::DescriptorSet::BaseHandle, public Traits::Runtime
+{
+	using Mapped = typename Traits::Mapped;
+
+public:
+	Handle(UniqueRef &ref, size_t set_ndx, DescriptorSet *parent) :
+		BaseHandle(ref.set(set_ndx), parent),
+		Traits::Runtime(ref)
+	{
+	}
+
+	void upload(void)
+	{
+		m_set->write(0, sizeof(Mapped), &static_cast<Mapped&>(*this));
+	}
 };
 
 }

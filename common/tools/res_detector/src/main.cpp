@@ -21,6 +21,7 @@ namespace fs = filesystem;
 
 class FolderPrinter
 {
+	//Util::CollectionBase &m_out;
 	Util::CollectionBase &m_impl_out;
 
 	static std::string id_storage(const std::string &id)
@@ -159,7 +160,7 @@ class FolderPrinter
 		return table.at(type);
 	}
 
-	Util::CollectionBase& shaderAddLayout(Util::CollectionBase &scope, Util::CollectionBase &user_structs_scope, const sb::Shader::Compiler::Set &set, Util::CollectionFunctionBase &func)
+	auto shaderAddLayout(Util::CollectionBase &scope, Util::CollectionBase &user_structs_scope, const sb::Shader::Compiler::Set &set)
 	{
 		auto &set_scope = scope += Struct | set.getName() | S {};
 		std::vector<std::reference_wrapper<const sb::Shader::Compiler::Variable>> vars;
@@ -182,8 +183,7 @@ class FolderPrinter
 		}
 		impl += Return | gen_bindings;
 
-		func += "res"_v.M("emplace_back"_v("new sb::Shader::DescriptorSet::Layout::Resolver::Inline"_v("sys"_v, Vd(impl.getValue())())));
-		return set_scope;
+		return std::tuple<Util::CollectionBase&, Id>(set_scope, fwd);
 	}
 
 	void shaderAddVertexInput(Util::CollectionBase &scope, Util::CollectionBase &user_structs_scope, sb::Shader::Compiler &shader)
@@ -228,40 +228,60 @@ class FolderPrinter
 			createShaderStruct<true>(u_structs, u_structs, us_desc.getName(), vars, "Layout");
 		}
 
+		auto ref_acc = "sb::Shader::DescriptorSet::RefAccessor"_t.T("Up"_t);
+		auto unique_ref = "sb::Shader::UniqueRef"_t;
+
 		auto &u_sets = sh += Struct | "Set" | S {};
-		auto &runtime = sh += Template(Typename | Id("Up")) || Class | "Runtime" | S
+		auto &runtime = sh += Class | "Runtime" | S
 		{
-			Auto | &N | Id("_get_ref")(Void) | S
-			{
-				Using | "Accesser" = Type("typename Up::RefAccessor"),
-				Return | "Accesser"_t(StaticCast("Up&"_t, *"this"_v)).M("getRef"_v())
-			},
-		Public
+			unique_ref | &N | Id("m_ref"),
+		Public,
+			Ctor(unique_ref | &N | Id("ref")) | C(Id("m_ref")("ref"_v)) | S {}
 		};
 
 		auto vec_resolver = "sb::rs::Shader::DescriptorSetLayouts"_t;
 		auto desc_layout_fwd = sh += vec_resolver | Id("loadDescriptorSetLayouts")("sb::ISystem"_t | &N | Id("sys")) | Const | Override;
 		auto &desc_layout = m_impl_out += vec_resolver | desc_layout_fwd("sb::ISystem"_t | &N | Id("sys")) | Const | S {};
 		auto desc_layout_res = desc_layout += vec_resolver | Id("res");
+		std::vector<std::reference_wrapper<Util::CollectionBase>> set_runtimes;
+		std::vector<std::reference_wrapper<Util::CollectionBase>> set_scopes;
+		std::vector<Id> layouts;
+		auto &sets = compiled.getSets();
+		for (auto it = sets.rbegin(); it != sets.rend(); it++) {
+
+			auto &set = *it;
+			auto [set_scope, getLayout] = shaderAddLayout(u_sets, u_structs, set);
+			set_scopes.emplace_back(set_scope);
+			layouts.emplace_back(getLayout);
+
+			auto &set_runtime = set_scope += Class | "Runtime" | C(Public | set_scope>>"Mapped"_t) | S
+			{
+				unique_ref | &N | Id("m_ref"),
+			Public,
+				Ctor(unique_ref | &N | Id("ref")) | C(Id("m_ref")("ref"_v)) | S {}
+			};
+			set_runtimes.emplace_back(set_runtime);
+		}
 		size_t ndx = 0;
 		Util::CollectionBase *last_set = nullptr;
 		for (auto &set : compiled.getSets()) {
 			auto cur_ndx = ndx++;
 
-			auto &set_scope = shaderAddLayout(u_sets, u_structs, set, desc_layout);
+			auto &set_runtime = set_runtimes.rbegin()[cur_ndx].get();
+			auto &set_scope = set_scopes.rbegin()[cur_ndx].get();
+			auto &get_layout = layouts.rbegin()[cur_ndx];
+			desc_layout += "res"_v.M("emplace_back"_v("new sb::Shader::DescriptorSet::Layout::Resolver::Inline"_v("sys"_v, Vd(get_layout.getValue())())));
 
-			//Util::CollectionBase
+			auto dst_ctor = last_set ? last_set : std::addressof(runtime);
 
-			//auto *creator_scope = std::addressof(runtime);
-			//if (last_set)
-
-			auto handle = runtime += Using | (std::string("_") + set.get().getName() + std::string("_t")) = "sb::Shader::DescriptorSet::Handle"_t.T(set_scope);
-			runtime += Auto | Id(set.get().getName())(Void) | S
+			auto handle_name = std::string("_") + set.get().getName() + std::string("_t");
+			auto handle = (*dst_ctor) += Using | handle_name = "sb::Shader::DescriptorSet::Handle"_t.T(set_scope);
+			(*dst_ctor) += Auto | Id(set.get().getName())(Void) | S
 			{
-				Return | handle("_get_ref"_v().M("set"_v(cur_ndx)))
+				Return | Type(handle_name)("m_ref"_v, cur_ndx, nullptr)
 			};
 
-			last_set = std::addressof(set_scope);
+			last_set = std::addressof(set_runtime);
 		}
 		desc_layout += Return | desc_layout_res;
 
@@ -283,10 +303,10 @@ class FolderPrinter
 			}
 		}
 
-		sh += Static | "sb::Instance::Shader"_t.T(sh) | Id("loaded")(Void) | S
+		/*sh += Static | "sb::Instance::Shader"_t.T(sh) | Id("loaded")(Void) | S
 		{
 			"throw"_v
-		};
+		};*/
 
 		return sh;
 	}
@@ -367,10 +387,12 @@ class FolderPrinter
 	}
 
 public:
-	FolderPrinter(Util::CollectionBase &out, Util::CollectionBase &impl_out, const std::string &root) :
+	FolderPrinter(Util::CollectionBase &scope, Util::CollectionBase &impl_out, Util::CollectionBase &out, const std::string &root) :
+		//m_out(out),
 		m_impl_out(impl_out)
 	{
-		print(root, out);
+		static_cast<void>(out);
+		print(root, scope);
 	}
 	~FolderPrinter(void)
 	{
@@ -403,7 +425,7 @@ public:
 		for (auto &n : ns)
 			collec = std::addressof((*collec) += Namespace | n | S {});
 
-		FolderPrinter(*collec, impl, root);
+		FolderPrinter(*collec, impl, header, root);
 	}
 };
 

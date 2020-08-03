@@ -107,6 +107,22 @@ bool Shader::DescriptorSet::Layout::DescriptionBinding::isMapped(void) const
 	return descriptorTypeIsMapped(descriptorType);
 }
 
+Shader::DescriptorSet::BaseHandle::BaseHandle(std::unique_ptr<DescriptorSet> &&desc_set, DescriptorSet *parent) :
+	m_set(std::move(desc_set)),
+	m_parent(parent)
+{
+}
+
+Shader::DescriptorSet* Shader::DescriptorSet::BaseHandle::getParent(void)
+{
+	return m_parent;
+}
+
+Shader::DescriptorSet& Shader::DescriptorSet::BaseHandle::getSet(void)
+{
+	return *m_set;
+}
+
 Shader::DescriptorSet::Layout::Resolver::Inline::Inline(ISystem &sys, const Layout::Description &desc) :
 	m_layout(sys.createDescriptorSetLayout(desc))
 {

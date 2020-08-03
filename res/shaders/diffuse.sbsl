@@ -1,7 +1,19 @@
+fragment {
+	set material {
+		vec3 color;
+		vec3 normal;
+	};
+}
+
 vertex {
 	set object {
 		float time;
 		mat4 mvp;
+	};
+
+	set sub_object {
+		uint lol;
+		double xdd;
 	};
 
 	in vec3 in_pos;
@@ -20,11 +32,6 @@ vertex {
 }
 
 fragment {
-	set material {
-		vec3 color;
-		vec3 normal;
-	};
-
 	out vec3 screen_color;
 
 	void main(void)
