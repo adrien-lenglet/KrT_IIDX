@@ -186,7 +186,7 @@ class FolderPrinter
 		return std::tuple<Util::CollectionBase&, Id>(set_scope, fwd);
 	}
 
-	void shaderAddVertexInput(Util::CollectionBase &scope, Util::CollectionBase &user_structs_scope, sb::Shader::Compiler &shader)
+	auto shaderAddVertexInput(Util::CollectionBase &scope, Util::CollectionBase &user_structs_scope, sb::Shader::Compiler &shader)
 	{
 		std::vector<std::reference_wrapper<const sb::Shader::Compiler::Variable>> vars;
 		for (auto &io : shader.getStages().begin()->second.getInterface())
@@ -204,6 +204,8 @@ class FolderPrinter
 		auto creator = impl += t>>"Creator"_t | Id("creator")(vertex, res);
 		impl += "sb::Shader::Type::CreateVertexInputAccessor"_t("vertex"_v).M("create"_v(creator));
 		impl += Return | "res"_v;
+
+		return scope += Using | "Model" = "sb::Model"_t.T(vertex_t);
 	}
 
 	Type addShader(Util::CollectionBase &scope, const std::string &id, const std::string &shaderpath, const std::fs::directory_entry &shaderentry)
@@ -227,7 +229,7 @@ class FolderPrinter
 				vars.emplace_back(v);
 			createShaderStruct<true>(u_structs, u_structs, us_desc.getName(), vars, "Layout");
 		}
-		shaderAddVertexInput(sh, u_structs, compiled);
+		auto model = shaderAddVertexInput(sh, u_structs, compiled);
 
 		auto ref_acc = "sb::Shader::DescriptorSet::RefAccessor"_t.T("Up"_t);
 		auto unique_ref = "sb::Shader::UniqueRef"_t;
@@ -243,7 +245,10 @@ class FolderPrinter
 
 		auto vec_resolver = "sb::rs::Shader::DescriptorSetLayouts"_t;
 		auto desc_layout_fwd = sh += vec_resolver | Id("loadDescriptorSetLayouts")("sb::ISystem"_t | &N | Id("sys")) | Const | Override;
-		auto &desc_layout = m_impl_out += vec_resolver | desc_layout_fwd("sb::ISystem"_t | &N | Id("sys")) | Const | S {};
+		auto &desc_layout = m_impl_out += vec_resolver | desc_layout_fwd("sb::ISystem"_t | &N | Id("sys")) | Const | S
+		{
+			StaticCast(Void, "sys"_v)
+		};
 		auto desc_layout_res = desc_layout += vec_resolver | Id("res");
 		std::vector<std::reference_wrapper<Util::CollectionBase>> set_runtimes;
 		std::vector<std::reference_wrapper<Util::CollectionBase>> set_scopes;
@@ -269,10 +274,11 @@ class FolderPrinter
 		Util::CollectionBase *last_set = nullptr;
 		for (auto &set : compiled.getSets()) {
 			auto cur_ndx = ndx++;
+			auto inv_ndx = compiled.getSets().size() - 1 - cur_ndx;
 
-			auto &set_runtime = set_runtimes.rbegin()[cur_ndx].get();
-			auto &set_scope = set_scopes.rbegin()[cur_ndx].get();
-			auto &get_layout = layouts.rbegin()[cur_ndx];
+			auto &set_runtime = set_runtimes.at(inv_ndx).get();
+			auto &set_scope = set_scopes.at(inv_ndx).get();
+			auto &get_layout = layouts.at(inv_ndx);
 			desc_layout += "res"_v.M("emplace_back"_v("new sb::Shader::DescriptorSet::Layout::Resolver::Inline"_v("sys"_v, Vd(get_layout.getValue())())));
 
 			auto dst_ctor = last_set ? last_set : std::addressof(runtime);
@@ -283,10 +289,15 @@ class FolderPrinter
 			{
 				Return | handle_t("m_ref"_v, cur_ndx, nullptr)
 			};
+			set_runtime += Using | "can_render" = "std::integral_constant"_t.T(Bool, Type(Value(inv_ndx == 0 ? true : false).getValue()));
+			set_runtime += Using | "shader" = sh;
 
 			last_set = std::addressof(set_runtime);
 		}
 		desc_layout += Return | desc_layout_res;
+		//auto last_runtime = last_set ? last_set : std::addressof(runtime);
+		runtime += Using | "can_render" = "std::integral_constant"_t.T(Bool, Type(Value(last_set == nullptr ? true : false).getValue()));
+		runtime += Using | "shader" = sh;
 
 		auto name = shaderentry.path().parent_path().string() + std::string("/.") + id + std::string("_stages");
 		std::fs::create_directory(name);

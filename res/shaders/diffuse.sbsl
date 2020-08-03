@@ -1,4 +1,4 @@
-fragment {
+/*fragment {
 	set material {
 		vec3 color;
 		vec3 normal;
@@ -37,5 +37,31 @@ fragment {
 	void main(void)
 	{
 		screen_color = material.color;
+	}
+}*/
+
+vertex {
+
+	in vec3 in_pos;
+	in vec3 in_normal;
+	in vec2 in_uv;
+
+	out vec3 vtx_pos;
+	out vec3 vtx_normal;
+
+	void main(void)
+	{
+		//vec3 in_pos = vec3(2.3);
+		//vec2 pos;
+		//gl_Position = object.mvp * vec4(in_pos, 1.0);
+	}
+}
+
+fragment {
+	out vec3 screen_color;
+
+	void main(void)
+	{
+		screen_color = vec3(1.0);
 	}
 }

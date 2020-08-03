@@ -693,10 +693,73 @@ public:
 	{
 	public:
 		virtual ~Model(void) = default;
+
+		class BaseHandle
+		{
+		public:
+			BaseHandle(std::unique_ptr<Model> &&model);
+
+			class Getter
+			{
+			public:
+				Getter(const BaseHandle &handle) :
+					m_handle(handle)
+				{
+				}
+
+				decltype(auto) getModel(void) const
+				{
+					return m_handle.getModel();
+				}
+
+			private:
+				const BaseHandle &m_handle;
+			};
+
+		private:
+			std::unique_ptr<Model> m_model;
+
+			friend Getter;
+			Model& getModel(void) const;
+		};
+
+		template <typename ModelType>
+		class Handle : public BaseHandle
+		{
+		public:
+			//using model = ModelType;
+			using Vertex = typename ModelType::Vertex;
+			using Triangle = typename ModelType::Triangle;
+
+			template <typename ...Args>
+			Handle(Args &&...args) :
+				BaseHandle(std::forward<Args>(args)...)
+			{
+			}
+		};
 	};
 
 	virtual std::unique_ptr<Model> model(size_t count, size_t stride, const void *data) = 0;
 	virtual std::unique_ptr<DescriptorSet> set(size_t ndx) = 0;
+
+	class Render
+	{
+	public:
+		Render(Shader &shader, DescriptorSet *last_set, const Model &model) :
+			m_shader(shader),
+			m_last_set(last_set),
+			m_model(model)
+		{
+		}
+
+		template <typename Up, typename ResType>
+		class Root;
+
+	private:
+		Shader &m_shader;
+		DescriptorSet *m_last_set;
+		const Model &m_model;
+	};
 };
 
 }
@@ -820,6 +883,11 @@ public:
 		return (*m_ref)->set(ndx);
 	}
 
+	Shader& getShader(void)
+	{
+		return **m_ref;
+	}
+
 private:
 	Cache::Ref m_ref;
 };
@@ -856,8 +924,23 @@ protected:
 	UniqueRef m_ref;
 };
 
+template <typename Up, typename ResType>
+class Shader::Render::Root
+{
+public:
+	Root(void) = default;
+
+	auto render(const Shader::Model::Handle<typename ResType::Model> &model)
+	{
+		return Render(UniqueRefHolder::Getter(static_cast<Up&>(*this)).get().getShader(), nullptr, Shader::Model::BaseHandle::Getter(static_cast<const Shader::Model::BaseHandle&>(model)).getModel());
+	}
+};
+
 template <typename ResType>
-class Shader::Loaded : private Shader::UniqueRefHolder, public util::remove_cvr_t<ResType>::Runtime
+class Shader::Loaded :
+	public Shader::UniqueRefHolder,
+	public util::remove_cvr_t<ResType>::Runtime,
+	public util::conditional_un_t<util::remove_cvr_t<ResType>::Runtime::can_render::value, Render::Root<Loaded<ResType>, ResType>>
 {
 	using Res = util::remove_cvr_t<ResType>;
 
@@ -873,10 +956,11 @@ public:
 	{
 	}
 
-	using Model = sb::Model<typename Res::Vertex>;
-	auto model(const Model &in)
+	using ResModel = typename Res::Model;
+	using Model = Shader::Model::Handle<ResModel>;
+	auto model(const ResModel &in)
 	{
-		return m_ref.model(in.vertex_count(), sizeof(typename Model::Vertex), in.vertex_data());
+		return Model(m_ref.model(in.vertex_count(), sizeof(typename ResModel::Vertex), in.vertex_data()));
 	}
 
 	auto model(void)
@@ -884,7 +968,7 @@ public:
 		// don't actually thow a fatal error for a misuse
 		std::cerr << "Shader::model() called at runtime with no argument, use it on static time with decltype for the return type" << std::endl;
 
-		return m_ref.model(0, sizeof(typename Model::Vertex), nullptr);
+		return Model(m_ref.model(0, sizeof(typename ResModel::Vertex), nullptr));
 	}
 
 private:

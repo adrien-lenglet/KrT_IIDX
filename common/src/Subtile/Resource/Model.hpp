@@ -1,6 +1,7 @@
 #pragma once
 
 #include "File.hpp"
+#include "../Model.hpp"
 
 namespace Subtile {
 namespace Resource {
