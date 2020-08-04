@@ -235,15 +235,14 @@ class FolderPrinter
 		auto unique_ref = "sb::Shader::UniqueRef"_t;
 
 		auto &u_sets = sh += Struct | "Set" | S {};
-		auto &runtime = sh += Class | "Runtime" | S
+		auto &runtime = sh += Template(Typename | "Up") || Class | "Runtime" | S
 		{
 			unique_ref | &N | Id("m_ref"),
-		Public
-		};
-		auto runtime_ctor_fwd = runtime += Ctor(unique_ref | &N | Id("ref"));
-		m_impl_out += runtime_ctor_fwd(unique_ref | &N | Id("ref")) | C(Id("m_ref")("ref"_v)) | S
-		{
-			StaticCast(Void, "m_ref"_v)
+		Public,
+			Ctor(unique_ref | &N | Id("ref"))  | C(Id("m_ref")("ref"_v)) | S
+			{
+				StaticCast(Void, "m_ref"_v)
+			}
 		};
 
 		auto vec_resolver = "sb::rs::Shader::DescriptorSetLayouts"_t;
@@ -253,7 +252,7 @@ class FolderPrinter
 			StaticCast(Void, "sys"_v)
 		};
 		auto desc_layout_res = desc_layout += vec_resolver | Id("res");
-		std::vector<std::reference_wrapper<Util::CollectionBase>> set_runtimes;
+		std::vector<std::reference_wrapper<Util::TemplateCollectionBase>> set_runtimes;
 		std::vector<std::reference_wrapper<Util::CollectionBase>> set_scopes;
 		std::vector<Id> layouts;
 		auto &sets = compiled.getSets();
@@ -264,21 +263,22 @@ class FolderPrinter
 			set_scopes.emplace_back(set_scope);
 			layouts.emplace_back(getLayout);
 
-			auto &set_runtime = set_scope += Class | "Runtime" | C(Public | set_scope>>"Mapped"_t) | S
+			auto &set_runtime = set_scope +=
+			Template(Typename | "Up") ||
+			Class | "Runtime" | C(Public | set_scope>>"Mapped"_t) | S
 			{
 				unique_ref | &N | Id("m_ref"),
 				"template <typename> friend class sb::Shader::UniqueRef::Getter"_v,
-			Public
-			};
-			auto set_runtime_fwd = set_runtime += Ctor(unique_ref | &N | Id("ref"));
-			m_impl_out += set_runtime_fwd(unique_ref | &N | Id("ref")) | C(Id("m_ref")("ref"_v)) | S
-			{
-				StaticCast(Void, "m_ref"_v)
+			Public,
+				Ctor(unique_ref | &N | Id("ref")) | C(Id("m_ref")("ref"_v)) | S
+				{
+					StaticCast(Void, "m_ref"_v)
+				}
 			};
 			set_runtimes.emplace_back(set_runtime);
 		}
 		size_t ndx = 0;
-		Util::CollectionBase *last_set = nullptr;
+		Util::TemplateCollectionBase *last_set = nullptr;
 		for (auto &set : compiled.getSets()) {
 			auto cur_ndx = ndx++;
 			auto inv_ndx = compiled.getSets().size() - 1 - cur_ndx;
@@ -291,12 +291,11 @@ class FolderPrinter
 			auto dst_ctor = last_set ? last_set : std::addressof(runtime);
 
 			auto handle_t = "sb::Shader::DescriptorSet::Handle"_t.T(set_scope);
-			auto creator_fwd = (*dst_ctor) += handle_t | Id(set.get().getName())(Void);
-			auto &creator = m_impl_out += handle_t | creator_fwd(Void) | S {};
+			auto &creator = (*dst_ctor) += handle_t | Id(set.get().getName())(Void) | S {};
 			if (last_set == nullptr)
 				creator += Return | handle_t("m_ref"_v, cur_ndx, nullptr);
 			else
-				creator += Return | handle_t("m_ref"_v, cur_ndx, nullptr);
+				creator += Return | handle_t("m_ref"_v, cur_ndx, &StaticCast("sb::Shader::DescriptorSet::BaseHandle&"_t, StaticCast("Up&"_t, *This)));
 			set_runtime += Using | "can_render" = "std::integral_constant"_t.T(Bool, Type(Value(inv_ndx == 0 ? true : false).getValue()));
 			set_runtime += Using | "shader" = sh;
 

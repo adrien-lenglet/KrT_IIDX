@@ -969,20 +969,20 @@ public:
 template <typename ResType>
 class Shader::Loaded :
 	public Shader::UniqueRefHolder,
-	public util::remove_cvr_t<ResType>::Runtime,
-	public util::conditional_un_t<util::remove_cvr_t<ResType>::Runtime::can_render::value, Render::FromRoot<Loaded<ResType>, ResType>>
+	public util::remove_cvr_t<ResType>::template Runtime<Loaded<ResType>>,
+	public util::conditional_un_t<util::remove_cvr_t<ResType>::template Runtime<Loaded<ResType>>::can_render::value, Render::FromRoot<Loaded<ResType>, ResType>>
 {
 	using Res = util::remove_cvr_t<ResType>;
 
 public:
 	Loaded(UniqueRef &&shader_ref) :
 		UniqueRefHolder(std::move(shader_ref)),
-		util::remove_cvr_t<ResType>::Runtime(m_ref)
+		Res::template Runtime<Loaded<ResType>>(m_ref)
 	{
 	}
 	Loaded(Loaded<Res> &&other) :
 		UniqueRefHolder(std::move(UniqueRef::Getter<UniqueRefHolder>(other).get())),
-		util::remove_cvr_t<ResType>::Runtime(m_ref)
+		Res::template Runtime<Loaded<ResType>>(m_ref)
 	{
 	}
 
@@ -1013,25 +1013,25 @@ class Shader::Render::FromDescriptorSet
 public:
 	FromDescriptorSet(void) = default;
 
-	auto render(const Shader::Model::Handle<typename Traits::Runtime::shader::Model> &model)
+	auto render(const Shader::Model::Handle<typename Traits::template Runtime<Up>::shader::Model> &model)
 	{
 		auto &up = static_cast<Up&>(*this);
-		return Render(UniqueRef::Getter<typename Traits::Runtime>(static_cast<typename Traits::Runtime&>(up)).get().getShader(), &static_cast<Shader::DescriptorSet::BaseHandle&>(up), Shader::Model::BaseHandle::Getter(static_cast<const Shader::Model::BaseHandle&>(model)).getModel());
+		return Render(UniqueRef::Getter<typename Traits::template Runtime<Up>>(static_cast<typename Traits::template Runtime<Up>&>(up)).get().getShader(), &static_cast<Shader::DescriptorSet::BaseHandle&>(up), Shader::Model::BaseHandle::Getter(static_cast<const Shader::Model::BaseHandle&>(model)).getModel());
 	}
 };
 
 template <typename Traits>
 class Shader::DescriptorSet::Handle :
 	public Shader::DescriptorSet::BaseHandle,
-	public Traits::Runtime,
-	public util::conditional_un_t<Traits::Runtime::can_render::value, Shader::Render::FromDescriptorSet<Handle<Traits>, Traits>>
+	public Traits::template Runtime<Handle<Traits>>,
+	public util::conditional_un_t<Traits::template Runtime<Handle<Traits>>::can_render::value, Shader::Render::FromDescriptorSet<Handle<Traits>, Traits>>
 {
 	using Mapped = typename Traits::Mapped;
 
 public:
 	Handle(UniqueRef &ref, size_t set_ndx, BaseHandle *parent) :
 		BaseHandle(ref.set(set_ndx), parent),
-		Traits::Runtime(ref)
+		Traits::template Runtime<Handle<Traits>>(ref)
 	{
 	}
 
