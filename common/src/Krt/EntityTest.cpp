@@ -27,10 +27,13 @@ EntityTest::EntityTest(void) :
 
 	bind(world.render, m_object.render(m_model));
 
-	/*bind(world.events.update, [this](auto &t){
-		pos.x += t;
-		transformed();
-	});*/
+	bind(world.events.update, [this](auto &){
+		m_material.counter++;
+		if (static_cast<uint32_t>(m_material.counter) > 256) {
+			m_material.counter = 0;
+		}
+		m_material.upload();
+	});
 }
 
 EntityTest::~EntityTest(void)
@@ -43,7 +46,7 @@ decltype(EntityTest::m_model) EntityTest::createModel(void)
 	auto gen_vtx = [this](){
 		decltype(m_shader)::Model::Vertex res;
 		for (size_t i = 0; i < 3; i++)
-			res.in_pos[i] = world.srandf() * 50.0;
+			res.in_pos[i] = world.srandf() * 0.5;
 		for (size_t i = 0; i < 3; i++)
 			res.in_normal[i] = world.srandf();
 		res.in_normal = sb::math::normalize(res.in_normal);

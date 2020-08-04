@@ -2,6 +2,7 @@ fragment {
 	set material {
 		vec3 color;
 		vec3 normal;
+		uint counter;
 	};
 }
 
@@ -27,7 +28,9 @@ vertex {
 	{
 		//vec3 in_pos = vec3(2.3);
 		//vec2 pos;
-		gl_Position = object.mvp * vec4(in_pos, 1.0);
+		gl_Position = vec4(in_pos.x, in_pos.y, 0.5, 1.0);
+		vtx_pos = in_pos;
+		vtx_normal = in_normal;
 	}
 }
 
@@ -36,7 +39,7 @@ fragment {
 
 	void main(void)
 	{
-		screen_color = material.color;
+		screen_color = normalize(vtx_normal) + vec3(material.counter / 256.0);
 	}
 }
 

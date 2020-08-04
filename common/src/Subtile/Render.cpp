@@ -142,7 +142,7 @@ void Pass::SubShader::render(CommandBuffer &cmd, Shader &shader, Shader::Descrip
 	cmd.bindDescriptorSet(shader, set, depth);
 	render_models(cmd);
 	for (auto &sp : m_subpasses)
-		sp.second.render(cmd, shader, sp.first, depth++);
+		sp.second.render(cmd, shader, sp.first, depth + 1);
 }
 
 void Pass::SubShader::destroy(void)
