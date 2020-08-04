@@ -176,6 +176,11 @@ private:
 			return m_elements.end();
 		}
 
+		auto size(void) const
+		{
+			return m_elements.size();
+		}
+
 	protected:
 		UniqueSet m_elements;
 	};

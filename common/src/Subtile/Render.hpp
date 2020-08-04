@@ -3,70 +3,80 @@
 #include "../Subtile.hpp"
 #include "Shader.hpp"
 #include "Binding.hpp"
-#include "Event/Socket.hpp"
 
 namespace Subtile {
+
+namespace Event {
+class Socket;
+}
+
 namespace Render {
 
 class Pass
 {
-	class ShaderPass
+	class SubShader;
+
+	class ShaderBase
 	{
 	public:
-		ShaderPass(void)
-		{
-		}
+		ShaderBase(void);
 
-		ShaderPass& resolve_direct(Shader::DescriptorSet &set)
-		{
-			return m_subpasses[set];
-		}
+		ShaderBase& resolve_direct(Shader::DescriptorSet &set);
+		ShaderBase& resolve(Shader::DescriptorSet::BaseHandle *last_set);
 
-		ShaderPass& resolve(Shader::DescriptorSet::BaseHandle *last_set)
-		{
-			Shader::DescriptorSet::BaseHandle *sets[32];
-			size_t size = 0;
+		void bind(Binding::Dependency::Socket &socket, const Shader::Model &model);
 
-			while (last_set) {
-				sets[size++] = last_set;
-				last_set = Shader::DescriptorSet::BaseHandle::Getter(*last_set).getParent();
-			}
-			ShaderPass *res = this;
-			for (size_t i = 0; i < size; i++) {
-				size_t i_inv = size - 1 - i;
-				res = &res->resolve_direct(Shader::DescriptorSet::BaseHandle::Getter(*sets[i_inv]).getSet());
-			}
-			return *res;
-		}
+	protected:
+		virtual void destroy(void) = 0;
 
-		void bind(Binding::Dependency::Socket &socket, const Shader::Model &model)
-		{
-			m_to_render.bind(socket, model);
-		}
+		void remove_subpass(Shader::DescriptorSet &set);
+		friend SubShader;
+
+	public:
+		std::map<util::ref_wrapper<Shader::DescriptorSet>, SubShader> m_subpasses;
+		Binding::Weak<util::ref_wrapper<const Shader::Model>, true> m_to_render;
+	};
+
+	class ShaderPass : public ShaderBase
+	{
+	public:
+		ShaderPass(Pass &parent, Shader &shader);
+
+	protected:
+		void destroy(void) override;
 
 	private:
-		std::map<util::ref_wrapper<Shader::DescriptorSet>, ShaderPass> m_subpasses;
-		Binding::Weak<util::ref_wrapper<const Shader::Model>> m_to_render;
+		Pass &m_parent;
+		Shader &m_shader;
 	};
 
 public:
-	Pass(void)
-	{
-	}
+	Pass(void);
+	~Pass(void);
+
+protected:
+	void remove_shaderpass(Shader &shader);
 
 private:
 	std::map<util::ref_wrapper<Shader>, ShaderPass> m_shaderpasses;
 
-	ShaderPass& resolve(Shader &shader)
-	{
-		return m_shaderpasses[shader];
-	}
+	ShaderPass& resolve(Shader &shader);
 
 	friend Event::Socket;
-	void bind(Binding::Dependency::Socket &socket, const Shader::Render &render)
-	{
-		resolve(render.getShader()).resolve(render.getLastSet()).bind(socket, render.getModel());
-	}
+	void bind(Binding::Dependency::Socket &socket, const Shader::Render &render);
+};
+
+class Pass::SubShader : public Pass::ShaderBase
+{
+public:
+	SubShader(ShaderBase &parent, Shader::DescriptorSet &set);
+
+protected:
+	void destroy(void) override;
+
+private:
+	ShaderBase &m_parent;
+	Shader::DescriptorSet &m_set;
 };
 
 }
