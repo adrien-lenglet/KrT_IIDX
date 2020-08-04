@@ -16,6 +16,8 @@ Pass::ShaderBase& Pass::ShaderBase::resolve_direct(Shader::DescriptorSet &set)
 	auto got = m_subpasses.find(set);
 	if (got == m_subpasses.end()) {
 		auto [it, suc] = m_subpasses.emplace(std::piecewise_construct, std::forward_as_tuple(set), std::forward_as_tuple(*this, set));
+		if (!suc)
+			throw std::runtime_error("Can't emplace shader subpass");
 		got = it;
 	}
 	return got->second;
@@ -90,6 +92,8 @@ Pass::ShaderPass& Pass::resolve(Shader &shader)
 	auto got = m_shaderpasses.find(shader);
 	if (got == m_shaderpasses.end()) {
 		auto [it, suc] = m_shaderpasses.emplace(std::piecewise_construct, std::forward_as_tuple(shader), std::forward_as_tuple(*this, shader));
+		if (!suc)
+			throw std::runtime_error("Can't emplace shader pass");
 		got = it;
 	}
 	return got->second;

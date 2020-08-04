@@ -1471,6 +1471,8 @@ private:
 				auto got = stages.find(stage);
 				if (got == stages.end()) {
 					auto [it, suc] = stages.emplace(std::piecewise_construct, std::forward_as_tuple(stage), std::forward_as_tuple(m_compiler, stage));
+					if (!suc)
+						throw std::runtime_error("Can't emplace stage");
 					got = it;
 				}
 				return &got->second;
