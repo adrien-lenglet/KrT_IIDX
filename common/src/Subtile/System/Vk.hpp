@@ -5,6 +5,7 @@
 #include "../ISystem.hpp"
 #include "Glfw.hpp"
 #include "Subtile/Shader.hpp"
+#include "Subtile/Render.hpp"
 #include "Subtile/Model.hpp"
 
 #undef assert
@@ -571,6 +572,8 @@ private:
 
 		void write(size_t offset, size_t range, const void *data) override;
 
+		operator VkDescriptorSet(void) const;
+
 	private:
 		Device::Handle<VkDescriptorPool> m_descriptor_pool;
 		VkDescriptorSet m_descriptor_set;
@@ -581,10 +584,43 @@ private:
 		VmaBuffer createBuffer(Device &dev, const DescriptorSetLayout &layout);
 	};
 
+	class CommandBuffer : public sb::Render::CommandBuffer
+	{
+	public:
+		struct present_t {};
+
+		CommandBuffer(Device &dev);
+		CommandBuffer(Device &dev, present_t);
+		~CommandBuffer(void) override;
+
+		void beginRenderPass(void) override;
+		void endRenderPass(void) override;
+		void bindShader(sb::Shader &shader) override;
+		void bindDescriptorSet(sb::Shader &shader, sb::Shader::DescriptorSet &set, size_t ndx) override;
+		void draw(const sb::Shader::Model &model) override;
+
+		void submit(void) override;
+
+		VkCommandBuffer getHandle(void) const;
+		operator VkCommandBuffer(void) const;
+
+	private:
+		Device::Handle<VkCommandPool> m_command_pool;
+		VkCommandBuffer m_command_buffer;
+
+		VkCommandPool createPool(Device &dev, uint32_t queueIndex);
+		VkCommandBuffer allocCommandBuffer(Vk::Device &dev);
+		void beginCommandBuffer(void);
+	};
+
+	std::unique_ptr<sb::Render::CommandBuffer> createRenderCommandBuffer(void) override;
+
 	class Model : public sb::Shader::Model
 	{
 	public:
 		Model(Device &dev, size_t count, size_t stride, const void *data);
+
+		void draw(CommandBuffer &cmd) const;
 
 	private:
 		size_t m_count;
@@ -608,6 +644,9 @@ private:
 		std::unique_ptr<sb::Shader::Model> model(size_t count, size_t stride, const void *data) override;
 		std::unique_ptr<sb::Shader::DescriptorSet> set(size_t ndx) override;
 
+		PipelineLayout& getPipelineLayout(void);
+		Pipeline& getPipeline(void);
+
 	private:
 		Device &m_device;
 		rs::Shader::DescriptorSetLayouts m_layouts;
@@ -620,33 +659,6 @@ private:
 	};
 
 	std::unique_ptr<sb::Shader> loadShader(rs::Shader &shader) override;
-
-	class CommandBuffer : public sb::Render::CommandBuffer
-	{
-	public:
-		struct present_t {};
-
-		CommandBuffer(Device &dev);
-		CommandBuffer(Device &dev, present_t);
-		~CommandBuffer(void) override;
-
-		void beginRenderPass(void) override;
-		void endRenderPass(void) override;
-
-		void submit(void) override;
-
-		VkCommandBuffer getHandle(void) const;
-
-	private:
-		Device::Handle<VkCommandPool> m_command_pool;
-		VkCommandBuffer m_command_buffer;
-
-		VkCommandPool createPool(Device &dev, uint32_t queueIndex);
-		VkCommandBuffer allocCommandBuffer(Vk::Device &dev);
-		void beginCommandBuffer(void);
-	};
-
-	std::unique_ptr<sb::Render::CommandBuffer> createRenderCommandBuffer(void) override;
 
 	void acquireNextImage(void) override;
 	Semaphore m_acquire_image_semaphore;

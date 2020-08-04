@@ -5,9 +5,12 @@
 #include <map>
 #include "System/IInput.hpp"
 #include "Resource/Shader.hpp"
-#include "Render.hpp"
 
 namespace Subtile {
+
+namespace Render {
+class CommandBuffer;
+}
 
 class ISystem
 {

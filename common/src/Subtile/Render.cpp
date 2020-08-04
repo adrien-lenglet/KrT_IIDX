@@ -46,6 +46,12 @@ void Pass::ShaderBase::bind(Binding::Dependency::Socket &socket, const Shader::M
 	m_to_render.bind(socket, model);
 }
 
+void Pass::ShaderBase::render_models(CommandBuffer &cmd)
+{
+	for (auto &m : m_to_render)
+		cmd.draw(m);
+}
+
 void Pass::ShaderBase::remove_subpass(Shader::DescriptorSet &set)
 {
 	auto got = m_subpasses.find(set);
@@ -63,6 +69,14 @@ Pass::ShaderPass::ShaderPass(Pass &parent, Shader &shader) :
 {
 }
 
+void Pass::ShaderPass::render(CommandBuffer &cmd)
+{
+	cmd.bindShader(m_shader);
+	render_models(cmd);
+	for (auto &sp : m_subpasses)
+		sp.second.render(cmd, m_shader, sp.first, 0);
+}
+
 void Pass::ShaderPass::destroy(void)
 {
 	m_parent.remove_shaderpass(m_shader);
@@ -78,6 +92,8 @@ void Pass::render(void)
 	auto renderCmd = m_system.createRenderCommandBuffer();
 
 	renderCmd->beginRenderPass();
+	for (auto &sp : m_shaderpasses)
+		sp.second.render(*renderCmd);
 	renderCmd->endRenderPass();
 	renderCmd->submit();
 }
@@ -119,6 +135,14 @@ Pass::SubShader::SubShader(Pass::ShaderBase &parent, Shader::DescriptorSet &set)
 	m_parent(parent),
 	m_set(set)
 {
+}
+
+void Pass::SubShader::render(CommandBuffer &cmd, Shader &shader, Shader::DescriptorSet &set, size_t depth)
+{
+	cmd.bindDescriptorSet(shader, set, depth);
+	render_models(cmd);
+	for (auto &sp : m_subpasses)
+		sp.second.render(cmd, shader, sp.first, depth++);
 }
 
 void Pass::SubShader::destroy(void)

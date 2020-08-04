@@ -927,6 +927,11 @@ void Vk::DescriptorSet::write(size_t offset, size_t range, const void *data)
 	m_buffer.unmap();
 }
 
+Vk::DescriptorSet::operator VkDescriptorSet(void) const
+{
+	return m_descriptor_set;
+}
+
 VkDescriptorPool Vk::DescriptorSet::createPool(Device &dev, const DescriptorSetLayout &layout)
 {
 	std::map<VkDescriptorType, size_t> typeCount;
@@ -1020,6 +1025,15 @@ Vk::VmaBuffer Vk::Model::createBuffer(Device &dev, size_t size)
 		return Vk::VmaBuffer(dev, VK_NULL_HANDLE, VK_NULL_HANDLE);
 	else
 		return dev.allocator().createBuffer(bci, aci);
+}
+
+void Vk::Model::draw(CommandBuffer &cmd) const
+{
+	VkBuffer buffer = m_buffer;
+	VkDeviceSize off = 0;
+
+	vkCmdBindVertexBuffers(cmd, 0, 1, &buffer, &off);
+	vkCmdDraw(cmd, m_count, 1, 0, 0);
 }
 
 template <>
@@ -1242,6 +1256,16 @@ std::unique_ptr<sb::Shader::Model> Vk::Shader::model(size_t count, size_t stride
 	return std::make_unique<Vk::Model>(m_device, count, stride, data);
 }
 
+Vk::PipelineLayout& Vk::Shader::getPipelineLayout(void)
+{
+	return m_pipeline_layout;
+}
+
+Vk::Pipeline& Vk::Shader::getPipeline(void)
+{
+	return m_pipeline;
+}
+
 std::unique_ptr<sb::Shader> Vk::loadShader(rs::Shader &shader)
 {
 	return std::make_unique<Shader>(m_device, shader);
@@ -1308,6 +1332,11 @@ VkCommandBuffer Vk::CommandBuffer::getHandle(void) const
 	return m_command_buffer;
 }
 
+Vk::CommandBuffer::operator VkCommandBuffer(void) const
+{
+	return m_command_buffer;
+}
+
 void Vk::CommandBuffer::beginRenderPass(void)
 {
 	auto &vk = m_command_pool.getDep().vk();
@@ -1325,6 +1354,29 @@ void Vk::CommandBuffer::beginRenderPass(void)
 void Vk::CommandBuffer::endRenderPass(void)
 {
 	vkCmdEndRenderPass(m_command_buffer);
+}
+
+void Vk::CommandBuffer::bindShader(sb::Shader &shader)
+{
+	auto &sha = reinterpret_cast<Vk::Shader&>(shader);
+
+	vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, sha.getPipeline());
+}
+
+void Vk::CommandBuffer::bindDescriptorSet(sb::Shader &shader, sb::Shader::DescriptorSet &set, size_t ndx)
+{
+	auto &sha = reinterpret_cast<Vk::Shader&>(shader);
+	auto &s = reinterpret_cast<Vk::DescriptorSet&>(set);
+
+	VkDescriptorSet desc_set = s;
+	vkCmdBindDescriptorSets(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, sha.getPipelineLayout(), ndx, 1, &desc_set, 0, nullptr);
+}
+
+void Vk::CommandBuffer::draw(const sb::Shader::Model &model)
+{
+	auto &mod = reinterpret_cast<const Vk::Model&>(model);
+
+	mod.draw(*this);
 }
 
 void Vk::CommandBuffer::submit(void)
