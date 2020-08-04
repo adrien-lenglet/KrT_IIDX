@@ -20,4 +20,9 @@ void Instance::setInputs(const std::function<void (const Event::System::Observer
 	return m_events.input.set(binder);
 }
 
+ISystem& Instance::system(void)
+{
+	return *m_system;
+}
+
 }

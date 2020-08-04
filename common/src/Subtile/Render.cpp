@@ -1,4 +1,5 @@
 #include "Render.hpp"
+#include "World.hpp"
 
 namespace Subtile {
 namespace Render {
@@ -67,8 +68,16 @@ void Pass::ShaderPass::destroy(void)
 	m_parent.remove_shaderpass(m_shader);
 }
 
-Pass::Pass(void)
+Pass::Pass(void) :
+	m_system(World::getInstanceStack().top().get().system())
 {
+}
+
+void Pass::render(void)
+{
+	//auto renderCmd = m_system.beginRenderPass();
+
+	//renderCmd.end();
 }
 
 Pass::~Pass(void)

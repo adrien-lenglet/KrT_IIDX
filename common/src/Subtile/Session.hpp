@@ -2,7 +2,6 @@
 
 #include "ISystem.hpp"
 #include "Event/System/Observer.hpp"
-#include "Screen/Layout.hpp"
 #include "Event/Socket.hpp"
 #include "Math.hpp"
 #include "util.hpp"
@@ -11,8 +10,6 @@ namespace Subtile {
 
 class Instance;
 class World;
-
-template <class FinalType>
 class Session;
 
 class SessionBase : public Event::Socket
@@ -24,25 +21,19 @@ public:
 	void run(void);
 
 protected:
-	virtual Screen::Layout& getScreenLayout(void) = 0;
 	void done(void);
 
 	template <class T>
 	using Class = typename T::template Impl<T>;
 
 	template <typename WorldType, typename ...ArgsTypes>
-	auto& addWorld(ArgsTypes &&...args);
+	auto& add(ArgsTypes &&...args);
 
-	template <class LayoutType, typename ...Args>
-	std::unique_ptr<Screen::Layout> createLayout(Args &&...args)
-	{
-		return util::make_derived<Class<LayoutType>, Screen::Layout>(std::forward<Args>(args)...);
-	}
+	virtual void render(void) = 0;
 
 private:
 	friend Instance;
-	template <class FinalType>
-	friend class Session;
+	friend Session;
 
 	static util::stack<std::reference_wrapper<Instance>>& getCtx(void);
 	static util::stack<std::reference_wrapper<SessionBase>>& getSessionStack(void);
@@ -54,12 +45,8 @@ private:
 
 }
 
-#include "Camera.hpp"
-#include "Screen/Subsection.hpp"
-
 namespace Subtile {
 
-template <class FinalType>
 class Session : public SessionBase
 {
 public:
@@ -71,24 +58,6 @@ public:
 	~Session(void) override
 	{
 	}
-
-	using Layout = Screen::Section::UserDerive<Screen::Layout>;
-
-	class Subsection : public Screen::Section::UserDerive<Screen::Subsection>
-	{
-	public:
-		Subsection(Camera &camera) :
-			Screen::Section::UserDerive<Screen::Subsection>(camera)
-		{
-		}
-		Subsection(const std::function<Camera& (FinalType&)> &resolver) :
-			Screen::Section::UserDerive<Screen::Subsection>(resolver(static_cast<FinalType&>(getSessionStack().top().get())))
-		{
-		}
-		~Subsection(void)
-		{
-		}
-	};
 };
 
 }
@@ -98,7 +67,7 @@ public:
 namespace Subtile {
 
 	template <typename WorldType, typename ...ArgsTypes>
-	auto& SessionBase::addWorld(ArgsTypes &&...args)
+	auto& SessionBase::add(ArgsTypes &&...args)
 	{
 		auto &res = World::getInstanceStack().emplace_frame(std::function([&]() -> auto& {
 			return EntityBase::getCtx().emplace_frame(std::function([&]() -> auto& {

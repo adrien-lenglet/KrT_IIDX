@@ -8,6 +8,9 @@ namespace Subtile {
 
 class SessionBase;
 class Instance;
+namespace Render {
+class Pass;
+}
 
 class World : public Entity<World>
 {
@@ -36,6 +39,7 @@ private:
 	friend SessionBase;
 	template <typename WorldType>
 	friend class Entity;
+	friend Render::Pass;
 
 	static util::stack<std::reference_wrapper<Instance>>& getInstanceStack(void);
 

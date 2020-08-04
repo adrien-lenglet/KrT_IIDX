@@ -54,10 +54,13 @@ public:
 	Pass(void);
 	~Pass(void);
 
+	void render(void);
+
 protected:
 	void remove_shaderpass(Shader &shader);
 
 private:
+	ISystem &m_system;
 	std::map<util::ref_wrapper<Shader>, ShaderPass> m_shaderpasses;
 
 	ShaderPass& resolve(Shader &shader);

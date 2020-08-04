@@ -10,6 +10,9 @@ namespace Subtile {
 
 class World;
 class SessionBase;
+namespace Render {
+class Pass;
+}
 
 class Instance
 {
@@ -29,9 +32,12 @@ public:
 private:
 	friend World;
 	friend SessionBase;
+	friend Render::Pass;
 
 	std::unique_ptr<ISystem> m_system;
 	Event::System::Observer m_events;
+
+	ISystem& system(void);
 
 	Shader::UniqueRef loadShaderRef(rs::Shader &shaderres)
 	{
