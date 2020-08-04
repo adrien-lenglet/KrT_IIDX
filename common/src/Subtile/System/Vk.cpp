@@ -18,7 +18,8 @@ Vk::Vk(bool isDebug, Glfw &&glfw) :
 	m_present_queue(m_device.getQueue(*m_device.physical().queues().presentation(), 0)),
 	m_swapchain_format(m_device.physical().surface().chooseFormat()),
 	m_swapchain(createSwapchain()),
-	m_default_render_pass(createDefaultRenderPass())
+	m_default_render_pass(createDefaultRenderPass()),
+	m_swapchain_images(createSwapchainImages())
 {
 }
 
@@ -609,11 +610,6 @@ Vk::VmaBuffer::VmaBuffer(Device &dev, VkBuffer buffer, VmaAllocation allocation)
 {
 }
 
-Vk::ImageView::ImageView(Vk::Device &device, VkImageView imageView) :
-	Device::Handle<VkImageView>(device, imageView)
-{
-}
-
 template <>
 void Vk::Device::Handle<VkImageView>::destroy(Vk::Device &device, VkImageView imageView)
 {
@@ -621,30 +617,8 @@ void Vk::Device::Handle<VkImageView>::destroy(Vk::Device &device, VkImageView im
 }
 
 Vk::Swapchain::Swapchain(Vk::Device &device, VkSwapchainKHR swapchain) :
-	Device::Handle<VkSwapchainKHR>(device, swapchain),
-	m_images(enumerate<VkImage>(vkGetSwapchainImagesKHR, device, *this)),
-	m_views(createViews(device))
+	Device::Handle<VkSwapchainKHR>(device, swapchain)
 {
-}
-
-std::vector<Vk::ImageView> Vk::Swapchain::createViews(Vk::Device &dev)
-{
-	std::vector<Vk::ImageView> res;
-
-	VkImageViewCreateInfo ci {};
-
-	ci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	ci.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	ci.format = dev.physical().surface().chooseFormat().format;
-	ci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	ci.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
-	ci.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-
-	for (auto &i : m_images) {
-		ci.image = i;
-		res.emplace_back(dev.create<ImageView>(vkCreateImageView, ci));
-	}
-	return res;
 }
 
 template <>
@@ -686,8 +660,9 @@ Vk::Swapchain Vk::createSwapchain(void)
 	return m_device.create<Swapchain>(vkCreateSwapchainKHR, ci);
 }
 
-Vk::RenderPass::RenderPass(Device &dev, VkRenderPass renderPass) :
-	Device::Handle<VkRenderPass>(dev, renderPass)
+Vk::Swapchain::Image::Image(Vk::Device &dev, VkImageView imageView, VkFramebuffer framebuffer) :
+	m_image_view(dev, imageView),
+	m_framebuffer(dev, framebuffer)
 {
 }
 
@@ -695,6 +670,12 @@ template <>
 void Vk::Device::Handle<VkRenderPass>::destroy(Vk::Device &device, VkRenderPass renderPass)
 {
 	device.destroy(vkDestroyRenderPass, renderPass);
+}
+
+template <>
+void Vk::Device::Handle<VkFramebuffer>::destroy(Vk::Device &device, VkFramebuffer framebuffer)
+{
+	device.destroy(vkDestroyFramebuffer, framebuffer);
 }
 
 Vk::RenderPass Vk::createDefaultRenderPass(void)
@@ -734,6 +715,37 @@ Vk::RenderPass Vk::createDefaultRenderPass(void)
 Vk::RenderPass& Vk::getDefaultRenderPass(void)
 {
 	return m_default_render_pass;
+}
+
+std::vector<Vk::Swapchain::Image> Vk::createSwapchainImages(void)
+{
+	std::vector<Swapchain::Image> res;
+
+	VkImageViewCreateInfo viewCi {};
+
+	viewCi.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	viewCi.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	viewCi.format = m_device.physical().surface().chooseFormat().format;
+	viewCi.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	viewCi.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+	viewCi.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+	VkFramebufferCreateInfo framebufferCi {};
+
+	framebufferCi.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	framebufferCi.renderPass = m_default_render_pass;
+	framebufferCi.width = 1600;
+	framebufferCi.height = 900;
+	framebufferCi.layers = 1;
+
+	for (auto &i : enumerate<VkImage>(vkGetSwapchainImagesKHR, m_device, m_swapchain)) {
+		viewCi.image = i;
+		auto view = m_device.createVk(vkCreateImageView, viewCi);
+		framebufferCi.attachmentCount = 1;
+		framebufferCi.pAttachments = &view;
+		res.emplace_back(m_device, view, m_device.createVk(vkCreateFramebuffer, framebufferCi));
+	}
+	return res;
 }
 
 VkDescriptorType Vk::descriptorType(sb::Shader::DescriptorType type)
@@ -811,9 +823,9 @@ std::unique_ptr<sb::Shader::DescriptorSet::Layout> Vk::createDescriptorSetLayout
 }
 
 Vk::DescriptorSet::DescriptorSet(Vk::Device &dev, const Vk::DescriptorSetLayout &layout) :
-	Device::Handle<VkDescriptorPool>(dev, createPool(dev, layout)),
-	m_descriptor_set(create(layout)),
-	m_buffer(createBuffer(layout))
+	m_descriptor_pool(dev, createPool(dev, layout)),
+	m_descriptor_set(create(dev, layout)),
+	m_buffer(createBuffer(dev, layout))
 {
 	size_t mapped_count = 0;
 	for (auto &b : layout.getDescription())
@@ -890,13 +902,11 @@ VkDescriptorPool Vk::DescriptorSet::createPool(Device &dev, const DescriptorSetL
 		return dev.createVk(vkCreateDescriptorPool, ci);
 }
 
-VkDescriptorSet Vk::DescriptorSet::create(const DescriptorSetLayout &layout)
+VkDescriptorSet Vk::DescriptorSet::create(Device &dev, const DescriptorSetLayout &layout)
 {
-	Device &dev = *this;
-
 	VkDescriptorSetAllocateInfo ai {};
 	ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	ai.descriptorPool = *this;
+	ai.descriptorPool = m_descriptor_pool;
 	ai.descriptorSetCount = 1;
 	ai.pSetLayouts = &static_cast<const VkDescriptorSetLayout&>(layout);
 
@@ -906,9 +916,8 @@ VkDescriptorSet Vk::DescriptorSet::create(const DescriptorSetLayout &layout)
 		return dev.allocateVk(vkAllocateDescriptorSets, ai);
 }
 
-Vk::VmaBuffer Vk::DescriptorSet::createBuffer(const DescriptorSetLayout &layout)
+Vk::VmaBuffer Vk::DescriptorSet::createBuffer(Device &dev, const DescriptorSetLayout &layout)
 {
-	Device &dev = *this;
 	std::vector<uint32_t> queues {*dev.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT)};
 	size_t size = 0;
 	for (auto &b : layout.getDescription())
@@ -1186,6 +1195,68 @@ std::unique_ptr<sb::Shader::Model> Vk::Shader::model(size_t count, size_t stride
 std::unique_ptr<sb::Shader> Vk::loadShader(rs::Shader &shader)
 {
 	return std::make_unique<Shader>(m_device, shader);
+}
+
+Vk::CommandBuffer::CommandBuffer(Vk::Device &dev) :
+	m_command_pool(dev, createPool(dev)),
+	m_command_buffer(allocCommandBuffer(dev))
+{
+	VkCommandBufferBeginInfo be {};
+
+	be.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	be.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	Vk::assert(vkBeginCommandBuffer(m_command_buffer, &be));
+}
+
+VkCommandPool Vk::CommandBuffer::createPool(Device &dev)
+{
+	VkCommandPoolCreateInfo ci {};
+
+	ci.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	ci.queueFamilyIndex = *dev.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT);
+
+	return dev.createVk(vkCreateCommandPool, ci);
+}
+
+VkCommandBuffer Vk::CommandBuffer::allocCommandBuffer(Vk::Device &dev)
+{
+	VkCommandBufferAllocateInfo ai {};
+
+	ai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	ai.commandPool = m_command_pool;
+	ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	ai.commandBufferCount = 1;
+
+	return dev.allocateVk(vkAllocateCommandBuffers, ai);
+}
+
+Vk::CommandBuffer::~CommandBuffer(void)
+{
+}
+
+template <>
+void Vk::Device::Handle<VkCommandPool>::destroy(Vk::Device &device, VkCommandPool pool)
+{
+	device.destroy(vkDestroyCommandPool, pool);
+}
+
+void Vk::CommandBuffer::submit(void)
+{
+	Vk::assert(vkEndCommandBuffer(m_command_buffer));
+
+	VkSubmitInfo s {};
+	s.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	s.commandBufferCount = 1;
+	s.pCommandBuffers = &m_command_buffer;
+
+	Vk::assert(vkQueueSubmit(m_command_pool.getDep().vk().m_graphics_queue, 1, &s, VK_NULL_HANDLE));
+	Vk::assert(vkQueueWaitIdle(m_command_pool.getDep().vk().m_graphics_queue));
+}
+
+std::unique_ptr<sb::Render::CommandBuffer> Vk::createRenderCommandBuffer(void)
+{
+	return std::make_unique<CommandBuffer>(m_device);
 }
 
 }

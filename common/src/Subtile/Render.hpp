@@ -1,5 +1,19 @@
 #pragma once
 
+namespace Subtile {
+namespace Render {
+
+class CommandBuffer
+{
+public:
+	virtual ~CommandBuffer(void) = default;
+
+	virtual void submit(void) = 0;
+};
+
+}
+}
+
 #include "../Subtile.hpp"
 #include "Shader.hpp"
 #include "Binding.hpp"

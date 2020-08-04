@@ -152,6 +152,11 @@ private:
 			return m_handle;
 		}
 
+		DepType& getDep(void) const
+		{
+			return m_dep;
+		}
+
 	private:
 		DepType &m_dep;
 
@@ -359,9 +364,6 @@ private:
 		VmaAllocator create(Device &device);
 	};
 
-	class ImageView;
-	class RenderPass;
-
 	class Device : public Handle<VkDevice>
 	{
 		friend Handle<VkDevice>;
@@ -496,37 +498,38 @@ private:
 	VkQueue m_graphics_queue;
 	VkQueue m_present_queue;
 
-	class ImageView : public Device::Handle<VkImageView>
-	{
-	public:
-		ImageView(Device &device, VkImageView imageView);
-	};
+	using ImageView = Device::Handle<VkImageView>;
+	using RenderPass = Device::Handle<VkRenderPass>;
+	using Framebuffer = Device::Handle<VkFramebuffer>;
 
 	class Swapchain : public Device::Handle<VkSwapchainKHR>
 	{
 	public:
 		Swapchain(Vk::Device &device, VkSwapchainKHR swapchain);
 
-	private:
-		std::vector<VkImage> m_images;
-		std::vector<ImageView> m_views;
+		class Image
+		{
+		public:
+			Image(Vk::Device &dev, VkImageView imageView, VkFramebuffer framebuffer);
 
-		std::vector<ImageView> createViews(Device &dev);
+		private:
+			ImageView m_image_view;
+			Framebuffer m_framebuffer;
+		};
 	};
 
 	const VkSurfaceFormatKHR &m_swapchain_format;
 	Swapchain m_swapchain;
 	Swapchain createSwapchain(void);
 
-	class RenderPass : public Device::Handle<VkRenderPass>
-	{
-	public:
-		RenderPass(Device &dev, VkRenderPass renderPass);
-	};
-
 	RenderPass m_default_render_pass;
 	RenderPass createDefaultRenderPass(void);
 	RenderPass& getDefaultRenderPass(void);
+
+	std::vector<Swapchain::Image> m_swapchain_images;
+	std::vector<Swapchain::Image> createSwapchainImages(void);
+
+	using Semaphore = Device::Handle<VkSemaphore>;
 
 	static VkDescriptorType descriptorType(sb::Shader::DescriptorType type);
 
@@ -547,7 +550,7 @@ private:
 
 	std::unique_ptr<sb::Shader::DescriptorSet::Layout> createDescriptorSetLayout(const sb::Shader::DescriptorSet::Layout::Description &desc) override;
 
-	class DescriptorSet : public sb::Shader::DescriptorSet, private Device::Handle<VkDescriptorPool>
+	class DescriptorSet : public sb::Shader::DescriptorSet
 	{
 	public:
 		DescriptorSet(Device &dev, const DescriptorSetLayout &layout);
@@ -555,12 +558,13 @@ private:
 		void write(size_t offset, size_t range, const void *data) override;
 
 	private:
+		Device::Handle<VkDescriptorPool> m_descriptor_pool;
 		VkDescriptorSet m_descriptor_set;
 		VmaBuffer m_buffer;
 
 		VkDescriptorPool createPool(Device &dev, const DescriptorSetLayout &layout);
-		VkDescriptorSet create(const DescriptorSetLayout &layout);
-		VmaBuffer createBuffer(const DescriptorSetLayout &layout);
+		VkDescriptorSet create(Device &dev, const DescriptorSetLayout &layout);
+		VmaBuffer createBuffer(Device &dev, const DescriptorSetLayout &layout);
 	};
 
 	class Model : public sb::Shader::Model
@@ -602,6 +606,24 @@ private:
 	};
 
 	std::unique_ptr<sb::Shader> loadShader(rs::Shader &shader) override;
+
+	class CommandBuffer : public sb::Render::CommandBuffer
+	{
+	public:
+		CommandBuffer(Device &dev);
+		~CommandBuffer(void) override;
+
+		void submit(void) override;
+
+	private:
+		Device::Handle<VkCommandPool> m_command_pool;
+		VkCommandBuffer m_command_buffer;
+
+		VkCommandPool createPool(Device &dev);
+		VkCommandBuffer allocCommandBuffer(Vk::Device &dev);
+	};
+
+	std::unique_ptr<sb::Render::CommandBuffer> createRenderCommandBuffer(void) override;
 };
 
 }

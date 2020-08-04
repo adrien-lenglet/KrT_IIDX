@@ -75,9 +75,9 @@ Pass::Pass(void) :
 
 void Pass::render(void)
 {
-	//auto renderCmd = m_system.beginRenderPass();
+	auto renderCmd = m_system.createRenderCommandBuffer();
 
-	//renderCmd.end();
+	renderCmd->submit();
 }
 
 Pass::~Pass(void)
