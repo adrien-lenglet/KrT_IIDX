@@ -20,6 +20,8 @@ public:
 	virtual std::unique_ptr<Shader> loadShader(rs::Shader &shader) = 0;
 	virtual std::unique_ptr<Shader::DescriptorSet::Layout> createDescriptorSetLayout(const Shader::DescriptorSet::Layout::Description &desc) = 0;
 	virtual std::unique_ptr<Render::CommandBuffer> createRenderCommandBuffer(void) = 0;
+	virtual void acquireNextImage(void) = 0;
+	virtual void presentImage(void) = 0;
 };
 
 }

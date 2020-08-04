@@ -512,6 +512,8 @@ private:
 		public:
 			Image(Vk::Device &dev, VkImageView imageView, VkFramebuffer framebuffer);
 
+			Framebuffer& getFramebuffer(void);
+
 		private:
 			ImageView m_image_view;
 			Framebuffer m_framebuffer;
@@ -528,8 +530,20 @@ private:
 
 	std::vector<Swapchain::Image> m_swapchain_images;
 	std::vector<Swapchain::Image> createSwapchainImages(void);
+	size_t m_swapchain_image_ndx;
+	Swapchain::Image& getSwapchainImage(void);
 
-	using Semaphore = Device::Handle<VkSemaphore>;
+	class Semaphore : public Device::Handle<VkSemaphore>
+	{
+	public:
+		Semaphore(Device &dev, VkSemaphore semaphore);
+		Semaphore(Device &dev);
+
+		void wait(uint64_t value);
+
+	private:
+		VkSemaphore create(Device &dev);
+	};
 
 	static VkDescriptorType descriptorType(sb::Shader::DescriptorType type);
 
@@ -610,20 +624,34 @@ private:
 	class CommandBuffer : public sb::Render::CommandBuffer
 	{
 	public:
+		struct present_t {};
+
 		CommandBuffer(Device &dev);
+		CommandBuffer(Device &dev, present_t);
 		~CommandBuffer(void) override;
 
+		void beginRenderPass(void) override;
+		void endRenderPass(void) override;
+
 		void submit(void) override;
+
+		VkCommandBuffer getHandle(void) const;
 
 	private:
 		Device::Handle<VkCommandPool> m_command_pool;
 		VkCommandBuffer m_command_buffer;
 
-		VkCommandPool createPool(Device &dev);
+		VkCommandPool createPool(Device &dev, uint32_t queueIndex);
 		VkCommandBuffer allocCommandBuffer(Vk::Device &dev);
+		void beginCommandBuffer(void);
 	};
 
 	std::unique_ptr<sb::Render::CommandBuffer> createRenderCommandBuffer(void) override;
+
+	void acquireNextImage(void) override;
+	Semaphore m_acquire_image_semaphore;
+
+	void presentImage(void) override;
 };
 
 }

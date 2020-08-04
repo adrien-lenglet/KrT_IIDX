@@ -19,8 +19,9 @@ void SessionBase::run(void)
 		m_instance.m_events.updateEvents();
 		for (auto &w : m_worlds)
 			w.events.updateEvents();
+		m_instance.system().acquireNextImage();
 		render();
-		//m_system.render();
+		m_instance.system().presentImage();
 	}
 }
 

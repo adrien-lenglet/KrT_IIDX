@@ -19,7 +19,9 @@ Vk::Vk(bool isDebug, Glfw &&glfw) :
 	m_swapchain_format(m_device.physical().surface().chooseFormat()),
 	m_swapchain(createSwapchain()),
 	m_default_render_pass(createDefaultRenderPass()),
-	m_swapchain_images(createSwapchainImages())
+	m_swapchain_images(createSwapchainImages()),
+	m_swapchain_image_ndx(~0ULL),
+	m_acquire_image_semaphore(m_device)
 {
 }
 
@@ -678,6 +680,11 @@ void Vk::Device::Handle<VkFramebuffer>::destroy(Vk::Device &device, VkFramebuffe
 	device.destroy(vkDestroyFramebuffer, framebuffer);
 }
 
+Vk::Framebuffer& Vk::Swapchain::Image::getFramebuffer(void)
+{
+	return m_framebuffer;
+}
+
 Vk::RenderPass Vk::createDefaultRenderPass(void)
 {
 	std::vector<VkAttachmentDescription> atts;
@@ -746,6 +753,49 @@ std::vector<Vk::Swapchain::Image> Vk::createSwapchainImages(void)
 		res.emplace_back(m_device, view, m_device.createVk(vkCreateFramebuffer, framebufferCi));
 	}
 	return res;
+}
+
+Vk::Swapchain::Image& Vk::getSwapchainImage(void)
+{
+	return m_swapchain_images.at(m_swapchain_image_ndx);
+}
+
+Vk::Semaphore::Semaphore(Device &dev, VkSemaphore semaphore) :
+	Device::Handle<VkSemaphore>(dev, semaphore)
+{
+}
+
+Vk::Semaphore::Semaphore(Device &dev) :
+	Semaphore(dev, create(dev))
+{
+}
+
+VkSemaphore Vk::Semaphore::create(Vk::Device &dev)
+{
+	VkSemaphoreCreateInfo ci {};
+
+	ci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+	return dev.createVk(vkCreateSemaphore, ci);
+}
+
+template <>
+void Vk::Device::Handle<VkSemaphore>::destroy(Vk::Device &device, VkSemaphore semaphore)
+{
+	device.destroy(vkDestroySemaphore, semaphore);
+}
+
+void Vk::Semaphore::wait(uint64_t value)
+{
+	VkSemaphore sem = *this;
+
+	VkSemaphoreWaitInfo wi {};
+	wi.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+	wi.semaphoreCount = 1;
+	wi.pSemaphores = &sem;
+	wi.pValues = &value;
+
+	Vk::assert(vkWaitSemaphores(getDep().vk().m_device, &wi, ~0ULL));
 }
 
 VkDescriptorType Vk::descriptorType(sb::Shader::DescriptorType type)
@@ -1198,23 +1248,25 @@ std::unique_ptr<sb::Shader> Vk::loadShader(rs::Shader &shader)
 }
 
 Vk::CommandBuffer::CommandBuffer(Vk::Device &dev) :
-	m_command_pool(dev, createPool(dev)),
+	m_command_pool(dev, createPool(dev, *dev.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT))),
 	m_command_buffer(allocCommandBuffer(dev))
 {
-	VkCommandBufferBeginInfo be {};
-
-	be.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	be.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-	Vk::assert(vkBeginCommandBuffer(m_command_buffer, &be));
+	beginCommandBuffer();
 }
 
-VkCommandPool Vk::CommandBuffer::createPool(Device &dev)
+Vk::CommandBuffer::CommandBuffer(Device &dev, present_t) :
+	m_command_pool(dev, createPool(dev, *dev.physical().queues().presentation())),
+	m_command_buffer(allocCommandBuffer(dev))
+{
+	beginCommandBuffer();
+}
+
+VkCommandPool Vk::CommandBuffer::createPool(Device &dev, uint32_t queueIndex)
 {
 	VkCommandPoolCreateInfo ci {};
 
 	ci.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	ci.queueFamilyIndex = *dev.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT);
+	ci.queueFamilyIndex = queueIndex;
 
 	return dev.createVk(vkCreateCommandPool, ci);
 }
@@ -1231,6 +1283,16 @@ VkCommandBuffer Vk::CommandBuffer::allocCommandBuffer(Vk::Device &dev)
 	return dev.allocateVk(vkAllocateCommandBuffers, ai);
 }
 
+void Vk::CommandBuffer::beginCommandBuffer(void)
+{
+	VkCommandBufferBeginInfo be {};
+
+	be.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	be.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	Vk::assert(vkBeginCommandBuffer(m_command_buffer, &be));
+}
+
 Vk::CommandBuffer::~CommandBuffer(void)
 {
 }
@@ -1239,6 +1301,30 @@ template <>
 void Vk::Device::Handle<VkCommandPool>::destroy(Vk::Device &device, VkCommandPool pool)
 {
 	device.destroy(vkDestroyCommandPool, pool);
+}
+
+VkCommandBuffer Vk::CommandBuffer::getHandle(void) const
+{
+	return m_command_buffer;
+}
+
+void Vk::CommandBuffer::beginRenderPass(void)
+{
+	auto &vk = m_command_pool.getDep().vk();
+
+	VkRenderPassBeginInfo bi {};
+
+	bi.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	bi.renderPass = vk.m_default_render_pass;
+	bi.framebuffer = vk.getSwapchainImage().getFramebuffer();
+	bi.renderArea = {{0, 0}, {1600, 900}};
+
+	vkCmdBeginRenderPass(m_command_buffer, &bi, VK_SUBPASS_CONTENTS_INLINE);
+}
+
+void Vk::CommandBuffer::endRenderPass(void)
+{
+	vkCmdEndRenderPass(m_command_buffer);
 }
 
 void Vk::CommandBuffer::submit(void)
@@ -1257,6 +1343,47 @@ void Vk::CommandBuffer::submit(void)
 std::unique_ptr<sb::Render::CommandBuffer> Vk::createRenderCommandBuffer(void)
 {
 	return std::make_unique<CommandBuffer>(m_device);
+}
+
+void Vk::acquireNextImage(void)
+{
+	uint32_t ndx;
+
+	vkAcquireNextImageKHR(m_device, m_swapchain, ~0ULL, m_acquire_image_semaphore, VK_NULL_HANDLE, &ndx);
+	m_swapchain_image_ndx = ndx;
+
+	auto cmd = CommandBuffer(m_device, CommandBuffer::present_t{});
+	// add reset framebuffer commands
+	auto cmd_handle = cmd.getHandle();
+	Vk::assert(vkEndCommandBuffer(cmd_handle));
+
+	VkSemaphore sem = m_acquire_image_semaphore;
+	VkPipelineStageFlags dst_stage_mask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	VkSubmitInfo s {};
+	s.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	s.waitSemaphoreCount = 1;
+	s.pWaitSemaphores = &sem;
+	s.pWaitDstStageMask = &dst_stage_mask;
+	s.commandBufferCount = 1;
+	s.pCommandBuffers = &cmd_handle;
+	vkQueueSubmit(m_present_queue, 1, &s, VK_NULL_HANDLE);
+
+	vkQueueWaitIdle(m_present_queue);
+}
+
+void Vk::presentImage(void)
+{
+	VkSwapchainKHR swapchain = m_swapchain;
+	uint32_t ndx = m_swapchain_image_ndx;
+
+	VkPresentInfoKHR pi {};
+	pi.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	pi.swapchainCount = 1;
+	pi.pSwapchains = &swapchain;
+	pi.pImageIndices = &ndx;
+
+	Vk::assert(vkQueuePresentKHR(m_present_queue, &pi));
+	vkQueueWaitIdle(m_present_queue);
 }
 
 }

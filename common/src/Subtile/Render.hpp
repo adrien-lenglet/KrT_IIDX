@@ -8,6 +8,9 @@ class CommandBuffer
 public:
 	virtual ~CommandBuffer(void) = default;
 
+	virtual void beginRenderPass(void) = 0;
+	virtual void endRenderPass(void) = 0;
+
 	virtual void submit(void) = 0;
 };
 
