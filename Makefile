@@ -36,14 +36,14 @@ debug: common_macro_resources
 	$(MAKE) -C $(COMMON) debug $(OPT)
 
 release: CXXFLAGS_ADD = -O3
-release: LINK_OPT = -s
 release: common_macro_resources
 	$(MAKE) -C $(COMMON) release $(OPT)
 
 windows: LIB = "$(shell cygpath --unix $(VULKAN_SDK))/Lib/vulkan-1.lib" -lglfw3
 windows: $(TARGET)
 
-debug_windows: debug windows 
+debug_windows: debug windows
+release_windows: LINK_OPT = -s
 release_windows: release windows
 
 build:
@@ -67,6 +67,7 @@ linux: LIB = -lglfw -lvulkan -Wl,-rpath,.
 linux: $(TARGET)
 
 debug_linux: debug linux
+release_linux: LINK_OPT = -s
 release_linux: release linux
 
 LINUX_PUBLISH = build/linux

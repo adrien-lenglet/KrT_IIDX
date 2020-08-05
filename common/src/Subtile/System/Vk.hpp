@@ -412,7 +412,11 @@ private:
 
 		Device(Instance &instance, const PhysicalDevice &physicalDevice, VkDevice device);
 
-		Vk& vk(void);
+		Vk& vk(void)
+		{
+			return m_instance.m_vk;
+		}
+
 		const PhysicalDevice& physical(void) const;
 		Allocator& allocator(void);
 		VkQueue getQueue(uint32_t family_ndx, uint32_t ndx);
@@ -500,6 +504,27 @@ private:
 
 	VkQueue m_graphics_queue;
 	VkQueue m_present_queue;
+	VkQueue m_transfer_queue;
+
+	class Transfer
+	{
+	public:
+		Transfer(Device &dev, VkQueue transferQueue);
+
+		void write(VkBuffer buf, size_t offset, size_t range, const void *data);
+
+	private:
+		Device &m_dev;
+		VkQueue m_transfer_queue;
+		size_t m_staging_buffer_size;
+		VmaBuffer m_staging_buffer;
+
+		VmaBuffer createStagingBuffer(size_t size);
+
+		void write_w_staging(VkBuffer buf, size_t offset, size_t range, const void *data, VmaBuffer &staging);
+	};
+
+	Transfer m_transfer;
 
 	using ImageView = Device::Handle<VkImageView>;
 	using RenderPass = Device::Handle<VkRenderPass>;
@@ -592,12 +617,14 @@ private:
 
 	class CommandBuffer : public sb::Render::CommandBuffer
 	{
-	public:
-		struct present_t {};
+		CommandBuffer(Device &dev, uint32_t queue_type);
 
-		CommandBuffer(Device &dev);
-		CommandBuffer(Device &dev, present_t);
+	public:
+		static CommandBuffer Graphics(Device &dev);
+		static CommandBuffer Present(Device &dev);
+		static CommandBuffer Transfer(Device &dev);
 		~CommandBuffer(void) override;
+		CommandBuffer(CommandBuffer &&) = default;
 
 		void beginRenderPass(void) override;
 		void endRenderPass(void) override;
