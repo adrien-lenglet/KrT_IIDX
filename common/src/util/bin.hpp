@@ -15,6 +15,7 @@ public:
 		m_value(value)
 	{
 	}
+	scalar(const scalar&) = default;
 
 	S value(void) const
 	{

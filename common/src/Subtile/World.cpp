@@ -18,9 +18,7 @@ World::~World(void)
 
 double World::urandf(void)
 {
-	double next = m_rand_gen();
-
-	return next / std::numeric_limits<decltype(m_rand_gen())>::max();
+	return static_cast<double>(m_rand_gen()) / static_cast<double>(std::numeric_limits<decltype(m_rand_gen())>::max());
 }
 
 double World::srandf(void)

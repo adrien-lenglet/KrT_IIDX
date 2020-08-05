@@ -1129,7 +1129,7 @@ Vk::VmaBuffer Vk::Model::createBuffer(Device &dev, size_t size)
 	bci.pQueueFamilyIndices = queues.data();
 
 	VmaAllocationCreateInfo aci {};
-	aci.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+	aci.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
 	if (size == 0)
 		return Vk::VmaBuffer(dev, VK_NULL_HANDLE, VK_NULL_HANDLE);
