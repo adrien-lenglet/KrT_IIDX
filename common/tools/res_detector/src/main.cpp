@@ -31,6 +31,24 @@ class FolderPrinter
 		return id + st;
 	}
 
+	static std::string strip_name(const std::string &in)
+	{
+		size_t i = 0;
+
+		if (in.at(0) == '[') {
+			i++;
+			while (i < in.size() && in.at(i) != ']')
+				i++;
+			i++;
+			while (i < in.size() && in.at(i) == ' ')
+				i++;
+		}
+		auto res = in.substr(i);
+		if (res.size() == 0)
+			throw std::runtime_error("Name of file stripped is empty !");
+		return res;
+	}
+
 	static std::optional<std::tuple<std::string, std::string>> getMember(const std::fs::path &path)
 	{
 		static const std::map<std::string, std::string> exts = {
@@ -45,7 +63,7 @@ class FolderPrinter
 		if (got == exts.end())
 			return std::nullopt;
 		auto &type = got->second;
-		auto id = path.stem().string();
+		auto id = strip_name(path.stem().string());
 		return std::make_tuple(type, id);
 	}
 
@@ -208,7 +226,7 @@ class FolderPrinter
 		return scope += Using | "Model" = "sb::Model"_t.T(vertex_t);
 	}
 
-	Type addShader(Util::CollectionBase &scope, const std::string &id, const std::string &shaderpath, const std::fs::directory_entry &shaderentry)
+	Type addShader(Util::CollectionBase &scope, const std::string &id, const std::string &shaderpath, const std::fs::path &shaderentrypath)
 	{
 		static const Type shader_type("sb::rs::Shader");
 		sb::Shader::Compiler compiled(shaderpath);
@@ -286,7 +304,7 @@ class FolderPrinter
 		desc_layout += Return | desc_layout_res;
 		render += Return | render_type("m_ref"_v.M("getShader"_v()), "sb::Shader::Model::BaseHandle::Getter"_t("model"_v).M("getModel"_v()), render_list);
 
-		auto name = shaderentry.path().parent_path().string() + std::string("/.") + id + std::string("_stages");
+		auto name = shaderentrypath.parent_path().string() + std::string("/.") + id + std::string("_stages");
 		std::fs::create_directory(name);
 		for (auto &s : compiled.getStages()) {
 			for (auto &sbi : sb::Shader::getSbi()) {
@@ -330,11 +348,20 @@ class FolderPrinter
 		}
 	};
 
+	struct dir_entry
+	{
+		std::fs::path path;
+		bool is_dir;
+		std::fs::directory_entry dir_entry;
+	};
+
 	template <typename T>
 	void it_dir(const T &itbase, Util::CollectionBase &scope, Util::CollectionFunctionBase &ctor)
 	{
 		auto dtor_fwd = scope += Dtor(Void) | Override;
 		m_impl_out += dtor_fwd(Void) | S{};
+
+		std::map<std::string, dir_entry> entries;
 
 		for (auto &e : std::fs::directory_iterator(itbase)) {
 			auto &path = e.path();
@@ -342,24 +369,32 @@ class FolderPrinter
 			if (name.at(0) == '.')
 				continue;
 
-			if (e.is_directory()) {
-				auto &cl = scope += Class | class_name(name) | C(Public | "sb::rs::Folder"_t) | S{};
-				addgetterstorage(scope, ctor, cl, name, name);
+			entries[name] = {path, e.is_directory(), e};
+		}
+
+		for (auto &ep : entries) {
+			auto &e = ep.second;
+			auto &path = e.path;
+			auto name = path.filename().string();
+			auto name_stripped = strip_name(name);
+			if (e.is_dir) {
+				auto &cl = scope += Class | class_name(name_stripped) | C(Public | "sb::rs::Folder"_t) | S{};
+				addgetterstorage(scope, ctor, cl, name_stripped, name);
 				cl += Public;
 				auto ctor_fwd = cl += Ctor(Void);
 				auto &ctor_sub = m_impl_out += ctor_fwd(Void) | S{};
-				it_dir(e, cl, ctor_sub);
+				it_dir(e.dir_entry, cl, ctor_sub);
 			} else {
-				auto got = getMember(e.path());
+				auto got = getMember(e.path);
 				if (got) {
 					auto [type, id] = *got;
 					auto t = Type(type);
 
 					if (type == "sb::rs::Shader") {
 						try {
-							t.assign(addShader(scope, id, e.path().string(), e));
+							t.assign(addShader(scope, id, e.path.string(), e.path));
 						} catch (const std::exception &excep) {
-							throw FileError(type, e.path().string(), excep.what());
+							throw FileError(type, e.path.string(), excep.what());
 						}
 					}
 					addgetterstorage(scope, ctor, t, id, name);
