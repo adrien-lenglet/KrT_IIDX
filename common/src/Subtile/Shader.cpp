@@ -107,15 +107,9 @@ bool Shader::DescriptorSet::Layout::DescriptionBinding::isMapped(void) const
 	return descriptorTypeIsMapped(descriptorType);
 }
 
-Shader::DescriptorSet::BaseHandle::BaseHandle(std::unique_ptr<DescriptorSet> &&desc_set, DescriptorSet::BaseHandle *parent) :
-	m_set(std::move(desc_set)),
-	m_parent(parent)
+Shader::DescriptorSet::BaseHandle::BaseHandle(std::unique_ptr<DescriptorSet> &&desc_set) :
+	m_set(std::move(desc_set))
 {
-}
-
-Shader::DescriptorSet::BaseHandle* Shader::DescriptorSet::BaseHandle::getParent(void)
-{
-	return m_parent;
 }
 
 Shader::DescriptorSet& Shader::DescriptorSet::BaseHandle::getSet(void)
@@ -145,21 +139,6 @@ Shader::Model::BaseHandle::BaseHandle(std::unique_ptr<Shader::Model> &&model) :
 Shader::Model& Shader::Model::BaseHandle::getModel(void) const
 {
 	return *m_model;
-}
-
-Shader& Shader::Render::getShader(void) const
-{
-	return m_shader;
-}
-
-Shader::DescriptorSet::BaseHandle* Shader::Render::getLastSet(void) const
-{
-	return m_last_set;
-}
-
-const Shader::Model& Shader::Render::getModel(void) const
-{
-	return m_model;
 }
 
 }

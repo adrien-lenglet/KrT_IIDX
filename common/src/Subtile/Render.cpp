@@ -24,21 +24,12 @@ Pass::ShaderBase& Pass::ShaderBase::resolve_direct(Shader::DescriptorSet &set)
 	return got->second;
 }
 
-Pass::ShaderBase& Pass::ShaderBase::resolve(Shader::DescriptorSet::BaseHandle *last_set)
+Pass::ShaderBase& Pass::ShaderBase::resolve(const util::ref_wrapper<Shader::DescriptorSet::BaseHandle> *sets, size_t set_count)
 {
-	Shader::DescriptorSet::BaseHandle *sets[32];
-	size_t size = 0;
+	if (set_count == 0)
+		return *this;
 
-	while (last_set) {
-		sets[size++] = last_set;
-		last_set = Shader::DescriptorSet::BaseHandle::Getter(*last_set).getParent();
-	}
-	ShaderBase *res = this;
-	for (size_t i = 0; i < size; i++) {
-		size_t i_inv = size - 1 - i;
-		res = &res->resolve_direct(Shader::DescriptorSet::BaseHandle::Getter(*sets[i_inv]).getSet());
-	}
-	return *res;
+	return resolve_direct(Shader::DescriptorSet::BaseHandle::Getter(*sets).getSet()).resolve(&sets[1], set_count - 1);
 }
 
 void Pass::ShaderBase::bind(Binding::Dependency::Socket &socket, const Shader::Model &model)
@@ -124,11 +115,6 @@ Pass::ShaderPass& Pass::resolve(Shader &shader)
 		got = it;
 	}
 	return got->second;
-}
-
-void Pass::bind(Binding::Dependency::Socket &socket, const Shader::Render &render)
-{
-	resolve(render.getShader()).resolve(render.getLastSet()).bind(socket, render.getModel());
 }
 
 Pass::SubShader::SubShader(Pass::ShaderBase &parent, Shader::DescriptorSet &set) :

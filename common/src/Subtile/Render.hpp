@@ -42,7 +42,7 @@ class Pass
 		ShaderBase(void);
 
 		ShaderBase& resolve_direct(Shader::DescriptorSet &set);
-		ShaderBase& resolve(Shader::DescriptorSet::BaseHandle *last_set);
+		ShaderBase& resolve(const util::ref_wrapper<Shader::DescriptorSet::BaseHandle> *sets, size_t set_count);
 
 		void bind(Binding::Dependency::Socket &socket, const Shader::Model &model);
 
@@ -89,7 +89,11 @@ private:
 	ShaderPass& resolve(Shader &shader);
 
 	friend Event::Socket;
-	void bind(Binding::Dependency::Socket &socket, const Shader::Render &render);
+	template <size_t SetCount>
+	void bind(Binding::Dependency::Socket &socket, const Shader::Render<SetCount> &render)
+	{
+		resolve(render.getShader()).resolve(render.getSets().data(), render.getSets().size()).bind(socket, render.getModel());
+	}
 };
 
 class Pass::SubShader : public Pass::ShaderBase

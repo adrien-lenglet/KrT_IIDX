@@ -251,19 +251,15 @@ class FolderPrinter
 		{
 			StaticCast(Void, "sys"_v)
 		};
+		auto render_type = "sb::Shader::Render"_t.T(Type(Value(compiled.getSets().size()).getValue()));
+		auto &render = runtime += render_type | Id("render")(Const | "sb::Shader::Model::Handle"_t.T(model) | &N | Id("model")) | S {};
+		auto render_list = B {};
+		size_t ndx = 0;
 		auto desc_layout_res = desc_layout += vec_resolver | Id("res");
-		std::vector<std::reference_wrapper<Util::TemplateCollectionBase>> set_runtimes;
-		std::vector<std::reference_wrapper<Util::CollectionBase>> set_scopes;
-		std::vector<Id> layouts;
-		auto &sets = compiled.getSets();
-		for (auto it = sets.rbegin(); it != sets.rend(); it++) {
-
-			auto &set = *it;
+		for (auto &set : compiled.getSets()) {
 			auto [set_scope, getLayout] = shaderAddLayout(u_sets, u_structs, set);
-			set_scopes.emplace_back(set_scope);
-			layouts.emplace_back(getLayout);
 
-			auto &set_runtime = set_scope +=
+			set_scope +=
 			Template(Typename | "Up") ||
 			Class | "Runtime" | C(Public | set_scope>>"Mapped"_t) | S
 			{
@@ -275,36 +271,20 @@ class FolderPrinter
 					StaticCast(Void, "m_ref"_v)
 				}
 			};
-			set_runtimes.emplace_back(set_runtime);
-		}
-		size_t ndx = 0;
-		Util::TemplateCollectionBase *last_set = nullptr;
-		for (auto &set : compiled.getSets()) {
-			auto cur_ndx = ndx++;
-			auto inv_ndx = compiled.getSets().size() - 1 - cur_ndx;
-
-			auto &set_runtime = set_runtimes.at(inv_ndx).get();
-			auto &set_scope = set_scopes.at(inv_ndx).get();
-			auto &get_layout = layouts.at(inv_ndx);
-			desc_layout += "res"_v.M("emplace_back"_v("new sb::Shader::DescriptorSet::Layout::Resolver::Inline"_v("sys"_v, Vd(get_layout.getValue())())));
-
-			auto dst_ctor = last_set ? last_set : std::addressof(runtime);
-
+			desc_layout += "res"_v.M("emplace_back"_v("new sb::Shader::DescriptorSet::Layout::Resolver::Inline"_v("sys"_v, Vd(getLayout.getValue())())));
 			auto handle_t = "sb::Shader::DescriptorSet::Handle"_t.T(set_scope);
-			auto &creator = (*dst_ctor) += handle_t | Id(set.get().getName())(Void) | S {};
-			if (last_set == nullptr)
-				creator += Return | handle_t("m_ref"_v, cur_ndx, nullptr);
-			else
-				creator += Return | handle_t("m_ref"_v, cur_ndx, &StaticCast("sb::Shader::DescriptorSet::BaseHandle&"_t, StaticCast("Up&"_t, *This)));
-			set_runtime += Using | "can_render" = "std::integral_constant"_t.T(Bool, Type(Value(inv_ndx == 0 ? true : false).getValue()));
-			set_runtime += Using | "shader" = sh;
+			runtime += handle_t | Id(set.get().getName())(Void) | S
+			{
+				Return | handle_t("m_ref"_v, ndx)
+			};
 
-			last_set = std::addressof(set_runtime);
+			auto param = render *= handle_t | &N | Id(set.get().getName());
+			render_list.add(param);
+
+			ndx++;
 		}
 		desc_layout += Return | desc_layout_res;
-		//auto last_runtime = last_set ? last_set : std::addressof(runtime);
-		runtime += Using | "can_render" = "std::integral_constant"_t.T(Bool, Type(Value(last_set == nullptr ? true : false).getValue()));
-		runtime += Using | "shader" = sh;
+		render += Return | render_type("m_ref"_v.M("getShader"_v()), "sb::Shader::Model::BaseHandle::Getter"_t("model"_v).M("getModel"_v()), render_list);
 
 		auto name = shaderentry.path().parent_path().string() + std::string("/.") + id + std::string("_stages");
 		std::fs::create_directory(name);

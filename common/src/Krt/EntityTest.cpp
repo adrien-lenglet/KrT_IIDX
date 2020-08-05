@@ -12,7 +12,7 @@ EntityTest::EntityTest(void) :
 	entity2(add<EntityTest2>()),
 	m_shader(load(res.shaders().diffuse())),
 	m_material(m_shader.material()),
-	m_object(m_material.object()),
+	m_object(m_shader.object()),
 	m_model(createModel())
 {
 	bind(world.events.system.input.button.pressed("quit"), [this](){
@@ -25,7 +25,7 @@ EntityTest::EntityTest(void) :
 		trigger(got_score, 7.92);
 	});
 
-	bind(world.render, m_object.render(m_model));
+	bind(world.render, m_shader.render(m_model, m_material, m_object));
 
 	bind(world.events.update, [this](auto &){
 		m_material.counter++;

@@ -4,6 +4,7 @@
 #include <map>
 #include <vector>
 #include <memory>
+#include <array>
 #include <iostream>
 #include "Math.hpp"
 #include "Cache.hpp"
@@ -673,7 +674,7 @@ public:
 		class BaseHandle
 		{
 		public:
-			BaseHandle(std::unique_ptr<DescriptorSet> &&desc_set, BaseHandle *parent);
+			BaseHandle(std::unique_ptr<DescriptorSet> &&desc_set);
 
 			class Getter
 			{
@@ -683,10 +684,6 @@ public:
 				{
 				}
 
-				decltype(auto) getParent(void)
-				{
-					return m_handle.getParent();
-				}
 				decltype(auto) getSet(void)
 				{
 					return m_handle.getSet();
@@ -700,10 +697,7 @@ public:
 			std::unique_ptr<DescriptorSet> m_set;
 
 		private:
-			BaseHandle *m_parent;
-
 			friend Getter;
-			BaseHandle* getParent(void);
 			DescriptorSet& getSet(void);
 		};
 
@@ -764,29 +758,38 @@ public:
 	virtual std::unique_ptr<Model> model(size_t count, size_t stride, const void *data) = 0;
 	virtual std::unique_ptr<DescriptorSet> set(size_t ndx) = 0;
 
+	template <size_t SetCount>
 	class Render
 	{
+		using SetsType = std::array<util::ref_wrapper<DescriptorSet::BaseHandle>, SetCount>;
+
 	public:
-		Render(Shader &shader, DescriptorSet::BaseHandle *last_set, const Model &model) :
+		Render(Shader &shader, const Model &model, SetsType &&sets) :
 			m_shader(shader),
-			m_last_set(last_set),
-			m_model(model)
+			m_model(model),
+			m_sets(sets)
 		{
 		}
 
-		template <typename Up, typename ResType>
-		class FromRoot;
-		template <typename Up, typename Traits>
-		class FromDescriptorSet;
+		Shader& getShader(void) const
+		{
+			return m_shader;
+		}
 
-		Shader& getShader(void) const;
-		DescriptorSet::BaseHandle* getLastSet(void) const;
-		const Model& getModel(void) const;
+		auto& getModel(void) const
+		{
+			return m_model;
+		}
+
+		auto& getSets(void) const
+		{
+			return m_sets;
+		}
 
 	private:
 		Shader &m_shader;
-		DescriptorSet::BaseHandle *m_last_set;
 		const Model &m_model;
+		SetsType m_sets;
 	};
 };
 
@@ -954,23 +957,10 @@ protected:
 	UniqueRef m_ref;
 };
 
-template <typename Up, typename ResType>
-class Shader::Render::FromRoot
-{
-public:
-	FromRoot(void) = default;
-
-	auto render(const Shader::Model::Handle<typename ResType::Model> &model)
-	{
-		return Render(UniqueRef::Getter<UniqueRefHolder>(static_cast<Up&>(*this)).get().getShader(), nullptr, Shader::Model::BaseHandle::Getter(static_cast<const Shader::Model::BaseHandle&>(model)).getModel());
-	}
-};
-
 template <typename ResType>
 class Shader::Loaded :
-	public Shader::UniqueRefHolder,
-	public util::remove_cvr_t<ResType>::template Runtime<Loaded<ResType>>,
-	public util::conditional_un_t<util::remove_cvr_t<ResType>::template Runtime<Loaded<ResType>>::can_render::value, Render::FromRoot<Loaded<ResType>, ResType>>
+	public UniqueRefHolder,
+	public util::remove_cvr_t<ResType>::template Runtime<Loaded<ResType>>
 {
 	using Res = util::remove_cvr_t<ResType>;
 
@@ -1006,31 +996,16 @@ private:
 	friend class Loaded;
 };
 
-
-template <typename Up, typename Traits>
-class Shader::Render::FromDescriptorSet
-{
-public:
-	FromDescriptorSet(void) = default;
-
-	auto render(const Shader::Model::Handle<typename Traits::template Runtime<Up>::shader::Model> &model)
-	{
-		auto &up = static_cast<Up&>(*this);
-		return Render(UniqueRef::Getter<typename Traits::template Runtime<Up>>(static_cast<typename Traits::template Runtime<Up>&>(up)).get().getShader(), &static_cast<Shader::DescriptorSet::BaseHandle&>(up), Shader::Model::BaseHandle::Getter(static_cast<const Shader::Model::BaseHandle&>(model)).getModel());
-	}
-};
-
 template <typename Traits>
 class Shader::DescriptorSet::Handle :
 	public Shader::DescriptorSet::BaseHandle,
-	public Traits::template Runtime<Handle<Traits>>,
-	public util::conditional_un_t<Traits::template Runtime<Handle<Traits>>::can_render::value, Shader::Render::FromDescriptorSet<Handle<Traits>, Traits>>
+	public Traits::template Runtime<Handle<Traits>>
 {
 	using Mapped = typename Traits::Mapped;
 
 public:
-	Handle(UniqueRef &ref, size_t set_ndx, BaseHandle *parent) :
-		BaseHandle(ref.set(set_ndx), parent),
+	Handle(UniqueRef &ref, size_t set_ndx) :
+		BaseHandle(ref.set(set_ndx)),
 		Traits::template Runtime<Handle<Traits>>(ref)
 	{
 	}
