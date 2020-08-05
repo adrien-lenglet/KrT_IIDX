@@ -19,6 +19,7 @@ Vk::Vk(bool isDebug, Glfw &&glfw) :
 	m_swapchain_format(m_device.physical().surface().chooseFormat()),
 	m_swapchain(createSwapchain()),
 	m_default_render_pass(createDefaultRenderPass()),
+	m_clear_render_pass(createClearRenderPass()),
 	m_swapchain_images(createSwapchainImages()),
 	m_swapchain_image_ndx(~0ULL),
 	m_acquire_image_semaphore(m_device)
@@ -273,8 +274,22 @@ bool Vk::PhysicalDevice::getSurfaceSupport(uint32_t queueFamilyIndex) const
 	return create<VkBool32>(vkGetPhysicalDeviceSurfaceSupportKHR, m_device, queueFamilyIndex, m_surface);
 }
 
+const VkPhysicalDeviceFeatures& Vk::PhysicalDevice::requiredFeatures(void)
+{
+	static const VkPhysicalDeviceFeatures res {
+	};
+
+	return res;
+}
+
 bool Vk::PhysicalDevice::isCompetent(void) const
 {
+	auto &req = requiredFeatures();
+	auto req_arr_size = sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32);
+	for (size_t i = 0; i < req_arr_size; i++)
+		if (reinterpret_cast<const VkBool32*>(&req)[i] && !reinterpret_cast<const VkBool32*>(&m_features)[i])
+			return false;
+
 	return m_queue_families.indexOf(VK_QUEUE_GRAPHICS_BIT) &&
 	m_queue_families.presentation() &&
 	areExtensionsSupported() &&
@@ -551,7 +566,7 @@ Vk::Device Vk::createDevice(void)
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 	createInfo.queueCreateInfoCount = vk_queues.size();
 	createInfo.pQueueCreateInfos = vk_queues.data();
-	createInfo.pEnabledFeatures = &phys.features();
+	createInfo.pEnabledFeatures = &Vk::PhysicalDevice::requiredFeatures();
 
 	auto cexts = PhysicalDevice::required_extensions.c_strs();
 	createInfo.enabledExtensionCount = cexts.size();
@@ -662,9 +677,10 @@ Vk::Swapchain Vk::createSwapchain(void)
 	return m_device.create<Swapchain>(vkCreateSwapchainKHR, ci);
 }
 
-Vk::Swapchain::Image::Image(Vk::Device &dev, VkImageView imageView, VkFramebuffer framebuffer) :
+Vk::Swapchain::Image::Image(Vk::Device &dev, VkImageView imageView, VkFramebuffer defaultFramebuffer, VkFramebuffer clearFramebuffer) :
 	m_image_view(dev, imageView),
-	m_framebuffer(dev, framebuffer)
+	m_default_framebuffer(dev, defaultFramebuffer),
+	m_clear_framebuffer(dev, clearFramebuffer)
 {
 }
 
@@ -680,9 +696,14 @@ void Vk::Device::Handle<VkFramebuffer>::destroy(Vk::Device &device, VkFramebuffe
 	device.destroy(vkDestroyFramebuffer, framebuffer);
 }
 
-Vk::Framebuffer& Vk::Swapchain::Image::getFramebuffer(void)
+Vk::Framebuffer& Vk::Swapchain::Image::getDefaultFramebuffer(void)
 {
-	return m_framebuffer;
+	return m_default_framebuffer;
+}
+
+Vk::Framebuffer& Vk::Swapchain::Image::getClearFramebuffer(void)
+{
+	return m_clear_framebuffer;
 }
 
 Vk::RenderPass Vk::createDefaultRenderPass(void)
@@ -694,7 +715,43 @@ Vk::RenderPass Vk::createDefaultRenderPass(void)
 	att.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	att.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	att.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	att.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	att.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	atts.emplace_back(att);
+
+	std::vector<VkAttachmentReference> colorAtts;
+	VkAttachmentReference colorAtt;
+	colorAtt.attachment = 0;
+	colorAtt.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	colorAtts.emplace_back(colorAtt);
+
+	std::vector<VkSubpassDescription> subs;
+	VkSubpassDescription sub {};
+	sub.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	sub.colorAttachmentCount = colorAtts.size();
+	sub.pColorAttachments = colorAtts.data();
+	subs.emplace_back(sub);
+
+	VkRenderPassCreateInfo ci {};
+	ci.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	ci.attachmentCount = atts.size();
+	ci.pAttachments = atts.data();
+	ci.subpassCount = subs.size();
+	ci.pSubpasses = subs.data();
+	return m_device.create<RenderPass>(vkCreateRenderPass, ci);
+}
+
+Vk::RenderPass Vk::createClearRenderPass(void)
+{
+	std::vector<VkAttachmentDescription> atts;
+	VkAttachmentDescription att {};
+	att.format = m_swapchain_format.format;
+	att.samples = VK_SAMPLE_COUNT_1_BIT;
+	att.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	att.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	att.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	att.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	att.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	atts.emplace_back(att);
 
 	std::vector<VkAttachmentReference> colorAtts;
@@ -740,7 +797,6 @@ std::vector<Vk::Swapchain::Image> Vk::createSwapchainImages(void)
 	VkFramebufferCreateInfo framebufferCi {};
 
 	framebufferCi.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-	framebufferCi.renderPass = m_default_render_pass;
 	framebufferCi.width = 1600;
 	framebufferCi.height = 900;
 	framebufferCi.layers = 1;
@@ -750,7 +806,14 @@ std::vector<Vk::Swapchain::Image> Vk::createSwapchainImages(void)
 		auto view = m_device.createVk(vkCreateImageView, viewCi);
 		framebufferCi.attachmentCount = 1;
 		framebufferCi.pAttachments = &view;
-		res.emplace_back(m_device, view, m_device.createVk(vkCreateFramebuffer, framebufferCi));
+
+		framebufferCi.renderPass = m_default_render_pass;
+		auto default_fb = m_device.createVk(vkCreateFramebuffer, framebufferCi);
+
+		framebufferCi.renderPass = m_clear_render_pass;
+		auto clear_fb = m_device.createVk(vkCreateFramebuffer, framebufferCi);
+
+		res.emplace_back(m_device, view, default_fb, clear_fb);
 	}
 	return res;
 }
@@ -1206,6 +1269,7 @@ Vk::Pipeline Vk::Shader::createPipeline(Vk::Device &device, rs::Shader &shader)
 	rasterization.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterization.cullMode = VK_CULL_MODE_BACK_BIT;
 	rasterization.frontFace = VK_FRONT_FACE_CLOCKWISE;
+	rasterization.lineWidth = 1.0f;
 
 	VkPipelineMultisampleStateCreateInfo multisample {};
 	multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
@@ -1345,7 +1409,7 @@ void Vk::CommandBuffer::beginRenderPass(void)
 
 	bi.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	bi.renderPass = vk.m_default_render_pass;
-	bi.framebuffer = vk.getSwapchainImage().getFramebuffer();
+	bi.framebuffer = vk.getSwapchainImage().getDefaultFramebuffer();
 	bi.renderArea = {{0, 0}, {1600, 900}};
 
 	vkCmdBeginRenderPass(m_command_buffer, &bi, VK_SUBPASS_CONTENTS_INLINE);
@@ -1401,14 +1465,12 @@ void Vk::acquireNextImage(void)
 {
 	uint32_t ndx;
 
-	vkAcquireNextImageKHR(m_device, m_swapchain, ~0ULL, m_acquire_image_semaphore, VK_NULL_HANDLE, &ndx);
+	Vk::assert(vkAcquireNextImageKHR(m_device, m_swapchain, ~0ULL, m_acquire_image_semaphore, VK_NULL_HANDLE, &ndx));
 	m_swapchain_image_ndx = ndx;
 
 	auto cmd = CommandBuffer(m_device, CommandBuffer::present_t{});
-	// add reset framebuffer commands
-	auto cmd_handle = cmd.getHandle();
-	Vk::assert(vkEndCommandBuffer(cmd_handle));
-
+	VkCommandBuffer cmd_handle = cmd;
+	Vk::assert(vkEndCommandBuffer(cmd));
 	VkSemaphore sem = m_acquire_image_semaphore;
 	VkPipelineStageFlags dst_stage_mask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	VkSubmitInfo s {};
@@ -1418,9 +1480,41 @@ void Vk::acquireNextImage(void)
 	s.pWaitDstStageMask = &dst_stage_mask;
 	s.commandBufferCount = 1;
 	s.pCommandBuffers = &cmd_handle;
-	vkQueueSubmit(m_present_queue, 1, &s, VK_NULL_HANDLE);
+	Vk::assert(vkQueueSubmit(m_present_queue, 1, &s, VK_NULL_HANDLE));
+	Vk::assert(vkQueueWaitIdle(m_present_queue));
 
-	vkQueueWaitIdle(m_present_queue);
+	auto cmd2 = CommandBuffer(m_device);
+	VkClearValue cv;
+	for (size_t i = 0; i < 4; i++)
+		cv.color.float32[i] = 0.0f;
+	cv.color.float32[0] = 44.0f / 255.0f;
+	cv.color.float32[1] = 99.0f / 255.0f;
+	cv.color.float32[2] = 59.0f / 255.0f;
+	for (size_t i = 0; i < 4; i++)
+		cv.color.float32[i] = std::pow(cv.color.float32[i], 2.2f);	// srgb to linear
+
+	VkRenderPassBeginInfo bi {};
+	bi.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	bi.renderPass = m_clear_render_pass;
+	bi.framebuffer = getSwapchainImage().getClearFramebuffer();
+	bi.renderArea = {{0, 0}, {1600, 900}};
+	bi.clearValueCount = 1;
+	bi.pClearValues = &cv;
+	vkCmdBeginRenderPass(cmd2, &bi, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdEndRenderPass(cmd2);
+
+	VkCommandBuffer cmd_handle2 = cmd2;
+	Vk::assert(vkEndCommandBuffer(cmd_handle2));
+
+	VkSubmitInfo s2 {};
+	s2.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	//s2.waitSemaphoreCount = 1;
+	//s2.pWaitSemaphores = &sem;
+	s2.pWaitDstStageMask = &dst_stage_mask;
+	s2.commandBufferCount = 1;
+	s2.pCommandBuffers = &cmd_handle2;
+	Vk::assert(vkQueueSubmit(m_graphics_queue, 1, &s2, VK_NULL_HANDLE));
+	Vk::assert(vkQueueWaitIdle(m_graphics_queue));
 }
 
 void Vk::presentImage(void)
@@ -1435,7 +1529,7 @@ void Vk::presentImage(void)
 	pi.pImageIndices = &ndx;
 
 	Vk::assert(vkQueuePresentKHR(m_present_queue, &pi));
-	vkQueueWaitIdle(m_present_queue);
+	Vk::assert(vkQueueWaitIdle(m_present_queue));
 }
 
 }

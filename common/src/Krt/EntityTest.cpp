@@ -29,7 +29,7 @@ EntityTest::EntityTest(void) :
 
 	bind(world.events.update, [this](auto &){
 		m_material.counter++;
-		if (static_cast<uint32_t>(m_material.counter) > 256) {
+		if (m_material.counter > 256) {
 			m_material.counter = 0;
 		}
 		m_material.upload();

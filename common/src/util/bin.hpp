@@ -11,7 +11,7 @@ public:
 	using type = S;
 
 	scalar(void) = default;
-	scalar(S value) :
+	explicit scalar(S value) :
 		m_value(value)
 	{
 	}
@@ -77,23 +77,23 @@ public:
 		return ~m_value;
 	}
 
-	scalar operator*(S other) const
+	scalar operator*(scalar other) const
 	{
 		return m_value * other;
 	}
-	scalar operator/(S other) const
+	scalar operator/(scalar other) const
 	{
 		return m_value / other;
 	}
-	scalar operator%(S other) const
+	scalar operator%(scalar other) const
 	{
 		return m_value % other;
 	}
-	scalar operator+(S other) const
+	scalar operator+(scalar other) const
 	{
 		return m_value + other;
 	}
-	scalar operator-(S other) const
+	scalar operator-(scalar other) const
 	{
 		return m_value - other;
 	}
@@ -109,168 +109,168 @@ public:
 		return m_value >> other;
 	}
 
-	bool operator<(S other) const
+	bool operator<(scalar other) const
 	{
 		return m_value < other;
 	}
-	bool operator<=(S other) const
+	bool operator<=(scalar other) const
 	{
 		return m_value <= other;
 	}
-	bool operator>(S other) const
+	bool operator>(scalar other) const
 	{
 		return m_value > other;
 	}
-	bool operator>=(S other) const
+	bool operator>=(scalar other) const
 	{
 		return m_value >= other;
 	}
-	bool operator==(S other) const
+	bool operator==(scalar other) const
 	{
 		return m_value == other;
 	}
-	bool operator!=(S other) const
+	bool operator!=(scalar other) const
 	{
 		return m_value != other;
 	}
 
-	scalar operator&(S other) const
+	scalar operator&(scalar other) const
 	{
 		return m_value & other;
 	}
-	scalar operator^(S other) const
+	scalar operator^(scalar other) const
 	{
 		return m_value ^ other;
 	}
-	scalar operator|(S other) const
+	scalar operator|(scalar other) const
 	{
 		return m_value | other;
 	}
-	scalar operator&&(S other) const
+	scalar operator&&(scalar other) const
 	{
 		return m_value && other;
 	}
-	scalar operator||(S other) const
+	scalar operator||(scalar other) const
 	{
 		return m_value || other;
 	}
 
-	auto& operator=(S other) &
+	auto& operator=(scalar other) &
 	{
 		m_value = other;
 		return *this;
 	}
-	auto operator=(S other) &&
+	auto operator=(scalar other) &&
 	{
 		m_value = other;
 		return *this;
 	}
 
-	auto& operator+=(S other) &
+	auto& operator+=(scalar other) &
 	{
 		m_value += other;
 		return *this;
 	}
-	auto operator+=(S other) &&
+	auto operator+=(scalar other) &&
 	{
 		m_value += other;
 		return *this;
 	}
 
-	auto& operator-=(S other) &
+	auto& operator-=(scalar other) &
 	{
 		m_value -= other;
 		return *this;
 	}
-	auto operator-=(S other) &&
+	auto operator-=(scalar other) &&
 	{
 		m_value -= other;
 		return *this;
 	}
 
-	auto& operator*=(S other) &
+	auto& operator*=(scalar other) &
 	{
 		m_value *= other;
 		return *this;
 	}
-	auto operator*=(S other) &&
+	auto operator*=(scalar other) &&
 	{
 		m_value *= other;
 		return *this;
 	}
 
-	auto& operator/=(S other) &
+	auto& operator/=(scalar other) &
 	{
 		m_value /= other;
 		return *this;
 	}
-	auto operator/=(S other) &&
+	auto operator/=(scalar other) &&
 	{
 		m_value /= other;
 		return *this;
 	}
 
-	auto& operator%=(S other) &
+	auto& operator%=(scalar other) &
 	{
 		m_value %= other;
 		return *this;
 	}
-	auto operator%=(S other) &&
+	auto operator%=(scalar other) &&
 	{
 		m_value %= other;
 		return *this;
 	}
 
-	auto& operator<<=(S other) &
+	auto& operator<<=(scalar other) &
 	{
 		m_value <<= other;
 		return *this;
 	}
-	auto operator<<=(S other) &&
+	auto operator<<=(scalar other) &&
 	{
 		m_value <<= other;
 		return *this;
 	}
 
-	auto& operator>>=(S other) &
+	auto& operator>>=(scalar other) &
 	{
 		m_value >>= other;
 		return *this;
 	}
-	auto operator>>=(S other) &&
+	auto operator>>=(scalar other) &&
 	{
 		m_value >>= other;
 		return *this;
 	}
 
-	auto& operator&=(S other) &
+	auto& operator&=(scalar other) &
 	{
 		m_value &= other;
 		return *this;
 	}
-	auto operator&=(S other) &&
+	auto operator&=(scalar other) &&
 	{
 		m_value &= other;
 		return *this;
 	}
 
-	auto& operator^=(S other) &
+	auto& operator^=(scalar other) &
 	{
 		m_value ^= other;
 		return *this;
 	}
-	auto operator^=(S other) &&
+	auto operator^=(scalar other) &&
 	{
 		m_value ^= other;
 		return *this;
 	}
 
-	auto& operator|=(S other) &
+	auto& operator|=(scalar other) &
 	{
 		m_value |= other;
 		return *this;
 	}
-	auto operator|=(S other) &&
+	auto operator|=(scalar other) &&
 	{
 		m_value |= other;
 		return *this;

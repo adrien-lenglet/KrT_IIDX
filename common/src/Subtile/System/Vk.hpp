@@ -295,6 +295,8 @@ private:
 			size_t getAlignment(sb::Shader::DescriptorType type) const;
 		};
 
+		static const VkPhysicalDeviceFeatures& requiredFeatures(void);
+
 		const Properties& properties(void) const;
 		const VkPhysicalDeviceFeatures& features(void) const;
 		const Surface& surface(void) const;
@@ -511,13 +513,15 @@ private:
 		class Image
 		{
 		public:
-			Image(Vk::Device &dev, VkImageView imageView, VkFramebuffer framebuffer);
+			Image(Vk::Device &dev, VkImageView imageView, VkFramebuffer defaultFramebuffer, VkFramebuffer clearFramebuffer);
 
-			Framebuffer& getFramebuffer(void);
+			Framebuffer& getDefaultFramebuffer(void);
+			Framebuffer& getClearFramebuffer(void);
 
 		private:
 			ImageView m_image_view;
-			Framebuffer m_framebuffer;
+			Framebuffer m_default_framebuffer;
+			Framebuffer m_clear_framebuffer;
 		};
 	};
 
@@ -528,6 +532,8 @@ private:
 	RenderPass m_default_render_pass;
 	RenderPass createDefaultRenderPass(void);
 	RenderPass& getDefaultRenderPass(void);
+	RenderPass m_clear_render_pass;
+	RenderPass createClearRenderPass(void);
 
 	std::vector<Swapchain::Image> m_swapchain_images;
 	std::vector<Swapchain::Image> createSwapchainImages(void);
