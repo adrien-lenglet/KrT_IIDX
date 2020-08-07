@@ -17,6 +17,8 @@ vertex {
 		double xdd;
 	};*/
 
+	require modules::camera;
+
 	in vec3 in_pos;
 	in vec3 in_normal;
 	in vec2 in_uv;

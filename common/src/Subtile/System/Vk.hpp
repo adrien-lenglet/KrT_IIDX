@@ -685,8 +685,9 @@ private:
 		rs::Shader::DescriptorSetLayouts m_layouts;
 		PipelineLayout m_pipeline_layout;
 		PipelineLayout createPipelineLayout(void);
-		std::vector<std::pair<VkShaderStageFlagBits, ShaderModule>> m_shader_modules;
-		std::vector<std::pair<VkShaderStageFlagBits, ShaderModule>> createShaderModules(Vk::Device &device, rs::Shader &shader);
+		using ShaderModulesType = std::vector<std::pair<VkShaderStageFlagBits, ShaderModule>>;
+		ShaderModulesType m_shader_modules;
+		ShaderModulesType createShaderModules(Vk::Device &device, rs::Shader &shader);
 		Pipeline m_pipeline;
 		Pipeline createPipeline(Vk::Device &device, rs::Shader &shader);
 	};

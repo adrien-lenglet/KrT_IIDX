@@ -1219,9 +1219,9 @@ VkFormat Vk::Shader::vertexInputFormatToVk(sb::Shader::VertexInput::Format forma
 Vk::Shader::Shader(Vk::Device &device, rs::Shader &shader) :
 	m_device(device),
 	m_layouts(shader.loadDescriptorSetLayouts(device.vk())),
-	m_pipeline_layout(createPipelineLayout()),
-	m_shader_modules(createShaderModules(device, shader)),
-	m_pipeline(createPipeline(device, shader))
+	m_pipeline_layout(shader.isModule() ? PipelineLayout(device, VK_NULL_HANDLE) : createPipelineLayout()),
+	m_shader_modules(shader.isModule() ? ShaderModulesType{} : createShaderModules(device, shader)),
+	m_pipeline(shader.isModule() ? Pipeline(device, VK_NULL_HANDLE) : createPipeline(device, shader))
 {
 	static_cast<void>(shader);
 }

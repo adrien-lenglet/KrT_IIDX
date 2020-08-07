@@ -1,0 +1,12 @@
+set camera {
+	mat4 vp;
+};
+
+//require res::diffuse;
+
+vertex {
+	vec3 camera_view_point(vec3 p)
+	{
+		return camera.vp * p;
+	}
+}

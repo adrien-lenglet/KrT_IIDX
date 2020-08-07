@@ -9,6 +9,7 @@
 #include <functional>
 #include <set>
 #include "../Shader.hpp"
+#include "../Resource/Compiler.hpp"
 #include "cpp_generator.hpp"
 #include "util.hpp"
 #include "util/string.hpp"
@@ -39,7 +40,7 @@ class Shader::Compiler
 		if (whitespace.find(c) != whitespace.end())
 			return BufType::Whitespace;
 		auto lower = lower_char(c);
-		if (c == '_' || (lower >= 'a' && lower <= 'z') || (lower >= '0' && lower <= '9'))
+		if (c == '_' || c == ':' || (lower >= 'a' && lower <= 'z') || (lower >= '0' && lower <= '9'))
 			return BufType::Id;
 		else
 			return BufType::Operator;
@@ -182,6 +183,8 @@ private:
 		std::ifstream in(path, std::ios::binary);
 
 		res << in.rdbuf();
+		if (!in.good())
+			throw std::runtime_error(std::string("Can't read shader '") + path + std::string("'"));
 		return res.str();
 	}
 
@@ -274,6 +277,74 @@ public:
 	class Variable;
 	class Struct;
 
+	class Function : public Primitive
+	{
+	public:
+		Function(tstream &s) :
+			m_proto_tokens(getProtoTokens(s)),
+			m_tokens(getTokens(s))
+		{
+		}
+
+		void write(token_output &o, Sbi) const override
+		{
+			o << m_return_type << m_name;
+			for (auto &t : m_proto_tokens)
+				o << t;
+			for (auto &t : m_tokens)
+				o << t;
+		}
+
+		auto& getName(void) const
+		{
+			return m_name;
+		}
+
+	private:
+		std::string m_return_type;
+		std::string m_name;
+		std::vector<std::string> m_proto_tokens;
+		std::vector<std::string> m_tokens;
+
+		std::vector<std::string> getProtoTokens(tstream &s)
+		{
+			std::vector<std::string> res;
+
+			m_return_type = s.poll();
+			m_name = s.poll();
+			s.expect("(");
+			res.emplace_back("(");
+
+			while (s.peek() != ")")
+				res.emplace_back(s.poll());
+			res.emplace_back(s.poll());
+
+			return res;
+		}
+
+		std::vector<std::string> getTokens(tstream &s)
+		{
+			std::vector<std::string> res;
+
+			while (true) {
+				auto &cur = s.poll();
+				res.emplace_back(cur);
+				if (cur == "{")
+					break;
+			}
+			size_t lev = 1;
+			while (lev > 0) {
+				auto &cur = s.poll();
+				res.emplace_back(cur);
+				if (cur == "{")
+					lev++;
+				else if (cur == "}")
+					lev--;
+			}
+			return res;
+		}
+	};
+
 private:
 	class Counter
 	{
@@ -312,15 +383,9 @@ public:
 private:
 	std::vector<std::reference_wrapper<Set>> m_sets;
 
-	std::vector<std::reference_wrapper<Variable>> m_variables;
 	std::vector<Struct> m_structs;
 
 public:
-	void addVariable(Variable &variable)
-	{
-		m_variables.emplace_back(variable);
-	}
-
 	template <typename ...Args>
 	void addStruct(Args &&...args)
 	{
@@ -394,11 +459,33 @@ public:
 
 		Stage(Compiler &compiler, Shader::Stage stage) :
 			m_compiler(compiler),
-			m_stage(stage)
+			m_stage(stage),
+			m_is_complete(false)
 		{
 		}
 
 		void add(Primitive &prim)
+		{
+			auto var = dynamic_cast<Variable*>(&prim);
+			if (var) {
+				var->addToStage(*this);
+			} else {
+				auto set = dynamic_cast<Set*>(&prim);
+				if (set)
+					set->addToStage(*this);
+				else {
+					auto func = dynamic_cast<Function*>(&prim);
+					if (func) {
+						if (func->getName() == "main")
+							m_is_complete = true;
+						m_primitives.emplace_back(*func);
+					} else
+						m_primitives.emplace_back(prim);
+				}
+			}
+		}
+
+		void emplacePrim(Primitive &prim)
 		{
 			m_primitives.emplace_back(prim);
 		}
@@ -483,9 +570,15 @@ public:
 			return m_stage;
 		}
 
+		auto isComplete(void) const
+		{
+			return m_is_complete;
+		}
+
 	private:
 		Compiler &m_compiler;
 		Shader::Stage m_stage;
+		bool m_is_complete;
 		std::vector<std::reference_wrapper<Primitive>> m_primitives;
 		std::vector<std::reference_wrapper<Variable>> m_in_variables;
 		std::vector<std::reference_wrapper<Variable>> m_out_variables;
@@ -993,7 +1086,7 @@ public:
 			} else if (m_storage == Storage::Out) {
 				stage.addOut(*this);
 			} else
-				stage.add(*this);
+				stage.emplacePrim(*this);
 		}
 
 		const std::set<Shader::Stage>& getStages(void) const
@@ -1309,7 +1402,7 @@ public:
 		void addToStage(Stage &stage)
 		{
 			m_stages.emplace(stage.getStage());
-			stage.add(*this);
+			stage.emplacePrim(*this);
 		};
 
 		auto& getName(void) const { return m_name; }
@@ -1421,18 +1514,8 @@ private:
 
 		void recurAdd(Primitive &prim)
 		{
-			if (m_stage) {
-				auto var = dynamic_cast<Variable*>(&prim);
-				if (var) {
-					var->addToStage(*m_stage);
-				} else {
-					auto set = dynamic_cast<Set*>(&prim);
-					if (set)
-						set->addToStage(*m_stage);
-					else
-						m_stage->add(prim);
-				}
-			}
+			if (m_stage)
+				m_stage->add(prim);
 			for (auto &p : m_primitives) {
 				auto s = dynamic_cast<Section*>(&p);
 				if (s)
@@ -1491,51 +1574,88 @@ private:
 		}
 	};
 
-	class Function : public Primitive
-	{
-	public:
-		Function(tstream &s) :
-			m_tokens(getTokens(s))
-		{
-		}
-
-		void write(token_output &o, Sbi) const override
-		{
-			for (auto &t : m_tokens)
-				o << t;
-		}
-
-	private:
-		std::vector<std::string> m_tokens;
-
-		std::vector<std::string> getTokens(tstream &s)
-		{
-			std::vector<std::string> res;
-
-			while (true) {
-				auto &cur = s.poll();
-				res.emplace_back(cur);
-				if (cur == "{")
-					break;
-			}
-			size_t lev = 1;
-			while (lev > 0) {
-				auto &cur = s.poll();
-				res.emplace_back(cur);
-				if (cur == "{")
-					lev++;
-				else if (cur == "}")
-					lev--;
-			}
-			return res;
-		}
-	};
-
+	const sb::Resource::Compiler::modules_entry &m_entry;
 	token_stream m_stream;
 	Section m_collec;
+	bool m_is_complete;
 
-public:	
-	Compiler(const std::string &path);
+	bool isStageComplete(sb::Shader::Stage stage) const
+	{
+		auto stageit = m_stages.find(stage);
+		if (stageit == m_stages.end())
+			return false;
+		if (!stageit->second.isComplete())
+			return false;
+		return true;
+	}
+
+	bool getIsComplete(void)
+	{
+		m_collec.dispatch();
+
+		for (auto &s : m_stages)
+			s.second.done();
+
+		if (!isStageComplete(sb::Shader::Stage::Vertex))
+			return false;
+		if (!isStageComplete(sb::Shader::Stage::Fragment))
+			return false;
+		return true;
+	}
+
+public:
+	Compiler(const sb::Resource::Compiler::modules_entry &entry);
+
+	auto& getModuleEntry(void) const
+	{
+		return m_entry;
+	}
+
+	bool isModule(void) const
+	{
+		return !m_is_complete;
+	}
+
+private:
+	class Require;
+};
+
+class Shader::Compiler::Require : public Shader::Compiler::Primitive
+{
+public:
+	Require(Compiler &compiler, tstream &s) :
+		m_compiled(getCompiled(compiler.getModuleEntry(), s))
+	{
+	}
+
+	static bool isComingUp(tstream &s)
+	{
+		return s.peek() == "require";
+	}
+
+	void write(token_output &o, Sbi sbi) const override
+	{
+		static_cast<void>(o);
+		static_cast<void>(sbi);
+	}
+
+private:
+	Compiler m_compiled;
+
+	Compiler getCompiled(const sb::Resource::Compiler::modules_entry &entry, tstream &s)
+	{
+		std::string expr;
+
+		s.expect("require");
+		while (true) {
+			auto &cur = s.poll();
+			if (cur == ";")
+				break;
+			for (auto &c : cur)
+				expr.push_back(c);
+		}
+		return Compiler(entry.resolve_scope_expr(expr));
+	}
 };
 
 inline void Shader::Compiler::Section::poll(tstream &s, Compiler &compiler)
@@ -1552,40 +1672,24 @@ inline void Shader::Compiler::Section::poll(tstream &s, Compiler &compiler)
 		m_primitives.emplace<Set>(s, compiler);
 	} else if (Variable::isComingUp(s)) {
 		auto &first = m_primitives.emplace<Variable>(compiler, s);
-		compiler.addVariable(first);
 		while (s.peek() == ",") {
 			s.poll();
-			compiler.addVariable(m_primitives.emplace<Variable>(s, first));
+			m_primitives.emplace<Variable>(s, first);
 		}
 		s.expect(";");
+	} else if (Require::isComingUp(s)) {
+		m_primitives.emplace<Require>(compiler, s);
 	} else
 		m_primitives.emplace<Function>(s);
 }
 
-inline Shader::Compiler::Compiler(const std::string &path) :
+inline Shader::Compiler::Compiler(const sb::Resource::Compiler::modules_entry &entry) :
 	m_stages(*this),
-	m_stream(token_stream(tokenize(read(path)))),
-	m_collec(m_stream, *this)
+	m_entry(entry),
+	m_stream(token_stream(tokenize(read(entry.getPath().string())))),
+	m_collec(m_stream, *this),
+	m_is_complete(getIsComplete())
 {
-	m_collec.dispatch();
-
-	/*for (auto &v : m_variables) {
-		auto var = v.get();
-		auto set = var.getSet();
-		if (set)
-			m_blocks.forSet(*set).add(v);
-	}*/
-
-	for (auto &s : m_stages)
-		s.second.done();
-
-	/*std::cout << "STAGES:" << std::endl;
-	for (auto &s : m_stages) {
-		std::cout << static_cast<std::underlying_type_t<decltype(s.first)>>(s.first) << std::endl;
-		token_output o;
-		s.second.write(o, Sbi::Vulkan);
-		o.write(std::cout);
-	}*/
 }
 
 }
