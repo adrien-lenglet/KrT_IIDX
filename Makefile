@@ -26,17 +26,16 @@ resources:
 	$(MAKE) -C $(COMMON) resources_detect $(OPT)
 	$(MAKE) -C $(COMMON) resources $(OPT)
 
-common_macro_resources:
+macro_resources:
 	$(MAKE) -C $(COMMON) macro $(OPT)
-	$(MAKE) -C $(COMMON) resources_detect $(OPT)
-	$(MAKE) -C $(COMMON) resources $(OPT)
+	$(MAKE) resources
 
 debug: CXXFLAGS_ADD = -g
-debug: common_macro_resources
+debug: macro_resources
 	$(MAKE) -C $(COMMON) debug $(OPT)
 
 release: CXXFLAGS_ADD = -O3
-release: common_macro_resources
+release: macro_resources
 	$(MAKE) -C $(COMMON) release $(OPT)
 
 windows: LIB = "$(shell cygpath --unix $(VULKAN_SDK))/Lib/vulkan-1.lib" -lglfw3

@@ -186,10 +186,10 @@ class FolderPrinter
 	auto shaderAddVertexInput(Util::CollectionBase &scope, Util::CollectionBase &user_structs_scope, sb::Shader::Compiler &shader)
 	{
 		std::vector<std::reference_wrapper<const sb::Shader::Compiler::Variable>> vars;
-		for (auto &io : shader.getStages().begin()->second.getInterface())
-			if (io.getDir() == sb::Shader::Compiler::Stage::InterfaceInOut::Dir::In) {
-				vars.emplace_back(io.getVariable());
-			}
+		if (shader.getStages().size() > 0)
+			for (auto &io : shader.getStages().begin()->second.getInterface())
+				if (io.getDir() == sb::Shader::Compiler::Stage::InterfaceInOut::Dir::In)
+					vars.emplace_back(io.getVariable());
 		auto vertex_t = createShaderStruct<false>(scope, user_structs_scope, "Vertex", vars, "sb::Shader::Type::Std430");
 
 		auto t = "sb::Shader::VertexInput"_t;

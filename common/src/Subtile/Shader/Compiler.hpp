@@ -370,6 +370,152 @@ private:
 		return table.find(sbi) != table.end();
 	}
 
+	const sb::Resource::Compiler::modules_entry &m_entry;
+
+public:
+	auto& getModuleEntry(void) const
+	{
+		return m_entry;
+	}
+
+private:
+	class DepSet
+	{
+	public:
+		DepSet(void)
+		{
+		}
+
+		bool isPresent(Compiler &dep)
+		{
+			auto &path = dep.getModuleEntry().getPath();
+			return m_paths.find(path) != m_paths.end();
+		}
+
+		bool insert(Compiler &compiler)
+		{
+			auto &path = compiler.getModuleEntry().getPath();
+			if (m_paths.find(path) != m_paths.end())
+				return false;
+			m_paths.emplace(path);
+			m_deps.emplace_back(compiler);
+			return true;
+		}
+
+		auto& getCompilers(void)
+		{
+			return m_deps;
+		}
+		auto& getCompilers(void) const
+		{
+			return m_deps;
+		}
+
+	private:
+		std::set<std::fs::path> m_paths;
+		std::vector<util::ref_wrapper<Compiler>> m_deps;
+	};
+
+	std::vector<util::ref_wrapper<Compiler>> m_read_deps;
+	DepSet m_deps;
+	DepSet m_stage_deps;
+
+	class Require;
+
+public:
+	auto& getDeps(void)
+	{
+		return m_deps;
+	}
+
+	void insertReadDep(Compiler &dep)
+	{
+		m_read_deps.emplace_back(dep);
+	}
+
+	auto& getForeignSet(Compiler &dep)
+	{
+		auto &path = dep.getModuleEntry().getPath();
+		auto got = m_foreign_sets.find(path);
+		if (got != m_foreign_sets.end())
+			return got->second;
+		else {
+			auto [it, suc] = m_foreign_sets.emplace(std::piecewise_construct, std::forward_as_tuple(path), std::forward_as_tuple());
+			if (!suc)
+				throw std::runtime_error("Can't emplace foreign set");
+			auto &res = it->second;
+			for (auto &s : dep.m_sets)
+				res.emplace_back(s, m_set_counter.next());
+			return res;
+		}
+	}
+
+	void addDep(Compiler &dep)
+	{
+		if (!m_deps.insert(dep))
+			return;
+		auto &sets = getForeignSet(dep);
+		for (auto &set : sets)
+			set.getStages() = set.getSet().getStages();
+	}
+
+	void insertDep(Compiler &dep)
+	{
+		for (auto &d : dep.getDeps().getCompilers())
+			addDep(d);
+		addDep(dep);
+	}
+
+	void addDepOnStage(Compiler &dep, Shader::Stage stage)
+	{
+		auto &foreign = getForeignSet(dep);
+		auto &s = m_stages.at(stage);
+		if (!s.getDeps().insert(dep))
+			return;
+		for (auto &set : foreign)
+			set.getStages().emplace(stage);
+	}
+
+	void insertDepFromStage(Compiler &dep, Shader::Stage stage)
+	{
+		if (dep.isPureModule()) {
+			for (auto &d : dep.getDeps().getCompilers())
+				addDepOnStage(d, stage);
+			addDepOnStage(dep, stage);
+		} else
+			insertDep(dep);
+	}
+
+	void prModuleWrite(token_output &o, Sbi sbi) const
+	{
+		m_collec.write_no_set(o, sbi);
+	}
+
+	void writeDepsFor(token_output &o, Sbi sbi, sb::Shader::Stage stage) const
+	{
+		for (auto &d : m_stages.at(stage).getDeps().getCompilers()) {
+			for (auto &set : m_foreign_sets.at(d.get().getModuleEntry().getPath())) {
+				auto &stages = set.getStages();
+				if (stages.find(stage) != stages.end())
+					set.write(o, sbi);
+			}
+			d.get().prModuleWrite(o, sbi);
+		}
+		for (auto &d : m_deps.getCompilers()) {
+			for (auto &set : m_foreign_sets.at(d.get().getModuleEntry().getPath())) {
+				auto &stages = set.getStages();
+				if (stages.find(stage) != stages.end())
+					set.write(o, sbi);
+			}
+			auto got = d.get().getStages().find(stage);
+			if (got == d.get().getStages().end())
+				return;
+			for (auto &p : got->second.getPrimitives())
+				p.get().write(o, sbi);
+		}
+	}
+
+private:
 	Counter m_set_counter;
 
 public:
@@ -379,9 +525,11 @@ public:
 	}
 
 	class Set;
+	class ForeignSet;
 
 private:
-	std::vector<std::reference_wrapper<Set>> m_sets;
+	std::map<std::fs::path, std::vector<ForeignSet>> m_foreign_sets;
+	std::vector<util::ref_wrapper<Set>> m_sets;
 
 	std::vector<Struct> m_structs;
 
@@ -471,16 +619,20 @@ public:
 				var->addToStage(*this);
 			} else {
 				auto set = dynamic_cast<Set*>(&prim);
-				if (set)
+				if (set) {
 					set->addToStage(*this);
-				else {
+					m_sets.emplace_back(*set);
+				} else {
 					auto func = dynamic_cast<Function*>(&prim);
 					if (func) {
 						if (func->getName() == "main")
 							m_is_complete = true;
 						m_primitives.emplace_back(*func);
-					} else
-						m_primitives.emplace_back(prim);
+					} else {
+						if (tryAddRequire(prim));
+						else
+							m_primitives.emplace_back(prim);
+					}
 				}
 			}
 		}
@@ -536,6 +688,11 @@ public:
 			for (auto &io : m_interface_ios)
 				io.write(o);
 			token_output inter_o;
+
+			m_compiler.writeDepsFor(o, sbi, m_stage);
+
+			for (auto &s : m_sets)
+				s.get().write(inter_o, sbi);
 			for (auto &p : m_primitives)
 				p.get().write(inter_o, sbi);
 			std::string last_token;
@@ -575,15 +732,34 @@ public:
 			return m_is_complete;
 		}
 
+		DepSet& getDeps(void)
+		{
+			return m_deps;
+		}
+		const DepSet& getDeps(void) const
+		{
+			return m_deps;
+		}
+
+		const std::vector<std::reference_wrapper<Primitive>>& getPrimitives(void) const
+		{
+			return m_primitives;
+		}
+
 	private:
 		Compiler &m_compiler;
 		Shader::Stage m_stage;
 		bool m_is_complete;
+
+		DepSet m_deps;
+		std::vector<util::ref_wrapper<Set>> m_sets;
 		std::vector<std::reference_wrapper<Primitive>> m_primitives;
 		std::vector<std::reference_wrapper<Variable>> m_in_variables;
 		std::vector<std::reference_wrapper<Variable>> m_out_variables;
 
 		std::vector<InterfaceInOut> m_interface_ios;
+
+		bool tryAddRequire(Primitive &prim);
 	};
 
 private:
@@ -1281,10 +1457,10 @@ public:
 		{
 		}
 
-		void write(token_output &o, Sbi sbi) const
+		void write(token_output &o, Sbi sbi, size_t set_ndx) const
 		{
 			if (sbi == Sbi::Vulkan)
-				write_vulkan(o);
+				write_vulkan(o, set_ndx);
 			else
 				throw std::runtime_error("Sbi not supported");
 		}
@@ -1311,9 +1487,9 @@ public:
 		const std::string &m_name;
 		std::vector<std::reference_wrapper<Variable>> m_variables;
 
-		void write_vulkan(token_output &o) const
+		void write_vulkan(token_output &o, size_t set_ndx) const
 		{
-			o << "layout" << "(" << "std140" << "," << "set" << "=" << m_set.getNdx() << "," << "binding" << "=" << m_binding << ")" << "uniform" << (std::string("_") + m_name + std::string("_t_")) << "{";
+			o << "layout" << "(" << "std140" << "," << "set" << "=" << set_ndx << "," << "binding" << "=" << m_binding << ")" << "uniform" << (std::string("_") + m_name + std::string("_t_")) << "{";
 			for (auto &v : m_variables)
 				v.get().declare(o);
 			o << "}" << m_name << ";";
@@ -1330,10 +1506,10 @@ public:
 		{
 		}
 
-		void write(token_output &o, Sbi sbi) const
+		void write(token_output &o, Sbi sbi, size_t set_ndx) const
 		{
 			if (sbi == Sbi::Vulkan)
-				write_vulkan(o);
+				write_vulkan(o, set_ndx);
 			else
 				throw std::runtime_error("Sbi not supported");
 		}
@@ -1354,9 +1530,9 @@ public:
 		size_t m_binding;
 		Variable &m_variable;
 
-		void write_vulkan(token_output &o) const
+		void write_vulkan(token_output &o, size_t set_ndx) const
 		{
-			o << "layout" << "(" << "std140" << "," << "set" << "=" << m_set.getNdx() << "," << "binding" << "=" << m_binding << ")" << "uniform";
+			o << "layout" << "(" << "std140" << "," << "set" << "=" << set_ndx << "," << "binding" << "=" << m_binding << ")" << "uniform";
 			m_variable.declare(o);
 		}
 	};
@@ -1388,21 +1564,26 @@ public:
 			return m_stages;
 		}
 
-		void write(token_output &o, Sbi sbi) const override
+		void write_custom_set_ndx(token_output &o, Sbi sbi, size_t set_ndx) const
 		{
 			if (sbiIsGlsl(sbi)) {
 				if (m_mapped_block)
-					m_mapped_block->write(o, sbi);
+					m_mapped_block->write(o, sbi, set_ndx);
 				for (auto &opq : m_opaque_vars)
-					opq.write(o, sbi);
+					opq.write(o, sbi, set_ndx);
 			} else
 				throw std::runtime_error("Unsupported SBI");
+		}
+
+		void write(token_output &o, Sbi sbi) const override
+		{
+			write_custom_set_ndx(o, sbi, m_set_ndx);
 		}
 
 		void addToStage(Stage &stage)
 		{
 			m_stages.emplace(stage.getStage());
-			stage.emplacePrim(*this);
+			//stage.addSet(*this);
 		};
 
 		auto& getName(void) const { return m_name; }
@@ -1466,6 +1647,41 @@ public:
 		}
 	};
 
+	class ForeignSet
+	{
+	public:
+		ForeignSet(Set &base, size_t set_ndx) :
+			m_base(base),
+			m_set_ndx(set_ndx)
+		{
+		}
+
+		void write(token_output &o, Sbi sbi) const
+		{
+			m_base.write_custom_set_ndx(o, sbi, m_set_ndx);
+		}
+
+		std::set<Shader::Stage>& getStages(void)
+		{
+			return m_stages;
+		}
+
+		const std::set<Shader::Stage>& getStages(void) const
+		{
+			return m_stages;
+		}
+
+		Set& getSet(void)
+		{
+			return m_base;
+		}
+
+	private:
+		Set &m_base;
+		size_t m_set_ndx;
+		std::set<Shader::Stage> m_stages;
+	};
+
 private:
 	class Section : public Primitive
 	{
@@ -1508,6 +1724,15 @@ private:
 		{
 			for (auto &p : m_primitives)
 				p.write(o, sbi);
+		}
+
+		void write_no_set(token_output &o, Sbi sbi) const
+		{
+			for (auto &p : m_primitives) {
+				if (dynamic_cast<const Set*>(&p))
+					continue;
+				p.write(o, sbi);
+			}
 		}
 
 		void poll(tstream &s, Compiler &compiler);
@@ -1574,7 +1799,6 @@ private:
 		}
 	};
 
-	const sb::Resource::Compiler::modules_entry &m_entry;
 	token_stream m_stream;
 	Section m_collec;
 	bool m_is_complete;
@@ -1589,12 +1813,21 @@ private:
 		return true;
 	}
 
-	bool getIsComplete(void)
+	void dispatch_stuff(void)
 	{
 		m_collec.dispatch();
 
 		for (auto &s : m_stages)
 			s.second.done();
+
+		if (isPureModule())
+			for (auto &d : m_read_deps)
+				insertDep(d);
+	}
+
+	bool getIsComplete(void)
+	{
+		dispatch_stuff();
 
 		if (!isStageComplete(sb::Shader::Stage::Vertex))
 			return false;
@@ -1606,18 +1839,15 @@ private:
 public:
 	Compiler(const sb::Resource::Compiler::modules_entry &entry);
 
-	auto& getModuleEntry(void) const
-	{
-		return m_entry;
-	}
-
 	bool isModule(void) const
 	{
 		return !m_is_complete;
 	}
 
-private:
-	class Require;
+	bool isPureModule(void) const
+	{
+		return isModule() && m_stages.size() == 0;
+	}
 };
 
 class Shader::Compiler::Require : public Shader::Compiler::Primitive
@@ -1626,6 +1856,8 @@ public:
 	Require(Compiler &compiler, tstream &s) :
 		m_compiled(getCompiled(compiler.getModuleEntry(), s))
 	{
+		compiler.insertReadDep(m_compiled);
+		compiler.getForeignSet(m_compiled);
 	}
 
 	static bool isComingUp(tstream &s)
@@ -1637,6 +1869,11 @@ public:
 	{
 		static_cast<void>(o);
 		static_cast<void>(sbi);
+	}
+
+	Compiler& getCompiler(void)
+	{
+		return m_compiled;
 	}
 
 private:
@@ -1657,6 +1894,16 @@ private:
 		return Compiler(entry.resolve_scope_expr(expr));
 	}
 };
+
+inline bool Shader::Compiler::Stage::tryAddRequire(Primitive &prim)
+{
+	auto req = dynamic_cast<Require*>(&prim);
+	if (req) {
+		m_compiler.insertDepFromStage(req->getCompiler(), m_stage);
+		return true;
+	} else
+		return false;
+}
 
 inline void Shader::Compiler::Section::poll(tstream &s, Compiler &compiler)
 {
@@ -1684,8 +1931,8 @@ inline void Shader::Compiler::Section::poll(tstream &s, Compiler &compiler)
 }
 
 inline Shader::Compiler::Compiler(const sb::Resource::Compiler::modules_entry &entry) :
-	m_stages(*this),
 	m_entry(entry),
+	m_stages(*this),
 	m_stream(token_stream(tokenize(read(entry.getPath().string())))),
 	m_collec(m_stream, *this),
 	m_is_complete(getIsComplete())

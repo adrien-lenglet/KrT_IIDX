@@ -1,3 +1,8 @@
+
+vertex {
+	require modules::camera;
+}
+
 fragment {
 	set material {
 		vec3 color;
@@ -16,8 +21,6 @@ vertex {
 		uint lol;
 		double xdd;
 	};*/
-
-	require modules::camera;
 
 	in vec3 in_pos;
 	in vec3 in_normal;
