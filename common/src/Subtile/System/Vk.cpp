@@ -963,14 +963,6 @@ VkDescriptorSetLayout Vk::DescriptorSetLayout::create(Device &device, const sb::
 
 VkDescriptorSetLayoutBinding Vk::DescriptorSetLayout::bindingtoVk(const sb::Shader::DescriptorSet::Layout::DescriptionBinding &b)
 {
-	static const std::map<sb::Shader::Stage, VkShaderStageFlags> stageTable {
-		{sb::Shader::Stage::TesselationControl, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT},
-		{sb::Shader::Stage::TesselationEvaluation, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT},
-		{sb::Shader::Stage::Geometry, VK_SHADER_STAGE_GEOMETRY_BIT},
-		{sb::Shader::Stage::Vertex, VK_SHADER_STAGE_VERTEX_BIT},
-		{sb::Shader::Stage::Fragment, VK_SHADER_STAGE_FRAGMENT_BIT}
-	};
-
 	VkDescriptorSetLayoutBinding r {};
 	r.binding = b.binding;
 	r.descriptorType = descriptorType(b.descriptorType);
@@ -978,7 +970,7 @@ VkDescriptorSetLayoutBinding Vk::DescriptorSetLayout::bindingtoVk(const sb::Shad
 	if (b.isMapped())
 		r.descriptorCount = 1;
 	for (auto &s : b.stages)
-		r.stageFlags |= stageTable.at(s);
+		r.stageFlags |= Vk::Shader::sbStageToVk(s);
 	return r;
 }
 
@@ -1179,7 +1171,8 @@ VkShaderStageFlagBits Vk::Shader::sbStageToVk(Subtile::Shader::Stage stage)
 		{Subtile::Shader::Stage::TesselationEvaluation, VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT},
 		{Subtile::Shader::Stage::Geometry, VK_SHADER_STAGE_GEOMETRY_BIT},
 		{Subtile::Shader::Stage::Vertex, VK_SHADER_STAGE_VERTEX_BIT},
-		{Subtile::Shader::Stage::Fragment, VK_SHADER_STAGE_FRAGMENT_BIT}
+		{Subtile::Shader::Stage::Fragment, VK_SHADER_STAGE_FRAGMENT_BIT},
+		{Subtile::Shader::Stage::All, VK_SHADER_STAGE_ALL}
 	};
 
 	return table.at(stage);

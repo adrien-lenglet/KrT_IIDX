@@ -14,7 +14,7 @@ fragment {
 vertex {
 	set object {
 		float time;
-		mat4 mvp;
+		mat4 model_world;
 	};
 
 	/*set sub_object {
@@ -31,10 +31,10 @@ vertex {
 
 	void main(void)
 	{
-		//vec3 in_pos = vec3(2.3);
-		//vec2 pos;
-		gl_Position = vec4(in_pos.x, in_pos.y, 0.5, 1.0);
-		vtx_pos = in_pos;
+		vec4 in_pos_h = vec4(in_pos, 1.0);
+		gl_Position = camera.vp * object.model_world * in_pos_h;
+		//gl_Position = vec4(in_pos.x, in_pos.y, 0, 1);
+		vtx_pos = (object.model_world * in_pos_h).xyz;
 		vtx_normal = in_normal;
 	}
 }
@@ -45,7 +45,11 @@ fragment {
 
 	void main(void)
 	{
-		screen_color = normalize(vtx_normal) + vec3(material.counter / 256.0);
+		vec3 lightp = vec3(-2.0, 1.0, -3.0);
+		float dist = length(lightp - vtx_pos);
+
+		vec3 color = normalize(vtx_normal);// + vec3(material.counter / 256.0);
+		screen_color = vec3(10.0 / (dist * dist)) * color;
 	}
 }
 

@@ -1,9 +1,6 @@
-#include "EntityTest.hpp"
-//#include "../../res/shaders/diffuse.hpp"
-
 #include <iostream>
-
-//#include "Subtile/Cache.hpp"
+#include "EntityTest.hpp"
+#include <glm/gtx/transform.hpp>
 
 namespace Krt {
 
@@ -29,12 +26,17 @@ EntityTest::EntityTest(void) :
 
 	bind(world.render, m_shader.render(m_model, world.render.camera, m_material, m_object));
 
-	bind(world.events.update, [this](auto &){
+	bind(world.events.update, [this](auto &time){
 		m_material.counter++;
 		if (m_material.counter > 256) {
 			m_material.counter = 0;
 		}
 		m_material.upload();
+
+		m_angle += time;
+		auto mat = glm::rotate((float)m_angle, glm::normalize(glm::vec3(1.0, 1.0, 1.0)));
+		m_object.model_world = mat;
+		m_object.upload();
 	});
 }
 
@@ -48,7 +50,7 @@ decltype(EntityTest::m_model) EntityTest::createModel(void)
 	auto gen_vtx = [this](){
 		decltype(m_shader)::Model::Vertex res;
 		for (size_t i = 0; i < 3; i++)
-			res.in_pos[i] = world.srandf() * 0.5;
+			res.in_pos[i] = world.srandf() * 5.0;
 		for (size_t i = 0; i < 3; i++)
 			res.in_normal[i] = world.srandf();
 		res.in_normal = sb::math::normalize(res.in_normal);
@@ -57,7 +59,7 @@ decltype(EntityTest::m_model) EntityTest::createModel(void)
 		return res;
 	};
 
-	for (size_t i = 0; i < 10; i++) {
+	for (size_t i = 0; i < 1000; i++) {
 		decltype(m_shader)::Model::Triangle tri {gen_vtx(), gen_vtx(), gen_vtx()};
 		triangles.emplace_back(tri);
 	}

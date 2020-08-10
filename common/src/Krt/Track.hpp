@@ -30,6 +30,8 @@ public:
 		{
 		}
 
+		void render(void);
+
 		decltype(m_camera_shader.camera()) camera;
 	};
 

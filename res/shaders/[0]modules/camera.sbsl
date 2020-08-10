@@ -5,7 +5,7 @@ set camera {
 //require vertex;
 //require res::diffuse;
 
-vec3 camera_view_point(vec3 p)
+vec4 camera_project_point(vec3 p)
 {
-	return (camera.vp * vec4(p, 1.0)).xyz;
+	return camera.vp * vec4(p, 1.0);
 }

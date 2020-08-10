@@ -39,7 +39,8 @@ public:
 		TesselationEvaluation,
 		Geometry,
 		Vertex,
-		Fragment
+		Fragment,
+		All
 	};
 
 	struct VertexInput
@@ -502,6 +503,15 @@ public:
 						(*this)[i][j] = glmmat[i][j];
 			}
 
+			template <typename Mat>
+			auto& operator=(Mat &&mat)
+			{
+				for (size_t i = 0; i < C; i++)
+					for (size_t j = 0; j < R; j++)
+						(*this)[i][j] = mat[i][j];
+				return *this;
+			}
+
 			using salign = typename S::salign;
 			using balign = typename col_type::balign;
 			using ealign = balign;
@@ -527,6 +537,12 @@ public:
 			StructMember(Args &&...args) :
 				T(std::forward<Args>(args)...)
 			{
+			}
+
+			template <typename ...Args>
+			decltype(auto) operator=(Args &&...args)
+			{
+				return static_cast<T&>(*this).operator=(std::forward<Args>(args)...);
 			}
 
 			using salign = typename T::salign;

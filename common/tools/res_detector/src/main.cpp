@@ -74,7 +74,8 @@ class FolderPrinter
 			{sb::Shader::Stage::TesselationEvaluation, "sb::Shader::Stage::TesselationEvaluation"_v},
 			{sb::Shader::Stage::Geometry, "sb::Shader::Stage::Geometry"_v},
 			{sb::Shader::Stage::Vertex, "sb::Shader::Stage::Vertex"_v},
-			{sb::Shader::Stage::Fragment, "sb::Shader::Stage::Fragment"_v}
+			{sb::Shader::Stage::Fragment, "sb::Shader::Stage::Fragment"_v},
+			{sb::Shader::Stage::All, "sb::Shader::Stage::All"_v}
 		};
 
 		Brace res;

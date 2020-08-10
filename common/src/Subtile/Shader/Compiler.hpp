@@ -1549,6 +1549,7 @@ public:
 			m_compiler(compiler),
 			m_set_ndx(compiler.gen_set_ndx()),
 			m_name(getName(s)),
+			m_is_all_stages(false),
 			m_variables(getVariables(s, compiler))
 		{
 			s.expect(";");
@@ -1568,6 +1569,17 @@ public:
 		const std::set<sb::Shader::Stage>& getStages(void) const
 		{
 			return m_stages;
+		}
+
+		void setAllStages(void)
+		{
+			m_is_all_stages = true;
+			m_stages.emplace(sb::Shader::Stage::All);
+		}
+
+		bool isAllStages(void) const
+		{
+			return m_is_all_stages;
 		}
 
 		void write_custom_set_ndx(token_output &o, Sbi sbi, size_t set_ndx) const
@@ -1615,6 +1627,7 @@ public:
 		std::optional<GlslMappedBlock> m_mapped_block;
 		std::vector<GlslOpaqueVar> m_opaque_vars;
 		std::set<sb::Shader::Stage> m_stages;
+		bool m_is_all_stages;
 
 		util::unique_vector<Variable> m_variables;
 
@@ -1947,7 +1960,7 @@ inline Shader::Compiler::Compiler(const sb::Resource::Compiler::modules_entry &e
 	m_collec(m_stream, *this),
 	m_is_complete(getIsComplete())
 {
-	if (isPureModule())
+	if (isPureModule()) {
 		for (auto &d : m_read_deps) {
 			if (!d.get().isPureModule()) {
 				std::stringstream ss;
@@ -1956,6 +1969,9 @@ inline Shader::Compiler::Compiler(const sb::Resource::Compiler::modules_entry &e
 			}
 			insertDep(d);
 		}
+		for (auto &s : m_sets)
+			s.get().setAllStages();
+	}
 }
 
 }

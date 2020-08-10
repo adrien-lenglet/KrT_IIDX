@@ -27,6 +27,8 @@ private:
 	decltype(m_shader.model()) m_model;
 
 	decltype(m_model) createModel(void);
+
+	double m_angle = 0.0;
 };
 
 }
