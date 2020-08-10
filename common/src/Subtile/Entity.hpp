@@ -137,21 +137,9 @@ protected:
 	}
 
 	template <typename R>
-	decltype(auto) worldLoadShader(R &&res)
-	{
-		return world.loadShader(std::forward<R>(res));
-	}
-
-	template <typename R>
 	decltype(auto) load(R &&res)
 	{
-		static_cast<void>(res);
-
-		if constexpr (std::is_base_of_v<rs::Shader, std::remove_reference_t<R>>) {
-			return worldLoadShader(std::forward<R>(res));
-		} else {
-			static_assert(std::is_same_v<R, R>, "Unsupported resource type");
-		}
+		return world.instance.load(std::forward<R>(res));
 	}
 };
 

@@ -74,6 +74,19 @@ private:
 	{
 		return Shader::Loaded<std::remove_cv_t<std::remove_reference_t<S>>>(loadShaderRef(std::forward<S>(shaderres)));
 	}
+
+public:
+	template <typename ResType>
+	decltype(auto) load(ResType &&res)
+	{
+		static_cast<void>(res);
+
+		if constexpr (std::is_base_of_v<rs::Shader, std::remove_reference_t<ResType>>) {
+			return loadShader(std::forward<ResType>(res));
+		} else {
+			static_assert(std::is_same_v<ResType, ResType>, "Unsupported resource type");
+		}
+	}
 };
 
 template <typename ShaderRes>

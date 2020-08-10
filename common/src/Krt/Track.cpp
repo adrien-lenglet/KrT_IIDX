@@ -9,7 +9,7 @@
 namespace Krt {
 
 Track::Track(void) :
-	camera(add<sb::Camera>()),
+	render(instance),
 	entity(add<EntityTest>())
 {
 	bind(entity.just_died, [](const double &){

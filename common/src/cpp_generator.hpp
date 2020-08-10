@@ -4003,12 +4003,12 @@ namespace CppGenerator {
 				declare(o);
 			}
 
-			void declare(File &o, bool is_src = false) const
+			void declare(File &o, bool w_brace = true, bool no_pragma_once = false) const
 			{
 				m_base.declare(o);
 				o << o.end_line();
 				o.new_line();
-				m_blk.declare(o, !is_src, is_src);
+				m_blk.declare(o, w_brace, no_pragma_once);
 				if constexpr (Base::has_semicolon::value)
 					o << ";";
 				o << o.end_line();
@@ -5311,9 +5311,10 @@ namespace CppGenerator {
 	class Out : public Util::Collection<Util::Out>
 	{
 	public:
-		Out(const std::string &path) :
+		Out(const std::string &path, bool skip_top_level_pragma_once = false) :
 			Util::Collection<Util::Out>(Util::Out(), S {}),
-			m_path(path)
+			m_path(path),
+			m_skip_top_level_pragma_once(skip_top_level_pragma_once)
 		{
 		}
 
@@ -5335,8 +5336,8 @@ namespace CppGenerator {
 
 			Util::File f(m_path);
 			for (auto &i : m_include)
-				i.get().declare(f, true);
-			declare(f, true);
+				i.get().declare(f, false, m_skip_top_level_pragma_once);
+			declare(f, false, m_skip_top_level_pragma_once);
 			m_flushed = true;
 		}
 
@@ -5353,6 +5354,7 @@ namespace CppGenerator {
 	private:
 		const std::string m_path;
 		bool m_flushed = false;
+		bool m_skip_top_level_pragma_once;
 		std::vector<std::reference_wrapper<Out>> m_include;
 	};
 

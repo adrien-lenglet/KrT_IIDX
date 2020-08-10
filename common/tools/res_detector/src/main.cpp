@@ -486,7 +486,7 @@ public:
 			Pp::Include | "Subtile/Resource/Shader.hpp"
 		};
 
-		Out impl(implpath);
+		Out impl(implpath, true);
 
 		auto hp = std::fs::path(hpath).filename().string();
 

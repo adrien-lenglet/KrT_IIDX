@@ -2,7 +2,7 @@
 
 #include "Subtile/World.hpp"
 #include "Subtile/Render.hpp"
-#include "Subtile/Camera.hpp"
+#include "res.resdecl.hpp"
 
 namespace Krt {
 
@@ -17,10 +17,23 @@ public:
 	~Track(void) override;
 
 	Event<> done;
-	sb::Camera &camera;
 	int track_data = 96;
 
-	sb::Render::Pass render;
+	class Render : public sb::Render::Pass
+	{
+		decltype(res.shaders().modules().camera().loaded()) m_camera_shader;
+
+	public:
+		Render(sb::Instance &instance) :
+			m_camera_shader(instance.load(res.shaders().modules().camera())),
+			camera(m_camera_shader.camera())
+		{
+		}
+
+		decltype(m_camera_shader.camera()) camera;
+	};
+
+	Render render;
 
 private:
 	EntityTest &entity;

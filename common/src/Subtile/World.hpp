@@ -43,22 +43,9 @@ private:
 
 	static util::stack<std::reference_wrapper<Instance>>& getInstanceStack(void);
 
-	template <typename S>
-	decltype(auto) loadShader(S &&shaderres);
-
 	std::mt19937_64 m_rand_gen;
 };
 
-}
-
-#include "Instance.hpp"
-
-namespace Subtile {
-	template <typename S>
-	decltype(auto) World::loadShader(S &&shaderres)
-	{
-		return instance.loadShader(std::forward<S>(shaderres));
-	}
 }
 
 #include "Session.hpp"
@@ -76,3 +63,5 @@ namespace Subtile {
 		return res;
 	}
 }
+
+#include "Instance.hpp"

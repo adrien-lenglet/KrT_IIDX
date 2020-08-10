@@ -27,7 +27,7 @@ EntityTest::EntityTest(void) :
 		trigger(got_score, 7.92);
 	});
 
-	bind(world.render, m_shader.render(m_model, m_camera, m_material, m_object));
+	bind(world.render, m_shader.render(m_model, world.render.camera, m_material, m_object));
 
 	bind(world.events.update, [this](auto &){
 		m_material.counter++;
