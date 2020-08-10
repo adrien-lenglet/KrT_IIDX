@@ -21,6 +21,7 @@ class ISystem;
 namespace Resource {
 	class Shader;
 }
+class Instance;
 
 class Shader
 {
@@ -668,6 +669,9 @@ public:
 				virtual const Layout& resolve(void) const = 0;
 
 				class Inline;
+				class ForeignBase;
+				template <typename ShaderRes>
+				class Foreign;
 			};
 		};
 
@@ -756,6 +760,7 @@ public:
 	};
 
 	virtual std::unique_ptr<Model> model(size_t count, size_t stride, const void *data) = 0;
+	virtual const DescriptorSet::Layout& setLayout(size_t ndx) = 0;
 	virtual std::unique_ptr<DescriptorSet> set(size_t ndx) = 0;
 
 	template <size_t SetCount>
@@ -809,7 +814,7 @@ public:
 
 	virtual sb::Shader::VertexInput vertexInput(void) const = 0;
 	using DescriptorSetLayouts = std::vector<std::unique_ptr<sb::Shader::DescriptorSet::Layout::Resolver>>;
-	virtual DescriptorSetLayouts loadDescriptorSetLayouts(ISystem &sys) const = 0;
+	virtual DescriptorSetLayouts loadDescriptorSetLayouts(Instance &ins) const = 0;
 	virtual bool isModule(void) const = 0;
 
 	class Stage
@@ -879,21 +884,31 @@ private:
 
 }
 
-#include "Subtile/ISystem.hpp"
-
 namespace Subtile
 {
 
 class Shader::DescriptorSet::Layout::Resolver::Inline : public Shader::DescriptorSet::Layout::Resolver
 {
 public:
-	Inline(ISystem &sys, const Layout::Description &desc);
+	Inline(Instance &ins, const Layout::Description &desc);
 	~Inline(void) override;
 
 	const Layout& resolve(void) const override;
 
 private:
 	std::unique_ptr<Layout> m_layout;
+};
+
+class Shader::DescriptorSet::Layout::Resolver::ForeignBase : public Shader::DescriptorSet::Layout::Resolver
+{
+public:
+	ForeignBase(const Layout &layout);
+	~ForeignBase(void) override;
+
+	const Layout& resolve(void) const override;
+
+private:
+	const Layout &m_layout;
 };
 
 class Shader::UniqueRef : public Shader
@@ -908,6 +923,11 @@ public:
 	std::unique_ptr<Shader::Model> model(size_t count, size_t stride, const void *data) override
 	{
 		return (*m_ref)->model(count, stride, data);
+	}
+
+	const Shader::DescriptorSet::Layout& setLayout(size_t ndx) override
+	{
+		return (*m_ref)->setLayout(ndx);
 	}
 
 	std::unique_ptr<Shader::DescriptorSet> set(size_t ndx) override
@@ -1018,3 +1038,5 @@ public:
 };
 
 }
+
+#include "Instance.hpp"

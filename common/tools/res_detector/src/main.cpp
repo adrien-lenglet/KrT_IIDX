@@ -17,6 +17,7 @@ using namespace CppGenerator;
 
 class FolderPrinter
 {
+	Util::CollectionBase &m_scope;
 	//Util::CollectionBase &m_out;
 	Util::CollectionBase &m_impl_out;
 
@@ -205,13 +206,30 @@ class FolderPrinter
 		return scope += Using | "Model" = "sb::Model"_t.T(vertex_t);
 	}
 
+	struct ResSet
+	{
+		ResSet(const std::string &name, const Type &type, const Type &set_type) :
+			name(name),
+			type(type),
+			set_type(set_type)
+		{
+		}
+
+		std::string name;
+		Type type;
+		Type set_type;
+		Value value;
+		std::optional<Id> inlineValue;
+		size_t foreignNdx;
+	};
+
 	Type addShader(Util::CollectionBase &scope, const sb::Resource::Compiler::modules_entry &entry)
 	{
 		static const Type shader_type("sb::rs::Shader");
 		sb::Shader::Compiler compiled(entry);
 
 		//scope += Private;
-		auto &sh = scope += Class | (entry.getId() + std::string("_type")) | C(Public | shader_type) | S {Public};
+		auto &sh = scope += Class | (entry.getId() + std::string("_class")) | C(Public | shader_type) | S {Public};
 		auto ctor_fwd = sh += Ctor(Void);
 		auto &ctor = m_impl_out += ctor_fwd(Void) | S {};
 		auto dtor_fwd = sh += Dtor(Void);
@@ -242,18 +260,13 @@ class FolderPrinter
 			}
 		};
 
-		auto vec_resolver = "sb::rs::Shader::DescriptorSetLayouts"_t;
-		auto desc_layout_fwd = sh += vec_resolver | Id("loadDescriptorSetLayouts")("sb::ISystem"_t | &N | Id("sys")) | Const | Override;
-		auto &desc_layout = m_impl_out += vec_resolver | desc_layout_fwd("sb::ISystem"_t | &N | Id("sys")) | Const | S
-		{
-			StaticCast(Void, "sys"_v)
-		};
 		size_t ndx = 0;
 		std::vector<util::ref_wrapper<Util::CollectionBase>> set_scopes;
-		auto desc_layout_res = desc_layout += vec_resolver | Id("res");
+		std::vector<Id> layouts;
 		for (auto &set : compiled.getSets()) {
 			auto [set_scope, getLayout] = shaderAddLayout(u_sets, u_structs, set);
 			set_scopes.emplace_back(set_scope);
+			layouts.emplace_back(getLayout);
 
 			set_scope +=
 			Template(Typename | "Up") ||
@@ -267,25 +280,61 @@ class FolderPrinter
 					StaticCast(Void, "m_ref"_v)
 				}
 			};
-			desc_layout += "res"_v.M("emplace_back"_v("new sb::Shader::DescriptorSet::Layout::Resolver::Inline"_v("sys"_v, Vd(getLayout.getValue())())));
+
+			ndx++;
+		}
+
+		std::map<size_t, ResSet> sets;
+		ndx = 0;
+		for (auto &s : compiled.getSets()) {
+			auto &set_scope = set_scopes.at(ndx).get();
+			auto [it, suc] = sets.emplace(std::piecewise_construct, std::forward_as_tuple(s.get().getNdx()), std::forward_as_tuple(s.get().getName(), set_scope, set_scope));
+			if (!suc)
+				throw std::runtime_error("Can't emplace local set in all sets list");
+			it->second.inlineValue.emplace(layouts.at(ndx));
 			auto handle_t = "sb::Shader::DescriptorSet::Handle"_t.T(set_scope);
-			runtime += handle_t | Id(set.get().getName())(Void) | S
+			runtime += handle_t | Id(s.get().getName())(Void) | S
 			{
-				Return | handle_t("m_ref"_v, ndx)
+				Return | handle_t("m_ref"_v, s.get().getNdx())
 			};
 
 			ndx++;
 		}
+		for (auto &rp : compiled.getForeignSets())
+			for (auto &s : rp.second) {
+				auto &mod_entry = s.getSet().getCompiler().getModuleEntry();
+				auto type = m_scope >> Type(mod_entry.getResPath());
+				auto [it, suc] = sets.emplace(std::piecewise_construct, std::forward_as_tuple(s.getNdx()), std::forward_as_tuple(s.getSet().getName(), type, type >> "Set"_t >> Type(s.getSet().getName())));
+				if (!suc)
+					throw std::runtime_error("Can't emplace foreign set in all sets list");
+				it->second.foreignNdx = s.getSet().getNdx();
+				it->second.value.assign(Vd(mod_entry.getResValue()));
+			}
+
+		auto vec_resolver = "sb::rs::Shader::DescriptorSetLayouts"_t;
+		auto desc_layout_fwd = sh += vec_resolver | Id("loadDescriptorSetLayouts")("sb::Instance"_t | &N | Id("ins")) | Const | Override;
+		auto &desc_layout = m_impl_out += vec_resolver | desc_layout_fwd("sb::Instance"_t | &N | Id("ins")) | Const | S
+		{
+			StaticCast(Void, "ins"_v)
+		};
+		auto desc_layout_res = desc_layout += vec_resolver | Id("_res");
+
+		for (auto &rp : sets) {
+			if (rp.second.inlineValue)
+				desc_layout += desc_layout_res.M("emplace_back"_v("new sb::Shader::DescriptorSet::Layout::Resolver::Inline"_t("ins"_v, Vd(rp.second.inlineValue->getValue())())));
+			else
+				desc_layout += desc_layout_res.M("emplace_back"_v("new sb::Shader::DescriptorSet::Layout::Resolver::Foreign"_t.T(rp.second.type)("ins"_v, rp.second.value, rp.second.foreignNdx)));
+		}
+
 		desc_layout += Return | desc_layout_res;
 
 		if (!compiled.isModule()) {
-			auto render_type = "sb::Shader::Render"_t.T(Type(Value(compiled.getSets().size()).getValue()));
+			auto render_type = "sb::Shader::Render"_t.T(Type(Value(sets.size()).getValue()));
 			auto &render = runtime += render_type | Id("render")(Const | "sb::Shader::Model::Handle"_t.T(model) | &N | Id("model")) | S {};
 			auto render_list = B {};
-			size_t ndx = 0;
-			for (auto &set : compiled.getSets()) {
-				auto handle_t = "sb::Shader::DescriptorSet::Handle"_t.T(set_scopes.at(ndx).get());
-				auto param = render *= handle_t | &N | Id(set.get().getName());
+			for (auto &set : sets) {
+				auto handle_t = "sb::Shader::DescriptorSet::Handle"_t.T(set.second.set_type);
+				auto param = render *= handle_t | &N | Id(set.second.name);
 				render_list.add(param);
 
 				ndx++;
@@ -409,6 +458,7 @@ class FolderPrinter
 
 public:
 	FolderPrinter(Util::CollectionBase &scope, Util::CollectionBase &impl_out, Util::CollectionBase &out, const std::string &root) :
+		m_scope(scope),
 		//m_out(out),
 		m_impl_out(impl_out)
 	{

@@ -550,6 +550,11 @@ public:
 		return m_sets;
 	}
 
+	auto& getForeignSets(void)
+	{
+		return m_foreign_sets;
+	}
+
 	void addSet(Set &set)
 	{
 		m_sets.emplace_back(set);
@@ -1541,6 +1546,7 @@ public:
 	{
 	public:
 		Set(tstream &s, Compiler &compiler) :
+			m_compiler(compiler),
 			m_set_ndx(compiler.gen_set_ndx()),
 			m_name(getName(s)),
 			m_variables(getVariables(s, compiler))
@@ -1599,7 +1605,10 @@ public:
 			return res;
 		}
 
+		auto& getCompiler(void) { return m_compiler; }
+
 	private:
+		Compiler &m_compiler;
 		size_t m_set_ndx;
 		Counter m_binding_counter;
 		std::string m_name;
@@ -1674,6 +1683,11 @@ public:
 		Set& getSet(void)
 		{
 			return m_base;
+		}
+
+		auto getNdx(void)
+		{
+			return m_set_ndx;
 		}
 
 	private:
@@ -1819,10 +1833,6 @@ private:
 
 		for (auto &s : m_stages)
 			s.second.done();
-
-		if (isPureModule())
-			for (auto &d : m_read_deps)
-				insertDep(d);
 	}
 
 	bool getIsComplete(void)
@@ -1937,6 +1947,15 @@ inline Shader::Compiler::Compiler(const sb::Resource::Compiler::modules_entry &e
 	m_collec(m_stream, *this),
 	m_is_complete(getIsComplete())
 {
+	if (isPureModule())
+		for (auto &d : m_read_deps) {
+			if (!d.get().isPureModule()) {
+				std::stringstream ss;
+				ss << "pure module can't require non pure module '" << d.get().getModuleEntry().getPath().string() << "'";
+				throw std::runtime_error(ss.str());
+			}
+			insertDep(d);
+		}
 }
 
 }

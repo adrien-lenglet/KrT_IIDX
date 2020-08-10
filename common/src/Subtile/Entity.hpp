@@ -1,18 +1,21 @@
 #pragma once
 
 #include "../Subtile.hpp"
-#include "Resource/Shader.hpp"
 
 #include <vector>
 #include <stack>
 #include "Observer.hpp"
 #include "Event/World/Socket.hpp"
 #include "Transform.hpp"
+#include "Resource.hpp"
 
 namespace Subtile {
 
 class SessionBase;
 class World;
+namespace Resource {
+class Shader;
+}
 
 template <typename WorldType>
 class Entity;

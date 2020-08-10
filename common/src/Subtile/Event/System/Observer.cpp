@@ -1,5 +1,6 @@
 #include <fstream>
 #include "Observer.hpp"
+#include "../../ISystem.hpp"
 #include "Subtile/scp.hpp"
 
 namespace Subtile {
@@ -32,6 +33,16 @@ rt_scc(Observer,
 
 		scp::~Input(void)
 		{
+		}
+
+		void scp::set(const std::function<void (const Setter &setter)> &binder)
+		{
+			if (m_inputs.size() != 0)
+				throw std::runtime_error("Can't rebind inputs");
+			binder(Setter(*this));
+			m_bindings = loadBindings();
+			for (const auto &p : m_bindings)
+				m_inputs.at(p.first)->bind(static_cast<ISystem&>(*this).getInputs().at(p.second));
 		}
 
 		std::map<std::string, std::string> scp::loadBindings(void) const

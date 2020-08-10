@@ -10,6 +10,8 @@ namespace Krt {
 EntityTest::EntityTest(void) :
 	entity1(add<EntityTest2>()),
 	entity2(add<EntityTest2>()),
+	m_camera_shader(load(res.shaders().modules().camera())),
+	m_camera(m_camera_shader.camera()),
 	m_shader(load(res.shaders().diffuse())),
 	m_material(m_shader.material()),
 	m_object(m_shader.object()),
@@ -25,7 +27,7 @@ EntityTest::EntityTest(void) :
 		trigger(got_score, 7.92);
 	});
 
-	bind(world.render, m_shader.render(m_model, m_material, m_object));
+	bind(world.render, m_shader.render(m_model, m_camera, m_material, m_object));
 
 	bind(world.events.update, [this](auto &){
 		m_material.counter++;

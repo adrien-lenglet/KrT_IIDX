@@ -1,6 +1,5 @@
 #pragma once
 
-#include "ISystem.hpp"
 #include "Event/System/Observer.hpp"
 #include "Event/Socket.hpp"
 #include "Math.hpp"
@@ -63,18 +62,3 @@ public:
 }
 
 #include "Instance.hpp"
-
-namespace Subtile {
-
-	template <typename WorldType, typename ...ArgsTypes>
-	auto& SessionBase::add(ArgsTypes &&...args)
-	{
-		auto &res = World::getInstanceStack().emplace_frame(std::function([&]() -> auto& {
-			return EntityBase::getCtx().emplace_frame(std::function([&]() -> auto& {
-				return m_worlds.emplace<WorldType>(std::forward<ArgsTypes>(args)...);
-			}), nullptr, nullptr);
-		}), m_instance);
-		EntityBase::getEntityStack().pop();
-		return res;
-	}
-}

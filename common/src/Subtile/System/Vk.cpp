@@ -7,7 +7,8 @@
 namespace Subtile {
 namespace System {
 
-Vk::Vk(bool isDebug, Glfw &&glfw) :
+Vk::Vk(sb::Instance &instance, bool isDebug, Glfw &&glfw) :
+	m_sb_instance(instance),
 	m_is_debug(isDebug),
 	m_glfw(std::move(glfw)),
 	m_instance(createInstance()),
@@ -534,6 +535,7 @@ const std::vector<VkDeviceQueueCreateInfo>& Vk::Device::QueuesCreateInfo::getInf
 template <>
 void Vk::Handle<VkDevice>::destroy(VkDevice device)
 {
+	vkDeviceWaitIdle(device);
 	vkDestroyDevice(device, static_cast<Device&>(*this).m_instance.m_vk.getAllocator());
 }
 
@@ -1218,7 +1220,7 @@ VkFormat Vk::Shader::vertexInputFormatToVk(sb::Shader::VertexInput::Format forma
 
 Vk::Shader::Shader(Vk::Device &device, rs::Shader &shader) :
 	m_device(device),
-	m_layouts(shader.loadDescriptorSetLayouts(device.vk())),
+	m_layouts(shader.loadDescriptorSetLayouts(device.vk().m_sb_instance)),
 	m_pipeline_layout(shader.isModule() ? PipelineLayout(device, VK_NULL_HANDLE) : createPipelineLayout()),
 	m_shader_modules(shader.isModule() ? ShaderModulesType{} : createShaderModules(device, shader)),
 	m_pipeline(shader.isModule() ? Pipeline(device, VK_NULL_HANDLE) : createPipeline(device, shader))
@@ -1355,6 +1357,11 @@ Vk::Pipeline Vk::Shader::createPipeline(Vk::Device &device, rs::Shader &shader)
 	ci.subpass = 0;
 
 	return device.create<Pipeline>(vkCreateGraphicsPipelines, ci);
+}
+
+const sb::Shader::DescriptorSet::Layout& Vk::Shader::setLayout(size_t ndx)
+{
+	return m_layouts.at(ndx).get()->resolve();
 }
 
 std::unique_ptr<sb::Shader::DescriptorSet> Vk::Shader::set(size_t ndx)

@@ -11,16 +11,19 @@
 #undef assert
 
 namespace Subtile {
+
+class Instance;
+
 namespace System {
 
 class Vk : public ISystem
 {
-	Vk(bool isDebug, Glfw &&glfw);
+	Vk(Instance &instance, bool isDebug, Glfw &&glfw);
 
 public:
 	template <typename ...Args>
-	Vk(bool isDebug, Args &&...args) :
-		Vk(isDebug, Glfw(GLFW_NO_API, std::forward<Args>(args)...))
+	Vk(Instance &instance, bool isDebug, Args &&...args) :
+		Vk(instance, isDebug, Glfw(GLFW_NO_API, std::forward<Args>(args)...))
 	{
 	}
 	~Vk(void);
@@ -29,6 +32,8 @@ public:
 	const std::map<std::string, System::IInput&>& getInputs(void) override;
 
 	const VkAllocationCallbacks* getAllocator(void) const;
+
+	Instance &m_sb_instance;
 
 private:
 	bool m_is_debug;
@@ -675,6 +680,7 @@ private:
 		Shader(Device &device, rs::Shader &shader);
 
 		std::unique_ptr<sb::Shader::Model> model(size_t count, size_t stride, const void *data) override;
+		const sb::Shader::DescriptorSet::Layout& setLayout(size_t ndx) override;
 		std::unique_ptr<sb::Shader::DescriptorSet> set(size_t ndx) override;
 
 		PipelineLayout& getPipelineLayout(void);

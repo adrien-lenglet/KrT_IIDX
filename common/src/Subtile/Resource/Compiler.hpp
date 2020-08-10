@@ -41,13 +41,25 @@ public:
 		m_path(path),
 		m_is_directory(std::fs::is_directory(m_path)),
 		m_name(path.filename().string()),
-		m_id(strip_name(path.stem().string()))
+		m_id(strip_name(path.stem().string())),
+		m_res_path(computeResPath()),
+		m_res_value(computeResValue())
 	{
 	}
 
 	auto& getPath(void) const
 	{
 		return m_path;
+	}
+
+	auto& getResPath(void) const
+	{
+		return m_res_path;
+	}
+
+	auto& getResValue(void) const
+	{
+		return m_res_value;
 	}
 
 	auto isDirectory(void) const
@@ -149,6 +161,8 @@ private:
 	bool m_is_directory;
 	std::string m_name;
 	std::string m_id;
+	std::string m_res_path;
+	std::string m_res_value;
 	std::set<std::string> m_children_ids;
 	std::vector<modules_entry> m_children;
 
@@ -156,6 +170,28 @@ private:
 	{
 		res.emplace_back(buf);
 		buf.clear();
+	}
+
+	std::string computeResPath(void) const
+	{
+		static const std::string scp("::");
+		static const std::string cl("_class");
+
+		auto res = m_id + cl;
+		if (m_parent)
+			res = m_parent->computeResPath() + scp + res;
+		return res;
+	}
+
+	std::string computeResValue(void) const
+	{
+		static const std::string scp(".");
+		static const std::string cl("()");
+
+		auto res = m_id;
+		if (m_parent)
+			res = m_parent->computeResValue() + scp + res + cl;
+		return res;
 	}
 };
 

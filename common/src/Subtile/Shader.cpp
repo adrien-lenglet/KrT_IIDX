@@ -117,8 +117,8 @@ Shader::DescriptorSet& Shader::DescriptorSet::BaseHandle::getSet(void)
 	return *m_set;
 }
 
-Shader::DescriptorSet::Layout::Resolver::Inline::Inline(ISystem &sys, const Layout::Description &desc) :
-	m_layout(sys.createDescriptorSetLayout(desc))
+Shader::DescriptorSet::Layout::Resolver::Inline::Inline(Instance &ins, const Layout::Description &desc) :
+	m_layout(Instance::Getter(ins).system().createDescriptorSetLayout(desc))
 {
 }
 
@@ -129,6 +129,19 @@ Shader::DescriptorSet::Layout::Resolver::Inline::~Inline(void)
 const Shader::DescriptorSet::Layout& Shader::DescriptorSet::Layout::Resolver::Inline::resolve(void) const
 {
 	return *m_layout;
+}
+
+Shader::DescriptorSet::Layout::Resolver::ForeignBase::ForeignBase(const Shader::DescriptorSet::Layout &layout) :
+	m_layout(layout)
+{
+}
+Shader::DescriptorSet::Layout::Resolver::ForeignBase::~ForeignBase(void)
+{
+}
+
+const Shader::DescriptorSet::Layout& Shader::DescriptorSet::Layout::Resolver::ForeignBase::resolve(void) const
+{
+	return m_layout;
 }
 
 Shader::Model::BaseHandle::BaseHandle(std::unique_ptr<Shader::Model> &&model) :

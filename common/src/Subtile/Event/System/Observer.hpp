@@ -4,11 +4,11 @@
 #include "../Observer.hpp"
 #include "../../Input/Analog.hpp"
 #include "../../Input/Button.hpp"
-#include "../../ISystem.hpp"
 #include "util.hpp"
 
 namespace Subtile {
 
+class ISystem;
 class Instance;
 class SessionBase;
 
@@ -110,15 +110,7 @@ public:
 		std::map<std::string, std::string> m_bindings;
 		Observer::Cluster::Optimized m_input_update;
 
-		void set(const std::function<void (const Setter &setter)> &binder)
-		{
-			if (m_inputs.size() != 0)
-				throw std::runtime_error("Can't rebind inputs");
-			binder(Setter(*this));
-			m_bindings = loadBindings();
-			for (const auto &p : m_bindings)
-				m_inputs.at(p.first)->bind(static_cast<ISystem&>(*this).getInputs().at(p.second));
-		}
+		void set(const std::function<void (const Setter &setter)> &binder);
 		std::map<std::string, std::string> loadBindings(void) const;
 		void saveBindings(void) const;
 	} input;
