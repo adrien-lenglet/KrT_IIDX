@@ -25,13 +25,4 @@ ISystem& Instance::system(void)
 	return *m_system;
 }
 
-Shader::UniqueRef Instance::loadShaderRef(rs::Shader &shaderres)
-{
-	auto got = m_shaders.find(shaderres);
-	if (got == m_shaders.end())
-		return m_shaders.emplace(shaderres, m_system->loadShader(shaderres));
-	else
-		return got->second.new_ref();
-}
-
 }

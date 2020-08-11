@@ -106,7 +106,7 @@ class FolderPrinter
 	}
 
 	template <bool isTemplate>
-	decltype(auto) createShaderStruct(Util::CollectionBase &scope, Util::CollectionBase &user_structs_scope, const std::string &name, const std::vector<std::reference_wrapper<const sb::Shader::Compiler::Variable>> &variables, const std::string &layout)
+	decltype(auto) createShaderStruct(Util::CollectionBase &scope, const std::string &name, const std::vector<std::reference_wrapper<const sb::Shader::Compiler::Variable>> &variables, const std::string &layout)
 	{
 		auto layout_c = isTemplate ? "Layout"_t : Type(layout);
 		auto &s = createShaderStructCollec<isTemplate>(scope, name);
@@ -118,7 +118,7 @@ class FolderPrinter
 			auto p = v.getType().parse(layout);
 			Type t = p.name;
 			if (p.is_user_defined)
-				t.assign((user_structs_scope >> t).T(layout_c));
+				t.assign((m_scope >> Type(p.user_defined_type)).T(layout_c));
 
 			if (prev_id)
 				t.assign("sb::Shader::Type::StructMember"_t.T(t, layout_c, Decltype(*prev_id)));
@@ -135,7 +135,7 @@ class FolderPrinter
 			StaticCast(Void, "creator"_id)
 		};
 		for (auto &i : ids)
-			vertex_input += "sb::Shader::Type::CreateVertexInputAccessor"_t(i).M("create"_v("creator"_v));
+			vertex_input += "sb::Shader::Type::CreateVertexInputAccessor"_t.T(Decltype(i))(i).M("create"_v("creator"_v));
 		s += "template <typename> friend class sb::Shader::Type::CreateVertexInputAccessor"_v;
 
 		auto s_w_param = Type(s);
@@ -159,13 +159,13 @@ class FolderPrinter
 		return table.at(type);
 	}
 
-	auto shaderAddLayout(Util::CollectionBase &scope, Util::CollectionBase &user_structs_scope, const sb::Shader::Compiler::Set &set)
+	auto shaderAddLayout(Util::CollectionBase &scope, const sb::Shader::Compiler::Set &set)
 	{
 		auto &set_scope = scope += Struct | set.getName() | S {};
 		std::vector<std::reference_wrapper<const sb::Shader::Compiler::Variable>> vars;
 		for (auto &v : set.getVariables())
 			vars.emplace_back(v);
-		auto mapped_str = createShaderStruct<false>(set_scope, user_structs_scope, "Mapped", vars, "sb::Shader::Type::Std140");
+		auto mapped_str = createShaderStruct<false>(set_scope, "Mapped", vars, "sb::Shader::Type::Std140");
 
 		auto t = "sb::Shader::DescriptorSet::Layout::Description"_t;
 
@@ -185,14 +185,14 @@ class FolderPrinter
 		return std::tuple<Util::CollectionBase&, Id>(set_scope, fwd);
 	}
 
-	auto shaderAddVertexInput(Util::CollectionBase &scope, Util::CollectionBase &user_structs_scope, sb::Shader::Compiler &shader)
+	auto shaderAddVertexInput(Util::CollectionBase &scope, sb::Shader::Compiler &shader)
 	{
 		std::vector<std::reference_wrapper<const sb::Shader::Compiler::Variable>> vars;
 		if (shader.getStages().size() > 0)
 			for (auto &io : shader.getStages().begin()->second.getInterface())
 				if (io.getDir() == sb::Shader::Compiler::Stage::InterfaceInOut::Dir::In)
 					vars.emplace_back(io.getVariable());
-		auto vertex_t = createShaderStruct<false>(scope, user_structs_scope, "Vertex", vars, "sb::Shader::Type::Std430");
+		auto vertex_t = createShaderStruct<false>(scope, "Vertex", vars, "sb::Shader::Type::Std430");
 
 		auto t = "sb::Shader::VertexInput"_t;
 		auto fwd = scope += t | Id("vertexInput")(Void) | Const | Override;
@@ -243,9 +243,9 @@ class FolderPrinter
 			std::vector<std::reference_wrapper<const sb::Shader::Compiler::Variable>> vars;
 			for (auto &v : us_desc.getVariables())
 				vars.emplace_back(v);
-			createShaderStruct<true>(u_structs, u_structs, us_desc.getName(), vars, "Layout");
+			createShaderStruct<true>(u_structs, us_desc.getName(), vars, "Layout");
 		}
-		auto model = shaderAddVertexInput(sh, u_structs, compiled);
+		auto model = shaderAddVertexInput(sh, compiled);
 
 		auto ref_acc = "sb::Shader::DescriptorSet::RefAccessor"_t.T("Up"_t);
 		auto unique_ref = "sb::Shader::UniqueRef"_t;
@@ -265,7 +265,7 @@ class FolderPrinter
 		std::vector<util::ref_wrapper<Util::CollectionBase>> set_scopes;
 		std::vector<Id> layouts;
 		for (auto &set : compiled.getSets()) {
-			auto [set_scope, getLayout] = shaderAddLayout(u_sets, u_structs, set);
+			auto [set_scope, getLayout] = shaderAddLayout(u_sets, set);
 			set_scopes.emplace_back(set_scope);
 			layouts.emplace_back(getLayout);
 

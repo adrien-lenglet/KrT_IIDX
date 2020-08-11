@@ -35,7 +35,7 @@ vertex {
 		gl_Position = camera.vp * object.model_world * in_pos_h;
 		//gl_Position = vec4(in_pos.x, in_pos.y, 0, 1);
 		vtx_pos = (object.model_world * in_pos_h).xyz;
-		vtx_normal = in_normal;
+		vtx_normal = (object.model_world * vec4(in_normal, 1.0)).xyz;
 	}
 }
 
@@ -48,8 +48,9 @@ fragment {
 		vec3 lightp = vec3(-2.0, 1.0, -3.0);
 		float dist = length(lightp - vtx_pos);
 
-		vec3 color = normalize(vtx_normal);// + vec3(material.counter / 256.0);
-		screen_color = vec3(10.0 / (dist * dist)) * color;
+		vec3 color = normalize(vtx_normal) + vec3(material.counter / 256.0);
+		//vec3 color = vec3(1.0);
+		screen_color = vec3(5.0 / (dist * dist)) * color;
 	}
 }
 

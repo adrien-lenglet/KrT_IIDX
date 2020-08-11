@@ -418,7 +418,7 @@ private:
 
 	std::vector<util::ref_wrapper<Compiler>> m_read_deps;
 	DepSet m_deps;
-	DepSet m_stage_deps;
+	DepSet m_all_deps;
 
 	class Require;
 
@@ -428,9 +428,17 @@ public:
 		return m_deps;
 	}
 
+	auto& getAllDeps(void)
+	{
+		return m_all_deps;
+	}
+
 	void insertReadDep(Compiler &dep)
 	{
 		m_read_deps.emplace_back(dep);
+		if (m_all_deps.insert(dep))
+			for (auto &s : dep.getStructs())
+				m_all_structs.emplace_back(s, dep.getModuleEntry().getResPath() + std::string("::Struct::") + s.getName());
 	}
 
 	auto& getForeignSet(Compiler &dep)
@@ -531,18 +539,36 @@ private:
 	std::map<std::fs::path, std::vector<ForeignSet>> m_foreign_sets;
 	std::vector<util::ref_wrapper<Set>> m_sets;
 
-	std::vector<Struct> m_structs;
+	util::unique_vector<Struct> m_structs;
+
+	struct FinalStruct
+	{
+		FinalStruct(Struct &str, const std::string &type_path) :
+			str(str),
+			type_path(type_path)
+		{
+		}
+
+		Struct &str;
+		std::string type_path;
+	};
+
+	std::vector<FinalStruct> m_all_structs;
 
 public:
 	template <typename ...Args>
 	void addStruct(Args &&...args)
 	{
-		m_structs.emplace_back(std::forward<Args>(args)...);
+		m_structs.emplace(std::forward<Args>(args)...);
 	}
 
-	auto& getStructs(void) const
+	util::unique_vector<Struct>& getStructs(void)
 	{
 		return m_structs;
+	}
+	auto& getAllStructs(void)
+	{
+		return m_all_structs;
 	}
 
 	auto& getSets(void)
@@ -688,8 +714,8 @@ public:
 
 		void write(token_output &o, Sbi sbi) const
 		{
-			for (auto &s : m_compiler.getStructs())
-				s.write(o);
+			for (auto &s : m_compiler.getAllStructs())
+				s.str.write(o);
 			for (auto &io : m_interface_ios)
 				io.write(o);
 			token_output inter_o;
@@ -844,6 +870,7 @@ public:
 
 			std::string name;
 			bool is_user_defined;
+			std::string user_defined_type;
 			bool is_opaque;
 
 			size_t salign = 0;
@@ -959,9 +986,11 @@ public:
 			auto opq = parseOpq();
 			if (opq)
 				return Parsed(*opq, true);
-			for (auto &s : m_compiler.getStructs()) {
+			for (auto &as : m_compiler.getAllStructs()) {
+				auto &s = as.str;
 				if (s.getName() == m_name) {
 					Parsed res(m_name, false, true);
+					res.user_defined_type = as.type_path;
 
 					res.salign = s.getSalign();
 					res.balign = s.getBalign();
@@ -1341,6 +1370,7 @@ public:
 			m_bsize(computeSize(&Type::Parsed::bsize, &Type::Parsed::balign)),
 			m_esize(computeSize(&Type::Parsed::esize, &Type::Parsed::ealign))
 		{
+			m_compiler.getAllStructs().emplace_back(*this, compiler.getModuleEntry().getResPath() + std::string("::Struct::") + getName());
 			s.expect(";");
 		}
 
@@ -1826,6 +1856,7 @@ private:
 		}
 	};
 
+private:
 	token_stream m_stream;
 	Section m_collec;
 	bool m_is_complete;
