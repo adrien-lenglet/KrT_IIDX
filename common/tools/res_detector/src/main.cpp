@@ -185,14 +185,23 @@ class FolderPrinter
 		return std::tuple<Util::CollectionBase&, Id>(set_scope, fwd);
 	}
 
+	Type shaderAddVertex_t(Util::CollectionBase &scope, sb::Shader::Compiler &shader)
+	{
+		if (shader.getVertex()) {
+			return scope += Using | "Vertex" = m_scope >> Type(shader.getVertex()->getModuleEntry().getResPath()) >> "Vertex"_t;
+		} else {
+			std::vector<std::reference_wrapper<const sb::Shader::Compiler::Variable>> vars;
+			if (shader.getStages().size() > 0)
+				for (auto &io : shader.getStages().begin()->second.getInterface())
+					if (io.getDir() == sb::Shader::Compiler::Stage::InterfaceInOut::Dir::In)
+						vars.emplace_back(io.getVariable());
+			return createShaderStruct<false>(scope, "Vertex", vars, "sb::Shader::Type::Std430");
+		}
+	}
+
 	auto shaderAddVertexInput(Util::CollectionBase &scope, sb::Shader::Compiler &shader)
 	{
-		std::vector<std::reference_wrapper<const sb::Shader::Compiler::Variable>> vars;
-		if (shader.getStages().size() > 0)
-			for (auto &io : shader.getStages().begin()->second.getInterface())
-				if (io.getDir() == sb::Shader::Compiler::Stage::InterfaceInOut::Dir::In)
-					vars.emplace_back(io.getVariable());
-		auto vertex_t = createShaderStruct<false>(scope, "Vertex", vars, "sb::Shader::Type::Std430");
+		auto vertex_t = shaderAddVertex_t(scope, shader);
 
 		auto t = "sb::Shader::VertexInput"_t;
 		auto fwd = scope += t | Id("vertexInput")(Void) | Const | Override;

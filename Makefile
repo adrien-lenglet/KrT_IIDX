@@ -31,11 +31,11 @@ macro_resources:
 	$(MAKE) resources
 
 debug: CXXFLAGS_ADD = -g
-debug: macro_resources
+debug: resources
 	$(MAKE) -C $(COMMON) debug $(OPT)
 
 release: CXXFLAGS_ADD = -O3
-release: macro_resources
+release: resources
 	$(MAKE) -C $(COMMON) release $(OPT)
 
 windows: LIB = "$(shell cygpath --unix $(VULKAN_SDK))/Lib/vulkan-1.lib" -lglfw3

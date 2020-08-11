@@ -1,0 +1,13 @@
+set camera {
+	mat4 vp;
+};
+
+//require vertex;
+//require res::diffuse;
+
+vertex {
+	vec4 camera_project_point(vec3 p)
+	{
+		return camera.vp * vec4(p, 1.0);
+	}
+}

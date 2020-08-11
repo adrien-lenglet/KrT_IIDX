@@ -1,4 +1,5 @@
 
+require vertex::pnu;
 vertex {
 	require modules::camera;
 }
@@ -22,20 +23,16 @@ vertex {
 		double xdd;
 	};*/
 
-	in vec3 in_pos;
-	in vec3 in_normal;
-	in vec2 in_uv;
-
 	out vec3 vtx_pos;
 	out vec3 vtx_normal;
 
 	void main(void)
 	{
-		vec4 in_pos_h = vec4(in_pos, 1.0);
+		vec4 in_pos_h = vec4(in_vtx_pos, 1.0);
 		gl_Position = camera.vp * object.model_world * in_pos_h;
 		//gl_Position = vec4(in_pos.x, in_pos.y, 0, 1);
 		vtx_pos = (object.model_world * in_pos_h).xyz;
-		vtx_normal = (object.model_world * vec4(in_normal, 1.0)).xyz;
+		vtx_normal = (object.model_world * vec4(in_vtx_normal, 1.0)).xyz;
 	}
 }
 

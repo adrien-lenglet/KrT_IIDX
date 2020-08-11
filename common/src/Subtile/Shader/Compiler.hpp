@@ -465,6 +465,12 @@ public:
 		auto &sets = getForeignSet(dep);
 		for (auto &set : sets)
 			set.getStages() = set.getSet().getStages();
+		for (auto &s : dep.getStages()) {
+			for (auto &in : s.second.getInVariables())
+				m_stages.at(s.first).addIn(in);
+			for (auto &out : s.second.getOutVariables())
+				m_stages.at(s.first).addOut(out);
+		}
 	}
 
 	void insertDep(Compiler &dep)
@@ -482,6 +488,7 @@ public:
 			return;
 		for (auto &set : foreign)
 			set.getStages().emplace(stage);
+		addStagePureIOs(dep, s);
 	}
 
 	void insertDepFromStage(Compiler &dep, Shader::Stage stage)
@@ -680,6 +687,45 @@ public:
 		void addOut(Variable &var)
 		{
 			m_out_variables.emplace_back(var);
+		}
+
+		static std::vector<std::reference_wrapper<Variable>>& getEmptyVariables(void)
+		{
+			static std::vector<std::reference_wrapper<Variable>> res;
+
+			return res;
+		}
+
+		std::vector<std::reference_wrapper<Variable>>& getInVariables(void)
+		{
+			if (m_compiler.getStages().size() > 0) {
+				if (m_compiler.getStages().begin()->first == m_stage) {
+					return getEmptyVariables();
+				}
+			}
+
+			if (m_stage == sb::Shader::Stage::Fragment)
+				return getEmptyVariables();
+
+			return m_in_variables;
+		}
+
+		std::vector<std::reference_wrapper<Variable>>& getOutVariables(void)
+		{
+			if (m_stage == sb::Shader::Stage::Fragment)
+				return getEmptyVariables();
+
+			return m_out_variables;
+		}
+
+		auto& getRawInVariables(void) const
+		{
+			return m_in_variables;
+		}
+
+		auto& getRawOutVariables(void) const
+		{
+			return m_out_variables;
 		}
 
 		auto& getInterface(void) const
@@ -1314,6 +1360,11 @@ public:
 			return m_type;
 		}
 
+		auto& getStorage(void) const
+		{
+			return m_storage;
+		}
+
 	private:
 		Compiler &m_compiler;
 		Storage m_storage;
@@ -1816,6 +1867,11 @@ private:
 			}
 		}
 
+		auto& getPrimitives(void)
+		{
+			return m_primitives;
+		}
+
 	private:
 		Compiler &m_compiler;
 		Stage *m_stage;
@@ -1859,7 +1915,31 @@ private:
 private:
 	token_stream m_stream;
 	Section m_collec;
+	Compiler *m_vertex = nullptr;
+	bool m_has_custom_vertex;
 	bool m_is_complete;
+
+public:
+	Compiler* getVertex(void)
+	{
+		return m_vertex;
+	}
+
+private:
+	bool computeHasCustomVertexLocal(void) const
+	{
+		if (m_stages.size() == 0)
+			return false;
+		if (m_stages.begin()->first == sb::Shader::Stage::Fragment)
+			return false;
+
+		return m_stages.begin()->second.getRawInVariables().size() > 0;
+	}
+
+	bool hasCustomVertex(void) const
+	{
+		return m_has_custom_vertex;
+	}
 
 	bool isStageComplete(sb::Shader::Stage stage) const
 	{
@@ -1871,18 +1951,37 @@ private:
 		return true;
 	}
 
-	void dispatch_stuff(void)
+	bool computeHasCustomVertex(void)
 	{
-		m_collec.dispatch();
+		for (auto &d : m_deps.getCompilers()) {
+			if (d.get().hasCustomVertex()) {
+				if (m_vertex) {
+					std::stringstream ss;
+					ss << "Have another dep '" << m_vertex->getModuleEntry().getPath() << "' defining vertex input prior to dep '" << d.get().getModuleEntry().getPath() << "'";
+					throw std::runtime_error(ss.str());
+				} else {
+					m_vertex = &d.get();
+				}
+			}
+		}
+		auto res = computeHasCustomVertexLocal();
+		if (res)
+			if (m_vertex) {
+				std::stringstream ss;
+				ss << "Have dep '" << m_vertex->getModuleEntry().getPath() << "' defining vertex input prior to inner definition";
+				throw std::runtime_error(ss.str());
+			}
+		if (m_vertex && m_stages.size() > 0)
+			for (auto &in : m_vertex->getStages().begin()->second.getRawInVariables())
+				m_stages.begin()->second.addIn(in);
 
 		for (auto &s : m_stages)
 			s.second.done();
+		return res;
 	}
 
 	bool getIsComplete(void)
 	{
-		dispatch_stuff();
-
 		if (!isStageComplete(sb::Shader::Stage::Vertex))
 			return false;
 		if (!isStageComplete(sb::Shader::Stage::Fragment))
@@ -1901,6 +2000,20 @@ public:
 	bool isPureModule(void) const
 	{
 		return isModule() && m_stages.size() == 0;
+	}
+
+private:
+	void addStagePureIOs(Compiler &dep, Stage &stage)
+	{
+		for (auto &p : dep.m_collec.getPrimitives()) {
+			auto var = dynamic_cast<Variable*>(&p);
+			if (var) {
+				if (var->getStorage() == Variable::Storage::In)
+					stage.addIn(*var);
+				if (var->getStorage() == Variable::Storage::Out)
+					stage.addOut(*var);
+			}
+		}
 	}
 };
 
@@ -1989,6 +2102,7 @@ inline Shader::Compiler::Compiler(const sb::Resource::Compiler::modules_entry &e
 	m_stages(*this),
 	m_stream(token_stream(tokenize(read(entry.getPath().string())))),
 	m_collec(m_stream, *this),
+	m_has_custom_vertex((m_collec.dispatch(), computeHasCustomVertex())),
 	m_is_complete(getIsComplete())
 {
 	if (isPureModule()) {
