@@ -40,27 +40,28 @@ vertex {
 
 //render_pass render_passes::deffered : albedo;
 
-/*geometry {
+geometry {
 	out vec3 pos;
 	out vec3 normal;
 	out vec2 uv;
 
-	const vec2 off[4] = {vec2(0), vec2(0.3), vec2(0.7), vec2(0.9)};
+	const vec2 off[3] = {vec2(-2), vec2(2), vec2(-2, 8)};
 
 	void main(void)
 	{
-		for (int o = 0; o < off.length(); o++)
+		for (int o = 0; o < off.length(); o++) {
 			for (int i = 0; i < 3; i++) {
-				gl_Position = gl_in[i].gl_Position + vec4(off[o], 0, 0);
+				gl_Position = gl_in[i].gl_Position;
+				gl_Position.xy += off[o];
 				out_pos = in_pos[i];
 				out_normal = in_normal[i];
 				out_uv = in_uv[i];
-				gl_Layer = -1;
 				EmitVertex();
 			}
-		EndPrimitive();
+			EndPrimitive();
+		}
 	}
-}*/
+}
 
 fragment {
 	out vec3 screen_color;
