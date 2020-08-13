@@ -1,0 +1,29 @@
+bgr8_srgb screen { store = store };
+rgb8_unorm color;
+rgb8_snorm normal;
+d24_s8 depth_buffer { load = clear };
+
+albedo {
+	depth_stencil depth_buffer;
+
+	out color;
+	out normal;
+}
+
+lighting {
+	in depth_buffer;
+	out screen;
+}
+
+[
+	{
+		albedo,
+		lighting,
+
+		color_attachment_output,
+		fragment_shader,
+
+		color_attachment_write,
+		input_attachment_read
+	}
+]

@@ -35,10 +35,10 @@ public:
 	class Loaded;
 
 	enum class Stage {
+		Vertex,
 		TesselationControl,
 		TesselationEvaluation,
 		Geometry,
-		Vertex,
 		Fragment,
 		All
 	};

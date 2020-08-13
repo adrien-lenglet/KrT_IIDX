@@ -280,6 +280,7 @@ bool Vk::PhysicalDevice::getSurfaceSupport(uint32_t queueFamilyIndex) const
 const VkPhysicalDeviceFeatures& Vk::PhysicalDevice::requiredFeatures(void)
 {
 	static const VkPhysicalDeviceFeatures res {
+		.geometryShader = true
 	};
 
 	return res;

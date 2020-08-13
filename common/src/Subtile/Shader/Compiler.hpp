@@ -604,10 +604,11 @@ public:
 				Out
 			};
 
-			InterfaceInOut(Variable &var, Dir dir, size_t loc) :
+			InterfaceInOut(Variable &var, Dir dir, size_t loc, bool is_array = false) :
 				m_var(var),
 				m_dir(dir),
-				m_loc(loc)
+				m_loc(loc),
+				m_is_array(is_array)
 			{
 			}
 
@@ -619,7 +620,7 @@ public:
 				};
 
 				o << "layout" << "(" << "location" << "=" << m_loc << ")" << io_table.at(m_dir);
-				m_var.declare(o);
+				m_var.declare(o, m_is_array);
 			}
 
 			auto& getVariable(void) const
@@ -641,6 +642,7 @@ public:
 			Variable &m_var;
 			Dir m_dir;
 			size_t m_loc;
+			bool m_is_array;
 		};
 
 		Stage(Compiler &compiler, Shader::Stage stage) :
@@ -752,8 +754,9 @@ public:
 			for (auto &var : m_out_variables) {
 				m_interface_ios.emplace_back(var, InterfaceInOut::Dir::Out, loc);
 				auto after = m_compiler.getStages().stageAfter(m_stage);
-				if (after)
-					after->m_interface_ios.emplace_back(var, InterfaceInOut::Dir::In, loc);
+				if (after) {
+					after->m_interface_ios.emplace_back(var, InterfaceInOut::Dir::In, loc, after->m_stage == sb::Shader::Stage::Geometry);
+				}
 				loc += var.get().getType().parse("nolayout").loc_size;
 			}
 		}
@@ -762,8 +765,26 @@ public:
 		{
 			for (auto &s : m_compiler.getAllStructs())
 				s.str.write(o);
-			for (auto &io : m_interface_ios)
-				io.write(o);
+			if (m_stage == sb::Shader::Stage::Geometry) {
+				o << "layout" << "(" << "triangles" << ")" << "in" << ";";
+				o << "layout" << "(" << "triangle_strip" << ", " << "max_vertices" << "=" << "32" << ")" << "out" << ";";
+
+				/*o << "in gl_PerVertex" << "{";
+				for (auto &io : m_interface_ios) {
+					if (io.getDir() == InterfaceInOut::Dir::In)
+						io.write(o);
+				}
+				o << "}" << "gl_vtx_in";
+				for (auto &io : m_interface_ios) {
+					if (io.getDir() == InterfaceInOut::Dir::Out)
+						io.write(o);
+				}*/
+				for (auto &io : m_interface_ios)
+					io.write(o);
+			} else {
+				for (auto &io : m_interface_ios)
+					io.write(o);
+			}
 			token_output inter_o;
 
 			m_compiler.writeDepsFor(o, sbi, m_stage);
@@ -1310,10 +1331,12 @@ public:
 			return storageTable().find(s.peek()) != storageTable().end();
 		}
 
-		void declare(token_output &o) const
+		void declare(token_output &o, bool is_array = false) const
 		{
 			m_type.write(o);
 			o << m_id;
+			if (is_array)
+				o << "[" << "]";
 			if (m_value) {
 				o << "=";
 				for (auto &v : *m_value)
