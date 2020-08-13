@@ -1,5 +1,5 @@
 vertex {
-	in vec3 in_vtx_pos;
-	in vec3 in_vtx_normal;
-	in vec2 in_vtx_uv;
+	in vec3 pos;
+	in vec3 normal;
+	in vec2 uv;
 }

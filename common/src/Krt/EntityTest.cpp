@@ -48,12 +48,12 @@ decltype(EntityTest::m_model) EntityTest::createModel(void)
 	auto gen_vtx = [this](){
 		decltype(m_shader)::Model::Vertex res;
 		for (size_t i = 0; i < 3; i++)
-			res.in_vtx_pos[i] = world.srandf() * 5.0;
+			res.pos[i] = world.srandf() * 5.0;
 		for (size_t i = 0; i < 3; i++)
-			res.in_vtx_normal[i] = world.srandf();
-		res.in_vtx_normal = sb::math::normalize(res.in_vtx_normal);
+			res.normal[i] = world.srandf();
+		res.normal = sb::math::normalize(res.normal);
 		for (size_t i = 0; i < 2; i++)
-			res.in_vtx_uv[i] = world.urandf();
+			res.uv[i] = world.urandf();
 		return res;
 	};
 

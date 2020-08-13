@@ -1,4 +1,4 @@
-bgr8_srgb screen { store = store };
+bgr8_srgb screen { store = store, out_layout = present_src_khr };
 rgb8_unorm color;
 rgb8_snorm normal;
 d24_s8 depth_buffer { load = clear };

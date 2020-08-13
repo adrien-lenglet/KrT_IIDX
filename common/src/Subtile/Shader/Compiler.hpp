@@ -618,9 +618,13 @@ public:
 					{Dir::In, "in"},
 					{Dir::Out, "out"}
 				};
+				static const std::map<Dir, const char*> io_prefix_table {
+					{Dir::In, "in_"},
+					{Dir::Out, "out_"}
+				};
 
 				o << "layout" << "(" << "location" << "=" << m_loc << ")" << io_table.at(m_dir);
-				m_var.declare(o, m_is_array);
+				m_var.declare(o, io_prefix_table.at(m_dir), m_is_array);
 			}
 
 			auto& getVariable(void) const
@@ -1331,10 +1335,13 @@ public:
 			return storageTable().find(s.peek()) != storageTable().end();
 		}
 
-		void declare(token_output &o, bool is_array = false) const
+		void declare(token_output &o, const char *id_prefix = nullptr, bool is_array = false) const
 		{
 			m_type.write(o);
-			o << m_id;
+			if (id_prefix)
+				o << (std::string(id_prefix) + m_id);
+			else
+				o << m_id;
 			if (is_array)
 				o << "[" << "]";
 			if (m_value) {

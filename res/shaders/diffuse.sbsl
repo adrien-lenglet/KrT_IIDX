@@ -23,27 +23,27 @@ vertex {
 		double xdd;
 	};*/
 
-	out vec3 vtx_pos;
-	out vec3 vtx_normal;
-	out vec2 vtx_uv;
+	out vec3 pos;
+	out vec3 normal;
+	out vec2 uv;
 
 	void main(void)
 	{
-		vec4 in_pos_h = vec4(in_vtx_pos, 1.0);
+		vec4 in_pos_h = vec4(in_pos, 1.0);
 		gl_Position = camera.vp * object.model_world * in_pos_h;
 		//gl_Position = vec4(in_pos.x, in_pos.y, 0, 1);
-		vtx_pos = (object.model_world * in_pos_h).xyz;
-		vtx_normal = (object.model_world * vec4(in_vtx_normal, 1.0)).xyz;
-		vtx_uv = in_vtx_uv;
+		out_pos = (object.model_world * in_pos_h).xyz;
+		out_normal = (object.model_world * vec4(in_normal, 1.0)).xyz;
+		out_uv = in_uv;
 	}
 }
 
 //render_pass render_passes::deffered : albedo;
 
-geometry {
-	out vec3 geom_pos;
-	out vec3 geom_normal;
-	out vec2 geom_uv;
+/*geometry {
+	out vec3 pos;
+	out vec3 normal;
+	out vec2 uv;
 
 	const vec2 off[4] = {vec2(0), vec2(0.3), vec2(0.7), vec2(0.9)};
 
@@ -52,15 +52,15 @@ geometry {
 		for (int o = 0; o < off.length(); o++)
 			for (int i = 0; i < 3; i++) {
 				gl_Position = gl_in[i].gl_Position + vec4(off[o], 0, 0);
-				geom_pos = vtx_pos[i];
-				geom_normal = vtx_normal[i];
-				geom_uv = vtx_uv[i];
+				out_pos = in_pos[i];
+				out_normal = in_normal[i];
+				out_uv = in_uv[i];
 				gl_Layer = -1;
 				EmitVertex();
 			}
 		EndPrimitive();
 	}
-}
+}*/
 
 fragment {
 	out vec3 screen_color;
@@ -68,11 +68,11 @@ fragment {
 	void main(void)
 	{
 		vec3 lightp = vec3(-2.0, 1.0, -3.0);
-		float dist = length(lightp - geom_pos);
+		float dist = length(lightp - in_pos);
 
-		vec3 color = normalize(geom_normal) + vec3(material.counter / 256.0);
+		vec3 color = normalize(in_normal) + vec3(material.counter / 256.0);
 		//vec3 color = vec3(1.0);
-		screen_color = vec3(5.0 / (dist * dist)) * color;
+		out_screen_color = vec3(5.0 / (dist * dist)) * color;
 	}
 }
 
