@@ -19,162 +19,9 @@ namespace Subtile {
 
 class Shader::Compiler
 {
-	enum class BufType {
-		Whitespace,
-		Id,
-		Operator
-	};
-
-	static char lower_char(char c)
-	{
-		if (c >= 'A' && c <= 'Z')
-			return c + 32;
-		else
-			return c;
-	}
-
-	static BufType c_type(char c)
-	{
-		static const std::set<char> whitespace = {' ', '\n', '\t', '\r'};
-
-		if (whitespace.find(c) != whitespace.end())
-			return BufType::Whitespace;
-		auto lower = lower_char(c);
-		if (c == '_' || c == ':' || (lower >= 'a' && lower <= 'z') || (lower >= '0' && lower <= '9'))
-			return BufType::Id;
-		else
-			return BufType::Operator;
-	}
-
-	class token_stream
-	{
-	public:
-		token_stream(const std::vector<std::string> &tokens) :
-			m_tokens(tokens),
-			m_ndx(0)
-		{
-			m_tokens.emplace(m_tokens.begin(), "{");
-			m_tokens.emplace_back("}");
-		}
-
-		auto& peek(void) const
-		{
-			return m_tokens.at(m_ndx);
-		}
-
-		auto peek2(void) const
-		{
-			return std::pair<const std::string&, const std::string&>(m_tokens.at(m_ndx), m_tokens.at(m_ndx + 1));
-		}
-
-		auto& poll(void)
-		{
-			auto &res = peek();
-
-			m_ndx++;
-			return res;
-		}
-
-		auto any_buf(void) const
-		{
-			return m_ndx < m_tokens.size();
-		}
-
-		auto is_end(void) const
-		{
-			return !any_buf();
-		}
-
-		size_t tokens_left(void) const
-		{
-			return m_tokens.size() - m_ndx;
-		}
-
-		void expect(const std::string &token)
-		{
-			auto got = poll();
-			if (got != token)
-				throw std::runtime_error(std::string("Expected '") + token + std::string("', but got '") + got + std::string("'"));
-		}
-
-	private:
-		std::vector<std::string> m_tokens;
-		size_t m_ndx;
-	};
-
 public:
-	class token_output
-	{
-	public:
-		token_output(void)
-		{
-		}
-
-		template <typename S>
-		auto& operator<<(S &&str)
-		{
-			if constexpr (std::is_same_v<std::string, std::remove_cv_t<std::remove_reference_t<S>>>)
-				m_tokens.emplace_back(str);
-			else
-				m_tokens.emplace_back(util::sstream_str(std::forward<S>(str)));
-			return *this;
-		}
-
-		void write(std::ostream &o) const
-		{
-			size_t indent = 0;
-			auto endl = "\n";
-
-			auto prev_type = BufType::Whitespace;
-			bool new_lined = false;
-			for (auto &t : m_tokens) {
-				if (t == "{") {
-					o << endl;
-					write_tabs(o, indent);
-					o << t << endl;
-					new_lined = false;
-					prev_type = BufType::Whitespace;
-					indent++;
-				} else if (t == "}") {
-					indent--;
-					write_tabs(o, indent);
-					o << t << endl;
-					new_lined = false;
-					prev_type = BufType::Whitespace;
-				} else if (t == ";") {
-					o << t << endl;
-					new_lined = false;
-					prev_type = BufType::Whitespace;
-				} else {
-					if (!new_lined) {
-						write_tabs(o, indent);
-						new_lined = true;
-					}
-					auto type = c_type(t.at(0));
-					if (type == BufType::Id && prev_type == BufType::Id)
-						o << " ";
-					o << t;
-					prev_type = type;
-				}
-			}
-		}
-
-		const auto& getTokens(void)
-		{
-			return m_tokens;
-		}
-
-	private:
-		std::vector<std::string> m_tokens;
-
-		static void write_tabs(std::ostream &o, size_t n)
-		{
-			for (size_t i = 0; i < n; i++)
-				o << "\t";
-		}
-	};
-
-	using tstream = token_stream;
+	using tstream = sb::rs::Compiler::token_stream;
+	using token_output = sb::rs::Compiler::token_output;
 
 private:
 	static auto read(const std::string &path)
@@ -186,78 +33,6 @@ private:
 		if (!in.good())
 			throw std::runtime_error(std::string("Can't read shader '") + path + std::string("'"));
 		return res.str();
-	}
-
-	static void flush_buffer(std::string &buf, BufType buf_type, std::vector<std::string> &res)
-	{
-		if (buf.size() > 0 && buf_type != BufType::Whitespace)
-			res.emplace_back(buf);
-		buf.clear();
-	}
-
-	static auto tokenize(const std::string &str)
-	{
-		static const std::set<std::string> ops = {
-			"(", ")", ";", "{", "}", "[", "]"
-		};
-
-		std::vector<std::string> res;
-
-		std::string buf;
-		BufType buf_type = BufType::Whitespace;
-		size_t next_i = 0;
-		bool is_sl_comment = false;
-		bool is_comment = false;
-		size_t delay = 0;
-		for (auto c : str) {
-			next_i++;
-
-			if (delay > 0) {
-				delay--;
-				continue;
-			}
-
-			std::optional<char> next;
-			if (next_i < str.size())
-				next = str.at(next_i);
-
-			if (is_sl_comment) {
-				if (c == '\n') {
-					is_sl_comment = false;
-					continue;
-				}
-			}
-			if (is_comment) {
-				if (c == '*' && next == '/') {
-					is_comment = false;
-					delay = 1;
-					continue;
-				}
-			}
-
-			if (c == '/' && next == '/') {
-				flush_buffer(buf, buf_type, res);
-				is_sl_comment = true;
-			}
-			if (c == '/' && next == '*') {
-				flush_buffer(buf, buf_type, res);
-				is_comment = true;
-			}
-
-			if (is_sl_comment || is_comment)
-				continue;
-
-			auto t = c_type(c);
-			if (t != buf_type) {
-				flush_buffer(buf, buf_type, res);
-				buf_type = t;
-			}
-			buf.push_back(c);
-			if ((buf_type == BufType::Operator) && (ops.find(buf) != ops.end()))
-				flush_buffer(buf, buf_type, res);
-		}
-		flush_buffer(buf, buf_type, res);
-		return res;
 	}
 
 	class Stages;
@@ -1943,7 +1718,7 @@ private:
 	};
 
 private:
-	token_stream m_stream;
+	tstream m_stream;
 	Section m_collec;
 	Compiler *m_vertex = nullptr;
 	bool m_has_custom_vertex;
@@ -2078,15 +1853,14 @@ private:
 
 	Compiler getCompiled(const sb::Resource::Compiler::modules_entry &entry, tstream &s)
 	{
-		std::string expr;
+		std::vector<std::string> expr;
 
 		s.expect("require");
 		while (true) {
 			auto &cur = s.poll();
 			if (cur == ";")
 				break;
-			for (auto &c : cur)
-				expr.push_back(c);
+			expr.emplace_back(cur);
 		}
 		return Compiler(entry.resolve_scope_expr(expr));
 	}
@@ -2130,7 +1904,7 @@ inline void Shader::Compiler::Section::poll(tstream &s, Compiler &compiler)
 inline Shader::Compiler::Compiler(const sb::Resource::Compiler::modules_entry &entry) :
 	m_entry(entry),
 	m_stages(*this),
-	m_stream(token_stream(tokenize(read(entry.getPath().string())))),
+	m_stream(tstream::tokenize(read(entry.getPath().string()))),
 	m_collec(m_stream, *this),
 	m_has_custom_vertex((m_collec.dispatch(), computeHasCustomVertex())),
 	m_is_complete(getIsComplete())

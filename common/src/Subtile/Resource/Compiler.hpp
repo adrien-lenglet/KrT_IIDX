@@ -99,33 +99,64 @@ public:
 			return m_parent->resolve(id);
 	}
 
-	const modules_entry& resolve_scope_expr(const std::string &expr) const
+	const modules_entry& resolve_scope_expr(const std::vector<std::string> &exprs) const
 	{
-		std::vector<std::string> exprs;
-		std::string buf;
-
-		char last = 0;
-		for (auto &c : expr) {
-			if (c == ':' && last == ':')
-				flush_buf(exprs, buf);
-			if (c == '_' || std::isalpha(c) || std::isdigit(c))
-				buf.push_back(c);
-			last = c;
+		std::string expr;
+		bool first = true;
+		for (auto &e : exprs) {
+			if (first)
+				first = false;
+			else
+				expr.push_back(' ');
+			for (auto &c : e)
+				expr.push_back(c);
 		}
-		flush_buf(exprs, buf);
+		size_t i = 0;
 
 		if (exprs.size() == 0)
 			throw std::runtime_error("Expected expression for scope resolution");
-		const modules_entry *res = resolve(exprs.at(0));
-		if (res == nullptr)
-			throw std::runtime_error(std::string("Expression '") + expr + std::string("': Can't resolve '") + exprs.at(0) + std::string("' from '") + getPath().string() + std::string("'"));
 
-		size_t i = 1;
+		const modules_entry *res = nullptr;
+		if (exprs.at(i) == "::") {
+			i++;
+			res = this;
+			while (res->m_parent)
+				res = res->m_parent;
+			if (i >= exprs.size()) {
+				std::stringstream ss;
+				ss << "Expression '" << expr << "': expected token after beginning ::";
+				throw std::runtime_error(ss.str());
+			}
+			if (exprs.at(i) != res->m_id) {
+				std::stringstream ss;
+				ss << "Expression '" << expr << "': expected '" << res->m_id << "' after beginning ::, but got '" << exprs.at(i) << "'";
+				throw std::runtime_error(ss.str());
+			}
+			i++;
+		} else {
+			res = resolve(exprs.at(i));
+			if (res == nullptr) {
+				std::stringstream ss;
+				ss << "Expression '" << expr << "': Can't resolve '" << exprs.at(i) << "' from '" << getPath().string() << "'";
+				throw std::runtime_error(ss.str());
+			}
+			i++;
+		}
+
 		while (i < exprs.size()) {
+			if (exprs.at(i) != "::") {
+				std::stringstream ss;
+				ss << "Expression '" << expr << "': expected :: after '" << exprs.at(i - 1) << "'";
+				throw std::runtime_error(ss.str());
+			}
+			i++;
 			auto &former_dir = *res;
 			res = former_dir.resolve_in_dir(exprs.at(i));
-			if (res == nullptr)
-				throw std::runtime_error(std::string("Expression '") + expr + std::string("': Can't resolve '") + exprs.at(i) + std::string("' from '") + former_dir.getPath().string() + std::string("'"));
+			if (res == nullptr) {
+				std::stringstream ss;
+				ss << "Expression '" << expr << "': Can't resolve '" << exprs.at(i) << "' from '" << former_dir.m_path.string() << "'";
+				throw std::runtime_error(ss.str());
+			}
 			i++;
 		}
 		return *res;
@@ -166,12 +197,6 @@ private:
 	std::set<std::string> m_children_ids;
 	std::vector<modules_entry> m_children;
 
-	static void flush_buf(std::vector<std::string> &res, std::string &buf)
-	{
-		res.emplace_back(buf);
-		buf.clear();
-	}
-
 	std::string computeResPath(void) const
 	{
 		static const std::string scp("::");
@@ -192,6 +217,261 @@ private:
 		if (m_parent)
 			res = m_parent->computeResValue() + scp + res + cl;
 		return res;
+	}
+};
+
+enum class BufType {
+	Whitespace,
+	Id,
+	Operator
+};
+
+static char lower_char(char c)
+{
+	if (c >= 'A' && c <= 'Z')
+		return c + 32;
+	else
+		return c;
+}
+
+static BufType c_type(char c)
+{
+	static const std::set<char> whitespace = {' ', '\n', '\t', '\r'};
+
+	if (whitespace.find(c) != whitespace.end())
+		return BufType::Whitespace;
+	auto lower = lower_char(c);
+	if (c == '_' || (lower >= 'a' && lower <= 'z') || (lower >= '0' && lower <= '9'))
+		return BufType::Id;
+	else
+		return BufType::Operator;
+}
+
+class token_stream
+{
+public:
+	token_stream(const std::vector<std::string> &tokens) :
+		m_tokens(tokens),
+		m_ndx(0)
+	{
+		m_tokens.emplace(m_tokens.begin(), "{");
+		m_tokens.emplace_back("}");
+	}
+
+	auto& peek(void) const
+	{
+		return m_tokens.at(m_ndx);
+	}
+
+	auto peek2(void) const
+	{
+		return std::pair<const std::string&, const std::string&>(m_tokens.at(m_ndx), m_tokens.at(m_ndx + 1));
+	}
+
+	auto& poll(void)
+	{
+		auto &res = peek();
+
+		m_ndx++;
+		return res;
+	}
+
+	auto any_buf(void) const
+	{
+		return m_ndx < m_tokens.size();
+	}
+
+	auto is_end(void) const
+	{
+		return !any_buf();
+	}
+
+	size_t tokens_left(void) const
+	{
+		return m_tokens.size() - m_ndx;
+	}
+
+	void expect(const std::string &token)
+	{
+		auto got = poll();
+		if (got != token)
+			throw std::runtime_error(std::string("Expected '") + token + std::string("', but got '") + got + std::string("'"));
+	}
+
+private:
+	std::vector<std::string> m_tokens;
+	size_t m_ndx;
+
+	static void flush_buffer(std::string &buf, BufType buf_type, std::vector<std::string> &res)
+	{
+		if (buf.size() > 0 && buf_type != BufType::Whitespace)
+			res.emplace_back(buf);
+		buf.clear();
+	}
+
+public:
+	static auto tokenize(const std::string &str)
+	{
+		static const std::set<std::string> tops = {
+			">>=", "<<="
+		};
+		static const std::set<std::string> sops = {
+			"::", "+=", "-=", "++", "--", "/=", "*=", "%=", ">>", "<<", "&&", "||", "==", ">=", "<="
+		};
+		static const std::set<std::string> fops = {
+			"(", ")", ",", ";", ":", "{", "}", "[", "]", "+", "-", "/", "*", "%", "=", "^", "|", "&", "~", "!", "?", ">", "<", "."
+		};
+
+		std::vector<std::string> res;
+
+		std::string buf;
+		BufType buf_type = BufType::Whitespace;
+		size_t next_i = 0;
+		bool is_sl_comment = false;
+		bool is_comment = false;
+		size_t delay = 0;
+		for (auto c : str) {
+			size_t i = next_i++;
+
+			if (delay > 0) {
+				delay--;
+				continue;
+			}
+
+			std::optional<char> next;
+			if (next_i < str.size())
+				next = str.at(next_i);
+
+			if (is_sl_comment) {
+				if (c == '\n') {
+					is_sl_comment = false;
+					continue;
+				}
+			}
+			if (is_comment) {
+				if (c == '*' && next == '/') {
+					is_comment = false;
+					delay = 1;
+					continue;
+				}
+			}
+
+			if (c == '/' && next == '/') {
+				flush_buffer(buf, buf_type, res);
+				is_sl_comment = true;
+			}
+			if (c == '/' && next == '*') {
+				flush_buffer(buf, buf_type, res);
+				is_comment = true;
+			}
+
+			if (is_sl_comment || is_comment)
+				continue;
+
+			std::string sub = str.substr(i, 3);
+			if (tops.find(sub) != tops.end()) {
+				flush_buffer(buf, buf_type, res);
+				buf_type = BufType::Operator;
+				res.push_back(sub);
+				delay = 2;
+				continue;
+			}
+			sub = str.substr(i, 2);
+			if (sops.find(sub) != sops.end()) {
+				flush_buffer(buf, buf_type, res);
+				buf_type = BufType::Operator;
+				res.push_back(sub);
+				delay = 1;
+				continue;
+			}
+			sub = str.substr(i, 1);
+			if (fops.find(sub) != fops.end()) {
+				flush_buffer(buf, buf_type, res);
+				buf_type = BufType::Operator;
+				res.push_back(sub);
+				continue;
+			}
+
+			auto t = c_type(c);
+			if (t != buf_type) {
+				flush_buffer(buf, buf_type, res);
+				buf_type = t;
+			}
+			buf.push_back(c);
+		}
+		flush_buffer(buf, buf_type, res);
+		return token_stream(res);
+	}
+};
+
+class token_output
+{
+public:
+	token_output(void)
+	{
+	}
+
+	template <typename S>
+	auto& operator<<(S &&str)
+	{
+		if constexpr (std::is_same_v<std::string, std::remove_cv_t<std::remove_reference_t<S>>>)
+			m_tokens.emplace_back(str);
+		else
+			m_tokens.emplace_back(util::sstream_str(std::forward<S>(str)));
+		return *this;
+	}
+
+	void write(std::ostream &o) const
+	{
+		size_t indent = 0;
+		auto endl = "\n";
+
+		auto prev_type = BufType::Whitespace;
+		bool new_lined = false;
+		for (auto &t : m_tokens) {
+			if (t == "{") {
+				o << endl;
+				write_tabs(o, indent);
+				o << t << endl;
+				new_lined = false;
+				prev_type = BufType::Whitespace;
+				indent++;
+			} else if (t == "}") {
+				indent--;
+				write_tabs(o, indent);
+				o << t << endl;
+				new_lined = false;
+				prev_type = BufType::Whitespace;
+			} else if (t == ";") {
+				o << t << endl;
+				new_lined = false;
+				prev_type = BufType::Whitespace;
+			} else {
+				if (!new_lined) {
+					write_tabs(o, indent);
+					new_lined = true;
+				}
+				auto type = c_type(t.at(0));
+				if (type == BufType::Id && prev_type == BufType::Id)
+					o << " ";
+				o << t;
+				prev_type = type;
+			}
+		}
+	}
+
+	const auto& getTokens(void)
+	{
+		return m_tokens;
+	}
+
+private:
+	std::vector<std::string> m_tokens;
+
+	static void write_tabs(std::ostream &o, size_t n)
+	{
+		for (size_t i = 0; i < n; i++)
+			o << "\t";
 	}
 };
 

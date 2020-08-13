@@ -1,4 +1,5 @@
-bgr8_srgb screen { store = store, out_layout = present_src_khr };
+bgr8_srgb wsi_screen { store = store, out_layout = present_src_khr };
+rbg8_srgb screen;
 rgb8_unorm color;
 rgb8_snorm normal;
 d24_s8 depth_buffer { load = clear };
@@ -13,6 +14,8 @@ albedo {
 lighting {
 	in depth_buffer;
 	out screen;
+
+	resolve screen : wsi_screen;
 }
 
 [
