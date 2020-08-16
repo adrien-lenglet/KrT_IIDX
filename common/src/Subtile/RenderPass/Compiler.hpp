@@ -420,6 +420,7 @@ private:
 		std::set<PipelineStage> m_dst_stages;
 		std::set<Access> m_src_access;
 		std::set<Access> m_dst_access;
+		std::set<DependencyFlag> m_flags;
 
 		static auto& getPipelineTable(void)
 		{
@@ -463,6 +464,15 @@ private:
 				{"host_write", Access::HostWrite},
 				{"memory_read", Access::MemoryRead},
 				{"memory_write", Access::MemoryWrite}
+			};
+
+			return table;
+		}
+
+		static auto& getDependencyTable(void)
+		{
+			static const std::map<std::string, DependencyFlag> table {
+				{"by_region", DependencyFlag::ByRegion}
 			};
 
 			return table;
@@ -522,7 +532,8 @@ private:
 			m_src_stages(pollMask(s, getPipelineTable(), "srcStageMask (PipelineStage)")),
 			m_dst_stages(pollMask(s, getPipelineTable(), "dstStageMask (PipelineStage)")),
 			m_src_access(pollMask(s, getAccessTable(), "srcAccessMask (Access)")),
-			m_dst_access(pollMask(s, getAccessTable(), "dstAccessMask (Access)"))
+			m_dst_access(pollMask(s, getAccessTable(), "dstAccessMask (Access)")),
+			m_flags(pollMask(s, getDependencyTable(), "dependencyFlags"))
 		{
 			s.expect("]");
 		}
@@ -533,6 +544,7 @@ private:
 		auto& getDstStages(void) const { return m_dst_stages; }
 		auto& getSrcAccess(void) const { return m_src_access; }
 		auto& getDstAccess(void) const { return m_dst_access; }
+		auto& getFlags(void) const { return m_flags; }
 	};
 	std::vector<Dependency> m_dependencies;
 	void parseDependency(tstream &s)

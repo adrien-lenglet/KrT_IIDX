@@ -482,6 +482,18 @@ class FolderPrinter
 		return res;
 	}
 
+	static auto dependencyFlagsToBrace(const std::set<sb::DependencyFlag> &flags)
+	{
+		static const std::map<sb::DependencyFlag, std::string> table {
+			{sb::DependencyFlag::ByRegion, "ByRegion"}
+		};
+		auto res = B {};
+
+		for (auto &f : flags)
+			res.add("sb::DependencyFlag"_t >> Vd(table.at(f)));
+		return res;
+	}
+
 	Type addRenderPass(Util::CollectionBase &scope, const sb::Resource::Compiler::modules_entry &entry)
 	{
 		static const Type rp_type("sb::rs::RenderPass");
@@ -529,7 +541,8 @@ class FolderPrinter
 				pipelineStagesToBrace(d.getSrcStages()),
 				pipelineStagesToBrace(d.getDstStages()),
 				accessToBrace(d.getSrcAccess()),
-				accessToBrace(d.getDstAccess())
+				accessToBrace(d.getDstAccess()),
+				dependencyFlagsToBrace(d.getFlags())
 			});
 
 		auto rplayout = "sb::RenderPass::Layout"_t;

@@ -1,7 +1,6 @@
 #include "Transform.hpp"
 #include "Entity.hpp"
 #include "Math/Quaternion.hpp"
-#include "Subtile/scp.hpp"
 
 namespace Subtile {
 

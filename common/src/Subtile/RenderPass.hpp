@@ -5,6 +5,7 @@
 #include "Image.hpp"
 #include "PipelineStage.hpp"
 #include "Access.hpp"
+#include "DependencyFlag.hpp"
 
 #include "Resource/File.hpp"
 #include "Resource/Target.hpp"
@@ -58,6 +59,7 @@ public:
 			std::set<PipelineStage> dstStageMask;
 			std::set<Access> srcAccessMask;
 			std::set<Access> dstAccessMask;
+			std::set<DependencyFlag> flags;
 		};
 
 		std::vector<Attachment> attachments;
