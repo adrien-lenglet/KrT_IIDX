@@ -24,17 +24,6 @@ public:
 	using token_output = sb::rs::Compiler::token_output;
 
 private:
-	static auto read(const std::string &path)
-	{
-		std::stringstream res;
-		std::ifstream in(path, std::ios::binary);
-
-		res << in.rdbuf();
-		if (!in.good())
-			throw std::runtime_error(std::string("Can't read shader '") + path + std::string("'"));
-		return res.str();
-	}
-
 	class Stages;
 public:
 	class Stage;
@@ -1904,7 +1893,7 @@ inline void Shader::Compiler::Section::poll(tstream &s, Compiler &compiler)
 inline Shader::Compiler::Compiler(const sb::Resource::Compiler::modules_entry &entry) :
 	m_entry(entry),
 	m_stages(*this),
-	m_stream(tstream::tokenize(read(entry.getPath().string()))),
+	m_stream(tstream::tokenize(rs::Compiler::read(entry.getPath().string()), true)),
 	m_collec(m_stream, *this),
 	m_has_custom_vertex((m_collec.dispatch(), computeHasCustomVertex())),
 	m_is_complete(getIsComplete())

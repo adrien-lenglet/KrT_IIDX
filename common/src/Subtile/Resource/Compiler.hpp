@@ -15,6 +15,17 @@ namespace Subtile {
 namespace Resource {
 namespace Compiler {
 
+static auto read(const std::string &path)
+{
+	std::stringstream res;
+	std::ifstream in(path, std::ios::binary);
+
+	res << in.rdbuf();
+	if (!in.good())
+		throw std::runtime_error(std::string("Can't read shader '") + path + std::string("'"));
+	return res.str();
+}
+
 static std::string strip_name(const std::string &in)
 {
 	size_t i = 0;
@@ -250,12 +261,14 @@ static BufType c_type(char c)
 class token_stream
 {
 public:
-	token_stream(const std::vector<std::string> &tokens) :
+	token_stream(const std::vector<std::string> &tokens, bool add_enclosing_braces = false) :
 		m_tokens(tokens),
 		m_ndx(0)
 	{
-		m_tokens.emplace(m_tokens.begin(), "{");
-		m_tokens.emplace_back("}");
+		if (add_enclosing_braces) {
+			m_tokens.emplace(m_tokens.begin(), "{");
+			m_tokens.emplace_back("}");
+		}
 	}
 
 	auto& peek(void) const
@@ -310,7 +323,7 @@ private:
 	}
 
 public:
-	static auto tokenize(const std::string &str)
+	static auto tokenize(const std::string &str, bool add_enclosing_braces = false)
 	{
 		static const std::set<std::string> tops = {
 			">>=", "<<="
@@ -400,7 +413,7 @@ public:
 			buf.push_back(c);
 		}
 		flush_buffer(buf, buf_type, res);
-		return token_stream(res);
+		return token_stream(res, add_enclosing_braces);
 	}
 };
 

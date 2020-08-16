@@ -130,7 +130,7 @@ Vk::Instance Vk::createInstance(void)
 	ai.applicationVersion = VK_MAKE_VERSION(0, 0, 0);
 	ai.pEngineName = "SUBTILE®";
 	ai.engineVersion = VK_MAKE_VERSION(0, 0, 0);
-	ai.apiVersion = VK_API_VERSION_1_2;
+	ai.apiVersion = VK_API_VERSION_1_1;
 
 	VkInstanceCreateInfo createInfo {};
 

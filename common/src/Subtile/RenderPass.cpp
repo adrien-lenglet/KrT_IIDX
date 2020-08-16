@@ -1,7 +1,20 @@
-#include "Render.hpp"
+#include "RenderPass.hpp"
 #include "World.hpp"
 
 namespace Subtile {
+namespace Resource {
+
+RenderPass::RenderPass(void) :
+	File(false)
+{
+}
+
+RenderPass::~RenderPass(void)
+{
+}
+
+}
+
 namespace Render {
 
 Pass::ShaderBase::ShaderBase(void) :

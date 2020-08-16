@@ -11,7 +11,9 @@
 
 #include "cpp_generator.hpp"
 #include "Subtile/Shader/Compiler.hpp"
+#include "Subtile/RenderPass/Compiler.hpp"
 #include "Subtile/Resource/Shader.hpp"
+#include "Subtile/Resource/RenderPass.hpp"
 
 using namespace CppGenerator;
 
@@ -34,6 +36,7 @@ class FolderPrinter
 			{".obj", "sb::rs::Model"},
 			{".png", "sb::rs::Image"},
 			{".sbsl", "sb::rs::Shader"},
+			{".sbrp", "sb::rs::RenderPass"}
 		};
 
 		auto ext = path.extension().string();
@@ -382,6 +385,164 @@ class FolderPrinter
 		return sh;
 	}
 
+	static auto loadOpToValue(sb::Image::LoadOp loadOp)
+	{
+		static const std::map<sb::Image::LoadOp, std::string> table {
+			{sb::Image::LoadOp::DontCare, "DontCare"},
+			{sb::Image::LoadOp::Load, "Load"},
+			{sb::Image::LoadOp::Clear, "Clear"}
+		};
+
+		return "sb::Image::LoadOp"_t >> Vd(table.at(loadOp));
+	}
+
+	static auto storeOpToValue(sb::Image::StoreOp storeOp)
+	{
+		static const std::map<sb::Image::StoreOp, std::string> table {
+			{sb::Image::StoreOp::DontCare, "DontCare"},
+			{sb::Image::StoreOp::Store, "Store"}
+		};
+
+		return "sb::Image::StoreOp"_t >> Vd(table.at(storeOp));
+	}
+
+	static auto imageLayoutToValue(sb::Image::Layout layout)
+	{
+		static const std::map<sb::Image::Layout, std::string> table {
+			{sb::Image::Layout::Undefined, "Undefined"},
+			{sb::Image::Layout::General, "General"},
+			{sb::Image::Layout::ColorAttachmentOptimal, "ColorAttachmentOptimal"},
+			{sb::Image::Layout::DepthStencilAttachmentOptimal, "DepthStencilAttachmentOptimal"},
+			{sb::Image::Layout::DepthStencilReadOnlyOptimal, "DepthStencilReadOnlyOptimal"},
+			{sb::Image::Layout::ShaderReadOnlyOptimal, "ShaderReadOnlyOptimal"},
+			{sb::Image::Layout::TransferSrcOptimal, "TransferSrcOptimal"},
+			{sb::Image::Layout::TransferDstOptimal, "TransferDstOptimal"},
+			{sb::Image::Layout::Preinitialized, "Preinitialized"},
+			{sb::Image::Layout::PresentSrc, "PresentSrc"}
+		};
+
+		return "sb::Image::Layout"_t >> Vd(table.at(layout));
+	}
+
+	static auto attachmentLayoutToBrace(const sb::RenderPass::Compiler::AttachmentLayout &attlay)
+	{
+		return B {attlay.attachment.getNdx(), imageLayoutToValue(attlay.layout)};
+	}
+
+	static auto pipelineStagesToBrace(const std::set<sb::PipelineStage> &stages)
+	{
+		static const std::map<sb::PipelineStage, std::string> table {
+			{sb::PipelineStage::TopOfPipe, "TopOfPipe"},
+			{sb::PipelineStage::DrawIndirect, "DrawIndirect"},
+			{sb::PipelineStage::VertexInput, "VertexInput"},
+			{sb::PipelineStage::VertexShader, "VertexShader"},
+			{sb::PipelineStage::TesselationControlShader, "TesselationControlShader"},
+			{sb::PipelineStage::TesselationEvaluationShader, "TesselationEvaluationShader"},
+			{sb::PipelineStage::GeometryShader, "GeometryShader"},
+			{sb::PipelineStage::FragmentShader, "FragmentShader"},
+			{sb::PipelineStage::EarlyFragmentTests, "EarlyFragmentTests"},
+			{sb::PipelineStage::LateFragmentTests, "LateFragmentTests"},
+			{sb::PipelineStage::ColorAttachmentOutput, "ColorAttachmentOutput"},
+			{sb::PipelineStage::ComputeShader, "ComputeShader"},
+			{sb::PipelineStage::Transfer, "Transfer"},
+			{sb::PipelineStage::BottomOfPipe, "BottomOfPipe"}
+		};
+		auto res = B {};
+
+		for (auto &s : stages)
+			res.add("sb::PipelineStage"_t >> Vd(table.at(s)));
+		return res;
+	}
+
+	static auto accessToBrace(const std::set<sb::Access> &access)
+	{
+		static const std::map<sb::Access, std::string> table {
+			{sb::Access::IndirectCommandRead, "IndirectCommandRead"},
+			{sb::Access::IndexRead, "IndexRead"},
+			{sb::Access::VertexAttributeRead, "VertexAttributeRead"},
+			{sb::Access::UniformRead, "UniformRead"},
+			{sb::Access::InputAttachmentRead, "InputAttachmentRead"},
+			{sb::Access::ShaderRead, "ShaderRead"},
+			{sb::Access::ShaderWrite, "ShaderWrite"},
+			{sb::Access::ColorAttachmentRead, "ColorAttachmentRead"},
+			{sb::Access::ColorAttachmentWrite, "ColorAttachmentWrite"},
+			{sb::Access::DepthStencilAttachmentRead, "DepthStencilAttachmentRead"},
+			{sb::Access::DepthStencilAttachmentWrite, "DepthStencilAttachmentWrite"},
+			{sb::Access::TransferRead, "TransferRead"},
+			{sb::Access::TransferWrite, "TransferWrite"},
+			{sb::Access::HostRead, "HostRead"},
+			{sb::Access::HostWrite, "HostWrite"},
+			{sb::Access::MemoryRead, "MemoryRead"},
+			{sb::Access::MemoryWrite, "MemoryWrite"}
+		};
+		auto res = B {};
+
+		for (auto &a : access)
+			res.add("sb::Access"_t >> Vd(table.at(a)));
+		return res;
+	}
+
+	Type addRenderPass(Util::CollectionBase &scope, const sb::Resource::Compiler::modules_entry &entry)
+	{
+		static const Type rp_type("sb::rs::RenderPass");
+		sb::RenderPass::Compiler compiled(entry);
+
+		auto &rp = scope += Class | (entry.getId() + std::string("_class")) | C(Public | rp_type) | S {Public};
+		auto ctor_fwd = rp += Ctor(Void);
+		m_impl_out += ctor_fwd(Void) | S {};
+		auto dtor_fwd = rp += Dtor(Void);
+		m_impl_out += dtor_fwd(Void) | S {};
+
+		auto attb = B {};
+		for (auto &ap : compiled.getAttachments()) {
+			auto &a = ap.second.get();
+			attb.add(B {
+				"sb::Format"_t >> Type(a.getFormat()),
+				loadOpToValue(a.getLoadOp()),
+				storeOpToValue(a.getStoreOp()),
+				imageLayoutToValue(a.getInLayout()),
+				imageLayoutToValue(a.getOutLayout())
+			});
+		}
+
+		auto subb = B {};
+		for (auto &sp : compiled.getSubpasses()) {
+			auto &s = sp.second.get();
+			auto inb = B {};
+			for (auto &in : s.getIn())
+				inb.add(attachmentLayoutToBrace(in.get()));
+			auto outb = B {};
+			for (auto &c : s.getOut())
+				outb.add(B {attachmentLayoutToBrace(c.attachment), Value(B {c.resolve ? attachmentLayoutToBrace(*c.resolve) : Value(Vd("std::nullopt"))})});
+			auto depthv = Value(B {s.getDepthStencil() ? attachmentLayoutToBrace(*s.getDepthStencil()) : Value(Vd("std::nullopt"))});
+			auto preb = B {};
+			for (auto &p : s.getPreserve())
+				preb.add(p.get().getNdx());
+			subb.add(B {inb, outb, depthv, preb});
+		}
+
+		auto depb = B {};
+		for (auto &d : compiled.getDependencies())
+			depb.add(B {
+				d.getSrcSubpass().getNdx(),
+				d.getDstSubpass().getNdx(),
+				pipelineStagesToBrace(d.getSrcStages()),
+				pipelineStagesToBrace(d.getDstStages()),
+				accessToBrace(d.getSrcAccess()),
+				accessToBrace(d.getDstAccess())
+			});
+
+		auto rplayout = "sb::RenderPass::Layout"_t;
+
+		auto layout_fwd = rp += Virtual | rplayout | Id("layout")(Void) | Const | Override;
+		m_impl_out += rplayout | layout_fwd(Void) | Const | S
+		{
+			Return | B {attb, subb, depb}
+		};
+
+		return rp;
+	}
+
 	class FileError : public std::runtime_error
 	{
 	public:
@@ -441,6 +602,12 @@ class FolderPrinter
 						} catch (const std::exception &excep) {
 							throw FileError(type, e.getPath().string(), excep.what());
 						}
+					} else if (type == "sb::rs::RenderPass") {
+						try {
+							t.assign(addRenderPass(scope, e));
+						} catch (const std::exception &excep) {
+							throw FileError(type, e.getPath().string(), excep.what());
+						}
 					}
 					addgetterstorage(scope, ctor, t, e.getId(), e.getName());
 				}
@@ -493,7 +660,8 @@ public:
 			Pp::Include | "Subtile/Resource/Folder.hpp",
 			Pp::Include | "Subtile/Resource/Model.hpp",
 			Pp::Include | "Subtile/Resource/Image.hpp",
-			Pp::Include | "Subtile/Resource/Shader.hpp"
+			Pp::Include | "Subtile/Resource/Shader.hpp",
+			Pp::Include | "Subtile/Resource/RenderPass.hpp"
 		};
 
 		Out impl(implpath, true);

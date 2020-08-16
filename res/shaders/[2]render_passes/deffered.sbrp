@@ -1,8 +1,8 @@
-bgr8_srgb wsi_screen { store = store, out_layout = present_src_khr };
-rbg8_srgb screen;
-rgb8_unorm color;
-rgb8_snorm normal;
-d24_s8 depth_buffer { load = clear };
+bgra8_srgb wsi_screen { store, out_layout = present_src };
+rgba8_srgb screen;
+rgba32_sfloat color;
+rgba8_unorm normal;
+d24un_or_32sf_spl_att_sfb depth_buffer { load = clear };
 
 albedo {
 	depth_stencil depth_buffer;
@@ -12,21 +12,22 @@ albedo {
 }
 
 lighting {
-	in depth_buffer;
+	in color;
+	in normal;
+
+	//in depth_buffer;
 	out screen;
 
 	resolve screen : wsi_screen;
 }
 
 [
-	{
-		albedo,
-		lighting,
+	albedo,
+	lighting,
 
-		color_attachment_output,
-		fragment_shader,
+	color_attachment_output,
+	fragment_shader,
 
-		color_attachment_write,
-		input_attachment_read
-	}
+	color_attachment_write,
+	input_attachment_read
 ]

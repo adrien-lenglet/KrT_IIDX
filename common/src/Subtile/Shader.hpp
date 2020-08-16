@@ -897,7 +897,6 @@ private:
 };
 
 }
-
 }
 
 namespace Subtile
