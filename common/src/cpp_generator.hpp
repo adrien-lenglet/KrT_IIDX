@@ -1670,7 +1670,7 @@ namespace CppGenerator {
 		public:
 			template <typename ...Args>
 			OrBin(Args &&...args) :
-				Associative("||", std::forward<Args>(args)...) {}
+				Associative("|", std::forward<Args>(args)...) {}
 		};
 
 		class And : public Associative

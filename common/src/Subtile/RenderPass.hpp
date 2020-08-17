@@ -115,11 +115,11 @@ public:
 		{
 			SubpassIndex srcSubpass;
 			SubpassIndex dstSubpass;
-			std::set<PipelineStage> srcStageMask;
-			std::set<PipelineStage> dstStageMask;
-			std::set<Access> srcAccessMask;
-			std::set<Access> dstAccessMask;
-			std::set<DependencyFlag> flags;
+			PipelineStage srcStageMask;
+			PipelineStage dstStageMask;
+			Access srcAccessMask;
+			Access dstAccessMask;
+			DependencyFlag flags;
 		};
 
 		std::vector<Attachment> attachments;

@@ -447,10 +447,19 @@ class FolderPrinter
 			{sb::PipelineStage::Transfer, "Transfer"},
 			{sb::PipelineStage::BottomOfPipe, "BottomOfPipe"}
 		};
-		auto res = B {};
 
-		for (auto &s : stages)
-			res.add("sb::PipelineStage"_t >> Vd(table.at(s)));
+		if (stages.size() == 0)
+			return "sb::PipelineStage::None"_v;
+		auto res = ""_v;
+		auto first = true;
+		for (auto &s : stages) {
+			auto cur = "sb::PipelineStage"_t >> Vd(table.at(s));
+			if (first) {
+				res.assign(cur);
+				first = false;
+			} else
+				res.assign(res | cur);
+		}
 		return res;
 	}
 
@@ -475,10 +484,19 @@ class FolderPrinter
 			{sb::Access::MemoryRead, "MemoryRead"},
 			{sb::Access::MemoryWrite, "MemoryWrite"}
 		};
-		auto res = B {};
 
-		for (auto &a : access)
-			res.add("sb::Access"_t >> Vd(table.at(a)));
+		if (access.size() == 0)
+			return "sb::Access::None"_v;
+		auto res = ""_v;
+		auto first = true;
+		for (auto &s : access) {
+			auto cur = "sb::Access"_t >> Vd(table.at(s));
+			if (first) {
+				res.assign(cur);
+				first = false;
+			} else
+				res.assign(res | cur);
+		}
 		return res;
 	}
 
@@ -487,10 +505,19 @@ class FolderPrinter
 		static const std::map<sb::DependencyFlag, std::string> table {
 			{sb::DependencyFlag::ByRegion, "ByRegion"}
 		};
-		auto res = B {};
 
-		for (auto &f : flags)
-			res.add("sb::DependencyFlag"_t >> Vd(table.at(f)));
+		if (flags.size() == 0)
+			return "sb::DependencyFlag::None"_v;
+		auto res = ""_v;
+		auto first = true;
+		for (auto &s : flags) {
+			auto cur = "sb::DependencyFlag"_t >> Vd(table.at(s));
+			if (first) {
+				res.assign(cur);
+				first = false;
+			} else
+				res.assign(res | cur);
+		}
 		return res;
 	}
 
