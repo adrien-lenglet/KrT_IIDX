@@ -9,19 +9,19 @@ class Image
 {
 public:
 	enum class Layout {
-		Undefined,
-		General,
+		Undefined = 0,
+		General = 1,
 
-		ColorAttachmentOptimal,
-		DepthStencilAttachmentOptimal,
-		DepthStencilReadOnlyOptimal,
-		ShaderReadOnlyOptimal,
-		TransferSrcOptimal,
-		TransferDstOptimal,
+		ColorAttachmentOptimal = 2,
+		DepthStencilAttachmentOptimal = 3,
+		DepthStencilReadOnlyOptimal = 4,
+		ShaderReadOnlyOptimal = 5,
+		TransferSrcOptimal = 6,
+		TransferDstOptimal = 7,
 
-		Preinitialized,
+		Preinitialized = 8,
 
-		PresentSrc
+		PresentSrc = 1000001002
 	};
 	
 	enum class LoadOp {

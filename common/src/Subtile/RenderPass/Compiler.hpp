@@ -153,7 +153,7 @@ class RenderPass::Compiler
 			m_load_op(Image::LoadOp::DontCare),
 			m_store_op(Image::StoreOp::DontCare),
 			m_in_layout(Image::Layout::Undefined),
-			m_out_layout(Image::Layout::Undefined)
+			m_out_layout(Image::Layout::General)
 		{
 			if (s.peek() == "{")
 				poll_attrs(s);
@@ -173,7 +173,8 @@ class RenderPass::Compiler
 	void parseAttachment(tstream &s)
 	{
 		auto a = Attachment(s, m_attachments.size());
-		m_attachments.emplace(std::piecewise_construct, std::forward_as_tuple(a.getName()), std::forward_as_tuple(std::move(a)));
+		auto name = a.getName();
+		m_attachments.emplace(std::piecewise_construct, std::forward_as_tuple(name), std::forward_as_tuple(std::move(a)));
 	}
 
 	std::map<size_t, util::ref_wrapper<Attachment>> m_attachments_ordered;
@@ -386,7 +387,8 @@ private:
 	void parseSubpass(tstream &s)
 	{
 		auto a = Subpass(s, m_subpasses.size(), *this);
-		m_subpasses.emplace(std::piecewise_construct, std::forward_as_tuple(a.getName()), std::forward_as_tuple(std::move(a)));
+		auto name = a.getName();
+		m_subpasses.emplace(std::piecewise_construct, std::forward_as_tuple(name), std::forward_as_tuple(std::move(a)));
 	}
 	std::map<size_t, util::ref_wrapper<Subpass>> m_subpasses_ordered;
 

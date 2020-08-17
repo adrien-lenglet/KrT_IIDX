@@ -22,10 +22,12 @@ public:
 	class Render : public sb::Render::Pass
 	{
 		decltype(res.shaders().modules().camera().loaded()) m_camera_shader;
+		decltype(res.shaders().render_passes().deffered().loaded()) m_render_pass;
 
 	public:
 		Render(sb::Instance &instance) :
 			m_camera_shader(instance.load(res.shaders().modules().camera())),
+			m_render_pass(instance.load(res.shaders().render_passes().deffered())),
 			camera(m_camera_shader.camera())
 		{
 		}

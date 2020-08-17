@@ -494,7 +494,8 @@ Vk::Device::Device(Instance &instance, const PhysicalDevice &physicalDevice, VkD
 	Vk::Handle<VkDevice>(device),
 	m_instance(instance),
 	m_physical(physicalDevice),
-	m_allocator(*this)
+	m_allocator(*this),
+	m_dynamic_formats(getDynamicFormats())
 {
 }
 
@@ -531,6 +532,135 @@ Vk::Device::QueuesCreateInfo::QueuesCreateInfo(std::initializer_list<QueueCreate
 const std::vector<VkDeviceQueueCreateInfo>& Vk::Device::QueuesCreateInfo::getInfos(void) const
 {
 	return m_vk_infos;
+}
+
+VkFormat Vk::Device::sbFormatToVk(sb::Format format) const
+{
+	static const std::map<sb::Format, VkFormat> table {
+		{sb::Format::bgra4_unorm_pack16, VK_FORMAT_B4G4R4A4_UNORM_PACK16},
+		{sb::Format::r5g6b5_unorm_pack16, VK_FORMAT_R5G6B5_UNORM_PACK16},
+		{sb::Format::a1rgb5_unorm_pack16, VK_FORMAT_A1R5G5B5_UNORM_PACK16},
+
+		{sb::Format::r8_unorm, VK_FORMAT_R8_UNORM},
+		{sb::Format::r8_snorm, VK_FORMAT_R8_SNORM},
+		{sb::Format::r8_uint, VK_FORMAT_R8_UINT},
+		{sb::Format::r8_sint, VK_FORMAT_R8_SINT},
+
+		{sb::Format::rg8_unorm, VK_FORMAT_R8G8_UNORM},
+		{sb::Format::rg8_snorm, VK_FORMAT_R8G8_SNORM},
+		{sb::Format::rg8_uint, VK_FORMAT_R8G8_UINT},
+		{sb::Format::rg8_sint, VK_FORMAT_R8G8_SINT},
+
+		{sb::Format::rgba8_unorm, VK_FORMAT_R8G8B8A8_UNORM},
+		{sb::Format::rgba8_snorm, VK_FORMAT_R8G8B8A8_SNORM},
+		{sb::Format::rgba8_uint, VK_FORMAT_R8G8B8A8_UINT},
+		{sb::Format::rgba8_sint, VK_FORMAT_R8G8B8A8_SINT},
+		{sb::Format::rgba8_srgb, VK_FORMAT_R8G8B8A8_SRGB},
+
+		{sb::Format::bgra8_unorm, VK_FORMAT_B8G8R8A8_UNORM},
+		{sb::Format::bgra8_srgb, VK_FORMAT_B8G8R8A8_SRGB},
+
+		{sb::Format::abgr8_unorm_pack32, VK_FORMAT_A8B8G8R8_UNORM_PACK32},
+		{sb::Format::abgr8_snorm_pack32, VK_FORMAT_A8B8G8R8_SNORM_PACK32},
+		{sb::Format::abgr8_uint_pack32, VK_FORMAT_A8B8G8R8_UINT_PACK32},
+		{sb::Format::abgr8_sint_pack32, VK_FORMAT_A8B8G8R8_SINT_PACK32},
+		{sb::Format::abgr8_srgb_pack32, VK_FORMAT_A8B8G8R8_SRGB_PACK32},
+
+		{sb::Format::a2bgr10_unorm_pack32, VK_FORMAT_A2B10G10R10_UNORM_PACK32},
+		{sb::Format::a2bgr10_uint_pack32, VK_FORMAT_A2B10G10R10_UINT_PACK32},
+
+		{sb::Format::r16_uint, VK_FORMAT_R16_UINT},
+		{sb::Format::r16_sint, VK_FORMAT_R16_SINT},
+		{sb::Format::r16_sfloat, VK_FORMAT_R16_SFLOAT},
+
+		{sb::Format::rg16_uint, VK_FORMAT_R16G16_UINT},
+		{sb::Format::rg16_sint, VK_FORMAT_R16G16_SINT},
+		{sb::Format::rg16_sfloat, VK_FORMAT_R16G16_SFLOAT},
+
+		{sb::Format::rgba16_uint, VK_FORMAT_R16G16B16A16_UINT},
+		{sb::Format::rgba16_sint, VK_FORMAT_R16G16B16A16_SINT},
+		{sb::Format::rgba16_sfloat, VK_FORMAT_R16G16B16A16_SFLOAT},
+
+		{sb::Format::r32_uint, VK_FORMAT_R32_UINT},
+		{sb::Format::r32_sint, VK_FORMAT_R32_SINT},
+		{sb::Format::r32_sfloat, VK_FORMAT_R32_SFLOAT},
+
+		{sb::Format::rg32_uint, VK_FORMAT_R32G32_UINT},
+		{sb::Format::rg32_sint, VK_FORMAT_R32G32_SINT},
+		{sb::Format::rg32_sfloat, VK_FORMAT_R32G32_SFLOAT},
+
+		{sb::Format::rgba32_uint, VK_FORMAT_R32G32B32A32_UINT},
+		{sb::Format::rgba32_sint, VK_FORMAT_R32G32B32A32_SINT},
+		{sb::Format::rgba32_sfloat, VK_FORMAT_R32G32B32A32_SFLOAT},
+
+		{sb::Format::d16_unorm, VK_FORMAT_D16_UNORM},
+		{sb::Format::d32_sfloat, VK_FORMAT_D32_SFLOAT}
+	};
+
+	auto got = table.find(format);
+	if (got != table.end())
+		return got->second;
+	return m_dynamic_formats.at(format);
+}
+
+bool Vk::Device::isDepthFormatSupportedSplAtt(VkFormat format)
+{
+	VkImageFormatProperties props;
+	auto res = vkGetPhysicalDeviceImageFormatProperties(m_physical, format,
+	VK_IMAGE_TYPE_2D, VK_IMAGE_TILING_OPTIMAL,
+	VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+	0, &props);
+
+	return res == VK_SUCCESS;
+}
+
+std::map<sb::Format, VkFormat> Vk::Device::getDynamicFormats(void)
+{
+	std::map<sb::Format, VkFormat> res {
+		{sb::Format::d24un_or_32sf_spl_att, VK_FORMAT_UNDEFINED},
+		{sb::Format::d32sf_or_24un_spl_att, VK_FORMAT_UNDEFINED},
+		{sb::Format::d24un_or_32sf_spl_att_sfb, VK_FORMAT_UNDEFINED},
+		{sb::Format::d32sf_or_24un_spl_att_sfb, VK_FORMAT_UNDEFINED},
+		{sb::Format::d24un_or_32sf_spl_att_s8_uint, VK_FORMAT_UNDEFINED},
+		{sb::Format::d32sf_or_24un_spl_att_s8_uint, VK_FORMAT_UNDEFINED}
+	};
+
+	auto x8_d24_unorm = isDepthFormatSupportedSplAtt(VK_FORMAT_X8_D24_UNORM_PACK32);
+	auto d32_sfloat = isDepthFormatSupportedSplAtt(VK_FORMAT_D32_SFLOAT);
+	auto x8_d24_unorm_s8_uint = isDepthFormatSupportedSplAtt(VK_FORMAT_D24_UNORM_S8_UINT);
+	auto d32_sfloat_s8_uint = isDepthFormatSupportedSplAtt(VK_FORMAT_D32_SFLOAT_S8_UINT);
+
+	if (x8_d24_unorm)
+		res.at(sb::Format::d24un_or_32sf_spl_att) = VK_FORMAT_X8_D24_UNORM_PACK32;
+	else if (d32_sfloat)
+		res.at(sb::Format::d24un_or_32sf_spl_att) = VK_FORMAT_D32_SFLOAT;
+
+	if (d32_sfloat)
+		res.at(sb::Format::d32sf_or_24un_spl_att) = VK_FORMAT_D32_SFLOAT;
+	else if (x8_d24_unorm)
+		res.at(sb::Format::d32sf_or_24un_spl_att) = VK_FORMAT_X8_D24_UNORM_PACK32;
+
+
+	if (x8_d24_unorm_s8_uint)
+		res.at(sb::Format::d24un_or_32sf_spl_att_s8_uint) = VK_FORMAT_D24_UNORM_S8_UINT;
+	else if (d32_sfloat_s8_uint)
+		res.at(sb::Format::d24un_or_32sf_spl_att_s8_uint) = VK_FORMAT_D32_SFLOAT_S8_UINT;
+
+	if (d32_sfloat_s8_uint)
+		res.at(sb::Format::d32sf_or_24un_spl_att_s8_uint) = VK_FORMAT_D32_SFLOAT_S8_UINT;
+	else if (x8_d24_unorm_s8_uint)
+		res.at(sb::Format::d32sf_or_24un_spl_att_s8_uint) = VK_FORMAT_D24_UNORM_S8_UINT;
+
+
+	res.at(sb::Format::d24un_or_32sf_spl_att_sfb) = res.at(sb::Format::d24un_or_32sf_spl_att);
+	if (res.at(sb::Format::d24un_or_32sf_spl_att_sfb) == VK_FORMAT_UNDEFINED)
+		res.at(sb::Format::d24un_or_32sf_spl_att_sfb) = res.at(sb::Format::d24un_or_32sf_spl_att_s8_uint);
+
+	res.at(sb::Format::d32sf_or_24un_spl_att_sfb) = res.at(sb::Format::d32sf_or_24un_spl_att);
+	if (res.at(sb::Format::d32sf_or_24un_spl_att_sfb) == VK_FORMAT_UNDEFINED)
+		res.at(sb::Format::d32sf_or_24un_spl_att_sfb) = res.at(sb::Format::d32sf_or_24un_spl_att_s8_uint);
+
+	return res;
 }
 
 template <>
@@ -690,6 +820,153 @@ template <>
 void Vk::Device::Handle<VkImageView>::destroy(Vk::Device &device, VkImageView imageView)
 {
 	device.destroy(vkDestroyImageView, imageView);
+}
+
+VkAttachmentLoadOp Vk::RenderPass::sbLoadOpToVk(sb::Image::LoadOp loadOp)
+{
+	static const std::map<sb::Image::LoadOp, VkAttachmentLoadOp> table {
+		{sb::Image::LoadOp::DontCare, VK_ATTACHMENT_LOAD_OP_DONT_CARE},
+		{sb::Image::LoadOp::Load, VK_ATTACHMENT_LOAD_OP_LOAD},
+		{sb::Image::LoadOp::Clear, VK_ATTACHMENT_LOAD_OP_CLEAR}
+	};
+
+	return table.at(loadOp);
+}
+
+VkAttachmentStoreOp Vk::RenderPass::sbStoreOpToVk(sb::Image::StoreOp storeOp)
+{
+	static const std::map<sb::Image::StoreOp, VkAttachmentStoreOp> table {
+		{sb::Image::StoreOp::DontCare, VK_ATTACHMENT_STORE_OP_DONT_CARE},
+		{sb::Image::StoreOp::Store, VK_ATTACHMENT_STORE_OP_STORE},
+	};
+
+	return table.at(storeOp);
+}
+
+Vk::RenderPass::RenderPass(Vk::Device &dev, VkRenderPass renderPass) :
+	Device::Handle<VkRenderPass>(dev, renderPass)
+{
+}
+
+Vk::RenderPass::RenderPass(Vk::Device &dev, sb::rs::RenderPass &res) :
+	RenderPass(dev, create(dev, res))
+{
+}
+
+VkRenderPass Vk::RenderPass::create(Vk::Device &dev, sb::rs::RenderPass &res)
+{
+	auto layout = res.layout();
+
+	std::vector<VkAttachmentDescription> attachments;
+	attachments.reserve(layout.attachments.size());
+	for (auto &a : layout.attachments) {
+		VkAttachmentDescription att {};
+		att.format = dev.sbFormatToVk(a.format);
+		att.samples = VK_SAMPLE_COUNT_1_BIT;
+		att.loadOp = sbLoadOpToVk(a.loadOp);
+		att.storeOp = sbStoreOpToVk(a.storeOp);
+		att.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		att.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		att.initialLayout = sbImageLayoutToVk(a.inLayout);
+		att.finalLayout = sbImageLayoutToVk(a.outLayout);
+		attachments.emplace_back(att);
+	}
+
+	std::vector<VkSubpassDescription> subpasses;
+	std::vector<VkAttachmentReference> subpasses_inputs;
+	size_t subpasses_inputs_off = 0;
+	std::vector<VkAttachmentReference> subpasses_color_atts;
+	size_t subpasses_color_atts_off = 0;
+	std::vector<VkAttachmentReference> subpasses_resolves;
+	std::vector<VkAttachmentReference> subpasses_depth_stencils;
+	size_t subpasses_depth_stencils_off = 0;
+	std::vector<uint32_t> subpasses_preserve_atts;
+	size_t subpasses_preserve_atts_off = 0;
+	for (auto &s : layout.subpasses) {
+		subpasses_inputs_off += s.inputAttachments.size();
+		subpasses_color_atts_off += s.colorAttachments.size();
+		if (s.depthStencilAttachment)
+			subpasses_depth_stencils_off++;
+		subpasses_preserve_atts_off += s.preserveAttachments.size();
+	}
+	subpasses_inputs.reserve(subpasses_inputs_off);
+	subpasses_color_atts.reserve(subpasses_color_atts_off);
+	subpasses_resolves.reserve(subpasses_color_atts_off);
+	subpasses_depth_stencils.reserve(subpasses_depth_stencils_off);
+	subpasses_preserve_atts.reserve(subpasses_preserve_atts_off);
+	subpasses_inputs_off = 0;
+	subpasses_color_atts_off = 0;
+	subpasses_depth_stencils_off = 0;
+	subpasses_preserve_atts_off = 0;
+
+	subpasses.reserve(layout.subpasses.size());
+	for (auto &s : layout.subpasses) {
+		for (auto &in : s.inputAttachments)
+			subpasses_inputs.emplace_back(sbAttachmentReferenceToVk(in));
+		for (auto &color_att : s.colorAttachments) {
+			subpasses_color_atts.emplace_back(sbAttachmentReferenceToVk(color_att));
+			if (color_att.resolve)
+				subpasses_resolves.emplace_back(sbAttachmentReferenceToVk(*color_att.resolve));
+			else
+				subpasses_resolves.emplace_back(VkAttachmentReference{VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_UNDEFINED});
+		}
+		if (s.depthStencilAttachment)
+			subpasses_depth_stencils.emplace_back(sbAttachmentReferenceToVk(*s.depthStencilAttachment));
+		for (auto &pre : s.preserveAttachments)
+			subpasses_preserve_atts.emplace_back(pre);
+
+		VkSubpassDescription sub {};
+		sub.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		sub.inputAttachmentCount = s.inputAttachments.size();
+		sub.pInputAttachments = &subpasses_inputs[subpasses_inputs_off];
+		sub.colorAttachmentCount = s.colorAttachments.size();
+		sub.pColorAttachments = &subpasses_color_atts[subpasses_color_atts_off];
+		sub.pResolveAttachments = &subpasses_resolves[subpasses_color_atts_off];
+		sub.pDepthStencilAttachment = s.depthStencilAttachment ? &subpasses_depth_stencils[subpasses_depth_stencils_off] : nullptr;
+		sub.preserveAttachmentCount = s.preserveAttachments.size();
+		sub.pPreserveAttachments = &subpasses_preserve_atts[subpasses_preserve_atts_off];
+
+		subpasses_inputs_off += s.inputAttachments.size();
+		subpasses_color_atts_off += s.colorAttachments.size();
+		if (s.depthStencilAttachment)
+			subpasses_depth_stencils_off++;
+		subpasses_preserve_atts_off += s.preserveAttachments.size();
+		subpasses.emplace_back(sub);
+	}
+
+	std::vector<VkSubpassDependency> dependencies;
+	dependencies.reserve(layout.dependencies.size());
+	for (auto &d : layout.dependencies) {
+		VkSubpassDependency dep {};
+		dep.srcSubpass = d.srcSubpass;
+		dep.dstSubpass = d.dstSubpass;
+		dep.srcStageMask = sbPipelineStageToVk(d.srcStageMask);
+		dep.dstStageMask = sbPipelineStageToVk(d.dstStageMask);
+		dep.srcAccessMask = sbAccessToVk(d.srcAccessMask);
+		dep.dstAccessMask = sbAccessToVk(d.dstAccessMask);
+		dep.dependencyFlags = sbDependencyFlagToVk(d.flags);
+		dependencies.emplace_back(dep);
+	}
+
+	VkRenderPassCreateInfo ci {};
+	ci.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	ci.attachmentCount = attachments.size();
+	ci.pAttachments = attachments.data();
+	ci.subpassCount = subpasses.size();
+	ci.pSubpasses = subpasses.data();
+	ci.dependencyCount = dependencies.size();
+	ci.pDependencies = dependencies.data();
+
+	return dev.createVk(vkCreateRenderPass, ci);
+}
+
+Vk::RenderPass::~RenderPass(void)
+{
+}
+
+std::unique_ptr<sb::RenderPass> Vk::createRenderPass(sb::rs::RenderPass &renderpass)
+{
+	return std::make_unique<RenderPass>(m_device, renderpass);
 }
 
 Vk::Swapchain::Swapchain(Vk::Device &device, VkSwapchainKHR swapchain) :

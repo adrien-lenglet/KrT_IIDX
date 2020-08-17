@@ -429,6 +429,7 @@ private:
 		const PhysicalDevice& physical(void) const;
 		Allocator& allocator(void);
 		VkQueue getQueue(uint32_t family_ndx, uint32_t ndx);
+		VkFormat sbFormatToVk(sb::Format format) const;
 
 		template <typename VkHandle>
 		using Handle = HandleDep<Device, VkHandle>;
@@ -483,7 +484,11 @@ private:
 		PhysicalDevice m_physical;
 		Allocator m_allocator;
 
+		std::map<sb::Format, VkFormat> m_dynamic_formats;
+
 		VkDevice createDevice(const PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues);
+		std::map<sb::Format, VkFormat> getDynamicFormats(void);
+		bool isDepthFormatSupportedSplAtt(VkFormat format);
 	};
 
 	class Allocation : public Allocator::Handle<VmaAllocation>
@@ -537,22 +542,46 @@ private:
 
 	using ImageView = Device::Handle<VkImageView>;
 
+	static inline VkImageLayout sbImageLayoutToVk(sb::Image::Layout layout)
+	{
+		return static_cast<VkImageLayout>(static_cast<std::underlying_type_t<sb::Image::Layout>>(layout));
+	}
+
 	class RenderPass : public sb::RenderPass, public Device::Handle<VkRenderPass>
 	{
+		static VkAttachmentLoadOp sbLoadOpToVk(sb::Image::LoadOp loadOp);
+		static VkAttachmentStoreOp sbStoreOpToVk(sb::Image::StoreOp storeOp);
+
+		static inline VkAttachmentReference sbAttachmentReferenceToVk(const sb::RenderPass::Layout::AttachmentReference &ref)
+		{
+			return {static_cast<uint32_t>(ref.ndx), sbImageLayoutToVk(ref.layout)};
+		}
+
+		static inline VkPipelineStageFlags sbPipelineStageToVk(sb::PipelineStage stage)
+		{
+			return static_cast<VkPipelineStageFlags>(static_cast<std::underlying_type_t<sb::PipelineStage>>(stage));
+		}
+
+		static inline VkAccessFlags sbAccessToVk(sb::Access access)
+		{
+			return static_cast<VkAccessFlags>(static_cast<std::underlying_type_t<sb::Access>>(access));
+		}
+
+		static inline VkDependencyFlags sbDependencyFlagToVk(sb::DependencyFlag flag)
+		{
+			return static_cast<VkDependencyFlags>(static_cast<std::underlying_type_t<sb::DependencyFlag>>(flag));
+		}
+
 	public:
-		RenderPass(Device &dev, VkRenderPass renderPass) :
-			Device::Handle<VkRenderPass>(dev, renderPass)
-		{
-		}
-		~RenderPass(void) override
-		{
-		}
+		RenderPass(Device &dev, VkRenderPass renderPass);
+		RenderPass(Device &dev, sb::rs::RenderPass &res);
+		~RenderPass(void) override;
+
+	private:
+		VkRenderPass create(Device &dev, sb::rs::RenderPass &res);
 	};
 
-	std::unique_ptr<sb::RenderPass> createRenderPass(sb::rs::RenderPass &renderpass) override
-	{
-		return std::make_unique<RenderPass>(m_device, (VkRenderPass)VK_NULL_HANDLE);
-	}
+	std::unique_ptr<sb::RenderPass> createRenderPass(sb::rs::RenderPass &renderpass) override;
 
 	using Framebuffer = Device::Handle<VkFramebuffer>;
 

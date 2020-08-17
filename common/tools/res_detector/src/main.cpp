@@ -580,6 +580,11 @@ class FolderPrinter
 			Return | B {attb, subb, depb}
 		};
 
+		rp += Static | "sb::RenderPass::Loaded"_t.T(rp) | Id("loaded")(Void) | S
+		{
+			"throw"_v
+		};
+
 		return rp;
 	}
 
