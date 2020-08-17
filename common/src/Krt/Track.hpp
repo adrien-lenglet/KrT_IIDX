@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Subtile/World.hpp"
-#include "Subtile/RenderPass.hpp"
+#include "Subtile/RenderList.hpp"
 #include "res.resdecl.hpp"
 
 namespace Krt {

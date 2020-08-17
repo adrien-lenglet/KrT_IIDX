@@ -15,6 +15,8 @@
 #include "util/bin.hpp"
 #include "util.hpp"
 
+#include "RenderPass.hpp"
+
 namespace Subtile {
 
 class ISystem;

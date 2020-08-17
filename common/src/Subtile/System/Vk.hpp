@@ -5,7 +5,7 @@
 #include "../ISystem.hpp"
 #include "Glfw.hpp"
 #include "Subtile/Shader.hpp"
-#include "Subtile/RenderPass.hpp"
+#include "Subtile/RenderList.hpp"
 #include "Subtile/Model.hpp"
 
 #undef assert
