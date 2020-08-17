@@ -102,6 +102,8 @@ private:
 		{
 		}
 
+		Handle(const Handle&) = delete;
+
 		Handle(Handle &&other) :
 			m_handle(other.m_handle)
 		{
@@ -134,6 +136,8 @@ private:
 			m_handle(handle)
 		{
 		}
+
+		HandleDep(const HandleDep&) = delete;
 
 		HandleDep(HandleDep &&other) :
 			m_dep(other.m_dep),
@@ -532,7 +536,24 @@ private:
 	Transfer m_transfer;
 
 	using ImageView = Device::Handle<VkImageView>;
-	using RenderPass = Device::Handle<VkRenderPass>;
+
+	class RenderPass : public sb::RenderPass, public Device::Handle<VkRenderPass>
+	{
+	public:
+		RenderPass(Device &dev, VkRenderPass renderPass) :
+			Device::Handle<VkRenderPass>(dev, renderPass)
+		{
+		}
+		~RenderPass(void) override
+		{
+		}
+	};
+
+	std::unique_ptr<sb::RenderPass> createRenderPass(sb::rs::RenderPass &renderpass) override
+	{
+		return std::make_unique<RenderPass>(m_device, (VkRenderPass)VK_NULL_HANDLE);
+	}
+
 	using Framebuffer = Device::Handle<VkFramebuffer>;
 
 	class Swapchain : public Device::Handle<VkSwapchainKHR>
@@ -698,7 +719,7 @@ private:
 		Pipeline createPipeline(Vk::Device &device, rs::Shader &shader);
 	};
 
-	std::unique_ptr<sb::Shader> loadShader(rs::Shader &shader) override;
+	std::unique_ptr<sb::Shader> createShader(rs::Shader &shader) override;
 
 	void acquireNextImage(void) override;
 	Semaphore m_acquire_image_semaphore;

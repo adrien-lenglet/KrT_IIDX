@@ -1,7 +1,9 @@
 #pragma once
 
 #include <set>
+#include "util.hpp"
 #include "../Subtile.hpp"
+#include "Cache.hpp"
 #include "Image.hpp"
 #include "PipelineStage.hpp"
 #include "Access.hpp"
@@ -12,10 +14,68 @@
 
 namespace Subtile {
 
+namespace Resource {
+class RenderPass;
+}
+
 class RenderPass
 {
 public:
 	class Compiler;
+
+	using Cache = sb::Cache<util::ref_wrapper<Resource::RenderPass>, std::unique_ptr<RenderPass>>;
+
+	template <typename T>
+	class RefGetter
+	{
+	public:
+		RefGetter(T &holder) :
+			m_holder(holder)
+		{
+		}
+
+		auto& get(void)
+		{
+			return m_holder.m_ref;
+		}
+
+	private:
+		T &m_holder;
+	};
+
+	class CacheRefHolder
+	{
+	public:
+		template <typename ...Args>
+		CacheRefHolder(Args &&...args) :
+			m_ref(std::forward<Args>(args)...)
+		{
+		}
+
+		template <typename>
+		friend class RefGetter;
+
+	protected:
+		Cache::Ref m_ref;
+	};
+
+
+	template <typename ResType>
+	class Loaded :
+		public CacheRefHolder
+	{
+		using Res = util::remove_cvr_t<ResType>;
+
+	public:
+		Loaded(Cache::Ref &&shader_ref) :
+			CacheRefHolder(std::move(shader_ref))
+		{
+		}
+		Loaded(Loaded<Res> &&other) :
+			CacheRefHolder(std::move(RefGetter<CacheRefHolder>(other).get()))
+		{
+		}
+	};
 
 	struct Layout
 	{

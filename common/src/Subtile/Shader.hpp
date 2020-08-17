@@ -21,7 +21,7 @@ namespace Subtile {
 
 class ISystem;
 namespace Resource {
-	class Shader;
+class Shader;
 }
 class Instance;
 
@@ -50,9 +50,21 @@ public:
 		T &m_holder;
 	};
 
-	class CacheRefHolder;
-	template <typename ResType>
-	class Loaded;
+	class CacheRefHolder
+	{
+	public:
+		template <typename ...Args>
+		CacheRefHolder(Args &&...args) :
+			m_ref(std::forward<Args>(args)...)
+		{
+		}
+
+		template <typename>
+		friend class RefGetter;
+
+	protected:
+		Cache::Ref m_ref;
+	};
 
 	enum class Stage {
 		Vertex,
@@ -742,7 +754,24 @@ public:
 		};
 
 		template <typename Traits>
-		class Handle;
+		class Handle :
+			public BaseHandle,
+			public Traits::template Runtime<Handle<Traits>>
+		{
+			using Mapped = typename Traits::Mapped;
+
+		public:
+			Handle(Cache::Ref &ref, size_t set_ndx) :
+				BaseHandle((**ref).set(set_ndx)),
+				Traits::template Runtime<Handle<Traits>>(ref)
+			{
+			}
+
+			void upload(void)
+			{
+				m_set->write(0, sizeof(Mapped), &static_cast<Mapped&>(*this));
+			}
+		};
 	};
 
 	class Model
@@ -831,6 +860,41 @@ public:
 		Shader &m_shader;
 		const Model &m_model;
 		SetsType m_sets;
+	};
+
+	template <typename ResType>
+	class Loaded :
+		public CacheRefHolder,
+		public util::remove_cvr_t<ResType>::template Runtime<Loaded<ResType>>
+	{
+		using Res = util::remove_cvr_t<ResType>;
+
+	public:
+		Loaded(Cache::Ref &&shader_ref) :
+			CacheRefHolder(std::move(shader_ref)),
+			Res::template Runtime<Loaded<ResType>>(m_ref)
+		{
+		}
+		Loaded(Loaded<Res> &&other) :
+			CacheRefHolder(std::move(RefGetter<CacheRefHolder>(other).get())),
+			Res::template Runtime<Loaded<ResType>>(m_ref)
+		{
+		}
+
+		using ResModel = typename Res::Model;
+		using Model = Shader::Model::Handle<ResModel>;
+		auto model(const ResModel &in)
+		{
+			return Model((**m_ref).model(in.vertex_count(), sizeof(typename ResModel::Vertex), in.vertex_data()));
+		}
+
+		auto model(void)
+		{
+			// don't actually thow a fatal error for a misuse
+			std::cerr << "Shader::model() called at runtime with no argument, use it on static time with decltype for the return type" << std::endl;
+
+			return Model((**m_ref).model(0, sizeof(typename ResModel::Vertex), nullptr));
+		}
 	};
 };
 
@@ -944,81 +1008,6 @@ public:
 
 private:
 	const Layout &m_layout;
-};
-
-class Shader::CacheRefHolder
-{
-public:
-	template <typename ...Args>
-	CacheRefHolder(Args &&...args) :
-		m_ref(std::forward<Args>(args)...)
-	{
-	}
-
-	template <typename>
-	friend class RefGetter;
-
-protected:
-	Cache::Ref m_ref;
-};
-
-template <typename ResType>
-class Shader::Loaded :
-	public CacheRefHolder,
-	public util::remove_cvr_t<ResType>::template Runtime<Loaded<ResType>>
-{
-	using Res = util::remove_cvr_t<ResType>;
-
-public:
-	Loaded(Cache::Ref &&shader_ref) :
-		CacheRefHolder(std::move(shader_ref)),
-		Res::template Runtime<Loaded<ResType>>(m_ref)
-	{
-	}
-	Loaded(Loaded<Res> &&other) :
-		CacheRefHolder(std::move(RefGetter<CacheRefHolder>(other).get())),
-		Res::template Runtime<Loaded<ResType>>(m_ref)
-	{
-	}
-
-	using ResModel = typename Res::Model;
-	using Model = Shader::Model::Handle<ResModel>;
-	auto model(const ResModel &in)
-	{
-		return Model((**m_ref).model(in.vertex_count(), sizeof(typename ResModel::Vertex), in.vertex_data()));
-	}
-
-	auto model(void)
-	{
-		// don't actually thow a fatal error for a misuse
-		std::cerr << "Shader::model() called at runtime with no argument, use it on static time with decltype for the return type" << std::endl;
-
-		return Model((**m_ref).model(0, sizeof(typename ResModel::Vertex), nullptr));
-	}
-
-private:
-	template <typename>
-	friend class Loaded;
-};
-
-template <typename Traits>
-class Shader::DescriptorSet::Handle :
-	public Shader::DescriptorSet::BaseHandle,
-	public Traits::template Runtime<Handle<Traits>>
-{
-	using Mapped = typename Traits::Mapped;
-
-public:
-	Handle(Cache::Ref &ref, size_t set_ndx) :
-		BaseHandle((**ref).set(set_ndx)),
-		Traits::template Runtime<Handle<Traits>>(ref)
-	{
-	}
-
-	void upload(void)
-	{
-		m_set->write(0, sizeof(Mapped), &static_cast<Mapped&>(*this));
-	}
 };
 
 }

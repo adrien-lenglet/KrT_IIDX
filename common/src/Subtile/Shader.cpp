@@ -158,7 +158,7 @@ Shader::Cache::Ref Instance::loadShaderRef(rs::Shader &shaderres)
 {
 	auto got = m_shaders.find(shaderres);
 	if (got == m_shaders.end())
-		return m_shaders.emplace(shaderres, m_system->loadShader(shaderres));
+		return m_shaders.emplace(shaderres, m_system->createShader(shaderres));
 	else
 		return got->second.new_ref();
 }

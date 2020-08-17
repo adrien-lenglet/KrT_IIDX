@@ -1378,7 +1378,7 @@ Vk::Pipeline& Vk::Shader::getPipeline(void)
 	return m_pipeline;
 }
 
-std::unique_ptr<sb::Shader> Vk::loadShader(rs::Shader &shader)
+std::unique_ptr<sb::Shader> Vk::createShader(rs::Shader &shader)
 {
 	return std::make_unique<Shader>(m_device, shader);
 }

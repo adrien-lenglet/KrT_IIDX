@@ -4,7 +4,7 @@
 #include "ISystem.hpp"
 #include "IInput.hpp"
 #include "Event/System/Observer.hpp"
-#include "Resource/Shader.hpp"
+#include "Shader.hpp"
 
 namespace Subtile {
 
@@ -17,6 +17,7 @@ class Pass;
 class Instance
 {
 	Shader::Cache m_shaders;
+	RenderPass::Cache m_render_passes;
 
 public:
 	Instance(bool isDebug = false, const std::string &name = "SUBTILE® Application");
@@ -68,12 +69,19 @@ private:
 	ISystem& system(void);
 
 	Shader::Cache::Ref loadShaderRef(rs::Shader &shaderres);
+	RenderPass::Cache::Ref loadRenderPassRef(rs::RenderPass &renderpassres);
 
 	template <typename S>
 	decltype(auto) loadShader(S &&shaderres)
 	{
 		return Shader::Loaded<std::remove_cv_t<std::remove_reference_t<S>>>(loadShaderRef(std::forward<S>(shaderres)));
 	}
+	template <typename R>
+	decltype(auto) loadRenderPass(R &&renderpassres)
+	{
+		return RenderPass::Loaded<std::remove_cv_t<std::remove_reference_t<R>>>(loadRenderPassRef(std::forward<R>(renderpassres)));
+	}
+
 
 public:
 	template <typename ResType>
@@ -83,9 +91,10 @@ public:
 
 		if constexpr (std::is_base_of_v<rs::Shader, std::remove_reference_t<ResType>>) {
 			return loadShader(std::forward<ResType>(res));
-		} else {
+		} else if constexpr (std::is_base_of_v<rs::RenderPass, std::remove_reference_t<ResType>>) {
+			return loadRenderPass(std::forward<ResType>(res));
+		} else
 			static_assert(std::is_same_v<ResType, ResType>, "Unsupported resource type");
-		}
 	}
 };
 
