@@ -154,7 +154,7 @@ Shader::Model& Shader::Model::BaseHandle::getModel(void) const
 	return *m_model;
 }
 
-Shader::UniqueRef Instance::loadShaderRef(rs::Shader &shaderres)
+Shader::Cache::Ref Instance::loadShaderRef(rs::Shader &shaderres)
 {
 	auto got = m_shaders.find(shaderres);
 	if (got == m_shaders.end())

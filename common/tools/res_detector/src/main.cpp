@@ -260,7 +260,7 @@ class FolderPrinter
 		auto model = shaderAddVertexInput(sh, compiled);
 
 		auto ref_acc = "sb::Shader::DescriptorSet::RefAccessor"_t.T("Up"_t);
-		auto unique_ref = "sb::Shader::UniqueRef"_t;
+		auto unique_ref = "sb::Shader::Cache::Ref"_t;
 
 		auto &u_sets = sh += Struct | "Set" | S {};
 		auto &runtime = sh += Template(Typename | "Up") || Class | "Runtime" | S
@@ -286,7 +286,7 @@ class FolderPrinter
 			Class | "Runtime" | C(Public | set_scope>>"Mapped"_t) | S
 			{
 				unique_ref | &N | Id("m_ref"),
-				"template <typename> friend class sb::Shader::UniqueRef::Getter"_v,
+				"template <typename> friend class sb::Shader::RefGetter"_v,
 			Public,
 				Ctor(unique_ref | &N | Id("ref")) | C(Id("m_ref")("ref"_v)) | S
 				{
@@ -352,7 +352,7 @@ class FolderPrinter
 
 				ndx++;
 			}
-			render += Return | render_type("m_ref"_v.M("getShader"_v()), "sb::Shader::Model::BaseHandle::Getter"_t("model"_v).M("getModel"_v()), render_list);
+			render += Return | render_type(**"m_ref"_v, "sb::Shader::Model::BaseHandle::Getter"_t("model"_v).M("getModel"_v()), render_list);
 		}
 
 		auto is_module_fwd = sh += Bool | Id("isModule")(Void) | Const | Override;

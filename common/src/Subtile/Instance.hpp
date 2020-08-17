@@ -67,7 +67,7 @@ private:
 
 	ISystem& system(void);
 
-	Shader::UniqueRef loadShaderRef(rs::Shader &shaderres);
+	Shader::Cache::Ref loadShaderRef(rs::Shader &shaderres);
 
 	template <typename S>
 	decltype(auto) loadShader(S &&shaderres)
@@ -95,7 +95,7 @@ class Shader::DescriptorSet::Layout::Resolver::Foreign : public Shader::Descript
 public:
 	Foreign(Instance &instance, ShaderRes &shaderres, size_t set_ndx) :
 		m_loaded(Instance::Getter(instance).loadShader(shaderres)),
-		m_layout(UniqueRef::template Getter<UniqueRefHolder>(m_loaded).get().setLayout(set_ndx))
+		m_layout((**RefGetter<CacheRefHolder>(m_loaded).get()).setLayout(set_ndx))
 	{
 	}
 	~Foreign(void) override

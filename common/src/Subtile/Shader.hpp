@@ -29,8 +29,26 @@ public:
 	virtual ~Shader(void) = default;
 
 	using Cache = sb::Cache<util::ref_wrapper<Resource::Shader>, std::unique_ptr<Shader>>;
-	class UniqueRef;
-	class UniqueRefHolder;
+
+	template <typename T>
+	class RefGetter
+	{
+	public:
+		RefGetter(T &holder) :
+			m_holder(holder)
+		{
+		}
+
+		auto& get(void)
+		{
+			return m_holder.m_ref;
+		}
+
+	private:
+		T &m_holder;
+	};
+
+	class CacheRefHolder;
 	template <typename ResType>
 	class Loaded;
 
@@ -926,88 +944,37 @@ private:
 	const Layout &m_layout;
 };
 
-class Shader::UniqueRef : public Shader
+class Shader::CacheRefHolder
 {
 public:
 	template <typename ...Args>
-	UniqueRef(Args &&...args) :
-		m_ref(std::forward<Args>(args)...)
-	{
-	}
-
-	std::unique_ptr<Shader::Model> model(size_t count, size_t stride, const void *data) override
-	{
-		return (*m_ref)->model(count, stride, data);
-	}
-
-	const Shader::DescriptorSet::Layout& setLayout(size_t ndx) override
-	{
-		return (*m_ref)->setLayout(ndx);
-	}
-
-	std::unique_ptr<Shader::DescriptorSet> set(size_t ndx) override
-	{
-		return (*m_ref)->set(ndx);
-	}
-
-	Shader& getShader(void)
-	{
-		return **m_ref;
-	}
-
-	template <typename T>
-	class Getter
-	{
-	public:
-		Getter(T &holder) :
-			m_holder(holder)
-		{
-		}
-
-		auto& get(void)
-		{
-			return m_holder.m_ref;
-		}
-
-	private:
-		T &m_holder;
-	};
-
-private:
-	Cache::Ref m_ref;
-};
-
-class Shader::UniqueRefHolder
-{
-public:
-	template <typename ...Args>
-	UniqueRefHolder(Args &&...args) :
+	CacheRefHolder(Args &&...args) :
 		m_ref(std::forward<Args>(args)...)
 	{
 	}
 
 	template <typename>
-	friend class UniqueRef::Getter;
+	friend class RefGetter;
 
 protected:
-	UniqueRef m_ref;
+	Cache::Ref m_ref;
 };
 
 template <typename ResType>
 class Shader::Loaded :
-	public UniqueRefHolder,
+	public CacheRefHolder,
 	public util::remove_cvr_t<ResType>::template Runtime<Loaded<ResType>>
 {
 	using Res = util::remove_cvr_t<ResType>;
 
 public:
-	Loaded(UniqueRef &&shader_ref) :
-		UniqueRefHolder(std::move(shader_ref)),
+	Loaded(Cache::Ref &&shader_ref) :
+		CacheRefHolder(std::move(shader_ref)),
 		Res::template Runtime<Loaded<ResType>>(m_ref)
 	{
 	}
 	Loaded(Loaded<Res> &&other) :
-		UniqueRefHolder(std::move(UniqueRef::Getter<UniqueRefHolder>(other).get())),
+		CacheRefHolder(std::move(RefGetter<CacheRefHolder>(other).get())),
 		Res::template Runtime<Loaded<ResType>>(m_ref)
 	{
 	}
@@ -1016,7 +983,7 @@ public:
 	using Model = Shader::Model::Handle<ResModel>;
 	auto model(const ResModel &in)
 	{
-		return Model(m_ref.model(in.vertex_count(), sizeof(typename ResModel::Vertex), in.vertex_data()));
+		return Model((**m_ref).model(in.vertex_count(), sizeof(typename ResModel::Vertex), in.vertex_data()));
 	}
 
 	auto model(void)
@@ -1024,7 +991,7 @@ public:
 		// don't actually thow a fatal error for a misuse
 		std::cerr << "Shader::model() called at runtime with no argument, use it on static time with decltype for the return type" << std::endl;
 
-		return Model(m_ref.model(0, sizeof(typename ResModel::Vertex), nullptr));
+		return Model((**m_ref).model(0, sizeof(typename ResModel::Vertex), nullptr));
 	}
 
 private:
@@ -1040,8 +1007,8 @@ class Shader::DescriptorSet::Handle :
 	using Mapped = typename Traits::Mapped;
 
 public:
-	Handle(UniqueRef &ref, size_t set_ndx) :
-		BaseHandle(ref.set(set_ndx)),
+	Handle(Cache::Ref &ref, size_t set_ndx) :
+		BaseHandle((**ref).set(set_ndx)),
 		Traits::template Runtime<Handle<Traits>>(ref)
 	{
 	}
