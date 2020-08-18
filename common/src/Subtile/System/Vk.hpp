@@ -516,11 +516,11 @@ private:
 	Device createDevice(void);
 	Device::QueuesCreateInfo getDesiredQueues(const PhysicalDevice &dev);
 
-	VkQueue m_graphics_queue;
-	VkQueue m_present_queue;
-	VkQueue m_transfer_queue;
+	//VkQueue m_graphics_queue;
+	//VkQueue m_present_queue;
+	//VkQueue m_transfer_queue;
 
-	class Transfer
+	/*class Transfer
 	{
 	public:
 		Transfer(Device &dev, VkQueue transferQueue);
@@ -538,7 +538,7 @@ private:
 		void write_w_staging(VkBuffer buf, size_t offset, size_t range, const void *data, VmaBuffer &staging);
 	};
 
-	Transfer m_transfer;
+	Transfer m_transfer;*/
 
 	using ImageView = Device::Handle<VkImageView>;
 

@@ -80,13 +80,13 @@ Pass::Pass(void) :
 
 void Pass::render(void)
 {
-	auto renderCmd = m_system.createRenderCommandBuffer();
+	/*auto renderCmd = m_system.createRenderCommandBuffer();
 
 	renderCmd->beginRenderPass();
 	for (auto &sp : m_shaderpasses)
 		sp.second.render(*renderCmd);
 	renderCmd->endRenderPass();
-	renderCmd->submit();
+	renderCmd->submit();*/
 }
 
 Pass::~Pass(void)

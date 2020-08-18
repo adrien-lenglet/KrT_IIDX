@@ -15,10 +15,10 @@ Vk::Vk(sb::InstanceBase &instance, bool isDebug, Glfw &&glfw) :
 	m_debug_messenger(createDebugMessenger()),
 	m_surface(createSurface()),
 	m_device(createDevice()),
-	m_graphics_queue(m_device.getQueue(*m_device.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT), 0)),
-	m_present_queue(m_device.getQueue(*m_device.physical().queues().presentation(), 0)),
-	m_transfer_queue(m_device.getQueue(*m_device.physical().queues().indexOf(VK_QUEUE_TRANSFER_BIT), 0)),
-	m_transfer(m_device, m_transfer_queue),
+	//m_graphics_queue(m_device.getQueue(*m_device.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT), 0)),
+	//m_present_queue(m_device.getQueue(*m_device.physical().queues().presentation(), 0)),
+	//m_transfer_queue(m_device.getQueue(*m_device.physical().queues().indexOf(VK_QUEUE_TRANSFER_BIT), 0)),
+	//m_transfer(m_device, m_transfer_queue),
 	m_swapchain_format(m_device.physical().surface().chooseFormat()),
 	m_swapchain(createSwapchain()),
 	m_default_render_pass(createDefaultRenderPass()),
@@ -758,7 +758,7 @@ Vk::VmaBuffer::VmaBuffer(Device &dev, VkBuffer buffer, VmaAllocation allocation)
 {
 }
 
-Vk::Transfer::Transfer(Device &dev, VkQueue transferQueue) :
+/*Vk::Transfer::Transfer(Device &dev, VkQueue transferQueue) :
 	m_dev(dev),
 	m_transfer_queue(transferQueue),
 	m_staging_buffer_size(32000000),
@@ -814,7 +814,7 @@ void Vk::Transfer::write_w_staging(VkBuffer buf, size_t offset, size_t range, co
 
 	cmd.submit();
 	vkQueueWaitIdle(m_transfer_queue);
-}
+}*/
 
 template <>
 void Vk::Device::Handle<VkImageView>::destroy(Vk::Device &device, VkImageView imageView)
@@ -1310,7 +1310,10 @@ Vk::DescriptorSet::DescriptorSet(Vk::Device &dev, const Vk::DescriptorSetLayout 
 
 void Vk::DescriptorSet::write(size_t offset, size_t range, const void *data)
 {
-	m_descriptor_pool.getDep().vk().m_transfer.write(m_buffer, offset, range, data);
+	static_cast<void>(offset);
+	static_cast<void>(range);
+	static_cast<void>(data);
+	//m_descriptor_pool.getDep().vk().m_transfer.write(m_buffer, offset, range, data);
 }
 
 Vk::DescriptorSet::operator VkDescriptorSet(void) const
@@ -1385,7 +1388,8 @@ Vk::Model::Model(Vk::Device &dev, size_t count, size_t stride, const void *data)
 	m_count(count),
 	m_buffer(createBuffer(dev, count * stride))
 {
-	dev.vk().m_transfer.write(m_buffer, 0, count * stride, data);
+	static_cast<void>(data);
+	//dev.vk().m_transfer.write(m_buffer, 0, count * stride, data);
 }
 
 Vk::VmaBuffer Vk::Model::createBuffer(Device &dev, size_t size)
@@ -1778,7 +1782,7 @@ void Vk::CommandBuffer::draw(const sb::Shader::Model &model)
 
 void Vk::CommandBuffer::submit(void)
 {
-	Vk::assert(vkEndCommandBuffer(m_command_buffer));
+	/*Vk::assert(vkEndCommandBuffer(m_command_buffer));
 
 	VkSubmitInfo s {};
 	s.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1786,7 +1790,7 @@ void Vk::CommandBuffer::submit(void)
 	s.pCommandBuffers = &m_command_buffer;
 
 	Vk::assert(vkQueueSubmit(m_command_pool.getDep().vk().m_graphics_queue, 1, &s, VK_NULL_HANDLE));
-	Vk::assert(vkQueueWaitIdle(m_command_pool.getDep().vk().m_graphics_queue));
+	Vk::assert(vkQueueWaitIdle(m_command_pool.getDep().vk().m_graphics_queue));*/
 }
 
 std::unique_ptr<sb::Render::CommandBuffer> Vk::createRenderCommandBuffer(void)
@@ -1796,7 +1800,7 @@ std::unique_ptr<sb::Render::CommandBuffer> Vk::createRenderCommandBuffer(void)
 
 void Vk::acquireNextImage(void)
 {
-	uint32_t ndx;
+	/*uint32_t ndx;
 
 	Vk::assert(vkAcquireNextImageKHR(m_device, m_swapchain, ~0ULL, m_acquire_image_semaphore, VK_NULL_HANDLE, &ndx));
 	m_swapchain_image_ndx = ndx;
@@ -1847,12 +1851,12 @@ void Vk::acquireNextImage(void)
 	s2.commandBufferCount = 1;
 	s2.pCommandBuffers = &cmd_handle2;
 	Vk::assert(vkQueueSubmit(m_graphics_queue, 1, &s2, VK_NULL_HANDLE));
-	Vk::assert(vkQueueWaitIdle(m_graphics_queue));
+	Vk::assert(vkQueueWaitIdle(m_graphics_queue));*/
 }
 
 void Vk::presentImage(void)
 {
-	VkSwapchainKHR swapchain = m_swapchain;
+	/*VkSwapchainKHR swapchain = m_swapchain;
 	uint32_t ndx = m_swapchain_image_ndx;
 
 	VkPresentInfoKHR pi {};
@@ -1862,7 +1866,7 @@ void Vk::presentImage(void)
 	pi.pImageIndices = &ndx;
 
 	Vk::assert(vkQueuePresentKHR(m_present_queue, &pi));
-	Vk::assert(vkQueueWaitIdle(m_present_queue));
+	Vk::assert(vkQueueWaitIdle(m_present_queue));*/
 }
 
 }
