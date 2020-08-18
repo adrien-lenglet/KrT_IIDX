@@ -48,6 +48,7 @@ public:
 
 	InstanceType &instance;
 
+	using instance_type = InstanceType;
 	using Entity = sb::Entity<WorldType>;
 
 	template <class EntityType, typename ...Args>

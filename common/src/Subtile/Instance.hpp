@@ -155,6 +155,8 @@ private:
 	template <typename SessionType, typename ...ArgsTypes>
 	std::unique_ptr<SessionType> createSession(ArgsTypes &&...args)
 	{
+		static_assert(std::is_base_of_v<typename SessionType::instance_type, InstanceType>, "Incompatible session");
+
 		auto res = SessionBase::getCtx().emplace_frame(std::function([&](){
 			return std::make_unique<SessionType>(std::forward<ArgsTypes>(args)...);
 		}), *this);
@@ -165,6 +167,8 @@ private:
 	template <typename WorldType, typename ...ArgsTypes>
 	std::unique_ptr<WorldType> createWorld(ArgsTypes &&...args)
 	{
+		static_assert(std::is_base_of_v<typename WorldType::instance_type, InstanceType>, "Incompatible world");
+
 		auto res = WorldBase::getInstanceStack().emplace_frame(std::function([&]() -> auto {
 			return EntityBase::getCtx().emplace_frame(std::function([&]() -> auto {
 				return std::make_unique<WorldType>(std::forward<ArgsTypes>(args)...);

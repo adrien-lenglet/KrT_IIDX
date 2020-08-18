@@ -61,6 +61,8 @@ public:
 	{
 	}
 
+	using instance_type = InstanceType;
+
 protected:
 	InstanceType &instance;
 };
