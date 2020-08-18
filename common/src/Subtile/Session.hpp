@@ -8,7 +8,7 @@
 namespace Subtile {
 
 class Instance;
-class World;
+class WorldBase;
 class Session;
 
 class SessionBase : public Event::Socket
@@ -38,7 +38,7 @@ private:
 	static util::stack<std::reference_wrapper<SessionBase>>& getSessionStack(void);
 
 	Instance &m_instance;
-	util::unique_set<World> m_worlds;
+	util::unique_set<WorldBase> m_worlds;
 	bool m_done;
 };
 

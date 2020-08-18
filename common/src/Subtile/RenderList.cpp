@@ -74,7 +74,7 @@ void Pass::ShaderPass::destroy(void)
 }
 
 Pass::Pass(void) :
-	m_system(World::getInstanceStack().top().get().system())
+	m_system(WorldBase::getInstanceStack().top().get().system())
 {
 }
 

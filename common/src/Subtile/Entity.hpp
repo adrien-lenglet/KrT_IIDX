@@ -12,13 +12,15 @@
 namespace Subtile {
 
 class SessionBase;
-class World;
+class WorldBase;
 namespace Resource {
 class Shader;
 }
 
 template <typename WorldType>
 class Entity;
+template <typename WorldType>
+class World;
 
 class EntityBase : protected Event::World::Socket
 {
@@ -29,26 +31,28 @@ class EntityBase : protected Event::World::Socket
 	class Context
 	{
 	public:
-		Context(World *world, EntityBase *parent);
+		Context(WorldBase *world, EntityBase *parent);
 		~Context(void) = default;
 
 		template <class EntType>
-		World& getWorld(EntType &ent) const
+		WorldBase& getWorld(EntType &ent) const
 		{
 			if (m_world)
 				return *m_world;
 			else
-				return reinterpret_cast<World&>(ent);
+				return reinterpret_cast<WorldBase&>(ent);
 		}
 		EntityBase* getParent(void) const;
 
 	private:
 		friend EntityBase;
 		friend EntityBase;
-		World *m_world;
+		WorldBase *m_world;
 		EntityBase *m_parent;
 	};
 
+	template <typename WorldType>
+	friend class World;
 	static util::stack<Context>& getCtx(void);
 
 	EntityBase(EntityBase *parent);
@@ -94,7 +98,7 @@ protected:
 	};
 
 private:
-	friend World;
+	friend WorldBase;
 
 	static util::stack<std::reference_wrapper<EntityBase>>& getEntityStack(void);
 

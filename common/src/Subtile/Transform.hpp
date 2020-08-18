@@ -4,7 +4,7 @@
 
 namespace Subtile {
 
-class World;
+class WorldBase;
 
 /*template <class Final>
 class Transform
@@ -102,7 +102,7 @@ public:
 
 private:
 	friend Final;
-	friend World;
+	friend WorldBase;
 
 	Final& getFinal(void);
 

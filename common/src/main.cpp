@@ -1,6 +1,12 @@
 #include <iostream>
 #include "Krt/Krt.hpp"
 
+#ifdef DEBUG
+#define IS_DEBUG true
+#else
+#define IS_DEBUG false
+#endif
+
 static std::vector<std::string> getArgs(int argc, char **argv)
 {
 	std::vector<std::string> res;
@@ -12,7 +18,7 @@ static std::vector<std::string> getArgs(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
-	Krt::Instance(getArgs(argc, argv)).run();
+	Krt::Instance(getArgs(argc, argv), IS_DEBUG).run();
 	std::cout << "Engine done." << std::endl;
 	return 0;
 }

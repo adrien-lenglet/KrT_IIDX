@@ -3,7 +3,7 @@
 
 namespace Subtile {
 
-EntityBase::Context::Context(World *world, EntityBase *parent) :
+EntityBase::Context::Context(WorldBase *world, EntityBase *parent) :
 	m_world(world),
 	m_parent(parent)
 {

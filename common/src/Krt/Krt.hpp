@@ -5,15 +5,9 @@
 
 #include "Subtile/Instance.hpp"
 
-#ifdef DEBUG
-#define IS_DEBUG true
-#else
-#define IS_DEBUG false
-#endif
-
 namespace Krt {
 
-class Instance
+class Instance : public sb::Instance
 {
 	class Config {
 	public:
@@ -24,14 +18,16 @@ class Instance
 	};
 
 public:
-	Instance(std::vector<std::string> args, bool isDebug = IS_DEBUG);
+	Instance(std::vector<std::string> args, bool isDebug);
 	~Instance(void);
 
 	void run(void);
 
+	using World = sb::World<Instance>;
+	using Session = sb::Session;
+
 private:
 	Config config;
-	sb::Instance subtile;
 };
 
 }

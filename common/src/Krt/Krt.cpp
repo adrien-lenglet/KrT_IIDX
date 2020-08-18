@@ -6,17 +6,11 @@
 
 #include <iostream>
 
-#ifdef DEBUG
-#define IS_DEBUG true
-#else
-#define IS_DEBUG false
-#endif
-
 namespace Krt {
 
-Instance::Instance(std::vector<std::string> args, bool) :
-	config(args),
-	subtile(IS_DEBUG, "SUNREN®")
+Instance::Instance(std::vector<std::string> args, bool isDebug) :
+	sb::Instance(isDebug, "SUNREN®"),
+	config(args)
 {
 }
 
@@ -26,11 +20,11 @@ Instance::~Instance(void)
 
 void Instance::run(void)
 {
-	subtile.setInputs([](const auto &s){
+	setInputs([](const auto &s){
 		s.addButton("quit");
 	});
 
-	auto race = subtile.createSession<Race>();
+	auto race = createSession<Race>();
 	race->run();
 }
 

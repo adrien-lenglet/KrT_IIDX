@@ -4,7 +4,7 @@
 
 namespace Krt {
 
-class Race : public sb::Session
+class Race : public Instance::Session
 {
 public:
 	Race(void);

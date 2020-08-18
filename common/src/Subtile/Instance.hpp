@@ -8,7 +8,7 @@
 
 namespace Subtile {
 
-class World;
+class WorldBase;
 class SessionBase;
 namespace Render {
 class Pass;
@@ -58,7 +58,7 @@ public:
 	};
 
 private:
-	friend World;
+	friend WorldBase;
 	friend SessionBase;
 	friend Render::Pass;
 	friend Getter;

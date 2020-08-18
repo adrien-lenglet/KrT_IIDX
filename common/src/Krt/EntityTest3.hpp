@@ -4,7 +4,7 @@
 
 namespace Krt {
 
-class OtherWorld : public sb::World
+class OtherWorld : public Instance::World
 {
 public:
 	OtherWorld(void) = default;
@@ -12,7 +12,7 @@ public:
 	int lol = 5;
 };
 
-class EntityTest3 : public sb::Entity<sb::World>
+class EntityTest3 : public Track::Entity
 {
 public:
 	EntityTest3(void);

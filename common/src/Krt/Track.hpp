@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Subtile/World.hpp"
+#include "Krt.hpp"
 #include "Subtile/RenderList.hpp"
 #include "res.resdecl.hpp"
 
@@ -8,7 +8,7 @@ namespace Krt {
 
 class EntityTest;
 
-class Track : public sb::World
+class Track : public Instance::World
 {
 public:
 	using Entity = sb::Entity<Track>;

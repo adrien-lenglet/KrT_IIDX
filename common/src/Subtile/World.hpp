@@ -12,28 +12,19 @@ namespace Render {
 class Pass;
 }
 
-class World : public Entity<World>
+class WorldBase : public EntityBase
 {
 public:
-	World(void);
-	~World(void) = 0;
+	WorldBase(void);
+	~WorldBase(void) = 0;
 
-	Instance &instance;
 	Subtile::Event::World::Observer events;
-
-	template <class EntityType, typename ...Args>
-	EntityType& add(Args &&...args)
-	{
-		auto &res = getCtx().emplace_frame(std::function([&]() -> auto& {
-			return m_children.emplace<EntityType>(std::forward<Args>(args)...);
-		}), &world, this);
-		getEntityStack().pop();
-		//res.setAbsolute();
-		return res;
-	}
 
 	double urandf(void);
 	double srandf(void);
+
+protected:
+	static util::stack<std::reference_wrapper<Instance>>& getInstanceStack(void);
 
 private:
 	friend SessionBase;
@@ -41,9 +32,30 @@ private:
 	friend class Entity;
 	friend Render::Pass;
 
-	static util::stack<std::reference_wrapper<Instance>>& getInstanceStack(void);
-
 	std::mt19937_64 m_rand_gen;
+};
+
+template <typename InstanceType>
+class World : public WorldBase
+{
+public:
+	World(void) :
+		instance(reinterpret_cast<InstanceType&>(getInstanceStack().top().get()))
+	{
+	}
+
+	InstanceType &instance;
+
+	template <class EntityType, typename ...Args>
+	EntityType& add(Args &&...args)
+	{
+		auto &res = getCtx().emplace_frame(std::function([&]() -> auto& {
+			return m_children.emplace<EntityType>(std::forward<Args>(args)...);
+		}), this, this);
+		getEntityStack().pop();
+		//res.setAbsolute();
+		return res;
+	}
 };
 
 }
@@ -54,7 +66,7 @@ namespace Subtile {
 	template <typename WorldType, typename ...ArgsTypes>
 	auto& SessionBase::add(ArgsTypes &&...args)
 	{
-		auto &res = World::getInstanceStack().emplace_frame(std::function([&]() -> auto& {
+		auto &res = WorldBase::getInstanceStack().emplace_frame(std::function([&]() -> auto& {
 			return EntityBase::getCtx().emplace_frame(std::function([&]() -> auto& {
 				return m_worlds.emplace<WorldType>(std::forward<ArgsTypes>(args)...);
 			}), nullptr, nullptr);
