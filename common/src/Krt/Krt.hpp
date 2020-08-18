@@ -7,24 +7,21 @@
 
 namespace Krt {
 
-class Instance : public sb::Instance<Instance>
-{
-	class Config {
-	public:
-		Config(std::vector<std::string> args);
-		~Config(void);
-
-		bool isProfile;
-	};
-
+class Config {
 public:
-	Instance(std::vector<std::string> args, bool isDebug);
+	Config(const std::vector<std::string> &args);
+	~Config(void);
+
+	bool isProfile = false;
+};
+
+class Instance : private Config, public sb::Instance<Instance>
+{
+public:
+	Instance(bool isDebug, const std::vector<std::string> &args);
 	~Instance(void);
 
 	void run(void);
-
-private:
-	Config config;
 };
 
 }

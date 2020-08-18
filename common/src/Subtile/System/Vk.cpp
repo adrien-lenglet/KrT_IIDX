@@ -7,10 +7,11 @@
 namespace Subtile {
 namespace System {
 
-Vk::Vk(sb::InstanceBase &instance, bool isDebug, Glfw &&glfw) :
+Vk::Vk(sb::InstanceBase &instance, const std::string &name, bool isDebug, bool isProfile) :
 	m_sb_instance(instance),
+	m_glfw(GLFW_NO_API, name),
 	m_is_debug(isDebug),
-	m_glfw(std::move(glfw)),
+	m_is_profile(isProfile),
 	m_instance(createInstance()),
 	m_debug_messenger(createDebugMessenger()),
 	m_surface(createSurface()),
@@ -121,6 +122,10 @@ Vk::Instance Vk::createInstance(void)
 	if (m_is_debug) {
 		layers.emplace_back("VK_LAYER_KHRONOS_validation");
 		exts.emplace_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+	}
+	if (m_is_profile) {
+		layers.emplace_back("VK_LAYER_RENDERDOC_Capture");
+		layers.emplace_back("VK_LAYER_LUNARG_monitor");
 	}
 
 	VkApplicationInfo ai {};

@@ -21,7 +21,7 @@ class InstanceBase
 	RenderPass::Cache m_render_passes;
 
 public:
-	InstanceBase(bool isDebug = false, const std::string &name = "SUBTILE® Application");
+	InstanceBase(const std::string &name, bool isDebug, bool isProfile);
 	~InstanceBase(void);
 
 	void setInputs(const std::function<void (const Event::System::Observer::Input::Setter &setter)> &binder);

@@ -18,7 +18,7 @@ static std::vector<std::string> getArgs(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
-	Krt::Instance(getArgs(argc, argv), IS_DEBUG).run();
+	Krt::Instance(IS_DEBUG, getArgs(argc, argv)).run();
 	std::cout << "Engine done." << std::endl;
 	return 0;
 }

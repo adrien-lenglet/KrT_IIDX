@@ -8,9 +8,9 @@
 
 namespace Krt {
 
-Instance::Instance(std::vector<std::string> args, bool isDebug) :
-	sb::Instance<Instance>(isDebug, "SUNREN®"),
-	config(args)
+Instance::Instance(bool isDebug, const std::vector<std::string> &args) :
+	Config(args),
+	sb::Instance<Instance>("SUNREN®", isDebug, isProfile)
 {
 }
 
@@ -28,15 +28,20 @@ void Instance::run(void)
 	race->run();
 }
 
-Instance::Config::Config(std::vector<std::string> args)
+Config::Config(const std::vector<std::string> &argsRo)
 {
-	isProfile = util::erase_if_contains(args, "profile");
+	auto args = argsRo;
+
+	if (util::erase_if_contains(args, "-p"))
+		isProfile = true;
+	if (util::erase_if_contains(args, "--profile"))
+		isProfile = true;
 
 	if (!args.empty())
 		throw std::runtime_error(std::string("Unknown argument(s): " + util::join(args, std::string(", "))));
 }
 
-Instance::Config::~Config(void)
+Config::~Config(void)
 {
 }
 

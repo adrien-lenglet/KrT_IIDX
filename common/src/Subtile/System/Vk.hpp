@@ -18,14 +18,8 @@ namespace System {
 
 class Vk : public ISystem
 {
-	Vk(InstanceBase &instance, bool isDebug, Glfw &&glfw);
-
 public:
-	template <typename ...Args>
-	Vk(InstanceBase &instance, bool isDebug, Args &&...args) :
-		Vk(instance, isDebug, Glfw(GLFW_NO_API, std::forward<Args>(args)...))
-	{
-	}
+	Vk(InstanceBase &instance, const std::string &name, bool isDebug, bool isProfile);
 	~Vk(void);
 
 	void scanInputs(void) override;
@@ -36,8 +30,9 @@ public:
 	InstanceBase &m_sb_instance;
 
 private:
-	bool m_is_debug;
 	Glfw m_glfw;
+	bool m_is_debug;
+	bool m_is_profile;
 
 	static const std::string& resultToString(VkResult res);
 	static void assert(VkResult res);
