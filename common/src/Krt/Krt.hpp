@@ -15,7 +15,7 @@ public:
 	bool isProfile = false;
 };
 
-class Instance : private Config, public sb::Instance<Instance>
+class Instance : public sb::Instance<Instance>
 {
 public:
 	Instance(bool isDebug, const std::vector<std::string> &args);

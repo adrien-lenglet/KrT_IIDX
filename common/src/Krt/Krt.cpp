@@ -9,8 +9,7 @@
 namespace Krt {
 
 Instance::Instance(bool isDebug, const std::vector<std::string> &args) :
-	Config(args),
-	sb::Instance<Instance>("SUNREN®", isDebug, isProfile)
+	sb::Instance<Instance>("SUNREN®", isDebug, Config(args).isProfile)
 {
 }
 
