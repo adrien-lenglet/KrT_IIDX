@@ -8,12 +8,14 @@ class Race : public Instance::Session
 {
 public:
 	Race(void);
-	~Race(void) override;
+	~Race(void);
 
 	void render(void) override;
+	VecWorldRef updated_worlds(void) override;
 
 private:
-	Track &m_track;
+	std::unique_ptr<Track> m_track;
+	VecWorldRef m_worlds;
 };
 
 }

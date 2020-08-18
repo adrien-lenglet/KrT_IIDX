@@ -92,7 +92,7 @@ public:
 		} else if constexpr (std::is_base_of_v<rs::RenderPass, std::remove_reference_t<ResType>>) {
 			return loadRenderPass(std::forward<ResType>(res));
 		} else
-			static_assert(std::is_same_v<ResType, ResType>, "Unsupported resource type");
+			static_assert(!std::is_same_v<ResType, ResType>, "Unsupported resource type");
 	}
 };
 
@@ -136,9 +136,22 @@ public:
 	{
 	}
 
-	using World = sb::World<InstanceType>;
-	using Session = sb::Session;
+	template <typename WorldType>
+	using World = sb::World<InstanceType, WorldType>;
+	using Session = sb::Session<InstanceType>;
 
+	template <typename Type, typename ...Args>
+	decltype(auto) create(Args &&...args)
+	{
+		if constexpr (std::is_base_of_v<SessionBase, Type>)
+			return createSession<Type>(std::forward<Args>(args)...);
+		else if constexpr (std::is_base_of_v<WorldBase, Type>)
+			return createWorld<Type>(std::forward<Args>(args)...);
+		else
+			static_assert(!std::is_same_v<Type, Type>, "Unknown primitive type to create");
+	}
+
+private:
 	template <typename SessionType, typename ...ArgsTypes>
 	std::unique_ptr<SessionType> createSession(ArgsTypes &&...args)
 	{
@@ -146,6 +159,18 @@ public:
 			return std::make_unique<SessionType>(std::forward<ArgsTypes>(args)...);
 		}), *this);
 		SessionBase::getSessionStack().pop();
+		return res;
+	}
+
+	template <typename WorldType, typename ...ArgsTypes>
+	std::unique_ptr<WorldType> createWorld(ArgsTypes &&...args)
+	{
+		auto res = WorldBase::getInstanceStack().emplace_frame(std::function([&]() -> auto {
+			return EntityBase::getCtx().emplace_frame(std::function([&]() -> auto {
+				return std::make_unique<WorldType>(std::forward<ArgsTypes>(args)...);
+			}), nullptr, nullptr);
+		}), *this);
+		EntityBase::getEntityStack().pop();
 		return res;
 	}
 };

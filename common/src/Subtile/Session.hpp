@@ -11,35 +11,35 @@ template <typename>
 class Instance;
 class InstanceBase;
 class WorldBase;
+template <typename>
 class Session;
 
 class SessionBase : public Event::Socket
 {
 public:
 	SessionBase(InstanceBase &instance);
-	virtual ~SessionBase(void) = 0;
+	virtual ~SessionBase(void);
 
 	void run(void);
 
 protected:
 	void done(void);
 
-	template <typename WorldType, typename ...ArgsTypes>
-	auto& add(ArgsTypes &&...args);
-
 	virtual void render(void) = 0;
+	using VecWorldRef = std::vector<util::ref_wrapper<WorldBase>>;
+	virtual VecWorldRef updated_worlds(void) = 0;
 
 private:
 	template <typename>
 	friend class Instance;
 	friend InstanceBase;
-	friend Session;
+	template <typename>
+	friend class Session;
 
 	static util::stack<std::reference_wrapper<InstanceBase>>& getCtx(void);
 	static util::stack<std::reference_wrapper<SessionBase>>& getSessionStack(void);
 
 	InstanceBase &m_instance;
-	util::unique_set<WorldBase> m_worlds;
 	bool m_done;
 };
 
@@ -47,17 +47,22 @@ private:
 
 namespace Subtile {
 
+template <typename InstanceType>
 class Session : public SessionBase
 {
 public:
 	Session(void) :
-		SessionBase(getCtx().top())
+		SessionBase(getCtx().top()),
+		instance(reinterpret_cast<InstanceType&>(getCtx().top().get()))
 	{
 		getSessionStack().emplace(*this);
 	}
 	~Session(void) override
 	{
 	}
+
+protected:
+	InstanceType &instance;
 };
 
 }

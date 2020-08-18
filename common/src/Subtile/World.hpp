@@ -23,19 +23,21 @@ public:
 	double urandf(void);
 	double srandf(void);
 
-protected:
-	static util::stack<std::reference_wrapper<InstanceBase>>& getInstanceStack(void);
-
 private:
 	friend SessionBase;
-	template <typename WorldType>
+	template <typename>
 	friend class Entity;
+	template <typename, typename>
+	friend class World;
+	template <typename>
+	friend class Instance;
 	friend Render::Pass;
+	static util::stack<std::reference_wrapper<InstanceBase>>& getInstanceStack(void);
 
 	std::mt19937_64 m_rand_gen;
 };
 
-template <typename InstanceType>
+template <typename InstanceType, typename WorldType>
 class World : public WorldBase
 {
 public:
@@ -45,6 +47,8 @@ public:
 	}
 
 	InstanceType &instance;
+
+	using Entity = sb::Entity<WorldType>;
 
 	template <class EntityType, typename ...Args>
 	EntityType& add(Args &&...args)
@@ -59,21 +63,3 @@ public:
 };
 
 }
-
-#include "Session.hpp"
-
-namespace Subtile {
-	template <typename WorldType, typename ...ArgsTypes>
-	auto& SessionBase::add(ArgsTypes &&...args)
-	{
-		auto &res = WorldBase::getInstanceStack().emplace_frame(std::function([&]() -> auto& {
-			return EntityBase::getCtx().emplace_frame(std::function([&]() -> auto& {
-				return m_worlds.emplace<WorldType>(std::forward<ArgsTypes>(args)...);
-			}), nullptr, nullptr);
-		}), m_instance);
-		EntityBase::getEntityStack().pop();
-		return res;
-	}
-}
-
-#include "Instance.hpp"

@@ -4,7 +4,7 @@
 
 namespace Krt {
 
-class OtherWorld : public Instance::World
+class OtherWorld : public Instance::World<OtherWorld>
 {
 public:
 	OtherWorld(void) = default;

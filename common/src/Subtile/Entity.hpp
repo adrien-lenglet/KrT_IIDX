@@ -19,7 +19,7 @@ class Shader;
 
 template <typename WorldType>
 class Entity;
-template <typename WorldType>
+template <typename InstanceType, typename WorldType>
 class World;
 
 class EntityBase : protected Event::World::Socket
@@ -51,8 +51,10 @@ class EntityBase : protected Event::World::Socket
 		EntityBase *m_parent;
 	};
 
-	template <typename WorldType>
+	template <typename, typename>
 	friend class World;
+	template <typename>
+	friend class Instance;
 	static util::stack<Context>& getCtx(void);
 
 	EntityBase(EntityBase *parent);

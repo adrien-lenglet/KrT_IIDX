@@ -1,6 +1,7 @@
 #include <limits>
 #include <ctime>
 #include "World.hpp"
+#include "Instance.hpp"
 
 namespace Subtile {
 

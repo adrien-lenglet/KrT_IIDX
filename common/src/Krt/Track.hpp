@@ -8,11 +8,9 @@ namespace Krt {
 
 class EntityTest;
 
-class Track : public Instance::World
+class Track : public Instance::World<Track>
 {
 public:
-	using Entity = sb::Entity<Track>;
-
 	Track(void);
 	~Track(void) override;
 

@@ -24,7 +24,7 @@ void Instance::run(void)
 		s.addButton("quit");
 	});
 
-	auto race = createSession<Race>();
+	auto race = create<Race>();
 	race->run();
 }
 
