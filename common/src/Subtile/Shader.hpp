@@ -23,7 +23,7 @@ class ISystem;
 namespace Resource {
 class Shader;
 }
-class Instance;
+class InstanceBase;
 
 class Shader
 {
@@ -914,7 +914,7 @@ public:
 
 	virtual sb::Shader::VertexInput vertexInput(void) const = 0;
 	using DescriptorSetLayouts = std::vector<std::unique_ptr<sb::Shader::DescriptorSet::Layout::Resolver>>;
-	virtual DescriptorSetLayouts loadDescriptorSetLayouts(Instance &ins) const = 0;
+	virtual DescriptorSetLayouts loadDescriptorSetLayouts(InstanceBase &ins) const = 0;
 	virtual bool isModule(void) const = 0;
 
 	class Stage
@@ -989,7 +989,7 @@ namespace Subtile
 class Shader::DescriptorSet::Layout::Resolver::Inline : public Shader::DescriptorSet::Layout::Resolver
 {
 public:
-	Inline(Instance &ins, const Layout::Description &desc);
+	Inline(InstanceBase &ins, const Layout::Description &desc);
 	~Inline(void) override;
 
 	const Layout& resolve(void) const override;

@@ -7,7 +7,7 @@
 namespace Subtile {
 
 class SessionBase;
-class Instance;
+class InstanceBase;
 namespace Render {
 class Pass;
 }
@@ -24,7 +24,7 @@ public:
 	double srandf(void);
 
 protected:
-	static util::stack<std::reference_wrapper<Instance>>& getInstanceStack(void);
+	static util::stack<std::reference_wrapper<InstanceBase>>& getInstanceStack(void);
 
 private:
 	friend SessionBase;

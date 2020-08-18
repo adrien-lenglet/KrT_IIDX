@@ -15,7 +15,7 @@ RenderPass::~RenderPass(void)
 
 }
 
-RenderPass::Cache::Ref Instance::loadRenderPassRef(rs::RenderPass &renderpassres)
+RenderPass::Cache::Ref InstanceBase::loadRenderPassRef(rs::RenderPass &renderpassres)
 {
 	auto got = m_render_passes.find(renderpassres);
 	if (got == m_render_passes.end())

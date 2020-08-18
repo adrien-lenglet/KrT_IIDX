@@ -7,7 +7,7 @@
 namespace Subtile {
 namespace System {
 
-Vk::Vk(sb::Instance &instance, bool isDebug, Glfw &&glfw) :
+Vk::Vk(sb::InstanceBase &instance, bool isDebug, Glfw &&glfw) :
 	m_sb_instance(instance),
 	m_is_debug(isDebug),
 	m_glfw(std::move(glfw)),

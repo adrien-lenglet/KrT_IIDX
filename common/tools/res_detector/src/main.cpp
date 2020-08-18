@@ -325,8 +325,8 @@ class FolderPrinter
 			}
 
 		auto vec_resolver = "sb::rs::Shader::DescriptorSetLayouts"_t;
-		auto desc_layout_fwd = sh += vec_resolver | Id("loadDescriptorSetLayouts")("sb::Instance"_t | &N | Id("ins")) | Const | Override;
-		auto &desc_layout = m_impl_out += vec_resolver | desc_layout_fwd("sb::Instance"_t | &N | Id("ins")) | Const | S
+		auto desc_layout_fwd = sh += vec_resolver | Id("loadDescriptorSetLayouts")("sb::InstanceBase"_t | &N | Id("ins")) | Const | Override;
+		auto &desc_layout = m_impl_out += vec_resolver | desc_layout_fwd("sb::InstanceBase"_t | &N | Id("ins")) | Const | S
 		{
 			StaticCast(Void, "ins"_v)
 		};

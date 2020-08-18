@@ -117,8 +117,8 @@ Shader::DescriptorSet& Shader::DescriptorSet::BaseHandle::getSet(void)
 	return *m_set;
 }
 
-Shader::DescriptorSet::Layout::Resolver::Inline::Inline(Instance &ins, const Layout::Description &desc) :
-	m_layout(Instance::Getter(ins).system().createDescriptorSetLayout(desc))
+Shader::DescriptorSet::Layout::Resolver::Inline::Inline(InstanceBase &ins, const Layout::Description &desc) :
+	m_layout(InstanceBase::Getter(ins).system().createDescriptorSetLayout(desc))
 {
 }
 
@@ -154,7 +154,7 @@ Shader::Model& Shader::Model::BaseHandle::getModel(void) const
 	return *m_model;
 }
 
-Shader::Cache::Ref Instance::loadShaderRef(rs::Shader &shaderres)
+Shader::Cache::Ref InstanceBase::loadShaderRef(rs::Shader &shaderres)
 {
 	auto got = m_shaders.find(shaderres);
 	if (got == m_shaders.end())

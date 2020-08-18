@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include "../Subtile.hpp"
 #include "ISystem.hpp"
 #include "IInput.hpp"
 #include "Event/System/Observer.hpp"
@@ -14,26 +15,23 @@ namespace Render {
 class Pass;
 }
 
-class Instance
+class InstanceBase
 {
 	Shader::Cache m_shaders;
 	RenderPass::Cache m_render_passes;
 
 public:
-	Instance(bool isDebug = false, const std::string &name = "SUBTILE® Application");
-	~Instance(void);
+	InstanceBase(bool isDebug = false, const std::string &name = "SUBTILE® Application");
+	~InstanceBase(void);
 
 	void setInputs(const std::function<void (const Event::System::Observer::Input::Setter &setter)> &binder);
-
-	template <typename SessionType, typename ...ArgsTypes>
-	std::unique_ptr<SessionType> createSession(ArgsTypes &&...args);
 
 	void scanInputs(void);
 
 	class Getter
 	{
 	public:
-		Getter(Instance &ins) :
+		Getter(InstanceBase &ins) :
 			m_ins(ins)
 		{
 		}
@@ -54,7 +52,7 @@ public:
 		}
 
 	private:
-		Instance &m_ins;
+		InstanceBase &m_ins;
 	};
 
 private:
@@ -102,8 +100,8 @@ template <typename ShaderRes>
 class Shader::DescriptorSet::Layout::Resolver::Foreign : public Shader::DescriptorSet::Layout::Resolver
 {
 public:
-	Foreign(Instance &instance, ShaderRes &shaderres, size_t set_ndx) :
-		m_loaded(Instance::Getter(instance).loadShader(shaderres)),
+	Foreign(InstanceBase &instance, ShaderRes &shaderres, size_t set_ndx) :
+		m_loaded(InstanceBase::Getter(instance).loadShader(shaderres)),
 		m_layout((**RefGetter<CacheRefHolder>(m_loaded).get()).setLayout(set_ndx))
 	{
 	}
@@ -123,13 +121,26 @@ private:
 
 }
 
-#include "World.hpp"
 #include "Session.hpp"
+#include "World.hpp"
 
 namespace Subtile {
 
+template <typename InstanceType>
+class Instance : public InstanceBase
+{
+public:
+	template <typename ...Args>
+	Instance(Args &&...args) :
+		InstanceBase(std::forward<Args>(args)...)
+	{
+	}
+
+	using World = sb::World<InstanceType>;
+	using Session = sb::Session;
+
 	template <typename SessionType, typename ...ArgsTypes>
-	std::unique_ptr<SessionType> Instance::createSession(ArgsTypes &&...args)
+	std::unique_ptr<SessionType> createSession(ArgsTypes &&...args)
 	{
 		auto res = SessionBase::getCtx().emplace_frame(std::function([&](){
 			return std::make_unique<SessionType>(std::forward<ArgsTypes>(args)...);
@@ -137,4 +148,6 @@ namespace Subtile {
 		SessionBase::getSessionStack().pop();
 		return res;
 	}
+};
+
 }

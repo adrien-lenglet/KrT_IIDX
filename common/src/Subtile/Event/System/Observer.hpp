@@ -9,7 +9,7 @@
 namespace Subtile {
 
 class ISystem;
-class Instance;
+class InstanceBase;
 class SessionBase;
 
 namespace Event {
@@ -104,7 +104,7 @@ public:
 	private:
 		friend Analog;
 		friend Button;
-		friend Instance;
+		friend InstanceBase;
 
 		std::map<std::string, std::unique_ptr<IInput>> m_inputs;
 		std::map<std::string, std::string> m_bindings;

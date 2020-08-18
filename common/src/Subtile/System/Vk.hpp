@@ -12,17 +12,17 @@
 
 namespace Subtile {
 
-class Instance;
+class InstanceBase;
 
 namespace System {
 
 class Vk : public ISystem
 {
-	Vk(Instance &instance, bool isDebug, Glfw &&glfw);
+	Vk(InstanceBase &instance, bool isDebug, Glfw &&glfw);
 
 public:
 	template <typename ...Args>
-	Vk(Instance &instance, bool isDebug, Args &&...args) :
+	Vk(InstanceBase &instance, bool isDebug, Args &&...args) :
 		Vk(instance, isDebug, Glfw(GLFW_NO_API, std::forward<Args>(args)...))
 	{
 	}
@@ -33,7 +33,7 @@ public:
 
 	const VkAllocationCallbacks* getAllocator(void) const;
 
-	Instance &m_sb_instance;
+	InstanceBase &m_sb_instance;
 
 private:
 	bool m_is_debug;

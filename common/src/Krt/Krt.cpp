@@ -9,7 +9,7 @@
 namespace Krt {
 
 Instance::Instance(std::vector<std::string> args, bool isDebug) :
-	sb::Instance(isDebug, "SUNREN®"),
+	sb::Instance<Instance>(isDebug, "SUNREN®"),
 	config(args)
 {
 }

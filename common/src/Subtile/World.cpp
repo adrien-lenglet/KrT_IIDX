@@ -26,9 +26,9 @@ double WorldBase::srandf(void)
 	return urandf() * 2.0 - 1.0;
 }
 
-util::stack<std::reference_wrapper<Instance>>& WorldBase::getInstanceStack(void)
+util::stack<std::reference_wrapper<InstanceBase>>& WorldBase::getInstanceStack(void)
 {
-	static thread_local util::stack<std::reference_wrapper<Instance>> res;
+	static thread_local util::stack<std::reference_wrapper<InstanceBase>> res;
 
 	return res;
 }

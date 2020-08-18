@@ -7,7 +7,7 @@
 
 namespace Krt {
 
-class Instance : public sb::Instance
+class Instance : public sb::Instance<Instance>
 {
 	class Config {
 	public:
@@ -22,9 +22,6 @@ public:
 	~Instance(void);
 
 	void run(void);
-
-	using World = sb::World<Instance>;
-	using Session = sb::Session;
 
 private:
 	Config config;
