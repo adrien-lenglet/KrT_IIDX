@@ -34,6 +34,13 @@ Enum operator^(Enum l, Enum r)
 }
 
 template <typename Enum, class = std::enable_if_t<util::enable_bitmask<Enum>::value>>
+Enum operator~(Enum val)
+{
+	using Under_t = std::underlying_type_t<Enum>;
+	return static_cast<Enum>(~static_cast<Under_t>(val));
+}
+
+template <typename Enum, class = std::enable_if_t<util::enable_bitmask<Enum>::value>>
 Enum& operator|=(Enum &l, Enum r)
 {
 	l = l | r;

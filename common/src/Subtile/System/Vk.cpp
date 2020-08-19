@@ -7,7 +7,7 @@
 namespace Subtile {
 namespace System {
 
-Vk::Vk(sb::InstanceBase &instance, const std::string &name, bool isDebug, bool isProfile) :
+Vk::Vk(sb::InstanceBase &instance, const std::string &name, bool isDebug, bool isProfile, const sb::Queue::Set &queues) :
 	m_sb_instance(instance),
 	m_glfw(GLFW_NO_API, name),
 	m_is_debug(isDebug),
@@ -15,7 +15,7 @@ Vk::Vk(sb::InstanceBase &instance, const std::string &name, bool isDebug, bool i
 	m_instance(createInstance()),
 	m_debug_messenger(createDebugMessenger()),
 	m_surface(createSurface()),
-	m_device(createDevice()),
+	m_device(createDevice(queues)),
 	//m_graphics_queue(m_device.getQueue(*m_device.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT), 0)),
 	//m_present_queue(m_device.getQueue(*m_device.physical().queues().presentation(), 0)),
 	//m_transfer_queue(m_device.getQueue(*m_device.physical().queues().indexOf(VK_QUEUE_TRANSFER_BIT), 0)),
@@ -291,7 +291,7 @@ const VkPhysicalDeviceFeatures& Vk::PhysicalDevice::requiredFeatures(void)
 	return res;
 }
 
-bool Vk::PhysicalDevice::isCompetent(void) const
+bool Vk::PhysicalDevice::isCompetent(const sb::Queue::Set &requiredQueues) const
 {
 	auto &req = requiredFeatures();
 	auto req_arr_size = sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32);
@@ -299,12 +299,16 @@ bool Vk::PhysicalDevice::isCompetent(void) const
 		if (reinterpret_cast<const VkBool32*>(&req)[i] && !reinterpret_cast<const VkBool32*>(&m_features)[i])
 			return false;
 
-	return m_queue_families.indexOf(VK_QUEUE_GRAPHICS_BIT) &&
-	m_queue_families.presentation() &&
-	m_queue_families.indexOf(VK_QUEUE_TRANSFER_BIT) &&
-	areExtensionsSupported() &&
-	surface().formats().size() > 0 &&
-	surface().presentModes().size() > 0;
+	for (auto &qp : requiredQueues)
+		if (!m_queue_families.indexOf(qp.first, qp.second.size()))
+			return false;
+	if (surface().formats().size() == 0)
+		return false;
+	if (surface().presentModes().size() == 0)
+		return false;
+	if (!areExtensionsSupported())
+		return false;
+	return true;
 }
 
 const util::svec Vk::PhysicalDevice::required_extensions {
@@ -338,8 +342,8 @@ const Vk::PhysicalDevice::QueueFamilies& Vk::PhysicalDevice::queues(void) const
 }
 
 Vk::PhysicalDevice::QueueFamilies::QueueFamilies(Vk::PhysicalDevice &device) :
-	m_queues(getCollection<VkQueueFamilyProperties>(vkGetPhysicalDeviceQueueFamilyProperties, device)),
-	m_presentation_queue(getPresentationQueue(device))
+	m_physical_device(device),
+	m_queues(getCollection<VkQueueFamilyProperties>(vkGetPhysicalDeviceQueueFamilyProperties, device))
 {
 }
 
@@ -348,33 +352,53 @@ const std::vector<VkQueueFamilyProperties>& Vk::PhysicalDevice::QueueFamilies::p
 	return m_queues;
 }
 
-std::optional<uint32_t> Vk::PhysicalDevice::QueueFamilies::indexOf(VkQueueFlagBits queueFlags) const
+std::optional<uint32_t> Vk::PhysicalDevice::QueueFamilies::indexOf(sb::Queue::Flag flags, size_t count) const
 {
-	uint32_t res = 0;
+	VkQueueFlags vkFlags = static_cast<std::underlying_type_t<decltype(flags)>>(flags & ~sb::Queue::Flag::Present);
+	bool isPresent = !!(flags & sb::Queue::Flag::Present);
+	struct BestAttr {
+		uint32_t ndx;
+		size_t count;
+		size_t flag_count;
+
+		bool isBetterThan(const BestAttr &other, size_t want_count) const
+		{
+			if (count >= want_count && other.count >= want_count) // irrelevant if derired count is reached on both sides
+				return flag_count < other.flag_count; // return most specialized
+			else {
+				if (count < other.count)
+					return false;
+				if (count == other.count)
+					return flag_count < other.flag_count;
+				return true; // more queues than other
+			}
+		}
+	};
+	std::optional<BestAttr> best;
+	uint32_t n = 0;
 
 	for (auto &q : m_queues) {
-		if (q.queueCount > 0 && q.queueFlags & queueFlags)
-			return res;
-		res++;
+		auto ndx = n++;
+		auto present_support = m_physical_device.getSurfaceSupport(ndx);
+		if (q.queueCount > 0 && q.queueFlags & vkFlags && (isPresent && present_support)) {
+			BestAttr attr {ndx, q.queueCount, 0};
+			for (size_t i = 0; i < 32; i++)
+				if (q.queueFlags & static_cast<uint32_t>(1 << i))
+					attr.flag_count++;
+			if (present_support)
+				attr.flag_count++;
+
+			if (best) {
+				if (attr.isBetterThan(*best, count))
+					best = attr;
+			} else
+				best = attr;
+		}
 	}
-	return std::nullopt;
-}
-
-std::optional<uint32_t> Vk::PhysicalDevice::QueueFamilies::presentation(void) const
-{
-	return m_presentation_queue;
-}
-
-std::optional<uint32_t> Vk::PhysicalDevice::QueueFamilies::getPresentationQueue(PhysicalDevice &device)
-{
-	uint32_t res = 0;
-
-	for (auto &q : m_queues) {
-		if (q.queueCount > 0 && device.getSurfaceSupport(res))
-			return res;
-		res++;
-	}
-	return std::nullopt;
+	if (best)
+		return best->ndx;
+	else
+		return std::nullopt;
 }
 
 Vk::PhysicalDevice::Surface::Surface(PhysicalDevice &device, Vk::Surface &surface) :
@@ -440,12 +464,12 @@ Vk::PhysicalDevices::PhysicalDevices(Vk::Instance &instance, Vk::Surface &surfac
 {
 }
 
-const Vk::PhysicalDevice& Vk::PhysicalDevices::getBest(void) const
+const Vk::PhysicalDevice& Vk::PhysicalDevices::getBest(const sb::Queue::Set &requiredQueues) const
 {
 	std::map<size_t, std::reference_wrapper<const PhysicalDevice>> cands;
 
 	for (auto &p : m_devices)
-		if (p.isCompetent())
+		if (p.isCompetent(requiredQueues))
 			cands.emplace(p.getScore(), p);
 	if (cands.size() == 0)
 		throw std::runtime_error("No compatible GPU found");
@@ -495,48 +519,15 @@ void Vk::Handle<VmaAllocator>::destroy(VmaAllocator allocator)
 	vmaDestroyAllocator(allocator);
 }
 
-Vk::Device::Device(Instance &instance, const PhysicalDevice &physicalDevice, VkDevice device) :
+Vk::Device::Device(Instance &instance, const PhysicalDevice &physicalDevice, const sbQueueFamilyMapping& queueFamilyMapping, const sbQueueMapping &queueMapping, VkDevice device) :
 	Vk::Handle<VkDevice>(device),
 	m_instance(instance),
 	m_physical(physicalDevice),
+	m_queue_family_mapping(queueFamilyMapping),
+	m_queue_mapping(queueMapping),
 	m_allocator(*this),
 	m_dynamic_formats(getDynamicFormats())
 {
-}
-
-Vk::Device::QueueCreateInfo::QueueCreateInfo(uint32_t family_ndx, const std::vector<float> &priorities) :
-	m_priorities(priorities),
-	m_info({})
-{
-	m_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-	m_info.queueFamilyIndex = family_ndx;
-	m_info.queueCount = m_priorities.size();
-	m_info.pQueuePriorities = m_priorities.data();
-}
-
-Vk::Device::QueueCreateInfo::QueueCreateInfo(const Vk::Device::QueueCreateInfo::Struct &str) :
-	QueueCreateInfo(str.family_ndx, str.priorities)
-{
-}
-
-const VkDeviceQueueCreateInfo& Vk::Device::QueueCreateInfo::getInfo(void) const
-{
-	return m_info;
-}
-
-Vk::Device::QueuesCreateInfo::QueuesCreateInfo(void)
-{
-}
-
-Vk::Device::QueuesCreateInfo::QueuesCreateInfo(std::initializer_list<QueueCreateInfo> queues)
-{
-	for (auto &q : queues)
-		add(q);
-}
-
-const std::vector<VkDeviceQueueCreateInfo>& Vk::Device::QueuesCreateInfo::getInfos(void) const
-{
-	return m_vk_infos;
 }
 
 VkFormat Vk::Device::sbFormatToVk(sb::Format format) const
@@ -690,36 +681,60 @@ VkQueue Vk::Device::getQueue(uint32_t family_ndx, uint32_t ndx)
 	return get<VkQueue>(vkGetDeviceQueue, *this, family_ndx, ndx);
 }
 
-Vk::Device Vk::createDevice(void)
+Vk::Device Vk::createDevice(const sb::Queue::Set &requiredQueues)
 {
 	auto devs = m_instance.enumerateDevices(m_surface);
-	auto &phys = devs.getBest();
-	auto queues = getDesiredQueues(phys);
+	auto &phys = devs.getBest(requiredQueues);
 
-	auto vk_queues = queues.getInfos();
+	sbQueueFamilyMapping queueFamilyMapping;
+	sbQueueMapping queueMapping;
+	struct QueueAlloc {
+		size_t count = 0;
+		std::vector<float> prios;
+		bool is_saturated = false;
+	};
+	std::map<VkQueueFamilyIndex, QueueAlloc> allocated;
+
+	for (auto &qp : requiredQueues) {
+		auto family_ndx = *phys.queues().indexOf(qp.first, qp.second.size());
+		auto &alloc = allocated[family_ndx];
+		auto &qf_prop = phys.queues().properties().at(family_ndx);
+		queueFamilyMapping.emplace(std::piecewise_construct, std::forward_as_tuple(qp.first), std::forward_as_tuple(family_ndx));
+		sbQueueIndex n = 0;
+		for (auto &prio : qp.second) {
+			auto sb_ndx = n++;
+			auto vk_ndx = alloc.count++;
+			if (!alloc.is_saturated)
+				alloc.prios.emplace_back(prio);
+			if (alloc.count == qf_prop.queueCount) {
+				alloc.count = 0;
+				alloc.is_saturated = true;
+			}
+			queueMapping.emplace(std::piecewise_construct, std::forward_as_tuple(qp.first, sb_ndx), std::forward_as_tuple(family_ndx, vk_ndx));
+		}
+	}
+
+	std::vector<VkDeviceQueueCreateInfo> queues;
+	for (auto &ap : allocated) {
+		VkDeviceQueueCreateInfo ci {};
+		ci.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		ci.queueFamilyIndex = ap.first;
+		ci.queueCount = ap.second.prios.size();
+		ci.pQueuePriorities = ap.second.prios.data();
+		queues.emplace_back(ci);
+	}
 
 	VkDeviceCreateInfo createInfo {};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-	createInfo.queueCreateInfoCount = vk_queues.size();
-	createInfo.pQueueCreateInfos = vk_queues.data();
+	createInfo.queueCreateInfoCount = queues.size();
+	createInfo.pQueueCreateInfos = queues.data();
 	createInfo.pEnabledFeatures = &Vk::PhysicalDevice::requiredFeatures();
 
 	auto cexts = PhysicalDevice::required_extensions.c_strs();
 	createInfo.enabledExtensionCount = cexts.size();
 	createInfo.ppEnabledExtensionNames = cexts.data();
 
-	return Device(m_instance, phys, Vk::create<VkDevice>(vkCreateDevice, phys, &createInfo, getAllocator()));
-}
-
-Vk::Device::QueuesCreateInfo Vk::getDesiredQueues(const Vk::PhysicalDevice &dev)
-{
-	auto &queues = dev.queues();
-	std::set<uint32_t> unique_queues {*queues.indexOf(VK_QUEUE_GRAPHICS_BIT), *queues.presentation(), *queues.indexOf(VK_QUEUE_TRANSFER_BIT)};
-	Device::QueuesCreateInfo res;
-
-	for (auto &q : unique_queues)
-		res.add(q, std::vector<float>{1.0f});
-	return res;
+	return Device(m_instance, phys, queueFamilyMapping, queueMapping, Vk::create<VkDevice>(vkCreateDevice, phys, &createInfo, getAllocator()));
 }
 
 Vk::Allocation::Allocation(Allocator &allocator, VmaAllocation alloc) :
@@ -1003,8 +1018,9 @@ Vk::Swapchain Vk::createSwapchain(void)
 	ci.imageArrayLayers = 1;
 	ci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-	auto &queues = phys.queues();
-	std::set<uint32_t> unique_queues {*queues.indexOf(VK_QUEUE_GRAPHICS_BIT), *queues.presentation()};
+	//auto &queues = phys.queues();
+	//std::set<uint32_t> unique_queues {*queues.indexOf(VK_QUEUE_GRAPHICS_BIT), *queues.presentation()};
+	std::set<uint32_t> unique_queues {};
 	std::vector<uint32_t> queues_ndx(unique_queues.begin(), unique_queues.end());
 	ci.imageSharingMode = queues_ndx.size() > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
 	ci.queueFamilyIndexCount = queues_ndx.size();
@@ -1367,7 +1383,8 @@ VkDescriptorSet Vk::DescriptorSet::create(Device &dev, const DescriptorSetLayout
 
 Vk::VmaBuffer Vk::DescriptorSet::createBuffer(Device &dev, const DescriptorSetLayout &layout)
 {
-	std::vector<uint32_t> queues {*dev.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT)};
+	//std::vector<uint32_t> queues {*dev.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT)};
+	std::vector<uint32_t> queues {};
 	size_t size = 0;
 	for (auto &b : layout.getDescription())
 		if (b.isMapped()) {
@@ -1399,7 +1416,8 @@ Vk::Model::Model(Vk::Device &dev, size_t count, size_t stride, const void *data)
 
 Vk::VmaBuffer Vk::Model::createBuffer(Device &dev, size_t size)
 {
-	std::vector<uint32_t> queues {*dev.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT)};
+	//std::vector<uint32_t> queues {*dev.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT)};
+	std::vector<uint32_t> queues {};
 
 	VkBufferCreateInfo bci {};
 	bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -1678,17 +1696,20 @@ Vk::CommandBuffer::CommandBuffer(Vk::Device &dev, uint32_t queue_type) :
 
 Vk::CommandBuffer Vk::CommandBuffer::Graphics(Device &dev)
 {
-	return CommandBuffer(dev, *dev.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT));
+	//return CommandBuffer(dev, *dev.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT));
+	return CommandBuffer(dev, 0);
 }
 
 Vk::CommandBuffer Vk::CommandBuffer::Present(Device &dev)
 {
-	return CommandBuffer(dev, *dev.physical().queues().presentation());
+	//return CommandBuffer(dev, *dev.physical().queues().presentation());
+	return CommandBuffer(dev, 0);
 }
 
 Vk::CommandBuffer Vk::CommandBuffer::Transfer(Device &dev)
 {
-	return CommandBuffer(dev, *dev.physical().queues().indexOf(VK_QUEUE_TRANSFER_BIT));
+	//return CommandBuffer(dev, *dev.physical().queues().indexOf(VK_QUEUE_TRANSFER_BIT));
+	return CommandBuffer(dev, 0);
 }
 
 VkCommandPool Vk::CommandBuffer::createPool(Device &dev, uint32_t queueIndex)

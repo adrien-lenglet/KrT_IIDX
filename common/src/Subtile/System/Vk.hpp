@@ -19,7 +19,7 @@ namespace System {
 class Vk : public ISystem
 {
 public:
-	Vk(InstanceBase &instance, const std::string &name, bool isDebug, bool isProfile);
+	Vk(InstanceBase &instance, const std::string &name, bool isDebug, bool isProfile, const sb::Queue::Set &queues);
 	~Vk(void);
 
 	void scanInputs(void) override;
@@ -306,7 +306,7 @@ private:
 		const Surface& surface(void) const;
 
 		bool getSurfaceSupport(uint32_t queueFamilyIndex) const;
-		bool isCompetent(void) const;
+		bool isCompetent(const sb::Queue::Set &requiredQueues) const;
 		size_t getScore(void) const;
 
 		static const util::svec required_extensions;
@@ -317,14 +317,11 @@ private:
 			QueueFamilies(PhysicalDevice &device);
 
 			const std::vector<VkQueueFamilyProperties>& properties(void) const;
-			std::optional<uint32_t> indexOf(VkQueueFlagBits queueFlags) const;
-			std::optional<uint32_t> presentation(void) const;
+			std::optional<uint32_t> indexOf(sb::Queue::Flag flags, size_t count = 1) const;
 
 		private:
+			PhysicalDevice &m_physical_device;
 			std::vector<VkQueueFamilyProperties> m_queues;
-			std::optional<uint32_t> m_presentation_queue;
-
-			std::optional<uint32_t> getPresentationQueue(PhysicalDevice &device);
 		};
 
 		const QueueFamilies& queues(void) const;
@@ -345,7 +342,7 @@ private:
 	public:
 		PhysicalDevices(Vk::Instance &instance, Vk::Surface &surface);
 
-		const PhysicalDevice& getBest(void) const;
+		const PhysicalDevice& getBest(const sb::Queue::Set &requiredQueues) const;
 
 	private:
 		std::vector<PhysicalDevice> m_devices;
@@ -371,50 +368,18 @@ private:
 		VmaAllocator create(Device &device);
 	};
 
+	using VkQueueFamilyIndex = uint32_t;
+	using sbQueueFamilyMapping = std::map<sb::Queue::Flag, VkQueueFamilyIndex>;
+	using sbQueueIndex = size_t;
+	using VkQueueIndex = uint32_t;
+	using sbQueueMapping = std::map<std::pair<sb::Queue::Flag, sbQueueIndex>, std::pair<VkQueueFamilyIndex, VkQueueIndex>>;
+
 	class Device : public Handle<VkDevice>
 	{
 		friend Handle<VkDevice>;
 
 	public:
-		class QueueCreateInfo
-		{
-		public:
-			struct Struct {
-				uint32_t family_ndx;
-				std::vector<float> priorities;
-			};
-
-			QueueCreateInfo(uint32_t family_ndx, const std::vector<float> &priorities);
-			QueueCreateInfo(const Struct &str);
-
-			const VkDeviceQueueCreateInfo& getInfo(void) const;
-
-		private:
-			std::vector<float> m_priorities;
-			VkDeviceQueueCreateInfo m_info;
-		};
-
-		class QueuesCreateInfo
-		{
-		public:
-			QueuesCreateInfo(void);
-			QueuesCreateInfo(std::initializer_list<QueueCreateInfo> queues);
-
-			template <typename ...Args>
-			void add(Args &&...args)
-			{
-				m_infos.emplace_back(std::forward<Args>(args)...);
-				m_vk_infos.emplace_back(m_infos.rbegin()->getInfo());
-			}
-
-			const std::vector<VkDeviceQueueCreateInfo>& getInfos(void) const;
-
-		private:
-			std::vector<QueueCreateInfo> m_infos;
-			std::vector<VkDeviceQueueCreateInfo> m_vk_infos;
-		};
-
-		Device(Instance &instance, const PhysicalDevice &physicalDevice, VkDevice device);
+		Device(Instance &instance, const PhysicalDevice &physicalDevice, const sbQueueFamilyMapping& queueFamilyMapping, const sbQueueMapping &queueMapping, VkDevice device);
 
 		Vk& vk(void)
 		{
@@ -477,11 +442,11 @@ private:
 	private:
 		Instance &m_instance;
 		PhysicalDevice m_physical;
+		sbQueueFamilyMapping m_queue_family_mapping;
+		sbQueueMapping m_queue_mapping;
 		Allocator m_allocator;
-
 		std::map<sb::Format, VkFormat> m_dynamic_formats;
 
-		VkDevice createDevice(const PhysicalDevice &physicalDevice, const QueuesCreateInfo &queues);
 		std::map<sb::Format, VkFormat> getDynamicFormats(void);
 		bool isDepthFormatSupportedSplAtt(VkFormat format);
 	};
@@ -508,8 +473,7 @@ private:
 	};
 
 	Device m_device;
-	Device createDevice(void);
-	Device::QueuesCreateInfo getDesiredQueues(const PhysicalDevice &dev);
+	Device createDevice(const sb::Queue::Set &queues);
 
 	//VkQueue m_graphics_queue;
 	//VkQueue m_present_queue;

@@ -6,6 +6,7 @@
 #include "IInput.hpp"
 #include "Event/System/Observer.hpp"
 #include "Shader.hpp"
+#include "Queue.hpp"
 
 namespace Subtile {
 
@@ -21,7 +22,7 @@ class InstanceBase
 	RenderPass::Cache m_render_passes;
 
 public:
-	InstanceBase(const std::string &name, bool isDebug, bool isProfile);
+	InstanceBase(const std::string &name, bool isDebug, bool isProfile, const sb::Queue::Set &queues);
 	~InstanceBase(void);
 
 	void setInputs(const std::function<void (const Event::System::Observer::Input::Setter &setter)> &binder);
@@ -130,9 +131,8 @@ template <typename InstanceType>
 class Instance : public InstanceBase
 {
 public:
-	template <typename ...Args>
-	Instance(Args &&...args) :
-		InstanceBase(std::forward<Args>(args)...)
+	Instance(const std::string &name, bool isDebug, bool isProfile, const sb::Queue::Set &queues) :
+		InstanceBase(name, isDebug, isProfile, queues)
 	{
 	}
 
