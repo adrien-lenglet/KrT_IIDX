@@ -21,11 +21,13 @@ public:
 	{
 		decltype(res.shaders().modules().camera().loaded()) m_camera_shader;
 		decltype(res.shaders().render_passes().deffered().loaded()) m_render_pass;
+		decltype(instance.graphics.primary()) m_cmd_buf;
 
 	public:
 		Render(Instance &instance) :
 			m_camera_shader(instance.load(res.shaders().modules().camera())),
 			m_render_pass(instance.load(res.shaders().render_passes().deffered())),
+			m_cmd_buf(instance.graphics.primary()),
 			camera(m_camera_shader.camera())
 		{
 		}

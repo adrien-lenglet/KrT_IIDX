@@ -3,22 +3,112 @@
 #include <vector>
 #include <tuple>
 #include "util/enum_class_bitmask.hpp"
+#include "util/traits.hpp"
 
 namespace Subtile {
 
+class CommandBuffer
+{
+public:
+	enum class Level {
+		Primary,
+		Secondary
+	};
+
+	virtual ~CommandBuffer(void) = default;
+
+	class Graphics
+	{
+	public:
+		Graphics(CommandBuffer &cmd) :
+			m_cmd(cmd)
+		{
+			static_cast<void>(m_cmd);
+		}
+
+		static inline constexpr bool graphics = true;
+
+	private:
+		CommandBuffer &m_cmd;
+	};
+
+	class Compute
+	{
+	public:
+		Compute(CommandBuffer &cmd) :
+			m_cmd(cmd)
+		{
+			static_cast<void>(m_cmd);
+		}
+
+		static inline constexpr bool compute = true;
+
+	private:
+		CommandBuffer &m_cmd;
+	};
+
+	class Transfer
+	{
+	public:
+		Transfer(CommandBuffer &cmd) :
+			m_cmd(cmd)
+		{
+			static_cast<void>(m_cmd);
+		}
+
+		static inline constexpr bool transfer = true;
+
+	private:
+		CommandBuffer &m_cmd;
+	};
+
+	class Present
+	{
+	public:
+		Present(CommandBuffer &cmd) :
+			m_cmd(cmd)
+		{
+			static_cast<void>(m_cmd);
+		}
+
+		static inline constexpr bool present = true;
+
+	private:
+		CommandBuffer &m_cmd;
+	};
+};
+
 class Queue
 {
+	class CommandBufferHolder
+	{
+	public:
+		template <typename ...Args>
+		CommandBufferHolder(Args &&...args) :
+			m_cmd(std::forward<Args>(args)...)
+		{
+		}
+
+	protected:
+		std::unique_ptr<CommandBuffer> m_cmd;
+	};
+
 public:
 	virtual ~Queue(void) = default;
 
+	virtual std::unique_ptr<CommandBuffer> commandBuffer(CommandBuffer::Level level) = 0;
+
 	enum class Flag {
-		Present = 0x10000000,
 		Graphics = 0x00000001,
 		Compute = 0x00000002,
-		Transfer = 0x00000004
+		Transfer = 0x00000004,
+		Present = 0x10000000
 	};
 
 	using Set = std::vector<std::pair<Queue::Flag, std::vector<float>>>;
+
+	template <Flag Flags>
+	class CmdBufHandle;
 
 	template <Flag Flags>
 	class Handle
@@ -29,15 +119,19 @@ public:
 		{
 		}
 
+		auto primary(void)
+		{
+			return CmdBufHandle<Flags>(m_queue->commandBuffer(CommandBuffer::Level::Primary));
+		}
+
+		auto secondary(void)
+		{
+			return CmdBufHandle<Flags>(m_queue->commandBuffer(CommandBuffer::Level::Secondary));
+		}
+
 	private:
 		std::unique_ptr<Queue> m_queue;
 	};
-};
-
-class CommandBuffer
-{
-public:
-	virtual ~CommandBuffer(void) = default;
 };
 
 }
@@ -47,3 +141,25 @@ struct util::enable_bitmask<sb::Queue::Flag>
 {
 	static inline constexpr bool value = true;
 };
+
+namespace Subtile {
+
+template <Queue::Flag Flags>
+class Queue::CmdBufHandle : private CommandBufferHolder,
+	public util::conditional_un_t<!!(Flags & Flag::Graphics), CommandBuffer::Graphics>,
+	public util::conditional_un_t<!!(Flags & Flag::Compute), CommandBuffer::Compute>,
+	public util::conditional_un_t<!!(Flags & Flag::Transfer), CommandBuffer::Transfer>,
+	public util::conditional_un_t<!!(Flags & Flag::Present), CommandBuffer::Present>
+{
+public:
+	CmdBufHandle(std::unique_ptr<CommandBuffer> &&commandBuffer) :
+		CommandBufferHolder(std::move(commandBuffer)),
+		util::conditional_un_t<!!(Flags & Flag::Graphics), CommandBuffer::Graphics>(*m_cmd),
+		util::conditional_un_t<!!(Flags & Flag::Compute), CommandBuffer::Compute>(*m_cmd),
+		util::conditional_un_t<!!(Flags & Flag::Transfer), CommandBuffer::Transfer>(*m_cmd),
+		util::conditional_un_t<!!(Flags & Flag::Present), CommandBuffer::Present>(*m_cmd)
+	{
+	}
+};
+
+}

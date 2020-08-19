@@ -1898,6 +1898,32 @@ void Vk::presentImage(void)
 	Vk::assert(vkQueueWaitIdle(m_present_queue));*/
 }
 
+Vk::CommandBuffer::CommandBuffer(CommandPool &pool, sb::CommandBuffer::Level level) :
+	m_pool(pool),
+	m_cmd(createCommandBuffer(level))
+{
+}
+
+VkCommandBuffer Vk::CommandBuffer::createCommandBuffer(sb::CommandBuffer::Level level)
+{
+	static const std::map<sb::CommandBuffer::Level, VkCommandBufferLevel> table {
+		{sb::CommandBuffer::Level::Primary, VK_COMMAND_BUFFER_LEVEL_PRIMARY},
+		{sb::CommandBuffer::Level::Secondary, VK_COMMAND_BUFFER_LEVEL_SECONDARY}
+	};
+	VkCommandBufferAllocateInfo ai {};
+	ai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	ai.commandPool = m_pool;
+	ai.level = table.at(level);
+	ai.commandBufferCount = 1;
+
+	return m_pool.getDep().allocateVk(vkAllocateCommandBuffers, ai);
+}
+
+Vk::CommandBuffer::~CommandBuffer(void)
+{
+	vkFreeCommandBuffers(m_pool.getDep(), m_pool, 1, &m_cmd);
+}
+
 Vk::Queue::Queue(Device &dev, VkQueueFamilyIndex familyIndex, VkQueue queue) :
 	m_handle(queue),
 	m_command_pool(dev, createCommandPool(dev, familyIndex))
@@ -1916,6 +1942,11 @@ VkCommandPool Vk::Queue::createCommandPool(Device &dev, VkQueueFamilyIndex famil
 
 Vk::Queue::~Queue(void)
 {
+}
+
+std::unique_ptr<sb::CommandBuffer> Vk::Queue::commandBuffer(sb::CommandBuffer::Level level)
+{
+	return std::make_unique<CommandBuffer>(m_command_pool, level);
 }
 
 Vk::Queue::operator VkQueue(void) const

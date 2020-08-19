@@ -712,17 +712,34 @@ private:
 
 	void presentImage(void) override;
 
+	using CommandPool = Device::Handle<VkCommandPool>;
+
+	class CommandBuffer : public sb::CommandBuffer
+	{
+	public:
+		CommandBuffer(CommandPool &pool, sb::CommandBuffer::Level level);
+		~CommandBuffer(void) override;
+
+	private:
+		CommandPool &m_pool;
+		VkCommandBuffer m_cmd;
+
+		VkCommandBuffer createCommandBuffer(sb::CommandBuffer::Level level);
+	};
+
 	class Queue : public sb::Queue
 	{
 	public:
 		Queue(Device &dev, VkQueueFamilyIndex familyIndex, VkQueue queue);
 		~Queue(void) override;
 
+		std::unique_ptr<sb::CommandBuffer> commandBuffer(sb::CommandBuffer::Level level) override;
+
 		operator VkQueue(void) const;
 
 	private:
 		VkQueue m_handle;
-		Device::Handle<VkCommandPool> m_command_pool;
+		CommandPool m_command_pool;
 
 		VkCommandPool createCommandPool(Device &dev, VkQueueFamilyIndex familyIndex);
 	};

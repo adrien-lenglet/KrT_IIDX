@@ -2,6 +2,7 @@
 
 #include <set>
 #include "util.hpp"
+#include "util/traits.hpp"
 #include "../Subtile.hpp"
 #include "Cache.hpp"
 #include "Image.hpp"
