@@ -676,12 +676,12 @@ Vk::Allocator& Vk::Device::allocator(void)
 	return m_allocator;
 }
 
-VkQueue Vk::Device::getQueue(sb::Queue::Flag flags, size_t ndx)
+std::pair<Vk::VkQueueFamilyIndex, VkQueue> Vk::Device::getQueue(sb::Queue::Flag flags, size_t ndx)
 {
 	auto queue = m_queue_mapping.at(std::make_pair(flags, ndx));
 	VkQueue res;
 	vkGetDeviceQueue(*this, queue.first, queue.second, &res);
-	return res;
+	return std::make_pair(queue.first, res);
 }
 
 Vk::Device Vk::createDevice(const sb::Queue::Set &requiredQueues)
@@ -1899,9 +1899,20 @@ void Vk::presentImage(void)
 	Vk::assert(vkQueueWaitIdle(m_present_queue));*/
 }
 
-Vk::Queue::Queue(VkQueue queue) :
-	m_handle(queue)
+Vk::Queue::Queue(Device &dev, VkQueueFamilyIndex familyIndex, VkQueue queue) :
+	m_handle(queue),
+	m_command_pool(dev, createCommandPool(dev, familyIndex))
 {
+}
+
+VkCommandPool Vk::Queue::createCommandPool(Device &dev, VkQueueFamilyIndex familyIndex)
+{
+	VkCommandPoolCreateInfo ci {};
+	ci.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	ci.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+	ci.queueFamilyIndex = familyIndex;
+
+	return dev.createVk(vkCreateCommandPool, ci);
 }
 
 Vk::Queue::~Queue(void)
@@ -1913,9 +1924,16 @@ Vk::Queue::operator VkQueue(void) const
 	return m_handle;
 }
 
+template <>
+void Vk::Device::Handle<VkCommandPool>::destroy(Vk::Device &device, VkCommandPool commandPool)
+{
+	device.destroy(vkDestroyCommandPool, commandPool);
+}
+
 std::unique_ptr<sb::Queue> Vk::getQueue(sb::Queue::Flag flags, size_t index)
 {
-	return std::make_unique<Queue>(m_device.getQueue(flags, index));
+	auto got = m_device.getQueue(flags, index);
+	return std::make_unique<Queue>(m_device, got.first, got.second);
 }
 
 }

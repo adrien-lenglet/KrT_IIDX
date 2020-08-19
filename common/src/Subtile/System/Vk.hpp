@@ -388,7 +388,7 @@ private:
 
 		const PhysicalDevice& physical(void) const;
 		Allocator& allocator(void);
-		VkQueue getQueue(sb::Queue::Flag flags, size_t ndx);
+		std::pair<VkQueueFamilyIndex, VkQueue> getQueue(sb::Queue::Flag flags, size_t ndx);
 		VkFormat sbFormatToVk(sb::Format format) const;
 
 		template <typename VkHandle>
@@ -717,13 +717,16 @@ private:
 	class Queue : public sb::Queue
 	{
 	public:
-		Queue(VkQueue queue);
+		Queue(Device &dev, VkQueueFamilyIndex familyIndex, VkQueue queue);
 		~Queue(void) override;
 
 		operator VkQueue(void) const;
 
 	private:
 		VkQueue m_handle;
+		Device::Handle<VkCommandPool> m_command_pool;
+
+		VkCommandPool createCommandPool(Device &dev, VkQueueFamilyIndex familyIndex);
 	};
 
 	std::unique_ptr<sb::Queue> getQueue(sb::Queue::Flag flags, size_t index) override;

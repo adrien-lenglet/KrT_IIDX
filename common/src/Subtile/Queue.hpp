@@ -34,6 +34,12 @@ public:
 	};
 };
 
+class CommandBuffer
+{
+public:
+	virtual ~CommandBuffer(void) = default;
+};
+
 }
 
 template <>
