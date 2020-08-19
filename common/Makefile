@@ -59,12 +59,13 @@ $(TARGET): $(OBJ) $(LIB_OBJ)
 	ar rcs $(TARGET) $(OBJ) $(LIB_OBJ)
 
 clean:
-	rm -f $(OBJ) $(TARGET) $(RESOURCES_OBJ) $(RES_SHIP)
+	rm -f $(OBJ) $(TARGET)
 
 clean_libs:
 	rm -f $(LIB_OBJ)
 
 clean_all: clean_libs clean
+	rm -f $(RESOURCES_OBJ) $(RES_SHIP)
 
 TOOLS_FOLDER = tools
 TOOLS = $(TOOLS_FOLDER)/res_detector
