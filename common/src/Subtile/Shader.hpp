@@ -1011,5 +1011,3 @@ private:
 };
 
 }
-
-#include "Instance.hpp"

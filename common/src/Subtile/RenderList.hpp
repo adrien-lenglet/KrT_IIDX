@@ -4,26 +4,6 @@
 #include "Binding.hpp"
 
 namespace Subtile {
-namespace Render {
-
-class CommandBuffer
-{
-public:
-	virtual ~CommandBuffer(void) = default;
-
-	virtual void beginRenderPass(void) = 0;
-	virtual void endRenderPass(void) = 0;
-	virtual void bindShader(sb::Shader &shader) = 0;
-	virtual void bindDescriptorSet(sb::Shader &shader, sb::Shader::DescriptorSet &set, size_t ndx) = 0;
-	virtual void draw(const Shader::Model &model) = 0;
-
-	virtual void submit(void) = 0;
-};
-
-}
-}
-
-namespace Subtile {
 
 namespace Event {
 class Socket;
@@ -46,7 +26,7 @@ class Pass
 		void bind(Binding::Dependency::Socket &socket, const Shader::Model &model);
 
 	protected:
-		void render_models(CommandBuffer &cmd);
+		//void render_models(CommandBuffer &cmd);
 
 		virtual void destroy(void) = 0;
 
@@ -62,7 +42,7 @@ class Pass
 	public:
 		ShaderPass(Pass &parent, Shader &shader);
 
-		void render(CommandBuffer &cmd);
+		//void render(CommandBuffer &cmd);
 
 	protected:
 		void destroy(void) override;
@@ -100,7 +80,7 @@ class Pass::SubShader : public Pass::ShaderBase
 public:
 	SubShader(ShaderBase &parent, Shader::DescriptorSet &set);
 
-	void render(CommandBuffer &cmd, Shader &shader, Shader::DescriptorSet &set, size_t depth);
+	//void render(CommandBuffer &cmd, Shader &shader, Shader::DescriptorSet &set, size_t depth);
 
 protected:
 	void destroy(void) override;

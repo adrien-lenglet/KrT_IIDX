@@ -1,5 +1,6 @@
 #include "RenderList.hpp"
 #include "World.hpp"
+#include "Instance.hpp"
 
 namespace Subtile {
 namespace Render {
@@ -37,11 +38,11 @@ void Pass::ShaderBase::bind(Binding::Dependency::Socket &socket, const Shader::M
 	m_to_render.bind(socket, model);
 }
 
-void Pass::ShaderBase::render_models(CommandBuffer &cmd)
+/*void Pass::ShaderBase::render_models(CommandBuffer &cmd)
 {
 	for (auto &m : m_to_render)
 		cmd.draw(m);
-}
+}*/
 
 void Pass::ShaderBase::remove_subpass(Shader::DescriptorSet &set)
 {
@@ -60,13 +61,13 @@ Pass::ShaderPass::ShaderPass(Pass &parent, Shader &shader) :
 {
 }
 
-void Pass::ShaderPass::render(CommandBuffer &cmd)
+/*void Pass::ShaderPass::render(CommandBuffer &cmd)
 {
 	cmd.bindShader(m_shader);
 	render_models(cmd);
 	for (auto &sp : m_subpasses)
 		sp.second.render(cmd, m_shader, sp.first, 0);
-}
+}*/
 
 void Pass::ShaderPass::destroy(void)
 {
@@ -123,13 +124,13 @@ Pass::SubShader::SubShader(Pass::ShaderBase &parent, Shader::DescriptorSet &set)
 {
 }
 
-void Pass::SubShader::render(CommandBuffer &cmd, Shader &shader, Shader::DescriptorSet &set, size_t depth)
+/*void Pass::SubShader::render(CommandBuffer &cmd, Shader &shader, Shader::DescriptorSet &set, size_t depth)
 {
 	cmd.bindDescriptorSet(shader, set, depth);
 	render_models(cmd);
 	for (auto &sp : m_subpasses)
 		sp.second.render(cmd, shader, sp.first, depth + 1);
-}
+}*/
 
 void Pass::SubShader::destroy(void)
 {

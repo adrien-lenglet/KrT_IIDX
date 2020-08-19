@@ -676,9 +676,12 @@ Vk::Allocator& Vk::Device::allocator(void)
 	return m_allocator;
 }
 
-VkQueue Vk::Device::getQueue(uint32_t family_ndx, uint32_t ndx)
+VkQueue Vk::Device::getQueue(sb::Queue::Flag flags, size_t ndx)
 {
-	return get<VkQueue>(vkGetDeviceQueue, *this, family_ndx, ndx);
+	auto queue = m_queue_mapping.at(std::make_pair(flags, ndx));
+	VkQueue res;
+	vkGetDeviceQueue(*this, queue.first, queue.second, &res);
+	return res;
 }
 
 Vk::Device Vk::createDevice(const sb::Queue::Set &requiredQueues)
@@ -1410,6 +1413,7 @@ Vk::Model::Model(Vk::Device &dev, size_t count, size_t stride, const void *data)
 	m_count(count),
 	m_buffer(createBuffer(dev, count * stride))
 {
+	static_cast<void>(m_count);
 	static_cast<void>(data);
 	//dev.vk().m_transfer.write(m_buffer, 0, count * stride, data);
 }
@@ -1436,14 +1440,14 @@ Vk::VmaBuffer Vk::Model::createBuffer(Device &dev, size_t size)
 		return dev.allocator().createBuffer(bci, aci);
 }
 
-void Vk::Model::draw(CommandBuffer &cmd) const
+/*void Vk::Model::draw(CommandBuffer &cmd) const
 {
 	VkBuffer buffer = m_buffer;
 	VkDeviceSize off = 0;
 
 	vkCmdBindVertexBuffers(cmd, 0, 1, &buffer, &off);
 	vkCmdDraw(cmd, m_count, 1, 0, 0);
-}
+}*/
 
 template <>
 void Vk::Device::Handle<VkDescriptorPool>::destroy(Vk::Device &device, VkDescriptorPool pool)
@@ -1687,7 +1691,7 @@ std::unique_ptr<sb::Shader> Vk::createShader(rs::Shader &shader)
 	return std::make_unique<Shader>(m_device, shader);
 }
 
-Vk::CommandBuffer::CommandBuffer(Vk::Device &dev, uint32_t queue_type) :
+/*Vk::CommandBuffer::CommandBuffer(Vk::Device &dev, uint32_t queue_type) :
 	m_command_pool(dev, createPool(dev, queue_type)),
 	m_command_buffer(allocCommandBuffer(dev))
 {
@@ -1808,7 +1812,7 @@ void Vk::CommandBuffer::draw(const sb::Shader::Model &model)
 
 void Vk::CommandBuffer::submit(void)
 {
-	/*Vk::assert(vkEndCommandBuffer(m_command_buffer));
+	Vk::assert(vkEndCommandBuffer(m_command_buffer));
 
 	VkSubmitInfo s {};
 	s.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1816,13 +1820,13 @@ void Vk::CommandBuffer::submit(void)
 	s.pCommandBuffers = &m_command_buffer;
 
 	Vk::assert(vkQueueSubmit(m_command_pool.getDep().vk().m_graphics_queue, 1, &s, VK_NULL_HANDLE));
-	Vk::assert(vkQueueWaitIdle(m_command_pool.getDep().vk().m_graphics_queue));*/
+	Vk::assert(vkQueueWaitIdle(m_command_pool.getDep().vk().m_graphics_queue));
 }
 
 std::unique_ptr<sb::Render::CommandBuffer> Vk::createRenderCommandBuffer(void)
 {
 	return std::make_unique<CommandBuffer>(CommandBuffer::Graphics(m_device));
-}
+}*/
 
 void Vk::acquireNextImage(void)
 {
@@ -1893,6 +1897,25 @@ void Vk::presentImage(void)
 
 	Vk::assert(vkQueuePresentKHR(m_present_queue, &pi));
 	Vk::assert(vkQueueWaitIdle(m_present_queue));*/
+}
+
+Vk::Queue::Queue(VkQueue queue) :
+	m_handle(queue)
+{
+}
+
+Vk::Queue::~Queue(void)
+{
+}
+
+Vk::Queue::operator VkQueue(void) const
+{
+	return m_handle;
+}
+
+std::unique_ptr<sb::Queue> Vk::getQueue(sb::Queue::Flag flags, size_t index)
+{
+	return std::make_unique<Queue>(m_device.getQueue(flags, index));
 }
 
 }

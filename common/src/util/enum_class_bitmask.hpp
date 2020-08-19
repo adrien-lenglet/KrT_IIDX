@@ -13,56 +13,56 @@ struct enable_bitmask
 }
 
 template <typename Enum, class = std::enable_if_t<util::enable_bitmask<Enum>::value>>
-Enum operator|(Enum l, Enum r)
+constexpr Enum operator|(Enum l, Enum r)
 {
 	using Under_t = std::underlying_type_t<Enum>;
 	return static_cast<Enum>(static_cast<Under_t>(l) | static_cast<Under_t>(r));
 }
 
 template <typename Enum, class = std::enable_if_t<util::enable_bitmask<Enum>::value>>
-Enum operator&(Enum l, Enum r)
+constexpr Enum operator&(Enum l, Enum r)
 {
 	using Under_t = std::underlying_type_t<Enum>;
 	return static_cast<Enum>(static_cast<Under_t>(l) & static_cast<Under_t>(r));
 }
 
 template <typename Enum, class = std::enable_if_t<util::enable_bitmask<Enum>::value>>
-Enum operator^(Enum l, Enum r)
+constexpr Enum operator^(Enum l, Enum r)
 {
 	using Under_t = std::underlying_type_t<Enum>;
 	return static_cast<Enum>(static_cast<Under_t>(l) & static_cast<Under_t>(r));
 }
 
 template <typename Enum, class = std::enable_if_t<util::enable_bitmask<Enum>::value>>
-Enum operator~(Enum val)
+constexpr Enum operator~(Enum val)
 {
 	using Under_t = std::underlying_type_t<Enum>;
 	return static_cast<Enum>(~static_cast<Under_t>(val));
 }
 
 template <typename Enum, class = std::enable_if_t<util::enable_bitmask<Enum>::value>>
-Enum& operator|=(Enum &l, Enum r)
+constexpr Enum& operator|=(Enum &l, Enum r)
 {
 	l = l | r;
 	return l;
 }
 
 template <typename Enum, class = std::enable_if_t<util::enable_bitmask<Enum>::value>>
-Enum& operator&=(Enum &l, Enum r)
+constexpr Enum& operator&=(Enum &l, Enum r)
 {
 	l = l & r;
 	return l;
 }
 
 template <typename Enum, class = std::enable_if_t<util::enable_bitmask<Enum>::value>>
-Enum& operator^=(Enum &l, Enum r)
+constexpr Enum& operator^=(Enum &l, Enum r)
 {
 	l = l ^ r;
 	return l;
 }
 
 template <typename Enum, class = std::enable_if_t<util::enable_bitmask<Enum>::value>>
-bool operator!(Enum val)
+constexpr bool operator!(Enum val)
 {
 	using Under_t = std::underlying_type_t<Enum>;
 	return !static_cast<Under_t>(val);

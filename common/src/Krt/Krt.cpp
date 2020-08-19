@@ -10,8 +10,9 @@ namespace Krt {
 
 Instance::Instance(bool isDebug, const std::vector<std::string> &args) :
 	sb::Instance<Instance>("SUNREN®", isDebug, Config(args).isProfile, {
-		{sb::Queue::Flag::Graphics | sb::Queue::Flag::Present | sb::Queue::Flag::Transfer, {1.0f}}
-	})
+		{m_graphics_family, {1.0f}}
+	}),
+	graphics(queue<m_graphics_family>(0))
 {
 }
 

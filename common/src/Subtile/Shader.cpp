@@ -1,4 +1,5 @@
 #include "Shader.hpp"
+#include "Instance.hpp"
 
 namespace Subtile {
 

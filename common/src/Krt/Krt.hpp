@@ -17,11 +17,15 @@ public:
 
 class Instance : public sb::Instance<Instance>
 {
+	static inline constexpr auto m_graphics_family = sb::Queue::Flag::Graphics | sb::Queue::Flag::Present | sb::Queue::Flag::Transfer;
+
 public:
 	Instance(bool isDebug, const std::vector<std::string> &args);
 	~Instance(void);
 
 	void run(void);
+
+	sb::Queue::Handle<m_graphics_family> graphics;
 };
 
 }

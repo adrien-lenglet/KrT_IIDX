@@ -19,6 +19,19 @@ public:
 	};
 
 	using Set = std::vector<std::pair<Queue::Flag, std::vector<float>>>;
+
+	template <Flag Flags>
+	class Handle
+	{
+	public:
+		Handle(std::unique_ptr<Queue> &&queue) :
+			m_queue(std::move(queue))
+		{
+		}
+
+	private:
+		std::unique_ptr<Queue> m_queue;
+	};
 };
 
 }

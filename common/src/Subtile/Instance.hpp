@@ -27,8 +27,6 @@ public:
 
 	void setInputs(const std::function<void (const Event::System::Observer::Input::Setter &setter)> &binder);
 
-	void scanInputs(void);
-
 	class Getter
 	{
 	public:
@@ -94,6 +92,12 @@ public:
 			return loadRenderPass(std::forward<ResType>(res));
 		} else
 			static_assert(!std::is_same_v<ResType, ResType>, "Unsupported resource type");
+	}
+
+	template <sb::Queue::Flag Flags>
+	auto queue(size_t index)
+	{
+		return Queue::Handle<Flags>(system().getQueue(Flags, index));
 	}
 };
 

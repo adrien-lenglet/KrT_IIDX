@@ -20,7 +20,7 @@ class Vk : public ISystem
 {
 public:
 	Vk(InstanceBase &instance, const std::string &name, bool isDebug, bool isProfile, const sb::Queue::Set &queues);
-	~Vk(void);
+	~Vk(void) override;
 
 	void scanInputs(void) override;
 	const std::map<std::string, System::IInput&>& getInputs(void) override;
@@ -388,7 +388,7 @@ private:
 
 		const PhysicalDevice& physical(void) const;
 		Allocator& allocator(void);
-		VkQueue getQueue(uint32_t family_ndx, uint32_t ndx);
+		VkQueue getQueue(sb::Queue::Flag flags, size_t ndx);
 		VkFormat sbFormatToVk(sb::Format format) const;
 
 		template <typename VkHandle>
@@ -629,7 +629,7 @@ private:
 		VmaBuffer createBuffer(Device &dev, const DescriptorSetLayout &layout);
 	};
 
-	class CommandBuffer : public sb::Render::CommandBuffer
+	/*class CommandBuffer : public sb::Render::CommandBuffer
 	{
 		CommandBuffer(Device &dev, uint32_t queue_type);
 
@@ -660,14 +660,14 @@ private:
 		void beginCommandBuffer(void);
 	};
 
-	std::unique_ptr<sb::Render::CommandBuffer> createRenderCommandBuffer(void) override;
+	std::unique_ptr<sb::Render::CommandBuffer> createRenderCommandBuffer(void) override;*/
 
 	class Model : public sb::Shader::Model
 	{
 	public:
 		Model(Device &dev, size_t count, size_t stride, const void *data);
 
-		void draw(CommandBuffer &cmd) const;
+		//void draw(CommandBuffer &cmd) const;
 
 	private:
 		size_t m_count;
@@ -713,6 +713,20 @@ private:
 	Semaphore m_acquire_image_semaphore;
 
 	void presentImage(void) override;
+
+	class Queue : public sb::Queue
+	{
+	public:
+		Queue(VkQueue queue);
+		~Queue(void) override;
+
+		operator VkQueue(void) const;
+
+	private:
+		VkQueue m_handle;
+	};
+
+	std::unique_ptr<sb::Queue> getQueue(sb::Queue::Flag flags, size_t index) override;
 };
 
 }
