@@ -62,7 +62,7 @@ protected:
 	void remove_shaderpass(Shader &shader);
 
 private:
-	ISystem &m_system;
+	System &m_system;
 	std::map<util::ref_wrapper<Shader>, ShaderPass> m_shaderpasses;
 
 	ShaderPass& resolve(Shader &shader);

@@ -2,8 +2,7 @@
 
 #include <memory>
 #include "../Subtile.hpp"
-#include "ISystem.hpp"
-#include "IInput.hpp"
+#include "System.hpp"
 #include "Event/System/Observer.hpp"
 #include "Shader.hpp"
 #include "Queue.hpp"
@@ -60,10 +59,10 @@ private:
 	friend Render::Pass;
 	friend Getter;
 
-	std::unique_ptr<ISystem> m_system;
+	std::unique_ptr<System> m_system;
 	Event::System::Observer m_events;
 
-	ISystem& system(void);
+	System& system(void);
 
 	Shader::Cache::Ref loadShaderRef(rs::Shader &shaderres);
 	RenderPass::Cache::Ref loadRenderPassRef(rs::RenderPass &renderpassres);

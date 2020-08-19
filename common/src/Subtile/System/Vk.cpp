@@ -5,7 +5,6 @@
 #include "Vk.hpp"
 
 namespace Subtile {
-namespace System {
 
 Vk::Vk(sb::InstanceBase &instance, const std::string &name, bool isDebug, bool isProfile, const sb::Queue::Set &queues) :
 	m_sb_instance(instance),
@@ -39,7 +38,7 @@ void Vk::scanInputs(void)
 	return m_glfw.scanInputs();
 }
 
-const std::map<std::string, System::IInput&>& Vk::getInputs(void)
+const std::map<std::string, System::Input&>& Vk::getInputs(void)
 {
 	return m_glfw.getInputs();
 }
@@ -1936,5 +1935,4 @@ std::unique_ptr<sb::Queue> Vk::getQueue(sb::Queue::Flag flags, size_t index)
 	return std::make_unique<Queue>(m_device, got.first, got.second);
 }
 
-}
 }

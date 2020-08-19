@@ -2,13 +2,12 @@
 
 #include <chrono>
 #include "../Observer.hpp"
-#include "../../Input/Analog.hpp"
-#include "../../Input/Button.hpp"
+#include "../../Input.hpp"
 #include "util.hpp"
 
 namespace Subtile {
 
-class ISystem;
+class System;
 class InstanceBase;
 class SessionBase;
 
@@ -17,17 +16,17 @@ namespace System {
 
 class Socket;
 
-class Observer : public Event::Observer::Cluster, private util::dep<ISystem&>
+class Observer : public Event::Observer::Cluster, private util::dep<sb::System&>
 {
 public:
-	Observer(ISystem &system);
+	Observer(sb::System &system);
 	~Observer(void) override;
 
 public:
-	class Input : public Cluster, private util::dep<ISystem&>
+	class Input : public Cluster, private util::dep<sb::System&>
 	{
 	public:
-		Input(ISystem &system);
+		Input(sb::System &system);
 		~Input(void) override;
 
 		class Analog : public Cluster, public DescGen<Analog>, public Observer::GroupCb<Analog, std::tuple<std::string>, std::tuple<util::ref_wrapper<Subtile::Input::Analog>>, std::tuple<double>>
@@ -106,7 +105,7 @@ public:
 		friend Button;
 		friend InstanceBase;
 
-		std::map<std::string, std::unique_ptr<IInput>> m_inputs;
+		std::map<std::string, std::unique_ptr<sb::Input>> m_inputs;
 		std::map<std::string, std::string> m_bindings;
 		Observer::Cluster::Optimized m_input_update;
 

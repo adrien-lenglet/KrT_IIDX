@@ -19,7 +19,7 @@
 
 namespace Subtile {
 
-class ISystem;
+class System;
 namespace Resource {
 class Shader;
 }

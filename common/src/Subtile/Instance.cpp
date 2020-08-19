@@ -1,12 +1,10 @@
 #include "Instance.hpp"
-#include "System/Input/IButton.hpp"
-#include "System/Input/IKeyboard.hpp"
 #include "System/Vk.hpp"
 
 namespace Subtile {
 
 InstanceBase::InstanceBase(const std::string &name, bool isDebug, bool isProfile, const sb::Queue::Set &queues) :
-	m_system(new System::Vk(*this, name, isDebug, isProfile, queues)),
+	m_system(new Vk(*this, name, isDebug, isProfile, queues)),
 	m_events(*m_system)
 {
 }
@@ -20,7 +18,7 @@ void InstanceBase::setInputs(const std::function<void (const Event::System::Obse
 	return m_events.input.set(binder);
 }
 
-ISystem& InstanceBase::system(void)
+System& InstanceBase::system(void)
 {
 	return *m_system;
 }

@@ -1,13 +1,13 @@
 #include <fstream>
 #include "Observer.hpp"
-#include "../../ISystem.hpp"
+#include "../../System.hpp"
 
 namespace Subtile {
 namespace Event {
 namespace System {
 
-Observer::Observer(ISystem &system) :
-	util::dep<ISystem&>(system),
+Observer::Observer(sb::System &system) :
+	util::dep<sb::System&>(system),
 	input(system)
 {
 	add(input);
@@ -18,8 +18,8 @@ Observer::~Observer(void)
 {
 }
 
-Observer::Input::Input(ISystem &system) :
-	util::dep<ISystem&>(system),
+Observer::Input::Input(sb::System &system) :
+	util::dep<sb::System&>(system),
 	analog(*this),
 	button(*this)
 {
@@ -39,7 +39,7 @@ void Observer::Input::set(const std::function<void (const Setter &setter)> &bind
 	binder(Setter(*this));
 	m_bindings = loadBindings();
 	for (const auto &p : m_bindings)
-		m_inputs.at(p.first)->bind(static_cast<ISystem&>(*this).getInputs().at(p.second));
+		m_inputs.at(p.first)->bind(static_cast<sb::System&>(*this).getInputs().at(p.second));
 }
 
 std::map<std::string, std::string> Observer::Input::loadBindings(void) const

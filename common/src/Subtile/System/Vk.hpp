@@ -2,7 +2,7 @@
 
 #include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
-#include "../ISystem.hpp"
+#include "../System.hpp"
 #include "Glfw.hpp"
 #include "Subtile/Shader.hpp"
 #include "Subtile/RenderList.hpp"
@@ -14,16 +14,14 @@ namespace Subtile {
 
 class InstanceBase;
 
-namespace System {
-
-class Vk : public ISystem
+class Vk : public System
 {
 public:
 	Vk(InstanceBase &instance, const std::string &name, bool isDebug, bool isProfile, const sb::Queue::Set &queues);
 	~Vk(void) override;
 
 	void scanInputs(void) override;
-	const std::map<std::string, System::IInput&>& getInputs(void) override;
+	const std::map<std::string, System::Input&>& getInputs(void) override;
 
 	const VkAllocationCallbacks* getAllocator(void) const;
 
@@ -732,5 +730,4 @@ private:
 	std::unique_ptr<sb::Queue> getQueue(sb::Queue::Flag flags, size_t index) override;
 };
 
-}
 }
