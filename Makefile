@@ -26,10 +26,6 @@ resources:
 	$(MAKE) -C $(COMMON) resources_detect $(OPT)
 	$(MAKE) -C $(COMMON) resources $(OPT)
 
-macro_resources:
-	$(MAKE) -C $(COMMON) macro $(OPT)
-	$(MAKE) resources
-
 debug: CXXFLAGS_ADD = -g
 debug: resources
 	$(MAKE) -C $(COMMON) debug $(OPT)

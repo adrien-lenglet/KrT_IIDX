@@ -17,10 +17,6 @@ TARGET = obj.a
 
 all: $(TARGET)
 
-MACRO_FOLDER = $(SRC_FOLDER)/Subtile/Macro
-macro:
-	$(MAKE) -C $(MACRO_FOLDER)
-
 RES_DETECTOR = tools/res_detector/res_detector
 $(RES_DETECTOR): .FORCE
 	$(MAKE) -C $(dir $(RES_DETECTOR))
@@ -68,9 +64,6 @@ clean:
 clean_libs:
 	rm -f $(LIB_OBJ)
 
-clean_macros:
-	$(MAKE) -C $(MACRO_FOLDER) clean
-
 clean_all: clean_libs clean
 
 TOOLS_FOLDER = tools
@@ -86,6 +79,6 @@ wipe_all_bin: clean_tools clean_all
 wipe_resources:
 	rm -f $(USER_RESOURCES_SRC) $(USER_RESOURCES_HEADER)
 
-wipe_all_build: clean_macros wipe_resources wipe_all_bin
+wipe_all_build: wipe_resources wipe_all_bin
 
 .FORCE:
