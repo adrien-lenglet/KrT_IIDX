@@ -26,7 +26,7 @@ private:
 
 	//decltype(m_model) createModel(void);
 
-	double m_angle = 0.0;
+	//double m_angle = 0.0;
 };
 
 }

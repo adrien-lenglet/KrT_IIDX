@@ -1900,7 +1900,7 @@ void Vk::presentImage(void)
 
 Vk::CommandBuffer::CommandBuffer(CommandPool &pool, sb::CommandBuffer::Level level) :
 	m_pool(pool),
-	m_cmd(createCommandBuffer(level))
+	m_handle(createCommandBuffer(level))
 {
 }
 
@@ -1910,6 +1910,7 @@ VkCommandBuffer Vk::CommandBuffer::createCommandBuffer(sb::CommandBuffer::Level 
 		{sb::CommandBuffer::Level::Primary, VK_COMMAND_BUFFER_LEVEL_PRIMARY},
 		{sb::CommandBuffer::Level::Secondary, VK_COMMAND_BUFFER_LEVEL_SECONDARY}
 	};
+
 	VkCommandBufferAllocateInfo ai {};
 	ai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	ai.commandPool = m_pool;
@@ -1921,43 +1922,59 @@ VkCommandBuffer Vk::CommandBuffer::createCommandBuffer(sb::CommandBuffer::Level 
 
 Vk::CommandBuffer::~CommandBuffer(void)
 {
-	vkFreeCommandBuffers(m_pool.getDep(), m_pool, 1, &m_cmd);
+	vkFreeCommandBuffers(m_pool.getDep(), m_pool, 1, &m_handle);
 }
 
-Vk::Queue::Queue(Device &dev, VkQueueFamilyIndex familyIndex, VkQueue queue) :
-	m_handle(queue),
-	m_command_pool(dev, createCommandPool(dev, familyIndex))
+void Vk::CommandBuffer::reset(bool releaseResources)
+{
+	Vk::assert(vkResetCommandBuffer(*this, releaseResources ? VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT : 0));
+}
+
+Vk::CommandPool::CommandPool(Device &dev, VkQueueFamilyIndex familyIndex, bool isReset) :
+	Device::Handle<VkCommandPool>(dev, create(dev, familyIndex, isReset))
 {
 }
 
-VkCommandPool Vk::Queue::createCommandPool(Device &dev, VkQueueFamilyIndex familyIndex)
+VkCommandPool Vk::CommandPool::create(Device &dev, VkQueueFamilyIndex familyIndex, bool isReset)
 {
 	VkCommandPoolCreateInfo ci {};
 	ci.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	ci.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+	if (isReset)
+		ci.flags |= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 	ci.queueFamilyIndex = familyIndex;
 
 	return dev.createVk(vkCreateCommandPool, ci);
 }
 
-Vk::Queue::~Queue(void)
+Vk::CommandPool::~CommandPool(void)
 {
-}
-
-std::unique_ptr<sb::CommandBuffer> Vk::Queue::commandBuffer(sb::CommandBuffer::Level level)
-{
-	return std::make_unique<CommandBuffer>(m_command_pool, level);
-}
-
-Vk::Queue::operator VkQueue(void) const
-{
-	return m_handle;
 }
 
 template <>
 void Vk::Device::Handle<VkCommandPool>::destroy(Vk::Device &device, VkCommandPool commandPool)
 {
 	device.destroy(vkDestroyCommandPool, commandPool);
+}
+
+std::unique_ptr<sb::CommandBuffer> Vk::CommandPool::commandBuffer(sb::CommandBuffer::Level level)
+{
+	return std::make_unique<CommandBuffer>(*this, level);
+}
+
+Vk::Queue::Queue(Device &dev, VkQueueFamilyIndex familyIndex, VkQueue queue) :
+	m_device(dev),
+	m_family_index(familyIndex),
+	m_handle(queue)
+{
+}
+
+Vk::Queue::~Queue(void)
+{
+}
+
+std::unique_ptr<sb::CommandPool> Vk::Queue::commandPool(bool isReset)
+{
+	return std::make_unique<CommandPool>(m_device, m_family_index, isReset);
 }
 
 std::unique_ptr<sb::Queue> Vk::getQueue(sb::Queue::Flag flags, size_t index)

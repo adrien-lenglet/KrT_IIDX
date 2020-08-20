@@ -712,7 +712,7 @@ private:
 
 	void presentImage(void) override;
 
-	using CommandPool = Device::Handle<VkCommandPool>;
+	class CommandPool;
 
 	class CommandBuffer : public sb::CommandBuffer
 	{
@@ -720,11 +720,30 @@ private:
 		CommandBuffer(CommandPool &pool, sb::CommandBuffer::Level level);
 		~CommandBuffer(void) override;
 
+		operator VkCommandBuffer(void) const
+		{
+			return m_handle;
+		}
+
+		void reset(bool releaseResources) override;
+
 	private:
 		CommandPool &m_pool;
-		VkCommandBuffer m_cmd;
+		VkCommandBuffer m_handle;
 
 		VkCommandBuffer createCommandBuffer(sb::CommandBuffer::Level level);
+	};
+
+	class CommandPool : public sb::CommandPool, public Device::Handle<VkCommandPool>
+	{
+	public:
+		CommandPool(Device &dev, VkQueueFamilyIndex familyIndex, bool isReset);
+		~CommandPool(void) override;
+
+		std::unique_ptr<sb::CommandBuffer> commandBuffer(sb::CommandBuffer::Level level) override;
+
+	private:
+		VkCommandPool create(Device &dev, VkQueueFamilyIndex familyIndex, bool isReset);
 	};
 
 	class Queue : public sb::Queue
@@ -733,15 +752,17 @@ private:
 		Queue(Device &dev, VkQueueFamilyIndex familyIndex, VkQueue queue);
 		~Queue(void) override;
 
-		std::unique_ptr<sb::CommandBuffer> commandBuffer(sb::CommandBuffer::Level level) override;
+		std::unique_ptr<sb::CommandPool> commandPool(bool isReset) override;
 
-		operator VkQueue(void) const;
+		operator VkQueue(void) const
+		{
+			return m_handle;
+		}
 
 	private:
+		Device &m_device;
+		VkQueueFamilyIndex m_family_index;
 		VkQueue m_handle;
-		CommandPool m_command_pool;
-
-		VkCommandPool createCommandPool(Device &dev, VkQueueFamilyIndex familyIndex);
 	};
 
 	std::unique_ptr<sb::Queue> getQueue(sb::Queue::Flag flags, size_t index) override;
