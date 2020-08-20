@@ -660,7 +660,7 @@ private:
 
 	std::unique_ptr<sb::Render::CommandBuffer> createRenderCommandBuffer(void) override;*/
 
-	class Model : public sb::Shader::Model
+	/*class Model : public sb::Shader::Model
 	{
 	public:
 		Model(Device &dev, size_t count, size_t stride, const void *data);
@@ -672,7 +672,7 @@ private:
 		VmaBuffer m_buffer;
 
 		VmaBuffer createBuffer(Device &dev, size_t size);
-	};
+	};*/
 
 	using PipelineLayout = Device::Handle<VkPipelineLayout>;
 	using ShaderModule = Device::Handle<VkShaderModule>;
@@ -686,7 +686,7 @@ private:
 
 		Shader(Device &device, rs::Shader &shader);
 
-		std::unique_ptr<sb::Shader::Model> model(size_t count, size_t stride, const void *data) override;
+		//std::unique_ptr<sb::Shader::Model> model(size_t count, size_t stride, const void *data) override;
 		const sb::Shader::DescriptorSet::Layout& setLayout(size_t ndx) override;
 		std::unique_ptr<sb::Shader::DescriptorSet> set(size_t ndx) override;
 

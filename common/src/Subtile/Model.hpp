@@ -4,7 +4,13 @@
 
 namespace Subtile {
 
-template <typename VertexType>
+class Model
+{
+public:
+	virtual ~Model(void) = default;
+};
+
+/*template <typename VertexType>
 class Model
 {
 public:
@@ -46,6 +52,6 @@ public:
 
 private:
 	std::vector<Triangle> m_triangles;
-};
+};*/
 
 }

@@ -5,11 +5,11 @@
 namespace Subtile {
 namespace Render {
 
-Pass::ShaderBase::ShaderBase(void) :
+Pass::ShaderBase::ShaderBase(void)/* :
 	m_to_render([this](){
 		if (m_subpasses.size() == 0)
 			destroy();
-	})
+	})*/
 {
 }
 
@@ -33,10 +33,10 @@ Pass::ShaderBase& Pass::ShaderBase::resolve(const util::ref_wrapper<Shader::Desc
 	return resolve_direct(Shader::DescriptorSet::BaseHandle::Getter(*sets).getSet()).resolve(&sets[1], set_count - 1);
 }
 
-void Pass::ShaderBase::bind(Binding::Dependency::Socket &socket, const Shader::Model &model)
+/*void Pass::ShaderBase::bind(Binding::Dependency::Socket &socket, const Shader::Model &model)
 {
 	m_to_render.bind(socket, model);
-}
+}*/
 
 /*void Pass::ShaderBase::render_models(CommandBuffer &cmd)
 {
@@ -51,8 +51,8 @@ void Pass::ShaderBase::remove_subpass(Shader::DescriptorSet &set)
 		throw std::runtime_error("Can't find child in shaderpasses");
 	m_subpasses.erase(got);
 	
-	if (m_to_render.size() == 0 && m_subpasses.size() == 0)
-		destroy();
+	/*if (m_to_render.size() == 0 && m_subpasses.size() == 0)
+		destroy();*/
 }
 
 Pass::ShaderPass::ShaderPass(Pass &parent, Shader &shader) :

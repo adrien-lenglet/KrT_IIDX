@@ -1408,7 +1408,7 @@ Vk::VmaBuffer Vk::DescriptorSet::createBuffer(Device &dev, const DescriptorSetLa
 	return dev.allocator().createBuffer(bci, aci);
 }
 
-Vk::Model::Model(Vk::Device &dev, size_t count, size_t stride, const void *data) :
+/*Vk::Model::Model(Vk::Device &dev, size_t count, size_t stride, const void *data) :
 	m_count(count),
 	m_buffer(createBuffer(dev, count * stride))
 {
@@ -1439,7 +1439,7 @@ Vk::VmaBuffer Vk::Model::createBuffer(Device &dev, size_t size)
 		return dev.allocator().createBuffer(bci, aci);
 }
 
-/*void Vk::Model::draw(CommandBuffer &cmd) const
+void Vk::Model::draw(CommandBuffer &cmd) const
 {
 	VkBuffer buffer = m_buffer;
 	VkDeviceSize off = 0;
@@ -1670,10 +1670,10 @@ std::unique_ptr<sb::Shader::DescriptorSet> Vk::Shader::set(size_t ndx)
 	return std::make_unique<Vk::DescriptorSet>(m_device, reinterpret_cast<const DescriptorSetLayout&>(m_layouts.at(ndx)->resolve()));
 }
 
-std::unique_ptr<sb::Shader::Model> Vk::Shader::model(size_t count, size_t stride, const void *data)
+/*std::unique_ptr<sb::Shader::Model> Vk::Shader::model(size_t count, size_t stride, const void *data)
 {
 	return std::make_unique<Vk::Model>(m_device, count, stride, data);
-}
+}*/
 
 Vk::PipelineLayout& Vk::Shader::getPipelineLayout(void)
 {

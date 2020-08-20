@@ -22,9 +22,9 @@ private:
 	decltype(res.shaders().diffuse().loaded()) m_shader;
 	decltype(m_shader.material()) m_material;
 	decltype(m_shader.object()) m_object;
-	decltype(res.shaders().vertex().pnu().loaded().model()) m_model;
+	//decltype(res.shaders().vertex().pnu().loaded().model()) m_model;
 
-	decltype(m_model) createModel(void);
+	//decltype(m_model) createModel(void);
 
 	double m_angle = 0.0;
 };

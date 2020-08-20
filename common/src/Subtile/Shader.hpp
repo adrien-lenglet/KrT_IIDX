@@ -774,7 +774,7 @@ public:
 		};
 	};
 
-	class Model
+	/*class Model
 	{
 	public:
 		virtual ~Model(void) = default;
@@ -824,7 +824,7 @@ public:
 		};
 	};
 
-	virtual std::unique_ptr<Model> model(size_t count, size_t stride, const void *data) = 0;
+	virtual std::unique_ptr<Model> model(size_t count, size_t stride, const void *data) = 0;*/
 	virtual const DescriptorSet::Layout& setLayout(size_t ndx) = 0;
 	virtual std::unique_ptr<DescriptorSet> set(size_t ndx) = 0;
 
@@ -881,7 +881,7 @@ public:
 		{
 		}
 
-		using ResModel = typename Res::Model;
+		/*using ResModel = typename Res::Model;
 		using Model = Shader::Model::Handle<ResModel>;
 		auto model(const ResModel &in)
 		{
@@ -894,7 +894,7 @@ public:
 			std::cerr << "Shader::model() called at runtime with no argument, use it on static time with decltype for the return type" << std::endl;
 
 			return Model((**m_ref).model(0, sizeof(typename ResModel::Vertex), nullptr));
-		}
+		}*/
 	};
 };
 

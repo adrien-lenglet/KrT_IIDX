@@ -17,7 +17,35 @@ public:
 
 	virtual ~CommandBuffer(void) = default;
 
-	class Graphics
+private:
+	template <typename Type>
+	class CmdGetter
+	{
+	public:
+		CmdGetter(void) = default;
+
+		CommandBuffer& get(Type &value)
+		{
+			return value.m_cmd;
+		}
+	};
+
+	template <typename Up>
+	class GraphicsComputeTransfer
+	{
+		CommandBuffer& cmd(void)
+		{
+			return CmdGetter<Up>().get(static_cast<Up&>(*this));
+		}
+
+	public:
+		GraphicsComputeTransfer(void) = default;
+
+		static inline constexpr bool graphics_compute_transfer = true;
+	};
+
+public:
+	class Graphics : public GraphicsComputeTransfer<Graphics>
 	{
 	public:
 		Graphics(CommandBuffer &cmd) :
@@ -29,10 +57,12 @@ public:
 		static inline constexpr bool graphics = true;
 
 	private:
+		template <typename>
+		friend class CmdGetter;
 		CommandBuffer &m_cmd;
 	};
 
-	class Compute
+	class Compute : public GraphicsComputeTransfer<Compute>
 	{
 	public:
 		Compute(CommandBuffer &cmd) :
@@ -44,10 +74,12 @@ public:
 		static inline constexpr bool compute = true;
 
 	private:
+		template <typename>
+		friend class CmdGetter;
 		CommandBuffer &m_cmd;
 	};
 
-	class Transfer
+	class Transfer : public GraphicsComputeTransfer<Transfer>
 	{
 	public:
 		Transfer(CommandBuffer &cmd) :
@@ -59,6 +91,8 @@ public:
 		static inline constexpr bool transfer = true;
 
 	private:
+		template <typename>
+		friend class CmdGetter;
 		CommandBuffer &m_cmd;
 	};
 
@@ -74,6 +108,8 @@ public:
 		static inline constexpr bool present = true;
 
 	private:
+		template <typename>
+		friend class CmdGetter;
 		CommandBuffer &m_cmd;
 	};
 };

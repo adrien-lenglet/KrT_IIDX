@@ -202,7 +202,7 @@ class FolderPrinter
 		}
 	}
 
-	auto shaderAddVertexInput(Util::CollectionBase &scope, sb::Shader::Compiler &shader)
+	void shaderAddVertexInput(Util::CollectionBase &scope, sb::Shader::Compiler &shader)
 	{
 		auto vertex_t = shaderAddVertex_t(scope, shader);
 
@@ -215,8 +215,6 @@ class FolderPrinter
 		auto creator = impl += t>>"Creator"_t | Id("creator")(vertex, res);
 		impl += "sb::Shader::Type::CreateVertexInputAccessor"_t("vertex"_v).M("create"_v(creator));
 		impl += Return | "res"_v;
-
-		return scope += Using | "Model" = "sb::Model"_t.T(vertex_t);
 	}
 
 	struct ResSet
@@ -257,7 +255,7 @@ class FolderPrinter
 				vars.emplace_back(v);
 			createShaderStruct<true>(u_structs, us_desc.getName(), vars, "Layout");
 		}
-		auto model = shaderAddVertexInput(sh, compiled);
+		shaderAddVertexInput(sh, compiled);
 
 		auto ref_acc = "sb::Shader::DescriptorSet::RefAccessor"_t.T("Up"_t);
 		auto unique_ref = "sb::Shader::Cache::Ref"_t;
@@ -343,7 +341,7 @@ class FolderPrinter
 
 		if (!compiled.isModule()) {
 			auto render_type = "sb::Shader::Render"_t.T(Type(Value(sets.size()).getValue()));
-			auto &render = runtime += render_type | Id("render")(Const | "sb::Shader::Model::Handle"_t.T(model) | &N | Id("model")) | S {};
+			auto &render = runtime += render_type | Id("render")(Const | "sb::Model"_t | &N | Id("model")) | S {};
 			auto render_list = B {};
 			for (auto &set : sets) {
 				auto handle_t = "sb::Shader::DescriptorSet::Handle"_t.T(set.second.set_type);
@@ -352,7 +350,7 @@ class FolderPrinter
 
 				ndx++;
 			}
-			render += Return | render_type(**"m_ref"_v, "sb::Shader::Model::BaseHandle::Getter"_t("model"_v).M("getModel"_v()), render_list);
+			render += Return | render_type(**"m_ref"_v, "model"_v, render_list);
 		}
 
 		auto is_module_fwd = sh += Bool | Id("isModule")(Void) | Const | Override;
