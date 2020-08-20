@@ -37,16 +37,8 @@ void Track::Render::render(void)
 	camera.upload();
 	static_cast<sb::Render::Pass&>(*this).render();
 
-	auto lam = [](sb::CommandBuffer::Present &present){
-		std::cout << &present << std::endl;
-		//present.lol();
-	};
-
 	auto cmd_buf = m_cmd_pool.primary();
 	cmd_buf.reset();
-	lam(cmd_buf);
-
-	std::cout << sizeof(cmd_buf) << std::endl;
 }
 
 }

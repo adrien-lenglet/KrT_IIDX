@@ -190,6 +190,8 @@ class Queue
 	struct empty_compute { template <typename ...Args> empty_compute(Args &&...) {} };
 	struct empty_transfer { template <typename ...Args> empty_transfer(Args &&...) {} };
 	struct empty_present { template <typename ...Args> empty_present(Args &&...) {} };
+	struct empty_graphics_compute_transfer { template <typename ...Args> empty_graphics_compute_transfer(Args &&...) {} };
+	struct empty_reset { template <typename ...Args> empty_reset(Args &&...) {} };
 
 public:
 	virtual ~Queue(void) = default;
@@ -197,6 +199,7 @@ public:
 	virtual std::unique_ptr<CommandPool> commandPool(bool isReset) = 0;
 
 	enum class Flag {
+		Empty = 0,
 		Graphics = 0x00000001,
 		Compute = 0x00000002,
 		Transfer = 0x00000004,
@@ -274,41 +277,51 @@ class Queue::CmdBufHandle :
 	public std::conditional_t<!!(Flags & Flag::Transfer), CommandBuffer::Capacity::Transfer<CmdBufHandle<Flags, isReset>>, empty_transfer>,
 	public std::conditional_t<!!(Flags & Flag::Present), CommandBuffer::Capacity::Present<CmdBufHandle<Flags, isReset>>, empty_present>,
 
-	public std::conditional_t<!!(Flags & Flag::Graphics) || !!(Flags & Flag::Compute) || !!(Flags & Flag::Transfer), CommandBuffer::Capacity::GraphicsComputeTransfer<CmdBufHandle<Flags, isReset>>, empty_present>,
+	public std::conditional_t<!!(Flags & Flag::Graphics) || !!(Flags & Flag::Compute) || !!(Flags & Flag::Transfer), CommandBuffer::Capacity::GraphicsComputeTransfer<CmdBufHandle<Flags, isReset>>, empty_graphics_compute_transfer>,
 
-	public std::conditional_t<isReset, CommandBuffer::Capacity::Reset<CmdBufHandle<Flags, isReset>>, util::empty_struct>
+	public std::conditional_t<isReset, CommandBuffer::Capacity::Reset<CmdBufHandle<Flags, isReset>>, empty_reset>
 {
 	using Graphics = std::conditional_t<!!(Flags & Flag::Graphics), CommandBuffer::Graphics, CommandBuffer::Graphics::empty>;
 	using Compute = std::conditional_t<!!(Flags & Flag::Compute), CommandBuffer::Compute, CommandBuffer::Compute::empty>;
 	using Transfer = std::conditional_t<!!(Flags & Flag::Transfer), CommandBuffer::Transfer, CommandBuffer::Transfer::empty>;
 	using Present = std::conditional_t<!!(Flags & Flag::Present), CommandBuffer::Present, CommandBuffer::Present::empty>;
 
+	class Aggregate : public Graphics, public Compute, public Transfer, public Present
+	{
+	public:
+		template <typename ...Args>
+		Aggregate(Args &&...args) :
+			Graphics(std::forward<Args>(args)...),
+			Compute(std::forward<Args>(args)...),
+			Transfer(std::forward<Args>(args)...),
+			Present(std::forward<Args>(args)...)
+		{
+		}
+	};
+
 public:
 	CmdBufHandle(std::unique_ptr<CommandBuffer> &&commandBuffer) :
 		CommandBufferHolder(std::move(commandBuffer)),
 		m_cmd(*m_unique_cmd),
-		m_graphics(m_cmd),
-		m_compute(m_cmd),
-		m_transfer(m_cmd),
-		m_present(m_cmd)
+		m_aggr(m_cmd)
 	{
 	}
 
 	operator Graphics&(void)
 	{
-		return m_graphics;
+		return m_aggr;
 	}
 	operator Compute&(void)
 	{
-		return m_compute;
+		return m_aggr;
 	}
 	operator Transfer&(void)
 	{
-		return m_transfer;
+		return m_aggr;
 	}
 	operator Present&(void)
 	{
-		return m_present;
+		return m_aggr;
 	}
 
 private:
@@ -316,10 +329,7 @@ private:
 	friend class CommandBuffer::Capacity::CmdGetter;
 	CommandBuffer &m_cmd;
 
-	Graphics m_graphics;
-	Compute m_compute;
-	Transfer m_transfer;
-	Present m_present;
+	Aggregate m_aggr;
 };
 
 }
