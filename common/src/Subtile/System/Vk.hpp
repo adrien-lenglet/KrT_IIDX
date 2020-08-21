@@ -726,6 +726,12 @@ private:
 		}
 
 		void reset(bool releaseResources) override;
+		void begin(Usage flags) override;
+		void end(void) override;
+
+		void executeCommands(size_t count, sb::CommandBuffer **cmds) override;
+		void bindPipeline(sb::Shader &shader) override;
+		void bindDescriptorSets(sb::Shader &shader, size_t first_set, size_t count, sb::Shader::DescriptorSet **sets) override;
 
 	private:
 		CommandPool &m_pool;

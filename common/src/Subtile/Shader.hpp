@@ -75,6 +75,11 @@ public:
 		All
 	};
 
+	enum class BindPoint {
+		Graphics = 0,
+		Compute = 1
+	};
+
 	struct VertexInput
 	{
 		enum class Format

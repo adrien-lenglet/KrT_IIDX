@@ -1930,6 +1930,50 @@ void Vk::CommandBuffer::reset(bool releaseResources)
 	Vk::assert(vkResetCommandBuffer(*this, releaseResources ? VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT : 0));
 }
 
+void Vk::CommandBuffer::begin(Usage flags)
+{
+	VkCommandBufferInheritanceInfo ii {};
+	ii.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+
+	VkCommandBufferBeginInfo bi {};
+	bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	bi.flags = static_cast<std::underlying_type_t<Usage>>(flags);
+	bi.pInheritanceInfo = &ii;
+
+	Vk::assert(vkBeginCommandBuffer(*this, &bi));
+}
+
+void Vk::CommandBuffer::end(void)
+{
+	Vk::assert(vkEndCommandBuffer(*this));
+}
+
+void Vk::CommandBuffer::executeCommands(size_t count, sb::CommandBuffer **cmds)
+{
+	VkCommandBuffer cmds_vla[count];
+
+	for (size_t i = 0; i < count; i++)
+		cmds_vla[i] = *reinterpret_cast<CommandBuffer*>(cmds[i]);
+
+	vkCmdExecuteCommands(*this, count, cmds_vla);
+}
+
+void Vk::CommandBuffer::bindPipeline(sb::Shader &shader)
+{
+	vkCmdBindPipeline(*this, VK_PIPELINE_BIND_POINT_GRAPHICS, reinterpret_cast<Shader&>(shader).getPipeline());
+}
+
+void Vk::CommandBuffer::bindDescriptorSets(sb::Shader &shader, size_t first_set, size_t count, sb::Shader::DescriptorSet **sets)
+{
+	VkDescriptorSet sets_vla[count];
+
+	for (size_t i = 0; i < count; i++)
+		sets_vla[i] = *reinterpret_cast<DescriptorSet*>(sets[i]);
+
+	auto &sh = reinterpret_cast<Shader&>(shader);
+	vkCmdBindDescriptorSets(*this, VK_PIPELINE_BIND_POINT_GRAPHICS, sh.getPipelineLayout(), first_set, count, sets_vla, 0, nullptr);
+}
+
 Vk::CommandPool::CommandPool(Device &dev, VkQueueFamilyIndex familyIndex, bool isReset) :
 	Device::Handle<VkCommandPool>(dev, create(dev, familyIndex, isReset))
 {

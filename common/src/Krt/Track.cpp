@@ -37,8 +37,21 @@ void Track::Render::render(void)
 	camera.upload();
 	static_cast<sb::Render::Pass&>(*this).render();
 
-	auto cmd_buf = m_cmd_pool.primary();
-	cmd_buf.reset();
+	auto sec = m_cmd_pool.secondary();
+	sec.record([](auto&){});
+
+	auto prim = m_cmd_pool.primary();
+	prim.record([&sec](decltype(prim)::Record &cmd){
+		cmd.execute(sec);
+	});
+
+	//cmd_buf.renderPass();
+
+	/*cmd_buf [prim / sec]
+		-> record [prim / sec, outside]
+			-> renderPass [prim, inside]
+
+		-> recordRenderPass [sec, inside]*/
 }
 
 }

@@ -4,6 +4,7 @@
 #include <tuple>
 #include "util/enum_class_bitmask.hpp"
 #include "util/traits.hpp"
+#include "Shader.hpp"
 
 namespace Subtile {
 
@@ -11,156 +12,46 @@ class CommandBuffer
 {
 public:
 	enum class Level {
-		Primary,
-		Secondary
+		Primary = 0x00000001,
+		Secondary = 0x00000002
+	};
+
+	enum class Usage {
+		Empty = 0,
+		OneTimeSubmit = 0x00000001,
+		Simultaneous = 0x00000004
+	};
+
+	enum class RenderPassScope {
+		Inside = 0x00000001,
+		Outside = 0x00000002,
+		Both = Inside | Outside
 	};
 
 	virtual ~CommandBuffer(void) = default;
 
 	virtual void reset(bool releaseResources) = 0;
+	virtual void begin(Usage flags) = 0;
+	virtual void end(void) = 0;
 
-	struct Capacity
-	{
-		template <typename Type>
-		class CmdGetter
-		{
-		public:
-			CmdGetter(void) = default;
+	virtual void executeCommands(size_t count, CommandBuffer **cmds) = 0;
+	virtual void bindPipeline(sb::Shader &shader) = 0;
+	virtual void bindDescriptorSets(sb::Shader &shader, size_t first_set, size_t count, sb::Shader::DescriptorSet **sets) = 0;
 
-			CommandBuffer& get(Type &value)
-			{
-				return value.m_cmd;
-			}
-		};
-
-		template <typename Up>
-		class GraphicsComputeTransfer
-		{
-			CommandBuffer& cmd(void) { return CmdGetter<Up>().get(static_cast<Up&>(*this)); }
-
-		public:
-			GraphicsComputeTransfer(void) = default;
-		};
-
-		template <typename Up>
-		class Graphics
-		{
-			CommandBuffer& cmd(void) { return CmdGetter<Up>().get(static_cast<Up&>(*this)); }
-
-		public:
-			Graphics(void) = default;
-		};
-
-		template <typename Up>
-		class Transfer
-		{
-			CommandBuffer& cmd(void) { return CmdGetter<Up>().get(static_cast<Up&>(*this)); }
-
-		public:
-			Transfer(void) = default;
-		};
-
-		template <typename Up>
-		class Compute
-		{
-			CommandBuffer& cmd(void) { return CmdGetter<Up>().get(static_cast<Up&>(*this)); }
-
-		public:
-			Compute(void) = default;
-		};
-
-		template <typename Up>
-		class Present
-		{
-			CommandBuffer& cmd(void) { return CmdGetter<Up>().get(static_cast<Up&>(*this)); }
-
-		public:
-			Present(void) = default;
-		};
-
-		template <typename Up>
-		class Reset
-		{
-			CommandBuffer& cmd(void) { return CmdGetter<Up>().get(static_cast<Up&>(*this)); }
-
-		public:
-			Reset(void) = default;
-
-			
-			void reset(bool releaseResources = false)
-			{
-				cmd().reset(releaseResources);
-			}
-		};
-	};
-
-	class Graphics : public Capacity::Graphics<Graphics>, public Capacity::GraphicsComputeTransfer<Graphics>
+	template <typename Type>
+	class CmdGetter
 	{
 	public:
-		struct empty { template <typename ...Args> empty(Args &&...) {} };
+		CmdGetter(void) = default;
 
-		Graphics(CommandBuffer &cmd) :
-			m_cmd(cmd)
+		CommandBuffer& get(Type &value)
 		{
-			static_cast<void>(m_cmd);
+			return value.m_cmd;
 		}
-
-	private:
-		template <typename>
-		friend class Capacity::CmdGetter;
-		CommandBuffer &m_cmd;
 	};
 
-	class Compute : public Capacity::Compute<Compute>, public Capacity::GraphicsComputeTransfer<Compute>
-	{
-	public:
-		struct empty { template <typename ...Args> empty(Args &&...) {} };
-
-		Compute(CommandBuffer &cmd) :
-			m_cmd(cmd)
-		{
-			static_cast<void>(m_cmd);
-		}
-
-	private:
-		template <typename>
-		friend class CmdGetter;
-		CommandBuffer &m_cmd;
-	};
-
-	class Transfer : public Capacity::Transfer<Transfer>, public Capacity::GraphicsComputeTransfer<Transfer>
-	{
-	public:
-		struct empty { template <typename ...Args> empty(Args &&...) {} };
-
-		Transfer(CommandBuffer &cmd) :
-			m_cmd(cmd)
-		{
-			static_cast<void>(m_cmd);
-		}
-
-	private:
-		template <typename>
-		friend class CmdGetter;
-		CommandBuffer &m_cmd;
-	};
-
-	class Present : public Capacity::Present<Present>
-	{
-	public:
-		struct empty { template <typename ...Args> empty(Args &&...) {} };
-
-		Present(CommandBuffer &cmd) :
-			m_cmd(cmd)
-		{
-			static_cast<void>(m_cmd);
-		}
-
-	private:
-		template <typename>
-		friend class CmdGetter;
-		CommandBuffer &m_cmd;
-	};
+	class Cmds;
+	class Record;
 };
 
 class CommandPool
@@ -186,6 +77,8 @@ class Queue
 		std::unique_ptr<CommandBuffer> m_unique_cmd;
 	};
 
+	struct CmdBufHandleTraits;
+
 	struct empty_graphics { template <typename ...Args> empty_graphics(Args &&...) {} };
 	struct empty_compute { template <typename ...Args> empty_compute(Args &&...) {} };
 	struct empty_transfer { template <typename ...Args> empty_transfer(Args &&...) {} };
@@ -208,7 +101,7 @@ public:
 
 	using Set = std::vector<std::pair<Queue::Flag, std::vector<float>>>;
 
-	template <Flag Flags, bool isReset>
+	template <CommandBuffer::Level L, Flag Q, bool isReset>
 	class CmdBufHandle;
 
 	template <Flag Flags, bool isReset>
@@ -222,12 +115,12 @@ public:
 
 		auto primary(void)
 		{
-			return CmdBufHandle<Flags, isReset>(m_pool->commandBuffer(CommandBuffer::Level::Primary));
+			return CmdBufHandle<CommandBuffer::Level::Primary, Flags, isReset>(m_pool->commandBuffer(CommandBuffer::Level::Primary));
 		}
 
 		auto secondary(void)
 		{
-			return CmdBufHandle<Flags, isReset>(m_pool->commandBuffer(CommandBuffer::Level::Secondary));
+			return CmdBufHandle<CommandBuffer::Level::Secondary, Flags, isReset>(m_pool->commandBuffer(CommandBuffer::Level::Secondary));
 		}
 
 	private:
@@ -267,69 +160,222 @@ struct util::enable_bitmask<sb::Queue::Flag>
 	static inline constexpr bool value = true;
 };
 
+template <>
+struct util::enable_bitmask<sb::CommandBuffer::Level>
+{
+	static inline constexpr bool value = true;
+};
+
+template <>
+struct util::enable_bitmask<sb::CommandBuffer::RenderPassScope>
+{
+	static inline constexpr bool value = true;
+};
+
+template <>
+struct util::enable_bitmask<sb::CommandBuffer::Usage>
+{
+	static inline constexpr bool value = true;
+};
+
 namespace Subtile {
 
-template <Queue::Flag Flags, bool isReset>
-class Queue::CmdBufHandle :
-	private CommandBufferHolder,
-	public std::conditional_t<!!(Flags & Flag::Graphics), CommandBuffer::Capacity::Graphics<CmdBufHandle<Flags, isReset>>, empty_graphics>,
-	public std::conditional_t<!!(Flags & Flag::Compute), CommandBuffer::Capacity::Compute<CmdBufHandle<Flags, isReset>>, empty_compute>,
-	public std::conditional_t<!!(Flags & Flag::Transfer), CommandBuffer::Capacity::Transfer<CmdBufHandle<Flags, isReset>>, empty_transfer>,
-	public std::conditional_t<!!(Flags & Flag::Present), CommandBuffer::Capacity::Present<CmdBufHandle<Flags, isReset>>, empty_present>,
-
-	public std::conditional_t<!!(Flags & Flag::Graphics) || !!(Flags & Flag::Compute) || !!(Flags & Flag::Transfer), CommandBuffer::Capacity::GraphicsComputeTransfer<CmdBufHandle<Flags, isReset>>, empty_graphics_compute_transfer>,
-
-	public std::conditional_t<isReset, CommandBuffer::Capacity::Reset<CmdBufHandle<Flags, isReset>>, empty_reset>
+class CommandBuffer::Cmds
 {
-	using Graphics = std::conditional_t<!!(Flags & Flag::Graphics), CommandBuffer::Graphics, CommandBuffer::Graphics::empty>;
-	using Compute = std::conditional_t<!!(Flags & Flag::Compute), CommandBuffer::Compute, CommandBuffer::Compute::empty>;
-	using Transfer = std::conditional_t<!!(Flags & Flag::Transfer), CommandBuffer::Transfer, CommandBuffer::Transfer::empty>;
-	using Present = std::conditional_t<!!(Flags & Flag::Present), CommandBuffer::Present, CommandBuffer::Present::empty>;
+	static inline constexpr auto PrimarySecondary = Level::Primary | Level::Secondary;
 
-	class Aggregate : public Graphics, public Compute, public Transfer, public Present
-	{
-	public:
-		template <typename ...Args>
-		Aggregate(Args &&...args) :
-			Graphics(std::forward<Args>(args)...),
-			Compute(std::forward<Args>(args)...),
-			Transfer(std::forward<Args>(args)...),
-			Present(std::forward<Args>(args)...)
-		{
-		}
-	};
+	template <typename Up>
+	class PrimaryBothGCT;
+
+	template <typename Up>
+	class PrimarySecondaryBothGC;
 
 public:
-	CmdBufHandle(std::unique_ptr<CommandBuffer> &&commandBuffer) :
-		CommandBufferHolder(std::move(commandBuffer)),
-		m_cmd(*m_unique_cmd),
-		m_aggr(m_cmd)
+	template <Level L, RenderPassScope S, Queue::Flag Q>
+	class For;
+};
+
+class CommandBuffer::Record
+{
+public:
+	class RenderPass
 	{
+	public:
+		using Primary = Cmds::For<Level::Primary, RenderPassScope::Inside, Queue::Flag::Graphics>;
+		using Secondary = Cmds::For<Level::Secondary, RenderPassScope::Inside, Queue::Flag::Graphics>;
+	};
+
+	template <Queue::Flag Flags>
+	using Primary = Cmds::For<Level::Primary, RenderPassScope::Outside, Flags>;
+	template <Queue::Flag Flags>
+	using Secondary = Cmds::For<Level::Secondary, RenderPassScope::Outside, Flags>;
+};
+
+template <typename Up>
+class CommandBuffer::Cmds::PrimaryBothGCT
+{
+	CommandBuffer& cmd(void) { return CmdGetter<Up>().get(static_cast<Up&>(*this)); }
+
+public:
+	PrimaryBothGCT(void) = default;
+
+	struct GCT {
+		static inline constexpr auto value = Queue::Flag::Graphics | Queue::Flag::Compute | Queue::Flag::Transfer;
+	};
+
+	struct empty {};
+	template <Level L, RenderPassScope S, Queue::Flag Q>
+	using query = std::conditional_t<!!(L & Level::Primary) && !!(S & RenderPassScope::Both) && !!(Q & GCT::value), PrimaryBothGCT, empty>;
+
+	template <Queue::Flag Q, bool R>
+	void execute(Queue::CmdBufHandle<Level::Secondary, Q, R> &sec_cmd)
+	{
+		auto commandBuffer = &CmdGetter<decltype(sec_cmd)>().get(sec_cmd);
+		cmd().executeCommands(1, &commandBuffer);
+	}
+};
+
+template <typename Up>
+class CommandBuffer::Cmds::PrimarySecondaryBothGC
+{
+	CommandBuffer& cmd(void) { return CmdGetter<Up>().get(static_cast<Up&>(*this)); }
+
+public:
+	PrimarySecondaryBothGC(void) = default;
+
+	struct GC {
+		static inline constexpr auto value = Queue::Flag::Graphics | Queue::Flag::Compute;
+	};
+
+	struct empty {};
+	template <Level L, RenderPassScope S, Queue::Flag Q>
+	using query = std::conditional_t<!!(L & PrimarySecondary) && !!(S & RenderPassScope::Both) && !!(Q & GC::value), PrimarySecondaryBothGC, empty>;
+
+	void bind(Shader &shader)
+	{
+		cmd().bindPipeline(shader);
 	}
 
-	operator Graphics&(void)
+	void bind(Shader &shader, Shader::DescriptorSet &set, size_t index)
 	{
-		return m_aggr;
+		auto sp = &set;
+		cmd().bindDescriptorSets(shader, index, 1, &sp);
 	}
-	operator Compute&(void)
+};
+
+template <CommandBuffer::Level L, CommandBuffer::RenderPassScope S, Queue::Flag Q>
+class CommandBuffer::Cmds::For :
+	public PrimaryBothGCT<For<L, S, Q>>::template query<L, S, Q>,
+	public PrimarySecondaryBothGC<For<L, S, Q>>::template query<L, S, Q>
+{
+public:
+	For(CommandBuffer &cmd) :
+		m_cmd(cmd)
 	{
-		return m_aggr;
-	}
-	operator Transfer&(void)
-	{
-		return m_aggr;
-	}
-	operator Present&(void)
-	{
-		return m_aggr;
 	}
 
 private:
 	template <typename>
-	friend class CommandBuffer::Capacity::CmdGetter;
+	friend class CmdGetter;
 	CommandBuffer &m_cmd;
+};
 
-	Aggregate m_aggr;
+struct Queue::CmdBufHandleTraits
+{
+	template <typename Up>
+	class Reset
+	{
+		CommandBuffer& cmd(void) { return CommandBuffer::CmdGetter<Up>().get(static_cast<Up&>(*this)); }
+
+	public:
+		Reset(void) = default;
+
+		void reset(bool releaseResources = false)
+		{
+			cmd().reset(releaseResources);
+		}
+	};
+
+	template <typename Up, Flag Flags>
+	class Primary
+	{
+		CommandBuffer& cmd(void) { return CommandBuffer::CmdGetter<Up>().get(static_cast<Up&>(*this)); }
+
+	public:
+		Primary(void) = default;
+
+		using Record = CommandBuffer::Record::Primary<Flags>;
+
+		template <typename Callable>
+		void record(Callable &&callable)
+		{
+			Record recording(cmd());
+
+			cmd().begin(CommandBuffer::Usage::Empty);
+			callable(recording);
+			cmd().end();
+		}
+
+		template <typename Callable>
+		void record(CommandBuffer::Usage usage, Callable &&callable)
+		{
+			Record recording(cmd());
+
+			cmd().begin(usage);
+			callable(recording);
+			cmd().end();
+		}
+	};
+
+	template <typename Up, Flag Flags>
+	class Secondary
+	{
+		CommandBuffer& cmd(void) { return CommandBuffer::CmdGetter<Up>().get(static_cast<Up&>(*this)); }
+
+	public:
+		Secondary(void) = default;
+
+		using Record = CommandBuffer::Record::Secondary<Flags>;
+
+		template <typename Callable>
+		void record(Callable &&callable)
+		{
+			Record recording(cmd());
+
+			cmd().begin(CommandBuffer::Usage::Empty);
+			callable(recording);
+			cmd().end();
+		}
+
+		template <typename Callable>
+		void record(CommandBuffer::Usage usage, Callable &&callable)
+		{
+			Record recording(cmd());
+
+			cmd().begin(usage);
+			callable(recording);
+			cmd().end();
+		}
+	};
+};
+
+template <CommandBuffer::Level L, Queue::Flag Q, bool isReset>
+class Queue::CmdBufHandle :
+	private CommandBufferHolder,
+	public std::conditional_t<isReset, CmdBufHandleTraits::Reset<CmdBufHandle<L, Q, isReset>>, empty_reset>,
+	public std::conditional_t<!!(L & CommandBuffer::Level::Primary), CmdBufHandleTraits::Primary<CmdBufHandle<L, Q, isReset>, Q>, CmdBufHandleTraits::Secondary<CmdBufHandle<L, Q, isReset>, Q>>
+{
+public:
+	CmdBufHandle(std::unique_ptr<CommandBuffer> &&commandBuffer) :
+		CommandBufferHolder(std::move(commandBuffer)),
+		m_cmd(*m_unique_cmd)
+	{
+	}
+
+private:
+	template <typename>
+	friend class CommandBuffer::CmdGetter;
+	CommandBuffer &m_cmd;
 };
 
 }

@@ -21,13 +21,13 @@ public:
 	{
 		decltype(res.shaders().modules().camera().loaded()) m_camera_shader;
 		decltype(res.shaders().render_passes().deffered().loaded()) m_render_pass;
-		decltype(instance.graphics.pool<true>()) m_cmd_pool;
+		decltype(instance.graphics.pool<false>()) m_cmd_pool;
 
 	public:
 		Render(Instance &instance) :
 			m_camera_shader(instance.load(res.shaders().modules().camera())),
 			m_render_pass(instance.load(res.shaders().render_passes().deffered())),
-			m_cmd_pool(instance.graphics.pool<true>()),
+			m_cmd_pool(instance.graphics.pool<false>()),
 			camera(m_camera_shader.camera())
 		{
 		}
