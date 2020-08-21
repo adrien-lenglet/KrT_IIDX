@@ -499,6 +499,22 @@ private:
 
 	using ImageView = Device::Handle<VkImageView>;
 
+	class Image : public sb::Image
+	{
+		static VkImageAspectFlags sbFormatToImageAspectFlags(sb::Format format);
+
+	public:
+		Image(Device &dev, VkImage image, VmaAllocation allocation, VkImageView view);
+
+	private:
+		Device::Handle<VkImage> m_image;
+		Allocation m_allocation;
+		Device::Handle<VkImageView> m_view;
+	};
+
+	std::unique_ptr<sb::Image> createImage(sb::Image::Type type, Format format, sb::Image::Sample sample, svec3 extent, size_t layers, sb::Image::Usage usage, sb::Queue &queue) override;
+
+
 	static inline VkImageLayout sbImageLayoutToVk(sb::Image::Layout layout)
 	{
 		return static_cast<VkImageLayout>(static_cast<std::underlying_type_t<sb::Image::Layout>>(layout));
@@ -763,6 +779,11 @@ private:
 		operator VkQueue(void) const
 		{
 			return m_handle;
+		}
+
+		auto getFamilyIndex(void) const
+		{
+			return m_family_index;
 		}
 
 	private:

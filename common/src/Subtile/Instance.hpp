@@ -5,6 +5,7 @@
 #include "System.hpp"
 #include "Event/System/Observer.hpp"
 #include "Shader.hpp"
+#include "Image.hpp"
 #include "Queue.hpp"
 
 namespace Subtile {
@@ -97,6 +98,20 @@ public:
 	auto queue(size_t index)
 	{
 		return Queue::Handle<Flags>(system().getQueue(Flags, index));
+	}
+
+	template <sb::Queue::Flag Q>
+	auto image2D(Format format, Image::Sample sampleCount, svec2 extent, Image::Usage usage, sb::Queue::Handle<Q> &queue)
+	{
+		using Getter = typename sb::Queue::Handle<Q>::Getter;
+		return Image2D(system().createImage(Image::Type::Image2D, format, sampleCount, svec3(extent.x, extent.y, 1), 1, usage, Getter().get(queue)));
+	}
+
+	template <sb::Queue::Flag Q>
+	auto image2DArray(Format format, Image::Sample sampleCount, svec2 extent, size_t layers, Image::Usage usage, sb::Queue::Handle<Q> &queue)
+	{
+		using Getter = typename sb::Queue::Handle<Q>::Getter;
+		return Image2DArray(system().createImage(Image::Type::Image2DArray, format, sampleCount, svec3(extent.x, extent.y, 1), layers, usage, Getter().get(queue)));
 	}
 };
 

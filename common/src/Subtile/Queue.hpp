@@ -141,13 +141,30 @@ public:
 			return Flags;
 		}
 
+		operator Queue&(void)
+		{
+			return *m_queue;
+		}
+
 		template <bool isReset>
 		auto pool(void)
 		{
 			return CmdPoolHandle<Flags, isReset>(m_queue->commandPool(isReset));
 		}
 
+		class Getter
+		{
+		public:
+			Getter(void) = default;
+
+			Queue& get(Handle &handle)
+			{
+				return *handle.m_queue;
+			}
+		};
+
 	private:
+		friend Getter;
 		std::unique_ptr<Queue> m_queue;
 	};
 };
@@ -216,16 +233,14 @@ class CommandBuffer::Cmds::PrimaryBothGCT
 {
 	CommandBuffer& cmd(void) { return CmdGetter<Up>().get(static_cast<Up&>(*this)); }
 
+	static inline constexpr auto GCT = Queue::Flag::Graphics | Queue::Flag::Compute | Queue::Flag::Transfer;
+
 public:
 	PrimaryBothGCT(void) = default;
 
-	struct GCT {
-		static inline constexpr auto value = Queue::Flag::Graphics | Queue::Flag::Compute | Queue::Flag::Transfer;
-	};
-
 	struct empty {};
 	template <Level L, RenderPassScope S, Queue::Flag Q>
-	using query = std::conditional_t<!!(L & Level::Primary) && !!(S & RenderPassScope::Both) && !!(Q & GCT::value), PrimaryBothGCT, empty>;
+	using query = std::conditional_t<!!(L & Level::Primary) && !!(S & RenderPassScope::Both) && !!(Q & GCT), PrimaryBothGCT, empty>;
 
 	template <Queue::Flag Q, bool R>
 	void execute(Queue::CmdBufHandle<Level::Secondary, Q, R> &sec_cmd)
@@ -240,16 +255,14 @@ class CommandBuffer::Cmds::PrimarySecondaryBothGC
 {
 	CommandBuffer& cmd(void) { return CmdGetter<Up>().get(static_cast<Up&>(*this)); }
 
+	static inline constexpr auto GC = Queue::Flag::Graphics | Queue::Flag::Compute;
+
 public:
 	PrimarySecondaryBothGC(void) = default;
 
-	struct GC {
-		static inline constexpr auto value = Queue::Flag::Graphics | Queue::Flag::Compute;
-	};
-
 	struct empty {};
 	template <Level L, RenderPassScope S, Queue::Flag Q>
-	using query = std::conditional_t<!!(L & PrimarySecondary) && !!(S & RenderPassScope::Both) && !!(Q & GC::value), PrimarySecondaryBothGC, empty>;
+	using query = std::conditional_t<!!(L & PrimarySecondary) && !!(S & RenderPassScope::Both) && !!(Q & GC), PrimarySecondaryBothGC, empty>;
 
 	void bind(Shader &shader)
 	{

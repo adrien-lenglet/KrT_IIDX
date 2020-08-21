@@ -41,9 +41,11 @@ void Track::Render::render(void)
 	sec.record([](auto&){});
 
 	auto prim = m_cmd_pool.primary();
-	prim.record([&sec](decltype(prim)::Record &cmd){
+	prim.record([&](decltype(prim)::Record &cmd){
 		cmd.execute(sec);
 	});
+
+	auto image2D = m_instance.image2D(sb::Format::bgra8_srgb, sb::Image::Sample::Count1, {800, 600}, sb::Image::Usage::InputAttachment | sb::Image::Usage::ColorAttachment, m_instance.graphics);
 
 	//cmd_buf.renderPass();
 

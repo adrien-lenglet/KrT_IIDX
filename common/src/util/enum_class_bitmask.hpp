@@ -10,6 +10,12 @@ struct enable_bitmask
 	static inline constexpr bool value = false;
 };
 
+template <typename Enum>
+auto enum_underlying(Enum value)
+{
+	return static_cast<std::underlying_type_t<Enum>>(value);
+}
+
 }
 
 template <typename Enum, class = std::enable_if_t<util::enable_bitmask<Enum>::value>>

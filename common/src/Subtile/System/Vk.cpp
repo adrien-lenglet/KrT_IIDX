@@ -2,6 +2,7 @@
 #include <set>
 #include <cstring>
 #include <sstream>
+#include "util/enum_class_bitmask.hpp"
 #include "Vk.hpp"
 
 namespace Subtile {
@@ -837,6 +838,94 @@ void Vk::Transfer::write_w_staging(VkBuffer buf, size_t offset, size_t range, co
 	cmd.submit();
 	vkQueueWaitIdle(m_transfer_queue);
 }*/
+
+Vk::Image::Image(Device &dev, VkImage image, VmaAllocation allocation, VkImageView view) :
+	m_image(dev, image),
+	m_allocation(dev.allocator(), allocation),
+	m_view(dev, view)
+{
+}
+
+template <>
+void Vk::Device::Handle<VkImage>::destroy(Vk::Device &device, VkImage image)
+{
+	device.destroy(vkDestroyImage, image);
+}
+
+static VkImageAspectFlags sbFormatToImageAspectFlags(sb::Format format)
+{
+	static const std::set<sb::Format> depthTable {
+		sb::Format::d16_unorm,
+		sb::Format::d32_sfloat,
+		sb::Format::d24un_or_32sf_spl_att,
+		sb::Format::d32sf_or_24un_spl_att,
+		sb::Format::d24un_or_32sf_spl_att_sfb,
+		sb::Format::d32sf_or_24un_spl_att_sfb
+	};
+	static const std::set<sb::Format> stencilTable {
+	};
+	static const std::set<sb::Format> depthStencilTable {
+		sb::Format::d24un_or_32sf_spl_att_s8_uint,
+		sb::Format::d32sf_or_24un_spl_att_s8_uint
+	};
+
+	if (depthTable.find(format) != depthTable.end())
+		return VK_IMAGE_ASPECT_DEPTH_BIT;
+	if (stencilTable.find(format) != stencilTable.end())
+		return VK_IMAGE_ASPECT_STENCIL_BIT;
+	if (depthStencilTable.find(format) != depthStencilTable.end())
+		return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+	return VK_IMAGE_ASPECT_COLOR_BIT;
+}
+
+std::unique_ptr<sb::Image> Vk::createImage(sb::Image::Type type, Format format, sb::Image::Sample sample, svec3 extent, size_t layers, sb::Image::Usage usage, sb::Queue &queue)
+{
+	static const std::map<sb::Image::Type, VkImageType> imageTypeTable {
+		{sb::Image::Type::Image1D, VK_IMAGE_TYPE_1D},
+		{sb::Image::Type::Image2D, VK_IMAGE_TYPE_2D},
+		{sb::Image::Type::Image3D, VK_IMAGE_TYPE_3D},
+		{sb::Image::Type::Cube, VK_IMAGE_TYPE_2D},
+		{sb::Image::Type::Image1DArray, VK_IMAGE_TYPE_1D},
+		{sb::Image::Type::Image2DArray, VK_IMAGE_TYPE_2D},
+		{sb::Image::Type::CubeArray, VK_IMAGE_TYPE_2D}
+	};
+
+	VkQueueFamilyIndex queueFamilyIndex = reinterpret_cast<Queue&>(queue).getFamilyIndex();
+
+	VkImageCreateInfo ici {};
+	ici.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	ici.imageType = imageTypeTable.at(type);
+	ici.format = m_device.sbFormatToVk(format);
+	ici.extent = VkExtent3D {static_cast<uint32_t>(extent.x), static_cast<uint32_t>(extent.y), static_cast<uint32_t>(extent.z)};
+	ici.mipLevels = 1;
+	ici.arrayLayers = layers;
+	ici.samples = static_cast<VkSampleCountFlagBits>(util::enum_underlying(sample));
+	ici.tiling = VK_IMAGE_TILING_OPTIMAL;
+	ici.usage = util::enum_underlying(usage);
+	ici.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	ici.queueFamilyIndexCount = 1;
+	ici.pQueueFamilyIndices = &queueFamilyIndex;
+	ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+	VmaAllocationCreateInfo aci {};
+	aci.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+	VkImage image;
+	VmaAllocation allocation;
+	Vk::assert(vmaCreateImage(m_device.allocator(), &ici, &aci, &image, &allocation, nullptr));
+
+	VkImageViewCreateInfo ivci {};
+	ivci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	ivci.image = image;
+	ivci.viewType = static_cast<VkImageViewType>(util::enum_underlying(type));
+	ivci.format = ici.format;
+	ivci.subresourceRange.aspectMask = sbFormatToImageAspectFlags(format);
+	ivci.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+	ivci.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+	auto view = m_device.createVk(vkCreateImageView, ivci);
+
+	return std::make_unique<Image>(m_device, image, allocation, view);
+}
 
 template <>
 void Vk::Device::Handle<VkImageView>::destroy(Vk::Device &device, VkImageView imageView)

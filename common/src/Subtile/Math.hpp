@@ -59,4 +59,7 @@ using quat = math::dquat;
 using mat4 = math::dmat4;
 using rmat4 = math::mat4;
 
+using svec2 = glm::vec<2, size_t>;
+using svec3 = glm::vec<3, size_t>;
+
 }

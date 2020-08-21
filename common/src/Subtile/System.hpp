@@ -5,6 +5,7 @@
 #include <map>
 #include "../Subtile.hpp"
 #include "Shader.hpp"
+#include "Image.hpp"
 #include "Queue.hpp"
 #include "Event/Observer.hpp"
 
@@ -34,6 +35,7 @@ public:
 	virtual std::unique_ptr<RenderPass> createRenderPass(rs::RenderPass &renderpass) = 0;
 	virtual std::unique_ptr<Shader> createShader(rs::Shader &shader) = 0;
 	virtual std::unique_ptr<Shader::DescriptorSet::Layout> createDescriptorSetLayout(const Shader::DescriptorSet::Layout::Description &desc) = 0;
+	virtual std::unique_ptr<Image> createImage(Image::Type type, Format format, Image::Sample sample, svec3 extent, size_t layers, Image::Usage usage, Queue &queue) = 0;
 
 	virtual std::unique_ptr<Queue> getQueue(Queue::Flag flags, size_t index) = 0;
 
