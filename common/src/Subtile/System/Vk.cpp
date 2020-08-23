@@ -975,7 +975,9 @@ VkAttachmentStoreOp Vk::RenderPass::sbStoreOpToVk(sb::Image::StoreOp storeOp)
 
 Vk::RenderPass::RenderPass(Vk::Device &dev, sb::rs::RenderPass &res) :
 	m_layout(res.layout()),
-	m_handle(dev, create(dev))
+	m_handle(dev, create(dev)),
+	m_subpasses_descriptor_set_layouts(createSubpassesDescriptorSetLayouts()),
+	m_subpasses_pipeline_layouts(createSubpassesPipelineLayouts())
 {
 }
 
@@ -1084,6 +1086,51 @@ VkRenderPass Vk::RenderPass::create(Vk::Device &dev)
 	ci.pDependencies = dependencies.data();
 
 	return dev.createVk(vkCreateRenderPass, ci);
+}
+
+std::vector<Vk::DescriptorSetLayout> Vk::RenderPass::createSubpassesDescriptorSetLayouts(void)
+{
+	std::vector<DescriptorSetLayout> res;
+
+	for (auto &sub : m_layout.subpasses) {
+		sb::Shader::DescriptorSet::Layout::Description desc;
+		size_t n = 0;
+		for (auto &in : sub.inputAttachments) {
+			auto ndx = n++;
+			static_cast<void>(in);
+
+			sb::Shader::DescriptorSet::Layout::DescriptionBinding binding {};
+			binding.binding = ndx;
+			binding.descriptorCount = 1;
+			binding.descriptorType = sb::Shader::DescriptorType::InputAttachment;
+			binding.stages = {sb::Shader::Stage::Fragment};
+			desc.emplace_back(binding);
+		}
+		res.emplace_back(m_handle.getDep(), desc);
+	}
+	return res;
+}
+
+std::vector<Vk::PipelineLayout> Vk::RenderPass::createSubpassesPipelineLayouts(void)
+{
+	std::vector<Vk::PipelineLayout> res;
+
+	for (auto &desc : m_subpasses_descriptor_set_layouts) {
+		VkDescriptorSetLayout layout = desc;
+		if (layout == VK_NULL_HANDLE) {
+			res.emplace_back(m_handle.getDep(), static_cast<VkPipelineLayout>(VK_NULL_HANDLE));
+			continue;
+		}
+
+		VkPipelineLayoutCreateInfo ci {};
+		ci.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+		ci.setLayoutCount = 1;
+		ci.pSetLayouts = &layout;
+
+		res.emplace_back(m_handle.getDep().create<PipelineLayout>(vkCreatePipelineLayout, ci));
+	}
+
+	return res;
 }
 
 Vk::RenderPass::~RenderPass(void)
@@ -1224,12 +1271,7 @@ void Vk::Semaphore::wait(uint64_t value)
 
 VkDescriptorType Vk::descriptorType(sb::Shader::DescriptorType type)
 {
-	static const std::map<sb::Shader::DescriptorType, VkDescriptorType> table {
-		{sb::Shader::DescriptorType::UniformBuffer, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER},
-		{sb::Shader::DescriptorType::CombinedImageSampler, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER}
-	};
-
-	return table.at(type);
+	return static_cast<VkDescriptorType>(util::enum_underlying(type));
 }
 
 Vk::DescriptorSetLayout::DescriptorSetLayout(Vk::Device &device, const sb::Shader::DescriptorSet::Layout::Description &desc) :
@@ -1523,10 +1565,13 @@ VkFormat Vk::Shader::vertexInputFormatToVk(sb::Shader::VertexInput::Format forma
 
 Vk::Shader::Shader(Vk::Device &device, rs::Shader &shader) :
 	m_device(device),
+	m_render_pass(loadRenderPass(shader)),
+	m_descriptor_set_offset(m_render_pass ?
+		(reinterpret_cast<RenderPass&>(**m_render_pass->first).getSubpassesDescriptorSetLayouts().at(m_render_pass->second).getHandle() != VK_NULL_HANDLE ? 1 : 0)
+	: 0),
 	m_layouts(shader.loadDescriptorSetLayouts(device.vk().m_sb_instance)),
 	m_pipeline_layout(shader.isModule() ? PipelineLayout(device, VK_NULL_HANDLE) : createPipelineLayout()),
 	m_shader_modules(shader.isModule() ? ShaderModulesType{} : createShaderModules(device, shader)),
-	m_render_pass(loadRenderPass(shader)),
 	m_pipeline(shader.isModule() ? Pipeline(device, VK_NULL_HANDLE) : createPipeline(device, shader))
 {
 	static_cast<void>(shader);
@@ -1536,6 +1581,8 @@ Vk::PipelineLayout Vk::Shader::createPipelineLayout(void)
 {
 	std::vector<VkDescriptorSetLayout> layouts;
 
+	if (m_descriptor_set_offset > 0)
+		layouts.emplace_back(reinterpret_cast<RenderPass&>(**m_render_pass->first).getSubpassesDescriptorSetLayouts().at(m_render_pass->second));
 	for (auto &l : m_layouts)
 		layouts.emplace_back(reinterpret_cast<const DescriptorSetLayout&>(l.get()->resolve()));
 
@@ -2001,7 +2048,7 @@ void Vk::CommandBuffer::bindDescriptorSets(sb::Shader &shader, size_t first_set,
 		sets_vla[i] = *reinterpret_cast<DescriptorSet*>(sets[i]);
 
 	auto &sh = reinterpret_cast<Shader&>(shader);
-	vkCmdBindDescriptorSets(*this, VK_PIPELINE_BIND_POINT_GRAPHICS, sh.getPipelineLayout(), first_set, count, sets_vla, 0, nullptr);
+	vkCmdBindDescriptorSets(*this, VK_PIPELINE_BIND_POINT_GRAPHICS, sh.getPipelineLayout(), reinterpret_cast<Shader&>(shader).getDescriptorSetOffset() + first_set, count, sets_vla, 0, nullptr);
 }
 
 Vk::CommandPool::CommandPool(Device &dev, VkQueueFamilyIndex familyIndex, bool isReset) :

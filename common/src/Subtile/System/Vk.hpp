@@ -528,6 +528,9 @@ private:
 		return static_cast<VkImageLayout>(static_cast<std::underlying_type_t<sb::Image::Layout>>(layout));
 	}
 
+	class DescriptorSetLayout;
+	using PipelineLayout = Device::Handle<VkPipelineLayout>;
+
 	class RenderPass : public sb::RenderPass
 	{
 		static VkAttachmentLoadOp sbLoadOpToVk(sb::Image::LoadOp loadOp);
@@ -567,11 +570,25 @@ private:
 			return m_layout;
 		}
 
+		auto& getSubpassesDescriptorSetLayouts(void) const
+		{
+			return m_subpasses_descriptor_set_layouts;
+		}
+
+		auto& getSubpassesPipelineLayouts(void) const
+		{
+			return m_subpasses_pipeline_layouts;
+		}
+
 	private:
 		sb::RenderPass::Layout m_layout;
 		Device::Handle<VkRenderPass> m_handle;
+		std::vector<DescriptorSetLayout> m_subpasses_descriptor_set_layouts;
+		std::vector<PipelineLayout> m_subpasses_pipeline_layouts;
 
 		VkRenderPass create(Device &dev);
+		std::vector<DescriptorSetLayout> createSubpassesDescriptorSetLayouts(void);
+		std::vector<PipelineLayout> createSubpassesPipelineLayouts(void);
 	};
 
 	std::unique_ptr<sb::RenderPass> createRenderPass(sb::rs::RenderPass &renderpass) override;
@@ -620,7 +637,8 @@ private:
 	{
 	public:
 		DescriptorSetLayout(Device &device, const sb::Shader::DescriptorSet::Layout::Description &layout);
-		~DescriptorSetLayout(void);
+		~DescriptorSetLayout(void) override;
+		DescriptorSetLayout(DescriptorSetLayout&&) = default;
 
 		const sb::Shader::DescriptorSet::Layout::Description& getDescription(void) const;
 
@@ -699,7 +717,6 @@ private:
 		VmaBuffer createBuffer(Device &dev, size_t size);
 	};*/
 
-	using PipelineLayout = Device::Handle<VkPipelineLayout>;
 	using ShaderModule = Device::Handle<VkShaderModule>;
 	using Pipeline = Device::Handle<VkPipeline>;
 
@@ -718,17 +735,24 @@ private:
 		PipelineLayout& getPipelineLayout(void);
 		Pipeline& getPipeline(void);
 
+		auto getDescriptorSetOffset(void) const
+		{
+			return m_descriptor_set_offset;
+		}
+
 	private:
 		Device &m_device;
+
+		std::optional<std::pair<sb::RenderPass::Cache::Ref, size_t>> m_render_pass;
+		std::optional<std::pair<sb::RenderPass::Cache::Ref, size_t>> loadRenderPass(rs::Shader &shader);
+		size_t m_descriptor_set_offset;
+
 		rs::Shader::DescriptorSetLayouts m_layouts;
 		PipelineLayout m_pipeline_layout;
 		PipelineLayout createPipelineLayout(void);
 		using ShaderModulesType = std::vector<std::pair<VkShaderStageFlagBits, ShaderModule>>;
 		ShaderModulesType m_shader_modules;
 		ShaderModulesType createShaderModules(Vk::Device &device, rs::Shader &shader);
-
-		std::optional<std::pair<sb::RenderPass::Cache::Ref, size_t>> m_render_pass;
-		std::optional<std::pair<sb::RenderPass::Cache::Ref, size_t>> loadRenderPass(rs::Shader &shader);
 
 		std::optional<Pipeline> m_pipeline;
 		std::optional<Pipeline> createPipeline(Vk::Device &device, rs::Shader &shader);
