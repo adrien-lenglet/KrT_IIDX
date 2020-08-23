@@ -385,8 +385,8 @@ public:
 					{Dir::Out, "out"}
 				};
 				static const std::map<Dir, const char*> io_prefix_table {
-					{Dir::In, "in_"},
-					{Dir::Out, "out_"}
+					{Dir::In, "_in_"},
+					{Dir::Out, "_out_"}
 				};
 
 				o << "layout" << "(" << "location" << "=" << m_loc << ")" << io_table.at(m_dir);
@@ -607,12 +607,12 @@ public:
 					size_t n = 0;
 					for (auto &in : rp.getSubpass().getIn()) {
 						auto ndx = n++;
-						o << "layout" << "(" << "input_attachment_index" << "=" << ndx << "," << "set" << "=" << 0 << "," << "binding" << "=" << ndx <<")" << "uniform" << fragGetInType(in.get().attachment) << (std::string("in_") + in.get().attachment.getName()) << ";";
+						o << "layout" << "(" << "input_attachment_index" << "=" << ndx << "," << "set" << "=" << 0 << "," << "binding" << "=" << ndx <<")" << "uniform" << fragGetInType(in.get().attachment) << (std::string("_in_") + in.get().attachment.getName()) << ";";
 					}
 					n = 0;
 					for (auto &out : rp.getSubpass().getOut()) {
 						auto ndx = n++;
-						o << "layout" << "(" << "location" << "=" << ndx << ")" << "out" << fragGetOutType(out.attachment.attachment) << (std::string("out_") + out.attachment.attachment.getName()) << ";";
+						o << "layout" << "(" << "location" << "=" << ndx << ")" << "out" << fragGetOutType(out.attachment.attachment) << (std::string("_out_") + out.attachment.attachment.getName()) << ";";
 					}
 				}
 

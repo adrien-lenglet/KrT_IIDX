@@ -428,9 +428,9 @@ public:
 	auto& operator<<(S &&str)
 	{
 		if constexpr (std::is_same_v<std::string, std::remove_cv_t<std::remove_reference_t<S>>>)
-			m_tokens.emplace_back(str);
+			add_token(str);
 		else
-			m_tokens.emplace_back(util::sstream_str(std::forward<S>(str)));
+			add_token(util::sstream_str(std::forward<S>(str)));
 		return *this;
 	}
 
@@ -485,6 +485,27 @@ private:
 	{
 		for (size_t i = 0; i < n; i++)
 			o << "\t";
+	}
+
+	void add_token(const std::string &str)
+	{
+		if (m_tokens.size() > 3) {
+			if (m_tokens.rbegin()[0] == ")" && m_tokens.rbegin()[2] == "(") {
+				if (m_tokens.rbegin()[1] == "in") {
+					for (size_t i = 0; i < 3; i++)
+						m_tokens.pop_back();
+					m_tokens.emplace_back(std::string("_in_") + str);
+					return;
+				}
+				if (m_tokens.rbegin()[1] == "out") {
+					for (size_t i = 0; i < 3; i++)
+						m_tokens.pop_back();
+					m_tokens.emplace_back(std::string("_out_") + str);
+					return;
+				}
+			}
+		}
+		m_tokens.emplace_back(str);
 	}
 };
 

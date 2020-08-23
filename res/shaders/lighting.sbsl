@@ -2,11 +2,10 @@
 render_pass render_passes::deffered : lighting;
 
 require vertex::p2;
-
 vertex {
 	void main(void)
 	{
-		gl_Position = vec4(in_pos, 0, 1.0);
+		gl_Position = vec4((in)pos, 0, 1.0);
 	}
 }
 
@@ -15,6 +14,6 @@ fragment {
 
 	void main(void)
 	{
-		out_wsi_screen = subpassLoad(in_color).xyz;
+		(out)wsi_screen = subpassLoad((in)color).xyz;
 	}
 }

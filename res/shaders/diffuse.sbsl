@@ -1,3 +1,4 @@
+render_pass render_passes::deffered : albedo;
 
 require vertex::pnu;
 vertex {
@@ -18,27 +19,19 @@ vertex {
 		mat4 model_world;
 	};
 
-	/*set sub_object {
-		uint lol;
-		double xdd;
-	};*/
-
 	out vec3 pos;
 	out vec3 normal;
 	out vec2 uv;
 
 	void main(void)
 	{
-		vec4 in_pos_h = vec4(in_pos, 1.0);
+		vec4 in_pos_h = vec4((in)pos, 1.0);
 		gl_Position = camera.vp * object.model_world * in_pos_h;
-		//gl_Position = vec4(in_pos.x, in_pos.y, 0, 1);
-		out_pos = (object.model_world * in_pos_h).xyz;
-		out_normal = (object.model_world * vec4(in_normal, 1.0)).xyz;
-		out_uv = in_uv;
+		(out)pos = (object.model_world * in_pos_h).xyz;
+		(out)normal = (object.model_world * vec4((in)normal, 1.0)).xyz;
+		(out)uv = (in)uv;
 	}
 }
-
-render_pass render_passes::deffered : albedo;
 
 geometry {
 	out vec3 pos;
@@ -53,9 +46,9 @@ geometry {
 			for (int i = 0; i < 3; i++) {
 				gl_Position = gl_in[i].gl_Position;
 				gl_Position.xy += off[o];
-				out_pos = in_pos[i];
-				out_normal = in_normal[i];
-				out_uv = in_uv[i];
+				(out)pos = (in)pos[i];
+				(out)normal = (in)normal[i];
+				(out)uv = (in)uv[i];
 				EmitVertex();
 			}
 			EndPrimitive();
@@ -70,36 +63,11 @@ fragment {
 	void main(void)
 	{
 		vec3 lightp = vec3(-2.0, 1.0, -3.0);
-		float dist = length(lightp - in_pos);
+		float dist = length(lightp - (in)pos);
 
-		vec3 color = normalize(in_normal) + vec3(material.counter / 256.0);
+		vec3 color = normalize((in)normal) + vec3(material.counter / 256.0);
 		//vec3 color = vec3(1.0);
-		out_color = vec3(5.0 / (dist * dist)) * color;
+		(out)color = vec3(5.0 / (dist * dist)) * color;
+		(out)normal = vec3(1.0);
 	}
 }
-
-/*vertex {
-
-	in vec3 in_pos;
-	in vec3 in_normal;
-	in vec2 in_uv;
-
-	out vec3 vtx_pos;
-	out vec3 vtx_normal;
-
-	void main(void)
-	{
-		//vec3 in_pos = vec3(2.3);
-		//vec2 pos;
-		//gl_Position = object.mvp * vec4(in_pos, 1.0);
-	}
-}
-
-fragment {
-	out vec3 screen_color;
-
-	void main(void)
-	{
-		screen_color = vec3(1.0);
-	}
-}*/
