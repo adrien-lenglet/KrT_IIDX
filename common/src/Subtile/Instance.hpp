@@ -50,6 +50,12 @@ public:
 			return m_ins.loadShader(std::forward<Args>(args)...);
 		}
 
+		template <typename ...Args>
+		decltype(auto) loadRenderPassRef(Args &&...args)
+		{
+			return m_ins.loadRenderPassRef(std::forward<Args>(args)...);
+		}
+
 	private:
 		InstanceBase &m_ins;
 	};

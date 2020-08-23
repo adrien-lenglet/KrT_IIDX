@@ -4,6 +4,7 @@
 #include <sstream>
 #include "util/enum_class_bitmask.hpp"
 #include "Vk.hpp"
+#include "Subtile/Instance.hpp"
 
 namespace Subtile {
 
@@ -22,8 +23,6 @@ Vk::Vk(sb::InstanceBase &instance, const std::string &name, bool isDebug, bool i
 	//m_transfer(m_device, m_transfer_queue),
 	m_swapchain_format(m_device.physical().surface().chooseFormat()),
 	m_swapchain(createSwapchain()),
-	m_default_render_pass(createDefaultRenderPass()),
-	m_clear_render_pass(createClearRenderPass()),
 	m_swapchain_images(createSwapchainImages()),
 	m_swapchain_image_ndx(~0ULL),
 	m_acquire_image_semaphore(m_device)
@@ -138,7 +137,7 @@ Vk::Instance Vk::createInstance(void)
 	ai.apiVersion = VK_API_VERSION_1_1;
 
 	VkInstanceCreateInfo createInfo {};
-
+	createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	createInfo.pApplicationInfo = &ai;
 	auto clayers = layers.c_strs();
 	createInfo.enabledLayerCount = clayers.size();
@@ -839,10 +838,9 @@ void Vk::Transfer::write_w_staging(VkBuffer buf, size_t offset, size_t range, co
 	vkQueueWaitIdle(m_transfer_queue);
 }*/
 
-Vk::Image::Image(Device &dev, VkImage image, VmaAllocation allocation, VkImageView view) :
-	m_image(dev, image),
-	m_allocation(dev.allocator(), allocation),
-	m_view(dev, view)
+Vk::Image::Image(Device &dev, VkImage image, VmaAllocation allocation) :
+	Allocation(dev.allocator(), allocation),
+	Device::Handle<VkImage>(dev, image)
 {
 }
 
@@ -878,6 +876,31 @@ static VkImageAspectFlags sbFormatToImageAspectFlags(sb::Format format)
 	return VK_IMAGE_ASPECT_COLOR_BIT;
 }
 
+Vk::ImageView::ImageView(Device &dev, VkImageView view) :
+	Device::Handle<VkImageView>(dev, view)
+{
+}
+
+Vk::ImageView::~ImageView(void)
+{
+}
+
+template <>
+void Vk::Device::Handle<VkImageView>::destroy(Vk::Device &device, VkImageView imageView)
+{
+	device.destroy(vkDestroyImageView, imageView);
+}
+
+Vk::ImageAllocView::ImageAllocView(Vk::Image &&image, ImageView &&view) :
+	Vk::Image(std::move(image)),
+	ImageView(std::move(view))
+{
+}
+
+Vk::ImageAllocView::~ImageAllocView(void)
+{
+}
+
 std::unique_ptr<sb::Image> Vk::createImage(sb::Image::Type type, Format format, sb::Image::Sample sample, svec3 extent, size_t layers, sb::Image::Usage usage, sb::Queue &queue)
 {
 	static const std::map<sb::Image::Type, VkImageType> imageTypeTable {
@@ -910,9 +933,11 @@ std::unique_ptr<sb::Image> Vk::createImage(sb::Image::Type type, Format format, 
 	VmaAllocationCreateInfo aci {};
 	aci.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
-	VkImage image;
+	VkImage vk_image;
 	VmaAllocation allocation;
-	Vk::assert(vmaCreateImage(m_device.allocator(), &ici, &aci, &image, &allocation, nullptr));
+	Vk::assert(vmaCreateImage(m_device.allocator(), &ici, &aci, &vk_image, &allocation, nullptr));
+
+	auto image = Vk::Image(m_device, vk_image, allocation);
 
 	VkImageViewCreateInfo ivci {};
 	ivci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -922,15 +947,9 @@ std::unique_ptr<sb::Image> Vk::createImage(sb::Image::Type type, Format format, 
 	ivci.subresourceRange.aspectMask = sbFormatToImageAspectFlags(format);
 	ivci.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
 	ivci.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-	auto view = m_device.createVk(vkCreateImageView, ivci);
+	auto view = m_device.create<ImageView>(vkCreateImageView, ivci);
 
-	return std::make_unique<Image>(m_device, image, allocation, view);
-}
-
-template <>
-void Vk::Device::Handle<VkImageView>::destroy(Vk::Device &device, VkImageView imageView)
-{
-	device.destroy(vkDestroyImageView, imageView);
+	return std::make_unique<ImageAllocView>(std::move(image), std::move(view));
 }
 
 VkAttachmentLoadOp Vk::RenderPass::sbLoadOpToVk(sb::Image::LoadOp loadOp)
@@ -954,19 +973,15 @@ VkAttachmentStoreOp Vk::RenderPass::sbStoreOpToVk(sb::Image::StoreOp storeOp)
 	return table.at(storeOp);
 }
 
-Vk::RenderPass::RenderPass(Vk::Device &dev, VkRenderPass renderPass) :
-	Device::Handle<VkRenderPass>(dev, renderPass)
-{
-}
-
 Vk::RenderPass::RenderPass(Vk::Device &dev, sb::rs::RenderPass &res) :
-	RenderPass(dev, create(dev, res))
+	m_layout(res.layout()),
+	m_handle(dev, create(dev))
 {
 }
 
-VkRenderPass Vk::RenderPass::create(Vk::Device &dev, sb::rs::RenderPass &res)
+VkRenderPass Vk::RenderPass::create(Vk::Device &dev)
 {
-	auto layout = res.layout();
+	auto &layout = m_layout;
 
 	std::vector<VkAttachmentDescription> attachments;
 	attachments.reserve(layout.attachments.size());
@@ -1125,10 +1140,8 @@ Vk::Swapchain Vk::createSwapchain(void)
 	return m_device.create<Swapchain>(vkCreateSwapchainKHR, ci);
 }
 
-Vk::Swapchain::Image::Image(Vk::Device &dev, VkImageView imageView, VkFramebuffer defaultFramebuffer, VkFramebuffer clearFramebuffer) :
-	m_image_view(dev, imageView),
-	m_default_framebuffer(dev, defaultFramebuffer),
-	m_clear_framebuffer(dev, clearFramebuffer)
+Vk::Swapchain::Image::Image(Vk::Device &dev, VkImageView imageView) :
+	m_image_view(dev, imageView)
 {
 }
 
@@ -1144,91 +1157,6 @@ void Vk::Device::Handle<VkFramebuffer>::destroy(Vk::Device &device, VkFramebuffe
 	device.destroy(vkDestroyFramebuffer, framebuffer);
 }
 
-Vk::Framebuffer& Vk::Swapchain::Image::getDefaultFramebuffer(void)
-{
-	return m_default_framebuffer;
-}
-
-Vk::Framebuffer& Vk::Swapchain::Image::getClearFramebuffer(void)
-{
-	return m_clear_framebuffer;
-}
-
-Vk::RenderPass Vk::createDefaultRenderPass(void)
-{
-	std::vector<VkAttachmentDescription> atts;
-	VkAttachmentDescription att {};
-	att.format = m_swapchain_format.format;
-	att.samples = VK_SAMPLE_COUNT_1_BIT;
-	att.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	att.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	att.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	att.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	att.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-	atts.emplace_back(att);
-
-	std::vector<VkAttachmentReference> colorAtts;
-	VkAttachmentReference colorAtt;
-	colorAtt.attachment = 0;
-	colorAtt.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	colorAtts.emplace_back(colorAtt);
-
-	std::vector<VkSubpassDescription> subs;
-	VkSubpassDescription sub {};
-	sub.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	sub.colorAttachmentCount = colorAtts.size();
-	sub.pColorAttachments = colorAtts.data();
-	subs.emplace_back(sub);
-
-	VkRenderPassCreateInfo ci {};
-	ci.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	ci.attachmentCount = atts.size();
-	ci.pAttachments = atts.data();
-	ci.subpassCount = subs.size();
-	ci.pSubpasses = subs.data();
-	return m_device.create<RenderPass>(vkCreateRenderPass, ci);
-}
-
-Vk::RenderPass Vk::createClearRenderPass(void)
-{
-	std::vector<VkAttachmentDescription> atts;
-	VkAttachmentDescription att {};
-	att.format = m_swapchain_format.format;
-	att.samples = VK_SAMPLE_COUNT_1_BIT;
-	att.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	att.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	att.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	att.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	att.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	atts.emplace_back(att);
-
-	std::vector<VkAttachmentReference> colorAtts;
-	VkAttachmentReference colorAtt;
-	colorAtt.attachment = 0;
-	colorAtt.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	colorAtts.emplace_back(colorAtt);
-
-	std::vector<VkSubpassDescription> subs;
-	VkSubpassDescription sub {};
-	sub.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	sub.colorAttachmentCount = colorAtts.size();
-	sub.pColorAttachments = colorAtts.data();
-	subs.emplace_back(sub);
-
-	VkRenderPassCreateInfo ci {};
-	ci.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	ci.attachmentCount = atts.size();
-	ci.pAttachments = atts.data();
-	ci.subpassCount = subs.size();
-	ci.pSubpasses = subs.data();
-	return m_device.create<RenderPass>(vkCreateRenderPass, ci);
-}
-
-Vk::RenderPass& Vk::getDefaultRenderPass(void)
-{
-	return m_default_render_pass;
-}
-
 std::vector<Vk::Swapchain::Image> Vk::createSwapchainImages(void)
 {
 	std::vector<Swapchain::Image> res;
@@ -1242,26 +1170,11 @@ std::vector<Vk::Swapchain::Image> Vk::createSwapchainImages(void)
 	viewCi.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
 	viewCi.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
 
-	VkFramebufferCreateInfo framebufferCi {};
-
-	framebufferCi.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-	framebufferCi.width = 1600;
-	framebufferCi.height = 900;
-	framebufferCi.layers = 1;
-
 	for (auto &i : enumerate<VkImage>(vkGetSwapchainImagesKHR, m_device, m_swapchain)) {
 		viewCi.image = i;
 		auto view = m_device.createVk(vkCreateImageView, viewCi);
-		framebufferCi.attachmentCount = 1;
-		framebufferCi.pAttachments = &view;
 
-		framebufferCi.renderPass = m_default_render_pass;
-		auto default_fb = m_device.createVk(vkCreateFramebuffer, framebufferCi);
-
-		framebufferCi.renderPass = m_clear_render_pass;
-		auto clear_fb = m_device.createVk(vkCreateFramebuffer, framebufferCi);
-
-		res.emplace_back(m_device, view, default_fb, clear_fb);
+		res.emplace_back(m_device, view);
 	}
 	return res;
 }
@@ -1613,6 +1526,7 @@ Vk::Shader::Shader(Vk::Device &device, rs::Shader &shader) :
 	m_layouts(shader.loadDescriptorSetLayouts(device.vk().m_sb_instance)),
 	m_pipeline_layout(shader.isModule() ? PipelineLayout(device, VK_NULL_HANDLE) : createPipelineLayout()),
 	m_shader_modules(shader.isModule() ? ShaderModulesType{} : createShaderModules(device, shader)),
+	m_render_pass(loadRenderPass(shader)),
 	m_pipeline(shader.isModule() ? Pipeline(device, VK_NULL_HANDLE) : createPipeline(device, shader))
 {
 	static_cast<void>(shader);
@@ -1651,8 +1565,20 @@ std::vector<std::pair<VkShaderStageFlagBits, Vk::ShaderModule>> Vk::Shader::crea
 	return res;
 }
 
-Vk::Pipeline Vk::Shader::createPipeline(Vk::Device &device, rs::Shader &shader)
+std::optional<std::pair<sb::RenderPass::Cache::Ref, size_t>> Vk::Shader::loadRenderPass(rs::Shader &shader)
 {
+	if (shader.isModule())
+		return std::nullopt;
+
+	auto rp = shader.getRenderPass();
+	return std::pair<sb::RenderPass::Cache::Ref, size_t>(sb::InstanceBase::Getter(m_device.vk().m_sb_instance).loadRenderPassRef(rp.first), rp.second);
+}
+
+std::optional<Vk::Pipeline> Vk::Shader::createPipeline(Vk::Device &device, rs::Shader &shader)
+{
+	if (shader.isModule())
+		return std::nullopt;
+
 	std::vector<VkPipelineShaderStageCreateInfo> stages;
 	for (auto &sp : m_shader_modules) {
 		VkPipelineShaderStageCreateInfo ci {};
@@ -1714,17 +1640,31 @@ Vk::Pipeline Vk::Shader::createPipeline(Vk::Device &device, rs::Shader &shader)
 	multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 	multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
+	auto &rp_layout = reinterpret_cast<RenderPass&>(**m_render_pass->first).getLayout();
+	auto &sp = rp_layout.subpasses.at(m_render_pass->second);
+
+	VkPipelineDepthStencilStateCreateInfo depthStencil {};
+	depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depthStencil.depthTestEnable = VK_TRUE;
+	depthStencil.depthWriteEnable = VK_TRUE;
+	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+	depthStencil.minDepthBounds = 0.0f;
+	depthStencil.maxDepthBounds = 1.0f;
+
 	std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
-	VkPipelineColorBlendAttachmentState colorBlendAttachment {};
-	colorBlendAttachment.blendEnable = VK_TRUE;
-	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-	colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-	colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-	colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-	colorBlendAttachments.emplace_back(colorBlendAttachment);
+	for (size_t i = 0; i < sp.colorAttachments.size(); i++) {
+		VkPipelineColorBlendAttachmentState colorBlendAttachment {};
+		colorBlendAttachment.blendEnable = VK_TRUE;
+		colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+		colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+		colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+		colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+		colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+		colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+		colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		colorBlendAttachments.emplace_back(colorBlendAttachment);
+	}
+
 	VkPipelineColorBlendStateCreateInfo colorBlend {};
 	colorBlend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 	colorBlend.attachmentCount = colorBlendAttachments.size();
@@ -1741,10 +1681,11 @@ Vk::Pipeline Vk::Shader::createPipeline(Vk::Device &device, rs::Shader &shader)
 	ci.pViewportState = &viewport;
 	ci.pRasterizationState = &rasterization;
 	ci.pMultisampleState = &multisample;
+	ci.pDepthStencilState = &depthStencil;
 	ci.pColorBlendState = &colorBlend;
 	ci.layout = m_pipeline_layout;
-	ci.renderPass = device.vk().getDefaultRenderPass();
-	ci.subpass = 0;
+	ci.renderPass = reinterpret_cast<RenderPass&>(**m_render_pass->first);
+	ci.subpass = m_render_pass->second;
 
 	return device.create<Pipeline>(vkCreateGraphicsPipelines, ci);
 }
@@ -1771,7 +1712,7 @@ Vk::PipelineLayout& Vk::Shader::getPipelineLayout(void)
 
 Vk::Pipeline& Vk::Shader::getPipeline(void)
 {
-	return m_pipeline;
+	return *m_pipeline;
 }
 
 std::unique_ptr<sb::Shader> Vk::createShader(rs::Shader &shader)

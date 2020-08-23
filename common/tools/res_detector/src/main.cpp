@@ -10,8 +10,8 @@
 #include <functional>
 
 #include "cpp_generator.hpp"
-#include "Subtile/Shader/Compiler.hpp"
 #include "Subtile/RenderPass/Compiler.hpp"
+#include "Subtile/Shader/Compiler.hpp"
 #include "Subtile/Resource/Shader.hpp"
 #include "Subtile/Resource/RenderPass.hpp"
 
@@ -352,6 +352,16 @@ class FolderPrinter
 			}
 			render += Return | render_type(**"m_ref"_v, "model"_v, render_list);
 		}
+
+		auto render_pass_t = "std::pair<sb::rs::RenderPass&, size_t>"_t;
+
+		auto render_pass = compiled.getRenderPass();
+		auto get_render_pass_fwd = sh += render_pass_t | Id("getRenderPass")(Void) | Const | Override;
+		auto &get_render_pass = m_impl_out += render_pass_t | get_render_pass_fwd(Void) | Const | S {};
+		if (render_pass)
+			get_render_pass += Return | render_pass_t(Vd(render_pass->getCompiled().getModuleEntry().getResValue()), render_pass->getSubpass().getNdx());
+		else
+			get_render_pass += "throw"_v;
 
 		auto is_module_fwd = sh += Bool | Id("isModule")(Void) | Const | Override;
 		m_impl_out += Bool | is_module_fwd(Void) | Const | S

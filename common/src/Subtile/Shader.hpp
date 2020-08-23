@@ -920,6 +920,7 @@ public:
 	virtual sb::Shader::VertexInput vertexInput(void) const = 0;
 	using DescriptorSetLayouts = std::vector<std::unique_ptr<sb::Shader::DescriptorSet::Layout::Resolver>>;
 	virtual DescriptorSetLayouts loadDescriptorSetLayouts(InstanceBase &ins) const = 0;
+	virtual std::pair<rs::RenderPass&, size_t> getRenderPass(void) const = 0;
 	virtual bool isModule(void) const = 0;
 
 	class Stage

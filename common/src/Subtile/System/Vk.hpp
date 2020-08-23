@@ -497,30 +497,38 @@ private:
 
 	Transfer m_transfer;*/
 
-	using ImageView = Device::Handle<VkImageView>;
-
-	class Image : public sb::Image
+	class Image : private Allocation, public Device::Handle<VkImage>
 	{
 		static VkImageAspectFlags sbFormatToImageAspectFlags(sb::Format format);
 
 	public:
-		Image(Device &dev, VkImage image, VmaAllocation allocation, VkImageView view);
+		Image(Device &dev, VkImage image, VmaAllocation allocation);
+	};
 
-	private:
-		Device::Handle<VkImage> m_image;
-		Allocation m_allocation;
-		Device::Handle<VkImageView> m_view;
+	class ImageView : public sb::Image, public Device::Handle<VkImageView>
+	{
+	public:
+		ImageView(Device &dev, VkImageView view);
+		~ImageView(void) override;
+
+		ImageView(ImageView&&) = default;
+	};
+
+	class ImageAllocView : public Vk::Image, public ImageView
+	{
+	public:
+		ImageAllocView(Vk::Image &&image, ImageView &&view);
+		~ImageAllocView(void) override;
 	};
 
 	std::unique_ptr<sb::Image> createImage(sb::Image::Type type, Format format, sb::Image::Sample sample, svec3 extent, size_t layers, sb::Image::Usage usage, sb::Queue &queue) override;
-
 
 	static inline VkImageLayout sbImageLayoutToVk(sb::Image::Layout layout)
 	{
 		return static_cast<VkImageLayout>(static_cast<std::underlying_type_t<sb::Image::Layout>>(layout));
 	}
 
-	class RenderPass : public sb::RenderPass, public Device::Handle<VkRenderPass>
+	class RenderPass : public sb::RenderPass
 	{
 		static VkAttachmentLoadOp sbLoadOpToVk(sb::Image::LoadOp loadOp);
 		static VkAttachmentStoreOp sbStoreOpToVk(sb::Image::StoreOp storeOp);
@@ -546,12 +554,24 @@ private:
 		}
 
 	public:
-		RenderPass(Device &dev, VkRenderPass renderPass);
 		RenderPass(Device &dev, sb::rs::RenderPass &res);
 		~RenderPass(void) override;
 
+		operator VkRenderPass(void) const
+		{
+			return m_handle;
+		}
+
+		auto& getLayout(void) const
+		{
+			return m_layout;
+		}
+
 	private:
-		VkRenderPass create(Device &dev, sb::rs::RenderPass &res);
+		sb::RenderPass::Layout m_layout;
+		Device::Handle<VkRenderPass> m_handle;
+
+		VkRenderPass create(Device &dev);
 	};
 
 	std::unique_ptr<sb::RenderPass> createRenderPass(sb::rs::RenderPass &renderpass) override;
@@ -566,27 +586,16 @@ private:
 		class Image
 		{
 		public:
-			Image(Vk::Device &dev, VkImageView imageView, VkFramebuffer defaultFramebuffer, VkFramebuffer clearFramebuffer);
-
-			Framebuffer& getDefaultFramebuffer(void);
-			Framebuffer& getClearFramebuffer(void);
+			Image(Vk::Device &dev, VkImageView imageView);
 
 		private:
 			ImageView m_image_view;
-			Framebuffer m_default_framebuffer;
-			Framebuffer m_clear_framebuffer;
 		};
 	};
 
 	const VkSurfaceFormatKHR &m_swapchain_format;
 	Swapchain m_swapchain;
 	Swapchain createSwapchain(void);
-
-	RenderPass m_default_render_pass;
-	RenderPass createDefaultRenderPass(void);
-	RenderPass& getDefaultRenderPass(void);
-	RenderPass m_clear_render_pass;
-	RenderPass createClearRenderPass(void);
 
 	std::vector<Swapchain::Image> m_swapchain_images;
 	std::vector<Swapchain::Image> createSwapchainImages(void);
@@ -717,8 +726,12 @@ private:
 		using ShaderModulesType = std::vector<std::pair<VkShaderStageFlagBits, ShaderModule>>;
 		ShaderModulesType m_shader_modules;
 		ShaderModulesType createShaderModules(Vk::Device &device, rs::Shader &shader);
-		Pipeline m_pipeline;
-		Pipeline createPipeline(Vk::Device &device, rs::Shader &shader);
+
+		std::optional<std::pair<sb::RenderPass::Cache::Ref, size_t>> m_render_pass;
+		std::optional<std::pair<sb::RenderPass::Cache::Ref, size_t>> loadRenderPass(rs::Shader &shader);
+
+		std::optional<Pipeline> m_pipeline;
+		std::optional<Pipeline> createPipeline(Vk::Device &device, rs::Shader &shader);
 	};
 
 	std::unique_ptr<sb::Shader> createShader(rs::Shader &shader) override;

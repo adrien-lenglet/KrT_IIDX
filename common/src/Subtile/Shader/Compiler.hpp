@@ -15,6 +15,8 @@
 #include "util/string.hpp"
 #include "util/sstream.hpp"
 
+#include "Subtile/RenderPass/Compiler.hpp"
+
 namespace Subtile {
 
 class Shader::Compiler
@@ -505,27 +507,76 @@ public:
 
 		void done(void) // called when all primitives are in stages (build in / out blocks)
 		{
-			if (m_in_variables.size() > 0) {
-				if (&m_compiler.getStages().begin()->second == this) {
-					size_t loc = 0;
-					for (auto &var : m_in_variables) {
-						m_interface_ios.emplace_back(var, InterfaceInOut::Dir::In, loc);
-						loc += var.get().getType().parse("nolayout").loc_size;
+			auto prp = m_compiler.getRenderPass();
+			if (m_stage == Shader::Stage::Fragment) {
+				for (auto &in : m_in_variables) {
+					if (m_in_constraints.find(in.get().getName()) != m_in_constraints.end()) {
+						std::stringstream ss;
+						ss << "Duplicate in constraint '" << in.get().getName() << "'";
+						throw std::runtime_error(ss.str());
 					}
-				} else if (m_stage == Shader::Stage::Fragment) {
-					throw std::runtime_error("Input attachment not handled yet");
-				} else
-					throw std::runtime_error("In variable must be declared only in the first stage of the pipeline");
-			}
+					if (!prp) {
+						std::stringstream ss;
+						ss << "In constraint '" << in.get().getName() << "' without any render pass";
+						throw std::runtime_error(ss.str());
+					}
+					bool found = false;
+					for (auto &sin : prp->getSubpass().getIn())
+						if (sin.get().attachment.getName() == in.get().getName())
+							found = true;
+					if (!found) {
+						std::stringstream ss;
+						ss << "In constraint '" << in.get().getName() << "' unknown to render pass '" << prp->getCompiled().getModuleEntry().getPath() << "'";
+						throw std::runtime_error(ss.str());
+					}
 
-			size_t loc = 0;
-			for (auto &var : m_out_variables) {
-				m_interface_ios.emplace_back(var, InterfaceInOut::Dir::Out, loc);
-				auto after = m_compiler.getStages().stageAfter(m_stage);
-				if (after) {
-					after->m_interface_ios.emplace_back(var, InterfaceInOut::Dir::In, loc, after->m_stage == sb::Shader::Stage::Geometry);
+					m_in_constraints.emplace(std::piecewise_construct, std::forward_as_tuple(in.get().getName()), std::forward_as_tuple(in));
+				} for (auto &out : m_out_variables) {
+					if (m_out_constraints.find(out.get().getName()) != m_out_constraints.end()) {
+						std::stringstream ss;
+						ss << "Duplicate out constraint '" << out.get().getName() << "'";
+						throw std::runtime_error(ss.str());
+					}
+					if (!prp) {
+						std::stringstream ss;
+						ss << "Out constraint '" << out.get().getName() << "' without any render pass";
+						throw std::runtime_error(ss.str());
+					}
+					bool found = false;
+					for (auto &sout : prp->getSubpass().getOut())
+						if (sout.attachment.attachment.getName() == out.get().getName())
+							found = true;
+					if (!found) {
+						std::stringstream ss;
+						ss << "Out constraint '" << out.get().getName() << "' unknown to render pass '" << prp->getCompiled().getModuleEntry().getPath() << "'";
+						throw std::runtime_error(ss.str());
+					}
+
+					m_out_constraints.emplace(std::piecewise_construct, std::forward_as_tuple(out.get().getName()), std::forward_as_tuple(out));
 				}
-				loc += var.get().getType().parse("nolayout").loc_size;
+			} else {
+				if (m_in_variables.size() > 0) {
+					if (&m_compiler.getStages().begin()->second == this) {
+						size_t loc = 0;
+						for (auto &var : m_in_variables) {
+							m_interface_ios.emplace_back(var, InterfaceInOut::Dir::In, loc);
+							loc += var.get().getType().parse("nolayout").loc_size;
+						}
+					} else if (m_stage == Shader::Stage::Fragment) {
+						throw std::runtime_error("Input attachment not handled yet");	//F
+					} else
+						throw std::runtime_error("In variable must be declared only in the first stage of the pipeline");
+				}
+
+				size_t loc = 0;
+				for (auto &var : m_out_variables) {
+					m_interface_ios.emplace_back(var, InterfaceInOut::Dir::Out, loc);
+					auto after = m_compiler.getStages().stageAfter(m_stage);
+					if (after) {
+						after->m_interface_ios.emplace_back(var, InterfaceInOut::Dir::In, loc, after->m_stage == sb::Shader::Stage::Geometry);
+					}
+					loc += var.get().getType().parse("nolayout").loc_size;
+				}
 			}
 		}
 
@@ -549,6 +600,25 @@ public:
 				}*/
 				for (auto &io : m_interface_ios)
 					io.write(o);
+			} else if (m_stage == sb::Shader::Stage::Fragment) {
+				auto prp = m_compiler.getRenderPass();
+				if (prp) {
+					auto &rp = *prp;
+					size_t n = 0;
+					for (auto &in : rp.getSubpass().getIn()) {
+						auto ndx = n++;
+						o << "layout" << "(" << "input_attachment_index" << "=" << ndx << "," << "set" << "=" << 0 << "," << "binding" << "=" << ndx <<")" << "uniform" << fragGetInType(in.get().attachment) << (std::string("in_") + in.get().attachment.getName()) << ";";
+					}
+					n = 0;
+					for (auto &out : rp.getSubpass().getOut()) {
+						auto ndx = n++;
+						o << "layout" << "(" << "location" << "=" << ndx << ")" << "out" << fragGetOutType(out.attachment.attachment) << (std::string("out_") + out.attachment.attachment.getName()) << ";";
+					}
+				}
+
+				for (auto &io : m_interface_ios)
+					io.write(o);
+
 			} else {
 				for (auto &io : m_interface_ios)
 					io.write(o);
@@ -622,10 +692,63 @@ public:
 		std::vector<std::reference_wrapper<Primitive>> m_primitives;
 		std::vector<std::reference_wrapper<Variable>> m_in_variables;
 		std::vector<std::reference_wrapper<Variable>> m_out_variables;
+		std::map<std::string, util::ref_wrapper<Variable>> m_in_constraints;
+		std::map<std::string, util::ref_wrapper<Variable>> m_out_constraints;
 
 		std::vector<InterfaceInOut> m_interface_ios;
 
 		bool tryAddRequire(Primitive &prim);
+
+		const std::string& fragGetInType(const sb::RenderPass::Compiler::Attachment &in) const
+		{
+			static const std::string sfl("subpassInput");
+			static const std::string su("usubpassInput");
+			static const std::string si("isubpassInput");
+			static const std::set<std::string> fl {
+				"float",
+				"vec2",
+				"vec3",
+				"vec4"
+			};
+			static const std::set<std::string> u {
+				"uint",
+				"uvec2",
+				"uvec3",
+				"uvec4"
+			};
+			static const std::set<std::string> i {
+				"int",
+				"ivec2",
+				"vec3",
+				"ivec4"
+			};
+
+			auto cgot = m_in_constraints.find(in.getName());
+			if (cgot != m_in_constraints.end()) {
+				auto &t = cgot->second.get().getType().getName();
+				if (fl.find(t) != fl.end())
+					return sfl;
+				if (u.find(t) != u.end())
+					return su;
+				if (i.find(t) != i.end())
+					return si;
+				std::stringstream ss;
+				ss << "Unkown in type '" << t << "'";
+				throw std::runtime_error(ss.str());
+			} else
+				return sfl;
+		}
+
+		const std::string& fragGetOutType(const sb::RenderPass::Compiler::Attachment &out) const
+		{
+			static const std::string def("vec4");
+
+			auto cgot = m_out_constraints.find(out.getName());
+			if (cgot != m_out_constraints.end())
+				return cgot->second.get().getType().getName();
+			else
+				return def;
+		}
 	};
 
 private:
@@ -762,7 +885,7 @@ public:
 		{
 		}
 
-		auto& getName(void) const
+		const std::string& getName(void) const
 		{
 			return m_name;
 		}
@@ -1706,17 +1829,104 @@ private:
 		}
 	};
 
+	class RenderPass : public Primitive
+	{
+	public:
+		RenderPass(tstream &s, Compiler &compiler) :
+			m_compiled(getCompiled(compiler.getModuleEntry(), s)),
+			m_subpass(getSubpass(s, compiler))
+		{
+			s.expect(";");
+
+			compiler.gotRenderPass(*this);
+		}
+
+		static bool isComingUp(tstream &s)
+		{
+			return s.peek() == "render_pass";
+		}
+
+		void write(token_output&, Sbi) const
+		{
+		}
+
+		sb::RenderPass::Compiler& getCompiled(void)
+		{
+			return m_compiled;
+		}
+
+		sb::RenderPass::Compiler::Subpass& getSubpass(void)
+		{
+			return m_subpass;
+		}
+
+	private:
+		sb::RenderPass::Compiler m_compiled;
+		sb::RenderPass::Compiler::Subpass& m_subpass;
+
+		sb::RenderPass::Compiler getCompiled(const sb::Resource::Compiler::modules_entry &entry, tstream &s)
+		{
+			std::vector<std::string> expr;
+
+			s.expect("render_pass");
+			while (true) {
+				auto &cur = s.poll();
+				if (cur == ":")
+					break;
+				expr.emplace_back(cur);
+			}
+			return sb::RenderPass::Compiler(entry.resolve_scope_expr(expr));
+		}
+
+		sb::RenderPass::Compiler::Subpass& getSubpass(tstream &s, Compiler &compiler)
+		{
+			auto &name = s.poll();
+
+			auto &subs = m_compiled.getSubpassesByName();
+			auto got = subs.find(name);
+			if (got == subs.end()) {
+				std::stringstream ss;
+				ss << "Render pass '" << m_compiled.getModuleEntry().getPath() << "' include at '" << compiler.getModuleEntry().getPath() << "': can't found such subpass '" << name << "'";
+				throw std::runtime_error(ss.str());
+			}
+			return got->second;
+		}
+	};
+
 private:
+	RenderPass *m_local_render_pass = nullptr;
+	Compiler *m_render_pass = nullptr;
 	tstream m_stream;
 	Section m_collec;
 	Compiler *m_vertex = nullptr;
 	bool m_has_custom_vertex;
+	bool m_has_custom_render_pass;
 	bool m_is_complete;
 
 public:
 	Compiler* getVertex(void)
 	{
 		return m_vertex;
+	}
+
+	RenderPass* getRenderPass(void)
+	{
+		if (m_local_render_pass)
+			return m_local_render_pass;
+		else if (m_render_pass)
+			return m_render_pass->m_local_render_pass;
+		else
+			return nullptr;
+	}
+
+	void gotRenderPass(RenderPass &rp)
+	{
+		if (m_local_render_pass) {
+			std::stringstream ss;
+			ss << "Have another render pass '" << m_local_render_pass->getCompiled().getModuleEntry().getPath() << "' prior to '" << rp.getCompiled().getModuleEntry().getPath() << "'";
+			throw std::runtime_error(ss.str());
+		}
+		m_local_render_pass = &rp;
 	}
 
 private:
@@ -1774,11 +1984,36 @@ private:
 		return res;
 	}
 
+	bool computeHasCustomRenderPass(void)
+	{
+		for (auto &d : m_all_deps.getCompilers()) {
+			if (d.get().m_local_render_pass) {
+				if (m_render_pass) {
+					std::stringstream ss;
+					ss << "Have another dep '" << m_render_pass->getModuleEntry().getPath() << "' defining render pass prior to dep '" << d.get().getModuleEntry().getPath() << "'";
+					throw std::runtime_error(ss.str());
+				} else {
+					m_render_pass = &d.get();
+				}
+			}
+		}
+		if (m_local_render_pass) {
+			if (m_render_pass) {
+				std::stringstream ss;
+				ss << "Have dep '" << m_render_pass->getModuleEntry().getPath() << "' defining render pass prior to inner definition";
+				throw std::runtime_error(ss.str());
+			}
+		}
+		return m_local_render_pass;
+	}
+
 	bool getIsComplete(void)
 	{
 		if (!isStageComplete(sb::Shader::Stage::Vertex))
 			return false;
 		if (!isStageComplete(sb::Shader::Stage::Fragment))
+			return false;
+		if (getRenderPass() == nullptr)
 			return false;
 		return true;
 	}
@@ -1886,6 +2121,8 @@ inline void Shader::Compiler::Section::poll(tstream &s, Compiler &compiler)
 		s.expect(";");
 	} else if (Require::isComingUp(s)) {
 		m_primitives.emplace<Require>(compiler, s);
+	} else if (RenderPass::isComingUp(s)) {
+		m_primitives.emplace<RenderPass>(s, compiler);
 	} else
 		m_primitives.emplace<Function>(s);
 }
@@ -1896,6 +2133,7 @@ inline Shader::Compiler::Compiler(const sb::Resource::Compiler::modules_entry &e
 	m_stream(tstream::tokenize(rs::Compiler::read(entry.getPath().string()), true)),
 	m_collec(m_stream, *this),
 	m_has_custom_vertex((m_collec.dispatch(), computeHasCustomVertex())),
+	m_has_custom_render_pass(computeHasCustomRenderPass()),
 	m_is_complete(getIsComplete())
 {
 	if (isPureModule()) {

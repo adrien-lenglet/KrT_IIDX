@@ -24,6 +24,7 @@ class RenderPass::Compiler
 
 	const rs::Compiler::modules_entry &m_entry;
 
+public:
 	class Attachment
 	{
 		size_t m_ndx;
@@ -169,6 +170,7 @@ class RenderPass::Compiler
 		auto getOutLayout(void) const { return m_out_layout; }
 	};
 
+private:
 	std::map<std::string, Attachment> m_attachments;
 	void parseAttachment(tstream &s)
 	{
@@ -213,7 +215,6 @@ public:
 		Image::Layout layout;
 	};
 
-private:
 	class Subpass
 	{
 		size_t m_ndx;
@@ -383,6 +384,7 @@ private:
 		auto& getPreserve(void) const { return m_preserve; }
 	};
 
+private:
 	std::map<std::string, Subpass> m_subpasses;
 	void parseSubpass(tstream &s)
 	{
@@ -585,6 +587,8 @@ public:
 	auto& getAttachments(void) const { return m_attachments_ordered; }
 	auto& getSubpasses(void) const { return m_subpasses_ordered; }
 	auto& getDependencies(void) const { return m_dependencies; }
+
+	auto& getSubpassesByName(void) { return m_subpasses; }
 };
 
 }

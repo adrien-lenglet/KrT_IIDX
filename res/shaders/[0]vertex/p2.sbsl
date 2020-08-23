@@ -1,0 +1,3 @@
+vertex {
+	in vec2 pos;
+}
