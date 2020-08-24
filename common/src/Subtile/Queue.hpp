@@ -141,11 +141,6 @@ public:
 			return Flags;
 		}
 
-		operator Queue&(void)
-		{
-			return *m_queue;
-		}
-
 		template <bool isReset>
 		auto pool(void)
 		{

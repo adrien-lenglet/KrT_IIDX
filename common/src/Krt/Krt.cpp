@@ -12,7 +12,8 @@ Instance::Instance(bool isDebug, const std::vector<std::string> &args) :
 	sb::Instance<Instance>("SUNREN®", isDebug, Config(args).isProfile, {
 		{m_graphics_family, {1.0f}}
 	}),
-	graphics(queue<m_graphics_family>(0))
+	graphics(queue<m_graphics_family>(0)),
+	swapchain(static_cast<sb::InstanceBase&>(*this).swapchain({1600, 900}, sb::Image::Usage::ColorAttachment, graphics))
 {
 }
 

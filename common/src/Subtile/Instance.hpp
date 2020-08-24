@@ -6,6 +6,7 @@
 #include "Event/System/Observer.hpp"
 #include "Shader.hpp"
 #include "Image.hpp"
+#include "Swapchain.hpp"
 #include "Queue.hpp"
 
 namespace Subtile {
@@ -107,17 +108,24 @@ public:
 	}
 
 	template <sb::Queue::Flag Q>
-	auto image2D(Format format, Image::Sample sampleCount, svec2 extent, Image::Usage usage, sb::Queue::Handle<Q> &queue)
+	auto image2D(Format format, Image::Sample sampleCount, const svec2 &extent, Image::Usage usage, sb::Queue::Handle<Q> &queue)
 	{
 		using Getter = typename sb::Queue::Handle<Q>::Getter;
 		return Image2D(system().createImage(Image::Type::Image2D, format, sampleCount, svec3(extent.x, extent.y, 1), 1, usage, Getter().get(queue)));
 	}
 
 	template <sb::Queue::Flag Q>
-	auto image2DArray(Format format, Image::Sample sampleCount, svec2 extent, size_t layers, Image::Usage usage, sb::Queue::Handle<Q> &queue)
+	auto image2DArray(Format format, Image::Sample sampleCount, const svec2 &extent, size_t layers, Image::Usage usage, sb::Queue::Handle<Q> &queue)
 	{
 		using Getter = typename sb::Queue::Handle<Q>::Getter;
 		return Image2DArray(system().createImage(Image::Type::Image2DArray, format, sampleCount, svec3(extent.x, extent.y, 1), layers, usage, Getter().get(queue)));
+	}
+
+	template <sb::Queue::Flag Q>
+	auto swapchain(const svec2 &extent, Image::Usage usage, sb::Queue::Handle<Q> &queue)
+	{
+		using Getter = typename sb::Queue::Handle<Q>::Getter;
+		return Swapchain::Handle(system().createSwapchain(extent, usage, Getter().get(queue)));
 	}
 };
 

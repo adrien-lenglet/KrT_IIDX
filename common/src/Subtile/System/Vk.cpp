@@ -22,9 +22,6 @@ Vk::Vk(sb::InstanceBase &instance, const std::string &name, bool isDebug, bool i
 	//m_transfer_queue(m_device.getQueue(*m_device.physical().queues().indexOf(VK_QUEUE_TRANSFER_BIT), 0)),
 	//m_transfer(m_device, m_transfer_queue),
 	m_swapchain_format(m_device.physical().surface().chooseFormat()),
-	m_swapchain(createSwapchain()),
-	m_swapchain_images(createSwapchainImages()),
-	m_swapchain_image_ndx(~0ULL),
 	m_acquire_image_semaphore(m_device)
 {
 }
@@ -434,9 +431,9 @@ const VkSurfaceFormatKHR& Vk::PhysicalDevice::Surface::chooseFormat(void) const
 VkPresentModeKHR Vk::PhysicalDevice::Surface::choosePresentMode(void) const
 {
 	for (auto &p : m_present_modes)
-		if (p == VK_PRESENT_MODE_FIFO_KHR)
+		if (p == VK_PRESENT_MODE_MAILBOX_KHR)
 			return p;
-	return VK_PRESENT_MODE_IMMEDIATE_KHR;
+	return VK_PRESENT_MODE_FIFO_KHR;
 }
 
 VkExtent2D Vk::PhysicalDevice::Surface::chooseExtent(VkExtent2D baseExtent) const
@@ -901,7 +898,7 @@ Vk::ImageAllocView::~ImageAllocView(void)
 {
 }
 
-std::unique_ptr<sb::Image> Vk::createImage(sb::Image::Type type, Format format, sb::Image::Sample sample, svec3 extent, size_t layers, sb::Image::Usage usage, sb::Queue &queue)
+std::unique_ptr<sb::Image> Vk::createImage(sb::Image::Type type, Format format, sb::Image::Sample sample, const svec3 &extent, size_t layers, sb::Image::Usage usage, sb::Queue &queue)
 {
 	static const std::map<sb::Image::Type, VkImageType> imageTypeTable {
 		{sb::Image::Type::Image1D, VK_IMAGE_TYPE_1D},
@@ -1143,7 +1140,31 @@ std::unique_ptr<sb::RenderPass> Vk::createRenderPass(sb::rs::RenderPass &renderp
 }
 
 Vk::Swapchain::Swapchain(Vk::Device &device, VkSwapchainKHR swapchain) :
-	Device::Handle<VkSwapchainKHR>(device, swapchain)
+	Device::Handle<VkSwapchainKHR>(device, swapchain),
+	m_images(queryImages())
+{
+}
+
+std::vector<sb::Image2D> Vk::Swapchain::queryImages(void)
+{
+	std::vector<sb::Image2D> res;
+
+	for (auto &img : enumerate<VkImage>(vkGetSwapchainImagesKHR, getDep(), *this)) {
+		VkImageViewCreateInfo ci {};
+		ci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		ci.image = img;
+		ci.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		ci.format = getDep().vk().m_swapchain_format.format;
+		ci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		ci.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+		ci.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+		res.emplace_back(std::make_unique<ImageView>(getDep(), getDep().createVk(vkCreateImageView, ci)));
+	}
+
+	return res;
+}
+
+Vk::Swapchain::~Swapchain(void)
 {
 }
 
@@ -1153,43 +1174,37 @@ void Vk::Device::Handle<VkSwapchainKHR>::destroy(Vk::Device &device, VkSwapchain
 	device.destroy(vkDestroySwapchainKHR, swapchain);
 }
 
-Vk::Swapchain Vk::createSwapchain(void)
+std::vector<sb::Image2D>& Vk::Swapchain::getImages(void)
+{
+	return m_images;
+}
+
+std::unique_ptr<sb::Swapchain> Vk::createSwapchain(const svec2 &extent, sb::Image::Usage usage, sb::Queue &queue)
 {
 	auto &phys = m_device.physical();
 	auto &surface = phys.surface();
+	auto &surf_cap = surface.capabilities();
+	VkQueueFamilyIndex queueFamilyIndex = reinterpret_cast<Queue&>(queue).getFamilyIndex();
 
 	VkSwapchainCreateInfoKHR ci {};
 	ci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	ci.surface = surface;
-	ci.minImageCount = surface.capabilities().minImageCount + 1;
-	if (surface.capabilities().maxImageCount > 0)
-		ci.minImageCount = std::min(ci.minImageCount, surface.capabilities().maxImageCount);
+	ci.minImageCount = std::clamp(1U, surf_cap.minImageCount, surf_cap.maxImageCount);
 	ci.imageFormat = m_swapchain_format.format;
 	ci.imageColorSpace = m_swapchain_format.colorSpace;
-	auto winsize = m_glfw.getWindow().getSize();
-	ci.imageExtent = surface.chooseExtent(VkExtent2D{static_cast<uint32_t>(winsize.x), static_cast<uint32_t>(winsize.y)});
+	ci.imageExtent = VkExtent2D{static_cast<uint32_t>(extent.x), static_cast<uint32_t>(extent.y)};
 	ci.imageArrayLayers = 1;
-	ci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-	//auto &queues = phys.queues();
-	//std::set<uint32_t> unique_queues {*queues.indexOf(VK_QUEUE_GRAPHICS_BIT), *queues.presentation()};
-	std::set<uint32_t> unique_queues {};
-	std::vector<uint32_t> queues_ndx(unique_queues.begin(), unique_queues.end());
-	ci.imageSharingMode = queues_ndx.size() > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
-	ci.queueFamilyIndexCount = queues_ndx.size();
-	ci.pQueueFamilyIndices = queues_ndx.data();
+	ci.imageUsage = util::enum_underlying(usage);
+	ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	ci.queueFamilyIndexCount = 1;
+	ci.pQueueFamilyIndices = &queueFamilyIndex;
 	ci.preTransform = surface.capabilities().currentTransform;
 	ci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 	ci.presentMode = surface.choosePresentMode();
 	ci.clipped = VK_TRUE;
 	ci.oldSwapchain = VK_NULL_HANDLE;
 
-	return m_device.create<Swapchain>(vkCreateSwapchainKHR, ci);
-}
-
-Vk::Swapchain::Image::Image(Vk::Device &dev, VkImageView imageView) :
-	m_image_view(dev, imageView)
-{
+	return std::make_unique<Swapchain>(m_device, m_device.createVk(vkCreateSwapchainKHR, ci));
 }
 
 template <>
@@ -1202,33 +1217,6 @@ template <>
 void Vk::Device::Handle<VkFramebuffer>::destroy(Vk::Device &device, VkFramebuffer framebuffer)
 {
 	device.destroy(vkDestroyFramebuffer, framebuffer);
-}
-
-std::vector<Vk::Swapchain::Image> Vk::createSwapchainImages(void)
-{
-	std::vector<Swapchain::Image> res;
-
-	VkImageViewCreateInfo viewCi {};
-
-	viewCi.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	viewCi.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	viewCi.format = m_device.physical().surface().chooseFormat().format;
-	viewCi.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	viewCi.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
-	viewCi.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-
-	for (auto &i : enumerate<VkImage>(vkGetSwapchainImagesKHR, m_device, m_swapchain)) {
-		viewCi.image = i;
-		auto view = m_device.createVk(vkCreateImageView, viewCi);
-
-		res.emplace_back(m_device, view);
-	}
-	return res;
-}
-
-Vk::Swapchain::Image& Vk::getSwapchainImage(void)
-{
-	return m_swapchain_images.at(m_swapchain_image_ndx);
 }
 
 Vk::Semaphore::Semaphore(Device &dev, VkSemaphore semaphore) :

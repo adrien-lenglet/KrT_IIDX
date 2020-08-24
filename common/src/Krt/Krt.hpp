@@ -26,6 +26,7 @@ public:
 	void run(void);
 
 	sb::Queue::Handle<m_graphics_family> graphics;
+	sb::Swapchain::Handle swapchain;
 };
 
 }

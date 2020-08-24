@@ -521,7 +521,7 @@ private:
 		~ImageAllocView(void) override;
 	};
 
-	std::unique_ptr<sb::Image> createImage(sb::Image::Type type, Format format, sb::Image::Sample sample, svec3 extent, size_t layers, sb::Image::Usage usage, sb::Queue &queue) override;
+	std::unique_ptr<sb::Image> createImage(sb::Image::Type type, Format format, sb::Image::Sample sample, const svec3 &extent, size_t layers, sb::Image::Usage usage, sb::Queue &queue) override;
 
 	static inline VkImageLayout sbImageLayoutToVk(sb::Image::Layout layout)
 	{
@@ -595,29 +595,23 @@ private:
 
 	using Framebuffer = Device::Handle<VkFramebuffer>;
 
-	class Swapchain : public Device::Handle<VkSwapchainKHR>
+	class Swapchain : public sb::Swapchain, public Device::Handle<VkSwapchainKHR>
 	{
 	public:
 		Swapchain(Vk::Device &device, VkSwapchainKHR swapchain);
+		~Swapchain(void) override;
 
-		class Image
-		{
-		public:
-			Image(Vk::Device &dev, VkImageView imageView);
+		std::vector<sb::Image2D>& getImages(void) override;
 
-		private:
-			ImageView m_image_view;
-		};
+	private:
+		std::vector<sb::Image2D> m_images;
+
+		std::vector<sb::Image2D> queryImages(void);
 	};
 
-	const VkSurfaceFormatKHR &m_swapchain_format;
-	Swapchain m_swapchain;
-	Swapchain createSwapchain(void);
+	std::unique_ptr<sb::Swapchain> createSwapchain(const svec2 &extent, sb::Image::Usage usage, sb::Queue &queue) override;
 
-	std::vector<Swapchain::Image> m_swapchain_images;
-	std::vector<Swapchain::Image> createSwapchainImages(void);
-	size_t m_swapchain_image_ndx;
-	Swapchain::Image& getSwapchainImage(void);
+	const VkSurfaceFormatKHR &m_swapchain_format;
 
 	class Semaphore : public Device::Handle<VkSemaphore>
 	{
