@@ -5,6 +5,7 @@
 #include "util/enum_class_bitmask.hpp"
 #include "util/traits.hpp"
 #include "Shader.hpp"
+#include "Framebuffer.hpp"
 
 namespace Subtile {
 
@@ -37,6 +38,15 @@ public:
 	virtual void executeCommands(size_t count, CommandBuffer **cmds) = 0;
 	virtual void bindPipeline(sb::Shader &shader) = 0;
 	virtual void bindDescriptorSets(sb::Shader &shader, size_t first_set, size_t count, sb::Shader::DescriptorSet **sets) = 0;
+
+	virtual void beginRenderPass(bool isInline, Framebuffer &fb, const srect2 &renderArea, size_t clearValueCount, ClearValue *clearValues) = 0;
+	virtual void nextSubpass(bool isInline) = 0;
+	virtual void endRenderPass(void) = 0;
+
+	template <typename CommandsType>
+	void beginRenderPassCmds(Framebuffer &fb, const srect2 &renderArea, size_t clearValueCount, sb::ClearValue *clearValues, CommandsType &&commands);
+	template <typename CommandsType>
+	void nextSubpassCmds(CommandsType &&commands);
 
 	template <typename Type>
 	class CmdGetter
@@ -202,6 +212,9 @@ class CommandBuffer::Cmds
 	template <typename Up>
 	class PrimarySecondaryBothGC;
 
+	template <typename Up>
+	class PrimaryOutsideG;
+
 public:
 	template <Level L, RenderPassScope S, Queue::Flag Q>
 	class For;
@@ -271,10 +284,32 @@ public:
 	}
 };
 
+template <typename Up>
+class CommandBuffer::Cmds::PrimaryOutsideG
+{
+	CommandBuffer& cmd(void) { return CmdGetter<Up>().get(static_cast<Up&>(*this)); }
+
+	static inline constexpr auto G = Queue::Flag::Graphics;
+
+public:
+	PrimaryOutsideG(void) = default;
+
+	struct empty {};
+	template <Level L, RenderPassScope S, Queue::Flag Q>
+	using query = std::conditional_t<!!(L & Level::Primary) && !!(S & RenderPassScope::Outside) && !!(Q & G), PrimaryOutsideG, empty>;
+
+	template <typename RenderPassType, typename ...Args>
+	void render(Framebuffer::Handle<RenderPassType> &fb, const srect2 &renderArea, Args &&...args)
+	{
+		fb.render(cmd(), renderArea, std::forward<Args>(args)...);
+	}
+};
+
 template <CommandBuffer::Level L, CommandBuffer::RenderPassScope S, Queue::Flag Q>
 class CommandBuffer::Cmds::For :
 	public PrimaryBothGCT<For<L, S, Q>>::template query<L, S, Q>,
-	public PrimarySecondaryBothGC<For<L, S, Q>>::template query<L, S, Q>
+	public PrimarySecondaryBothGC<For<L, S, Q>>::template query<L, S, Q>,
+	public PrimaryOutsideG<For<L, S, Q>>::template query<L, S, Q>
 {
 public:
 	For(CommandBuffer &cmd) :
@@ -380,10 +415,50 @@ public:
 	{
 	}
 
+	using value_type = void;
+
 private:
 	template <typename>
 	friend class CommandBuffer::CmdGetter;
 	CommandBuffer &m_cmd;
 };
+
+template <typename CommandsType>
+void CommandBuffer::beginRenderPassCmds(Framebuffer &fb, const srect2 &renderArea, size_t clearValueCount, sb::ClearValue *clearValues, CommandsType &&commands)
+{
+	using Commands_t = util::remove_cvr_t<CommandsType>;
+
+	if constexpr (std::is_invocable_v<Commands_t, CommandBuffer::Record::RenderPass::Primary&>) {
+		beginRenderPass(true, fb, renderArea, clearValueCount, clearValues);
+		CommandBuffer::Record::RenderPass::Primary cmd(*this);
+		commands(cmd);
+	} else {
+		beginRenderPass(false, fb, renderArea, clearValueCount, clearValues);
+		if constexpr (std::is_same_v<Commands_t::value_type, void>) {
+			auto cmd = &CmdGetter<Commands_t>().get(std::forward<CommandsType>(commands));
+			executeCommands(1, &cmd);
+		} else
+			executeCommands(commands.size(), commands.data());
+	}
+}
+
+template <typename CommandsType>
+void CommandBuffer::nextSubpassCmds(CommandsType &&commands)
+{
+	using Commands_t = util::remove_cvr_t<CommandsType>;
+
+	if constexpr (std::is_invocable_v<Commands_t, CommandBuffer::Record::RenderPass::Primary&>) {
+		nextSubpass(true);
+		CommandBuffer::Record::RenderPass::Primary cmd(*this);
+		commands(cmd);
+	} else {
+		nextSubpass(false);
+		if constexpr (std::is_same_v<Commands_t::value_type, void>) {
+			auto cmd = &CmdGetter<Commands_t>().get(std::forward<CommandsType>(commands));
+			executeCommands(1, &cmd);
+		} else
+			executeCommands(commands.size(), commands.data());
+	}
+}
 
 }

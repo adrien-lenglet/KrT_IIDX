@@ -62,4 +62,16 @@ using rmat4 = math::mat4;
 using svec2 = glm::vec<2, size_t>;
 using svec3 = glm::vec<3, size_t>;
 
+struct srect2
+{
+	srect2(const svec2 &offset, const svec2 &extent) :
+		offset(offset),
+		extent(extent)
+	{
+	}
+
+	svec2 offset;
+	svec2 extent;
+};
+
 }

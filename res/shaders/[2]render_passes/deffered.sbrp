@@ -1,6 +1,6 @@
 bgra8_srgb wsi_screen { store, out_layout = present_src };
 //rgba8_srgb screen;
-rgba32_sfloat color;
+rgba32_sfloat color { load = clear };
 rgba8_unorm normal;
 d24un_or_32sf_spl_att_sfb depth_buffer { load = clear };
 

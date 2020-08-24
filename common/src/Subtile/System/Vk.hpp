@@ -528,11 +528,21 @@ private:
 		return static_cast<VkImageLayout>(static_cast<std::underlying_type_t<sb::Image::Layout>>(layout));
 	}
 
+	class RenderPass;
+
 	class Framebuffer : public sb::Framebuffer, public Device::Handle<VkFramebuffer>
 	{
 	public:
-		Framebuffer(Device &dev, VkFramebuffer framebuffer);
+		Framebuffer(Device &dev, VkFramebuffer framebuffer, RenderPass &render_pass);
 		~Framebuffer(void) override;
+
+		RenderPass& getRenderPass(void)
+		{
+			return m_render_pass;
+		}
+
+	private:
+		RenderPass &m_render_pass;
 	};
 
 	class DescriptorSetLayout;
@@ -786,6 +796,10 @@ private:
 		void executeCommands(size_t count, sb::CommandBuffer **cmds) override;
 		void bindPipeline(sb::Shader &shader) override;
 		void bindDescriptorSets(sb::Shader &shader, size_t first_set, size_t count, sb::Shader::DescriptorSet **sets) override;
+
+		void beginRenderPass(bool isInline, sb::Framebuffer &fb, const srect2 &renderArea, size_t clearValueCount, ClearValue *clearValues) override;
+		void nextSubpass(bool isInline) override;
+		void endRenderPass(void) override;
 
 	private:
 		CommandPool &m_pool;

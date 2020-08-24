@@ -949,8 +949,9 @@ std::unique_ptr<sb::Image> Vk::createImage(sb::Image::Type type, Format format, 
 	return std::make_unique<ImageAllocView>(std::move(image), std::move(view));
 }
 
-Vk::Framebuffer::Framebuffer(Device &dev, VkFramebuffer framebuffer) :
-	Device::Handle<VkFramebuffer>(dev, framebuffer)
+Vk::Framebuffer::Framebuffer(Device &dev, VkFramebuffer framebuffer, RenderPass &render_pass) :
+	Device::Handle<VkFramebuffer>(dev, framebuffer),
+	m_render_pass(render_pass)
 {
 }
 
@@ -1164,7 +1165,7 @@ std::unique_ptr<sb::Framebuffer> Vk::RenderPass::createFramebuffer(const svec2 &
 	ci.height = extent.y;
 	ci.layers = layers;
 
-	return std::make_unique<Framebuffer>(m_handle.getDep(), m_handle.getDep().createVk(vkCreateFramebuffer, ci));
+	return std::make_unique<Framebuffer>(m_handle.getDep(), m_handle.getDep().createVk(vkCreateFramebuffer, ci), *this);
 }
 
 std::unique_ptr<sb::RenderPass> Vk::createRenderPass(sb::rs::RenderPass &renderpass)
@@ -2064,6 +2065,31 @@ void Vk::CommandBuffer::bindDescriptorSets(sb::Shader &shader, size_t first_set,
 
 	auto &sh = reinterpret_cast<Shader&>(shader);
 	vkCmdBindDescriptorSets(*this, VK_PIPELINE_BIND_POINT_GRAPHICS, sh.getPipelineLayout(), reinterpret_cast<Shader&>(shader).getDescriptorSetOffset() + first_set, count, sets_vla, 0, nullptr);
+}
+
+void Vk::CommandBuffer::beginRenderPass(bool isInline, sb::Framebuffer &fb, const srect2 &renderArea, size_t clearValueCount, ClearValue *clearValues)
+{
+	auto &vk_fb = reinterpret_cast<Framebuffer&>(fb);
+
+	VkRenderPassBeginInfo bi {};
+	bi.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	bi.renderPass = vk_fb.getRenderPass();
+	bi.framebuffer = vk_fb;
+	bi.renderArea.offset = VkOffset2D{static_cast<int32_t>(renderArea.offset.x), static_cast<int32_t>(renderArea.offset.y)};
+	bi.renderArea.extent = VkExtent2D{static_cast<uint32_t>(renderArea.extent.x), static_cast<uint32_t>(renderArea.extent.y)};
+	bi.clearValueCount = clearValueCount;
+	bi.pClearValues = reinterpret_cast<VkClearValue*>(clearValues);
+	vkCmdBeginRenderPass(*this, &bi, isInline ? VK_SUBPASS_CONTENTS_INLINE : VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+}
+
+void Vk::CommandBuffer::nextSubpass(bool isInline)
+{
+	vkCmdNextSubpass(*this, isInline ? VK_SUBPASS_CONTENTS_INLINE : VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+}
+
+void Vk::CommandBuffer::endRenderPass(void)
+{
+	vkCmdEndRenderPass(*this);
 }
 
 Vk::CommandPool::CommandPool(Device &dev, VkQueueFamilyIndex familyIndex, bool isReset) :

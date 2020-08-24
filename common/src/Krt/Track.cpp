@@ -43,6 +43,14 @@ void Track::Render::render(void)
 	auto prim = m_cmd_pool.primary();
 	prim.record([&](decltype(prim)::Record &cmd){
 		cmd.execute(sec);
+		cmd.render(m_framebuffers.at(0), {{0, 0}, {1600, 900}},
+			sb::Color::f32(0.5f), 1.0f,
+
+			[](auto&){
+			},
+			[](auto&){
+			}
+		);
 	});
 
 	//cmd_buf.renderPass();

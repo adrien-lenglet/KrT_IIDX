@@ -593,6 +593,83 @@ class FolderPrinter
 			"throw"_v
 		};
 
+		auto &fb_s = rp += Struct | "Framebuffer" | S {};
+		auto &fb_runtime = fb_s +=
+		Template(Typename | "Up") ||
+		Class | "Runtime" | S
+		{
+			"sb::Framebuffer"_t | &N | Id("fb")(Void) | S
+			{
+				Return | StaticCast("Up"_t | &N, *This)
+			},
+		Public,
+			Ctor(Void) | S
+			{
+			}
+		};
+
+		auto &render = fb_runtime +=
+		Template() ||
+		Void | Id("render")("sb::CommandBuffer"_t | &N | Id("cmd"), Const | "sb::srect2"_t | &N | Id("renderArea")) | S
+		{
+			"sb::ClearValue"_t[compiled.getAttachments().size()] | Id("clearValues")
+		};
+		for (auto &a : compiled.getAttachments()) {
+			auto &att = a.second.get();
+			if (att.getLoadOp() == sb::Image::LoadOp::Clear) {
+				static const std::set<std::string> depthFmts {
+					"d16_unorm",
+					"d32_sfloat",
+
+					"d24un_or_32sf_spl_att",
+					"d32sf_or_24un_spl_att",
+
+					"d24un_or_32sf_spl_att_sfb",
+					"d32sf_or_24un_spl_att_sfb"
+				};
+				static const std::set<std::string> stencilFmts {
+				};
+				static const std::set<std::string> depthStencilFmts {
+					"d24un_or_32sf_spl_att_s8_uint",
+					"d32sf_or_24un_spl_att_s8_uint"
+				};
+
+				auto &fmt = att.getFormat();
+				if (depthFmts.find(fmt) != depthFmts.end()) {
+					render *= Float | att.getName();
+					render += Value("clearValues"_v[a.first].M("depthStencil"_v.M("depth"_v))) = Vd(att.getName());
+				} else if (stencilFmts.find(fmt) != stencilFmts.end()) {
+					render *= Uint32_t | att.getName();
+					render += Value("clearValues"_v[a.first].M("depthStencil"_v.M("stencil"_v))) = Vd(att.getName());
+				} else if (depthStencilFmts.find(fmt) != depthStencilFmts.end()) {
+					render *= Const | "sb::DepthStencil"_t | &N | Id(att.getName());
+					render += Value("clearValues"_v[a.first].M("depthStencil"_v)) = Vd(att.getName());
+				} else {
+					render *= Const | "sb::Color"_t | &N | att.getName();
+					render += Value("clearValues"_v[a.first].M("color"_v)) = Vd(att.getName());
+				}
+			}
+		}
+
+		{
+			bool first = true;
+			for (auto &s : compiled.getSubpasses()) {
+				auto &sub = s.second.get();
+				auto type = sub.getName() + std::string("_t");
+				render <<= Typename | type;
+				render *= Type(type) | & &N | Id(sub.getName());
+
+				if (first) {
+					render += "cmd"_v.M("beginRenderPassCmds"_v)("fb"_v(), "renderArea"_v, compiled.getAttachments().size(), "clearValues"_v, "std::forward"_t.T(Type(type))(Id(sub.getName())));
+					first = false;
+				} else {
+					render += "cmd"_v.M("nextSubpassCmds"_v)("std::forward"_t.T(Type(type))(Id(sub.getName())));
+				}
+			}
+		}
+
+		render += "cmd"_v.M("endRenderPass"_v());
+
 		auto &runtime = rp +=
 		Template(Typename | "Up") ||
 		Class | "Runtime" | S
