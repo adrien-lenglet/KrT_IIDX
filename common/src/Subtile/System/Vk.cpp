@@ -949,6 +949,21 @@ std::unique_ptr<sb::Image> Vk::createImage(sb::Image::Type type, Format format, 
 	return std::make_unique<ImageAllocView>(std::move(image), std::move(view));
 }
 
+Vk::Framebuffer::Framebuffer(Device &dev, VkFramebuffer framebuffer) :
+	Device::Handle<VkFramebuffer>(dev, framebuffer)
+{
+}
+
+Vk::Framebuffer::~Framebuffer(void)
+{
+}
+
+template <>
+void Vk::Device::Handle<VkFramebuffer>::destroy(Vk::Device &device, VkFramebuffer framebuffer)
+{
+	device.destroy(vkDestroyFramebuffer, framebuffer);
+}
+
 VkAttachmentLoadOp Vk::RenderPass::sbLoadOpToVk(sb::Image::LoadOp loadOp)
 {
 	static const std::map<sb::Image::LoadOp, VkAttachmentLoadOp> table {
@@ -1134,6 +1149,24 @@ Vk::RenderPass::~RenderPass(void)
 {
 }
 
+std::unique_ptr<sb::Framebuffer> Vk::RenderPass::createFramebuffer(const svec2 &extent, size_t layers, size_t count, sb::Image **images)
+{
+	VkImageView atts_vla[count];
+	for (size_t i = 0; i < count; i++)
+		atts_vla[i] = *reinterpret_cast<ImageView*>(images[i]);
+
+	VkFramebufferCreateInfo ci {};
+	ci.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	ci.renderPass = *this;
+	ci.attachmentCount = count;
+	ci.pAttachments = atts_vla;
+	ci.width = extent.x;
+	ci.height = extent.y;
+	ci.layers = layers;
+
+	return std::make_unique<Framebuffer>(m_handle.getDep(), m_handle.getDep().createVk(vkCreateFramebuffer, ci));
+}
+
 std::unique_ptr<sb::RenderPass> Vk::createRenderPass(sb::rs::RenderPass &renderpass)
 {
 	return std::make_unique<RenderPass>(m_device, renderpass);
@@ -1211,12 +1244,6 @@ template <>
 void Vk::Device::Handle<VkRenderPass>::destroy(Vk::Device &device, VkRenderPass renderPass)
 {
 	device.destroy(vkDestroyRenderPass, renderPass);
-}
-
-template <>
-void Vk::Device::Handle<VkFramebuffer>::destroy(Vk::Device &device, VkFramebuffer framebuffer)
-{
-	device.destroy(vkDestroyFramebuffer, framebuffer);
 }
 
 Vk::Semaphore::Semaphore(Device &dev, VkSemaphore semaphore) :

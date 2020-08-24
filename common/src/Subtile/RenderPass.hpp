@@ -6,6 +6,7 @@
 #include "../Subtile.hpp"
 #include "Cache.hpp"
 #include "Image.hpp"
+#include "Framebuffer.hpp"
 #include "PipelineStage.hpp"
 #include "Access.hpp"
 #include "DependencyFlag.hpp"
@@ -63,7 +64,8 @@ public:
 
 	template <typename ResType>
 	class Loaded :
-		public CacheRefHolder
+		public CacheRefHolder,
+		public util::remove_cvr_t<ResType>::template Runtime<Loaded<ResType>>
 	{
 		using Res = util::remove_cvr_t<ResType>;
 
@@ -129,6 +131,8 @@ public:
 	};
 
 	virtual ~RenderPass(void) = default;
+
+	virtual std::unique_ptr<Framebuffer> createFramebuffer(const svec2 &extent, size_t layers, size_t count, sb::Image **images) = 0;
 };
 
 }

@@ -81,6 +81,11 @@ public:
 	{
 	}
 
+	operator Image&(void)
+	{
+		return *m_image;
+	}
+
 private:
 	std::unique_ptr<Image> m_image;
 };
@@ -91,6 +96,11 @@ public:
 	Image2DArray(std::unique_ptr<Image> &&image) :
 		m_image(std::move(image))
 	{
+	}
+
+	operator Image&(void)
+	{
+		return *m_image;
 	}
 
 private:

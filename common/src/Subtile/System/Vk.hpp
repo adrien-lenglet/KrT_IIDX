@@ -528,6 +528,13 @@ private:
 		return static_cast<VkImageLayout>(static_cast<std::underlying_type_t<sb::Image::Layout>>(layout));
 	}
 
+	class Framebuffer : public sb::Framebuffer, public Device::Handle<VkFramebuffer>
+	{
+	public:
+		Framebuffer(Device &dev, VkFramebuffer framebuffer);
+		~Framebuffer(void) override;
+	};
+
 	class DescriptorSetLayout;
 	using PipelineLayout = Device::Handle<VkPipelineLayout>;
 
@@ -559,6 +566,8 @@ private:
 	public:
 		RenderPass(Device &dev, sb::rs::RenderPass &res);
 		~RenderPass(void) override;
+
+		std::unique_ptr<sb::Framebuffer> createFramebuffer(const svec2 &extent, size_t layers, size_t count, sb::Image **images) override;
 
 		operator VkRenderPass(void) const
 		{
@@ -592,8 +601,6 @@ private:
 	};
 
 	std::unique_ptr<sb::RenderPass> createRenderPass(sb::rs::RenderPass &renderpass) override;
-
-	using Framebuffer = Device::Handle<VkFramebuffer>;
 
 	class Swapchain : public sb::Swapchain, public Device::Handle<VkSwapchainKHR>
 	{

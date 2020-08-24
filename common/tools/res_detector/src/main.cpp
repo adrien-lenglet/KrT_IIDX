@@ -593,6 +593,31 @@ class FolderPrinter
 			"throw"_v
 		};
 
+		auto &runtime = rp +=
+		Template(Typename | "Up") ||
+		Class | "Runtime" | S
+		{
+			Auto | &N | Id("ref")(Void) | S
+			{
+				Return | **"sb::RenderPass::RefGetter"_t.T("sb::RenderPass::CacheRefHolder"_t)(StaticCast("Up"_t | &N, *This)).M("get"_v())
+			},
+		Public,
+			Ctor(Void) | S
+			{
+			}
+		};
+		auto fb_t = runtime += Using | "Framebuffer" = "sb::Framebuffer::Handle"_t.T(rp);
+		auto &fb = runtime +=
+		Auto | Id("framebuffer")(Const | "sb::svec2"_t | &N | Id("extent"), Size_t | Id("layers")) | S {};
+		auto init_images = B {};
+		for (auto &a : compiled.getAttachments()) {
+			auto &att = a.second.get();
+			fb *= "sb::Image"_t | &N | Id(att.getName());
+			init_images.add(&Vd(att.getName()));
+		}
+		fb += "sb::Image"_t | *N[compiled.getAttachments().size()] | Id("images_vla") = init_images;
+		fb += Return | fb_t("ref"_v().M("createFramebuffer"_v("extent"_v, "layers"_v, compiled.getAttachments().size(), "images_vla"_v)));
+
 		return rp;
 	}
 
