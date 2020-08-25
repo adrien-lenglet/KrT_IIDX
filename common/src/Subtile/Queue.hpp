@@ -33,6 +33,8 @@ public:
 
 	virtual void reset(bool releaseResources) = 0;
 	virtual void begin(Usage flags) = 0;
+	virtual void beginRender(Usage flags, Framebuffer &fb, size_t subpass) = 0;
+	virtual void beginRender(Usage flags, RenderPass &rp, size_t subpass) = 0;
 	virtual void end(void) = 0;
 
 	virtual void executeCommands(size_t count, CommandBuffer **cmds) = 0;
@@ -113,6 +115,14 @@ public:
 
 	template <CommandBuffer::Level L, Flag Q, bool isReset>
 	class CmdBufHandle;
+
+	template <typename>
+	struct isCmdBufHandle
+	{
+		static inline constexpr auto value = false;
+	};
+
+	struct CmdBufHandleToCommandBufferPtr;
 
 	template <Flag Flags, bool isReset>
 	class CmdPoolHandle
@@ -379,6 +389,7 @@ struct Queue::CmdBufHandleTraits
 		Secondary(void) = default;
 
 		using Record = CommandBuffer::Record::Secondary<Flags>;
+		using RecordRender = CommandBuffer::Record::RenderPass::Secondary;
 
 		template <typename Callable>
 		void record(Callable &&callable)
@@ -399,6 +410,54 @@ struct Queue::CmdBufHandleTraits
 			callable(recording);
 			cmd().end();
 		}
+
+		template <typename Subpass, typename RenderPassType, typename Callable>
+		void recordRender(Framebuffer::Handle<RenderPassType> &fb, Callable &&callable)
+		{
+			static_assert(std::is_same_v<typename Subpass::RenderPass, RenderPassType>, "Subpass doesn't match with framebuffer");
+
+			Record recording(cmd());
+
+			cmd().beginRender(CommandBuffer::Usage::Empty, fb, Subpass::index);
+			callable(recording);
+			cmd().end();
+		}
+
+		template <typename Subpass, typename RenderPassType, typename Callable>
+		void recordRender(CommandBuffer::Usage usage, Framebuffer::Handle<RenderPassType> &fb, Callable &&callable)
+		{
+			static_assert(std::is_same_v<typename Subpass::RenderPass, RenderPassType>, "Subpass doesn't match with framebuffer");
+
+			Record recording(cmd());
+
+			cmd().beginRender(usage, fb, Subpass::index);
+			callable(recording);
+			cmd().end();
+		}
+
+		template <typename Subpass, typename RenderPassType, typename Callable>
+		void recordRender(RenderPass::Loaded<RenderPassType> &rp, Callable &&callable)
+		{
+			static_assert(std::is_same_v<typename Subpass::RenderPass, RenderPassType>, "Subpass doesn't match with framebuffer");
+
+			Record recording(cmd());
+
+			cmd().beginRender(CommandBuffer::Usage::Empty, rp, Subpass::index);
+			callable(recording);
+			cmd().end();
+		}
+
+		template <typename Subpass, typename RenderPassType, typename Callable>
+		void recordRender(CommandBuffer::Usage usage, RenderPass::Loaded<RenderPassType> &rp, Callable &&callable)
+		{
+			static_assert(std::is_same_v<typename Subpass::RenderPass, RenderPassType>, "Subpass doesn't match with framebuffer");
+
+			Record recording(cmd());
+
+			cmd().beginRender(usage, rp, Subpass::index);
+			callable(recording);
+			cmd().end();
+		}
 	};
 };
 
@@ -415,12 +474,25 @@ public:
 	{
 	}
 
-	using value_type = void;
-
 private:
 	template <typename>
 	friend class CommandBuffer::CmdGetter;
 	CommandBuffer &m_cmd;
+};
+
+template <CommandBuffer::Level L, Queue::Flag Q, bool isReset>
+struct Queue::isCmdBufHandle<Queue::CmdBufHandle<L, Q, isReset>>
+{
+	static inline constexpr auto value = true;
+};
+
+struct Queue::CmdBufHandleToCommandBufferPtr
+{
+	template <CommandBuffer::Level L, Queue::Flag Q, bool isReset>
+	static CommandBuffer* convert(CmdBufHandle<L, Q, isReset> &cmd)
+	{
+		return &CommandBuffer::CmdGetter<CmdBufHandle<L, Q, isReset>>().get(cmd);
+	}
 };
 
 template <typename CommandsType>
@@ -434,11 +506,13 @@ void CommandBuffer::beginRenderPassCmds(Framebuffer &fb, const srect2 &renderAre
 		commands(cmd);
 	} else {
 		beginRenderPass(false, fb, renderArea, clearValueCount, clearValues);
-		if constexpr (std::is_same_v<Commands_t::value_type, void>) {
-			auto cmd = &CmdGetter<Commands_t>().get(std::forward<CommandsType>(commands));
-			executeCommands(1, &cmd);
-		} else
-			executeCommands(commands.size(), commands.data());
+
+		using conv = util::elems_to_count_ptr<Queue::isCmdBufHandle, Queue::CmdBufHandleToCommandBufferPtr>;
+		size_t commands_count = conv::count(std::forward<CommandsType>(commands));
+		CommandBuffer *commands_vla[commands_count];
+		conv::fill_array(commands_vla, std::forward<CommandsType>(commands));
+
+		executeCommands(commands_count, commands_vla);
 	}
 }
 
@@ -453,11 +527,13 @@ void CommandBuffer::nextSubpassCmds(CommandsType &&commands)
 		commands(cmd);
 	} else {
 		nextSubpass(false);
-		if constexpr (std::is_same_v<Commands_t::value_type, void>) {
-			auto cmd = &CmdGetter<Commands_t>().get(std::forward<CommandsType>(commands));
-			executeCommands(1, &cmd);
-		} else
-			executeCommands(commands.size(), commands.data());
+
+		using conv = util::elems_to_count_ptr<Queue::isCmdBufHandle, Queue::CmdBufHandleToCommandBufferPtr>;
+		size_t commands_count = conv::count(std::forward<CommandsType>(commands));
+		CommandBuffer *commands_vla[commands_count];
+		conv::fill_array(commands_vla, std::forward<CommandsType>(commands));
+
+		executeCommands(commands_count, commands_vla);
 	}
 }
 

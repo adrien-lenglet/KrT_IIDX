@@ -20,6 +20,8 @@ public:
 		{
 		}
 
+		using RenderPass = RenderPassType;
+
 		operator Framebuffer&(void)
 		{
 			return *m_framebuffer;

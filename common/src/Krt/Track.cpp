@@ -38,16 +38,15 @@ void Track::Render::render(void)
 	static_cast<sb::Render::Pass&>(*this).render();
 
 	auto sec = m_cmd_pool.secondary();
-	sec.record([](auto&){});
+	sec.recordRender<decltype(m_render_pass)::Subpass::albedo>(m_framebuffers.at(0), [](auto&){
+	});
 
 	auto prim = m_cmd_pool.primary();
 	prim.record([&](decltype(prim)::Record &cmd){
-		cmd.execute(sec);
 		cmd.render(m_framebuffers.at(0), {{0, 0}, {1600, 900}},
 			sb::Color::f32(0.5f), 1.0f,
 
-			[](auto&){
-			},
+			sec,
 			[](auto&){
 			}
 		);

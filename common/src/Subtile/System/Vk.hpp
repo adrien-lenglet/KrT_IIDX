@@ -791,6 +791,8 @@ private:
 
 		void reset(bool releaseResources) override;
 		void begin(Usage flags) override;
+		void beginRender(Usage flags, sb::Framebuffer &fb, size_t subpass) override;
+		void beginRender(Usage flags, sb::RenderPass &rp, size_t subpass) override;
 		void end(void) override;
 
 		void executeCommands(size_t count, sb::CommandBuffer **cmds) override;

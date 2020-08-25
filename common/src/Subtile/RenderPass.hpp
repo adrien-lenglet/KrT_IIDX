@@ -78,6 +78,11 @@ public:
 			CacheRefHolder(std::move(RefGetter<CacheRefHolder>(other).get()))
 		{
 		}
+
+		operator RenderPass&(void)
+		{
+			return **m_ref;
+		}
 	};
 
 	struct Layout

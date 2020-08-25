@@ -695,6 +695,16 @@ class FolderPrinter
 		fb += "sb::Image"_t | *N[compiled.getAttachments().size()] | Id("images_vla") = init_images;
 		fb += Return | fb_t("ref"_v().M("createFramebuffer"_v("extent"_v, "layers"_v, compiled.getAttachments().size(), "images_vla"_v)));
 
+		auto &subpasses = runtime += Struct | "Subpass" | S {};
+		for (auto &s : compiled.getSubpasses()) {
+			auto &sub = s.second.get();
+			subpasses += Struct | sub.getName() | S
+			{
+				Using | "RenderPass" = rp,
+				Static | Inline | Constexpr | Auto | Id("index") = sub.getNdx()
+			};
+		}
+
 		return rp;
 	}
 

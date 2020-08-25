@@ -2036,6 +2036,42 @@ void Vk::CommandBuffer::begin(Usage flags)
 	Vk::assert(vkBeginCommandBuffer(*this, &bi));
 }
 
+void Vk::CommandBuffer::beginRender(Usage flags, sb::Framebuffer &fb, size_t subpass)
+{
+	auto &vk_fb = reinterpret_cast<Framebuffer&>(fb);
+
+	VkCommandBufferInheritanceInfo ii {};
+	ii.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+	ii.renderPass = vk_fb.getRenderPass();
+	ii.subpass = subpass;
+	ii.framebuffer = vk_fb;
+
+	VkCommandBufferBeginInfo bi {};
+	bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	bi.flags = static_cast<std::underlying_type_t<Usage>>(flags) | VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
+	bi.pInheritanceInfo = &ii;
+
+	Vk::assert(vkBeginCommandBuffer(*this, &bi));
+}
+
+void Vk::CommandBuffer::beginRender(Usage flags, sb::RenderPass &rp, size_t subpass)
+{
+	auto &vk_rp = reinterpret_cast<RenderPass&>(rp);
+
+	VkCommandBufferInheritanceInfo ii {};
+	ii.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+	ii.renderPass = vk_rp;
+	ii.subpass = subpass;
+	ii.framebuffer = VK_NULL_HANDLE;
+
+	VkCommandBufferBeginInfo bi {};
+	bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	bi.flags = static_cast<std::underlying_type_t<Usage>>(flags) | VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
+	bi.pInheritanceInfo = &ii;
+
+	Vk::assert(vkBeginCommandBuffer(*this, &bi));
+}
+
 void Vk::CommandBuffer::end(void)
 {
 	Vk::assert(vkEndCommandBuffer(*this));
