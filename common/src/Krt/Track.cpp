@@ -37,13 +37,15 @@ void Track::Render::render(void)
 	camera.upload();
 	static_cast<sb::Render::Pass&>(*this).render();
 
+	auto img = m_instance.swapchain.acquireNextImage(m_swapchain_img_avail);
+
 	auto sec = m_cmd_pool.secondary();
-	sec.recordRender<decltype(m_render_pass)::Subpass::albedo>(m_framebuffers.at(0), [](auto&){
+	sec.recordRender<decltype(m_render_pass)::Subpass::albedo>(m_framebuffers.at(img), [](auto&){
 	});
 
 	auto prim = m_cmd_pool.primary();
 	prim.record([&](decltype(prim)::Record &cmd){
-		cmd.render(m_framebuffers.at(0), {{0, 0}, {1600, 900}},
+		cmd.render(m_framebuffers.at(img), {{0, 0}, {1600, 900}},
 			sb::Color::f32(0.5f), 1.0f,
 
 			sec,
@@ -51,6 +53,8 @@ void Track::Render::render(void)
 			}
 		);
 	});
+
+	m_instance.graphics.submit(util::empty, prim, util::empty);
 
 	//cmd_buf.renderPass();
 

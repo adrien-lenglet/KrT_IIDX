@@ -618,29 +618,27 @@ private:
 		Swapchain(Vk::Device &device, VkSwapchainKHR swapchain);
 		~Swapchain(void) override;
 
-		std::vector<sb::Image2D>& getImages(void) override;
+		std::vector<sb::Swapchain::Image2D>& getImages(void) override;
+		size_t acquireNextImage(sb::Semaphore &semaphore) override;
 
 	private:
-		std::vector<sb::Image2D> m_images;
+		std::vector<sb::Swapchain::Image2D> m_images;
 
-		std::vector<sb::Image2D> queryImages(void);
+		std::vector<sb::Swapchain::Image2D> queryImages(void);
 	};
 
 	std::unique_ptr<sb::Swapchain> createSwapchain(const svec2 &extent, sb::Image::Usage usage, sb::Queue &queue) override;
 
 	const VkSurfaceFormatKHR &m_swapchain_format;
 
-	class Semaphore : public Device::Handle<VkSemaphore>
+	class Semaphore : public sb::Semaphore, public Device::Handle<VkSemaphore>
 	{
 	public:
 		Semaphore(Device &dev, VkSemaphore semaphore);
-		Semaphore(Device &dev);
-
-		void wait(uint64_t value);
-
-	private:
-		VkSemaphore create(Device &dev);
+		~Semaphore(void) override;
 	};
+
+	std::unique_ptr<sb::Semaphore> createSemaphore(void) override;
 
 	static VkDescriptorType descriptorType(sb::Shader::DescriptorType type);
 
@@ -771,11 +769,6 @@ private:
 
 	std::unique_ptr<sb::Shader> createShader(rs::Shader &shader) override;
 
-	void acquireNextImage(void) override;
-	Semaphore m_acquire_image_semaphore;
-
-	void presentImage(void) override;
-
 	class CommandPool;
 
 	class CommandBuffer : public sb::CommandBuffer
@@ -829,6 +822,8 @@ private:
 		~Queue(void) override;
 
 		std::unique_ptr<sb::CommandPool> commandPool(bool isReset) override;
+		void submit(size_t submitCount, SubmitInfo *submits) override;
+		void present(size_t waitSemaphoreCount, sb::Semaphore **waitSemaphores, sb::Swapchain::Image2D &image) override;
 
 		operator VkQueue(void) const
 		{

@@ -26,6 +26,8 @@ public:
 		sb::Image2D m_fb_normal;
 		sb::Image2D m_fb_depth_buffer;
 		std::vector<decltype(m_render_pass)::Framebuffer> m_framebuffers;
+		decltype(instance.semaphore()) m_swapchain_img_avail;
+		decltype(instance.semaphore()) m_render_done;
 		decltype(res.shaders().lighting().loaded()) m_lighting_shader;
 		decltype(instance.graphics.pool<false>()) m_cmd_pool;
 
@@ -47,6 +49,8 @@ public:
 			m_fb_normal(instance.image2D(sb::Format::rgba8_unorm, sb::Image::Sample::Count1, {1600, 900}, sb::Image::Usage::InputAttachment | sb::Image::Usage::ColorAttachment, instance.graphics)),
 			m_fb_depth_buffer(instance.image2D(sb::Format::d24un_or_32sf_spl_att_sfb, sb::Image::Sample::Count1, {1600, 900}, sb::Image::Usage::InputAttachment | sb::Image::Usage::DepthStencilAttachment, instance.graphics)),
 			m_framebuffers(createFramebuffers()),
+			m_swapchain_img_avail(instance.semaphore()),
+			m_render_done(instance.semaphore()),
 			m_lighting_shader(instance.load(res.shaders().lighting())),
 			m_cmd_pool(instance.graphics.pool<false>()),
 			camera(m_camera_shader.camera())

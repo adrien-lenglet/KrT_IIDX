@@ -21,8 +21,7 @@ Vk::Vk(sb::InstanceBase &instance, const std::string &name, bool isDebug, bool i
 	//m_present_queue(m_device.getQueue(*m_device.physical().queues().presentation(), 0)),
 	//m_transfer_queue(m_device.getQueue(*m_device.physical().queues().indexOf(VK_QUEUE_TRANSFER_BIT), 0)),
 	//m_transfer(m_device, m_transfer_queue),
-	m_swapchain_format(m_device.physical().surface().chooseFormat()),
-	m_acquire_image_semaphore(m_device)
+	m_swapchain_format(m_device.physical().surface().chooseFormat())
 {
 }
 
@@ -1179,9 +1178,9 @@ Vk::Swapchain::Swapchain(Vk::Device &device, VkSwapchainKHR swapchain) :
 {
 }
 
-std::vector<sb::Image2D> Vk::Swapchain::queryImages(void)
+std::vector<sb::Swapchain::Image2D> Vk::Swapchain::queryImages(void)
 {
-	std::vector<sb::Image2D> res;
+	std::vector<sb::Swapchain::Image2D> res;
 
 	for (auto &img : enumerate<VkImage>(vkGetSwapchainImagesKHR, getDep(), *this)) {
 		VkImageViewCreateInfo ci {};
@@ -1192,7 +1191,7 @@ std::vector<sb::Image2D> Vk::Swapchain::queryImages(void)
 		ci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		ci.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
 		ci.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-		res.emplace_back(std::make_unique<ImageView>(getDep(), getDep().createVk(vkCreateImageView, ci)));
+		res.emplace_back(*this, std::make_unique<ImageView>(getDep(), getDep().createVk(vkCreateImageView, ci)));
 	}
 
 	return res;
@@ -1208,9 +1207,18 @@ void Vk::Device::Handle<VkSwapchainKHR>::destroy(Vk::Device &device, VkSwapchain
 	device.destroy(vkDestroySwapchainKHR, swapchain);
 }
 
-std::vector<sb::Image2D>& Vk::Swapchain::getImages(void)
+std::vector<sb::Swapchain::Image2D>& Vk::Swapchain::getImages(void)
 {
 	return m_images;
+}
+
+size_t Vk::Swapchain::acquireNextImage(sb::Semaphore &semaphore)
+{
+	auto &vk_sem = reinterpret_cast<Semaphore&>(semaphore);
+	uint32_t res;
+
+	Vk::assert(vkAcquireNextImageKHR(getDep(), *this, ~0ULL, vk_sem, VK_NULL_HANDLE, &res));
+	return res;
 }
 
 std::unique_ptr<sb::Swapchain> Vk::createSwapchain(const svec2 &extent, sb::Image::Usage usage, sb::Queue &queue)
@@ -1252,18 +1260,8 @@ Vk::Semaphore::Semaphore(Device &dev, VkSemaphore semaphore) :
 {
 }
 
-Vk::Semaphore::Semaphore(Device &dev) :
-	Semaphore(dev, create(dev))
+Vk::Semaphore::~Semaphore(void)
 {
-}
-
-VkSemaphore Vk::Semaphore::create(Vk::Device &dev)
-{
-	VkSemaphoreCreateInfo ci {};
-
-	ci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-	return dev.createVk(vkCreateSemaphore, ci);
 }
 
 template <>
@@ -1272,17 +1270,12 @@ void Vk::Device::Handle<VkSemaphore>::destroy(Vk::Device &device, VkSemaphore se
 	device.destroy(vkDestroySemaphore, semaphore);
 }
 
-void Vk::Semaphore::wait(uint64_t value)
+std::unique_ptr<sb::Semaphore> Vk::createSemaphore(void)
 {
-	VkSemaphore sem = *this;
+	VkSemaphoreCreateInfo ci {};
+	ci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-	VkSemaphoreWaitInfo wi {};
-	wi.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
-	wi.semaphoreCount = 1;
-	wi.pSemaphores = &sem;
-	wi.pValues = &value;
-
-	Vk::assert(vkWaitSemaphores(getDep().vk().m_device, &wi, ~0ULL));
+	return std::make_unique<Semaphore>(m_device, m_device.createVk(vkCreateSemaphore, ci));
 }
 
 VkDescriptorType Vk::descriptorType(sb::Shader::DescriptorType type)
@@ -1920,77 +1913,6 @@ std::unique_ptr<sb::Render::CommandBuffer> Vk::createRenderCommandBuffer(void)
 	return std::make_unique<CommandBuffer>(CommandBuffer::Graphics(m_device));
 }*/
 
-void Vk::acquireNextImage(void)
-{
-	/*uint32_t ndx;
-
-	Vk::assert(vkAcquireNextImageKHR(m_device, m_swapchain, ~0ULL, m_acquire_image_semaphore, VK_NULL_HANDLE, &ndx));
-	m_swapchain_image_ndx = ndx;
-
-	auto cmd = CommandBuffer::Present(m_device);
-	VkCommandBuffer cmd_handle = cmd;
-	Vk::assert(vkEndCommandBuffer(cmd));
-	VkSemaphore sem = m_acquire_image_semaphore;
-	VkPipelineStageFlags dst_stage_mask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	VkSubmitInfo s {};
-	s.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	s.waitSemaphoreCount = 1;
-	s.pWaitSemaphores = &sem;
-	s.pWaitDstStageMask = &dst_stage_mask;
-	s.commandBufferCount = 1;
-	s.pCommandBuffers = &cmd_handle;
-	Vk::assert(vkQueueSubmit(m_present_queue, 1, &s, VK_NULL_HANDLE));
-	Vk::assert(vkQueueWaitIdle(m_present_queue));
-
-	auto cmd2 = CommandBuffer::Graphics(m_device);
-	VkClearValue cv;
-	for (size_t i = 0; i < 4; i++)
-		cv.color.float32[i] = 0.0f;
-	cv.color.float32[0] = 44.0f / 255.0f;
-	cv.color.float32[1] = 99.0f / 255.0f;
-	cv.color.float32[2] = 59.0f / 255.0f;
-	for (size_t i = 0; i < 4; i++)
-		cv.color.float32[i] = std::pow(cv.color.float32[i], 2.2f);	// srgb to linear
-
-	VkRenderPassBeginInfo bi {};
-	bi.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	bi.renderPass = m_clear_render_pass;
-	bi.framebuffer = getSwapchainImage().getClearFramebuffer();
-	bi.renderArea = {{0, 0}, {1600, 900}};
-	bi.clearValueCount = 1;
-	bi.pClearValues = &cv;
-	vkCmdBeginRenderPass(cmd2, &bi, VK_SUBPASS_CONTENTS_INLINE);
-	vkCmdEndRenderPass(cmd2);
-
-	VkCommandBuffer cmd_handle2 = cmd2;
-	Vk::assert(vkEndCommandBuffer(cmd_handle2));
-
-	VkSubmitInfo s2 {};
-	s2.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	//s2.waitSemaphoreCount = 1;
-	//s2.pWaitSemaphores = &sem;
-	s2.pWaitDstStageMask = &dst_stage_mask;
-	s2.commandBufferCount = 1;
-	s2.pCommandBuffers = &cmd_handle2;
-	Vk::assert(vkQueueSubmit(m_graphics_queue, 1, &s2, VK_NULL_HANDLE));
-	Vk::assert(vkQueueWaitIdle(m_graphics_queue));*/
-}
-
-void Vk::presentImage(void)
-{
-	/*VkSwapchainKHR swapchain = m_swapchain;
-	uint32_t ndx = m_swapchain_image_ndx;
-
-	VkPresentInfoKHR pi {};
-	pi.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-	pi.swapchainCount = 1;
-	pi.pSwapchains = &swapchain;
-	pi.pImageIndices = &ndx;
-
-	Vk::assert(vkQueuePresentKHR(m_present_queue, &pi));
-	Vk::assert(vkQueueWaitIdle(m_present_queue));*/
-}
-
 Vk::CommandBuffer::CommandBuffer(CommandPool &pool, sb::CommandBuffer::Level level) :
 	m_pool(pool),
 	m_handle(createCommandBuffer(level))
@@ -2173,6 +2095,85 @@ Vk::Queue::~Queue(void)
 std::unique_ptr<sb::CommandPool> Vk::Queue::commandPool(bool isReset)
 {
 	return std::make_unique<CommandPool>(m_device, m_family_index, isReset);
+}
+
+void Vk::Queue::submit(size_t submitCount, SubmitInfo *submits)
+{
+	size_t waitSemaphoreCount = 0;
+	size_t commandBufferCount = 0;
+	size_t signalSemaphoreCount = 0;
+	for (size_t i = 0; i < submitCount; i++) {
+		SubmitInfo &cur = submits[i];
+		waitSemaphoreCount += cur.waitSemaphoreCount;
+		commandBufferCount += cur.commandBufferCount;
+		signalSemaphoreCount += cur.signalSemaphoreCount;
+	}
+	VkSemaphore waitSemaphores[waitSemaphoreCount];
+	VkPipelineStageFlags waitDstStageMask[waitSemaphoreCount];
+	VkCommandBuffer commandBuffers[commandBufferCount];
+	VkSemaphore signalSemaphores[signalSemaphoreCount];
+	waitSemaphoreCount = 0;
+	commandBufferCount = 0;
+	signalSemaphoreCount = 0;
+
+	VkSubmitInfo submits_vla[submitCount];
+	for (size_t i = 0; i < submitCount; i++) {
+		auto &cur = submits[i];
+
+		auto wWaitSemaphores = &waitSemaphores[waitSemaphoreCount];
+		auto wWaitDstStageMask = &waitDstStageMask[waitSemaphoreCount];
+		auto wCommandBuffers = &commandBuffers[commandBufferCount];
+		auto wSignalSemaphores = &signalSemaphores[signalSemaphoreCount];
+
+		for (size_t i = 0; i < cur.waitSemaphoreCount; i++) {
+			wWaitSemaphores[i] = reinterpret_cast<Semaphore&>(*cur.waitSemaphores[i].first);
+			wWaitDstStageMask[i] = util::enum_underlying(cur.waitSemaphores[i].second);
+		}
+
+		for (size_t i = 0; i < cur.commandBufferCount; i++)
+			wCommandBuffers[i] = reinterpret_cast<CommandBuffer&>(*cur.commandBuffers[i]);
+
+		for (size_t i = 0; i < cur.signalSemaphoreCount; i++)
+			wSignalSemaphores[i] = reinterpret_cast<Semaphore&>(*cur.signalSemaphores[i]);
+
+		VkSubmitInfo sub;
+		sub.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		sub.waitSemaphoreCount = cur.waitSemaphoreCount;
+		sub.pWaitSemaphores = wWaitSemaphores;
+		sub.pWaitDstStageMask = wWaitDstStageMask;
+		sub.commandBufferCount = cur.commandBufferCount;
+		sub.pCommandBuffers = wCommandBuffers;
+		sub.signalSemaphoreCount = cur.signalSemaphoreCount;
+		sub.pSignalSemaphores = wSignalSemaphores;
+
+		waitSemaphoreCount += cur.waitSemaphoreCount;
+		commandBufferCount += cur.commandBufferCount;
+		signalSemaphoreCount += cur.signalSemaphoreCount;
+		submits_vla[i] = sub;
+	}
+
+	Vk::assert(vkQueueSubmit(m_handle, submitCount, submits_vla, VK_NULL_HANDLE));
+}
+
+void Vk::Queue::present(size_t waitSemaphoreCount, sb::Semaphore **waitSemaphores, sb::Swapchain::Image2D &image)
+{
+	VkSemaphore wait_semaphores_vla[waitSemaphoreCount];
+	for (size_t i = 0; i < waitSemaphoreCount; i++)
+		wait_semaphores_vla[i] = *reinterpret_cast<Semaphore*>(waitSemaphores[i]);
+
+	auto &sp = reinterpret_cast<Swapchain&>(sb::Swapchain::Image2D::Getter().get(image));
+	VkSwapchainKHR swapchain = sp;
+	uint32_t ndx = &image - sp.getImages().data();
+
+	VkPresentInfoKHR pi {};
+	pi.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	pi.waitSemaphoreCount = waitSemaphoreCount;
+	pi.pWaitSemaphores = wait_semaphores_vla;
+	pi.swapchainCount = 1;
+	pi.pSwapchains = &swapchain;
+	pi.pImageIndices = &ndx;
+
+	Vk::assert(vkQueuePresentKHR(m_handle, &pi));
 }
 
 std::unique_ptr<sb::Queue> Vk::getQueue(sb::Queue::Flag flags, size_t index)

@@ -7,6 +7,7 @@
 #include "Shader.hpp"
 #include "Image.hpp"
 #include "Swapchain.hpp"
+#include "Semaphore.hpp"
 #include "Queue.hpp"
 
 namespace Subtile {
@@ -86,7 +87,6 @@ private:
 		return RenderPass::Loaded<std::remove_cv_t<std::remove_reference_t<R>>>(loadRenderPassRef(std::forward<R>(renderpassres)));
 	}
 
-
 public:
 	template <typename ResType>
 	decltype(auto) load(ResType &&res)
@@ -126,6 +126,11 @@ public:
 	{
 		using Getter = typename sb::Queue::Handle<Q>::Getter;
 		return Swapchain::Handle(system().createSwapchain(extent, usage, Getter().get(queue)));
+	}
+
+	auto semaphore(void)
+	{
+		return Semaphore::Handle(system().createSemaphore());
 	}
 };
 

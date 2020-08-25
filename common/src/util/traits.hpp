@@ -12,13 +12,27 @@ struct empty_struct { template <typename ...Args> empty_struct(Args &&...) {} };
 template <bool Pred, class T>
 using conditional_un_t = std::conditional_t<Pred, T, empty_struct>;
 
-template <template <typename> typename Predicate, typename Converter>
+struct empty_t {};
+static inline constexpr empty_t empty;
+
+struct identity_converter
+{
+	template <typename Arg>
+	static auto& convert(Arg &&arg)
+	{
+		return arg;
+	}
+};
+
+template <template <typename> typename Predicate, typename Converter = identity_converter>
 struct elems_to_count_ptr
 {
 	template <typename ElemsType>
 	static size_t count(ElemsType &&elems)
 	{
-		if constexpr (Predicate<remove_cvr_t<ElemsType>>::value)
+		if constexpr (std::is_same_v<remove_cvr_t<ElemsType>, empty_t>)
+			return 0;
+		else if constexpr (Predicate<remove_cvr_t<ElemsType>>::value)
 			return 1;
 		else
 			return elems.size();
@@ -30,9 +44,12 @@ struct elems_to_count_ptr
 		if constexpr (Predicate<remove_cvr_t<ElemsType>>::value)
 			array[0] = Converter::convert(std::forward<ElemsType>(elems));
 		else {
-			size_t ndx = 0;
-			for (auto &el : elems)
-				array[ndx++] = Converter::convert(*el);
+			if constexpr (std::is_same_v<remove_cvr_t<ElemsType>, empty_t>) {
+			} else {
+				size_t ndx = 0;
+				for (auto &el : elems)
+					array[ndx++] = Converter::convert(*el);
+			}
 		}
 	}
 };
