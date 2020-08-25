@@ -8,6 +8,7 @@
 #include "Image.hpp"
 #include "Swapchain.hpp"
 #include "Semaphore.hpp"
+#include "Fence.hpp"
 #include "Queue.hpp"
 
 namespace Subtile {
@@ -131,6 +132,11 @@ public:
 	auto semaphore(void)
 	{
 		return Semaphore::Handle(system().createSemaphore());
+	}
+
+	auto fence(bool isSignaled = false)
+	{
+		return Fence::Handle(system().createFence(isSignaled));
 	}
 };
 

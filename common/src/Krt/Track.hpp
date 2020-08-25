@@ -28,8 +28,11 @@ public:
 		std::vector<decltype(m_render_pass)::Framebuffer> m_framebuffers;
 		decltype(instance.semaphore()) m_swapchain_img_avail;
 		decltype(instance.semaphore()) m_render_done;
+		decltype(instance.fence()) m_render_done_fence;
 		decltype(res.shaders().lighting().loaded()) m_lighting_shader;
-		decltype(instance.graphics.pool<false>()) m_cmd_pool;
+		decltype(instance.graphics.pool<true>()) m_cmd_pool;
+		decltype(m_cmd_pool.primary()) m_cmd_prim;
+		decltype(m_cmd_pool.secondary()) m_cmd_sec;
 
 		decltype(m_framebuffers) createFramebuffers(void)
 		{
@@ -51,10 +54,17 @@ public:
 			m_framebuffers(createFramebuffers()),
 			m_swapchain_img_avail(instance.semaphore()),
 			m_render_done(instance.semaphore()),
+			m_render_done_fence(instance.fence(true)),
 			m_lighting_shader(instance.load(res.shaders().lighting())),
-			m_cmd_pool(instance.graphics.pool<false>()),
+			m_cmd_pool(instance.graphics.pool<true>()),
+			m_cmd_prim(m_cmd_pool.primary()),
+			m_cmd_sec(m_cmd_pool.secondary()),
 			camera(m_camera_shader.camera())
 		{
+		}
+		~Render(void)
+		{
+			m_instance.graphics.waitIdle();
 		}
 
 		void render(void);

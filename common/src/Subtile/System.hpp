@@ -8,6 +8,7 @@
 #include "Image.hpp"
 #include "Swapchain.hpp"
 #include "Semaphore.hpp"
+#include "Fence.hpp"
 #include "Queue.hpp"
 #include "Event/Observer.hpp"
 
@@ -40,6 +41,7 @@ public:
 	virtual std::unique_ptr<Image> createImage(Image::Type type, Format format, Image::Sample sample, const svec3 &extent, size_t layers, Image::Usage usage, Queue &queue) = 0;
 	virtual std::unique_ptr<Swapchain> createSwapchain(const svec2 &extent, Image::Usage usage, Queue &queue) = 0;
 	virtual std::unique_ptr<Semaphore> createSemaphore(void) = 0;
+	virtual std::unique_ptr<Fence> createFence(bool isSignaled) = 0;
 
 	virtual std::unique_ptr<Queue> getQueue(Queue::Flag flags, size_t index) = 0;
 };

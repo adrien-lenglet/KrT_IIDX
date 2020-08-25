@@ -52,7 +52,7 @@ clean_windows_publish:
 
 publish_windows: wipe_all_bin clean_windows_publish release_windows build
 	mkdir -p $(WIN_PUBLISH)
-	cp $(TARGET) $(WIN_PUBLISH)/$(TARGET).exe
+	cp $(TARGET).exe $(WIN_PUBLISH)/$(TARGET).exe
 	./common/res_ship $(WIN_PUBLISH)
 	for dll in $(WIN_DLLS); do \
 		cp /mingw64/bin/$$dll $(WIN_PUBLISH); \

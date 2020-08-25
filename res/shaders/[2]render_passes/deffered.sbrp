@@ -1,4 +1,4 @@
-bgra8_srgb wsi_screen { store, out_layout = present_src };
+bgra8_srgb wsi_screen { load = clear, store, out_layout = present_src };
 //rgba8_srgb screen;
 rgba32_sfloat color { load = clear };
 rgba8_unorm normal;

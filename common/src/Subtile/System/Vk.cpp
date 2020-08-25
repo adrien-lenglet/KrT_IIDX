@@ -1231,7 +1231,7 @@ std::unique_ptr<sb::Swapchain> Vk::createSwapchain(const svec2 &extent, sb::Imag
 	VkSwapchainCreateInfoKHR ci {};
 	ci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	ci.surface = surface;
-	ci.minImageCount = std::clamp(1U, surf_cap.minImageCount, surf_cap.maxImageCount);
+	ci.minImageCount = std::clamp(3U, surf_cap.minImageCount, surf_cap.maxImageCount);
 	ci.imageFormat = m_swapchain_format.format;
 	ci.imageColorSpace = m_swapchain_format.colorSpace;
 	ci.imageExtent = VkExtent2D{static_cast<uint32_t>(extent.x), static_cast<uint32_t>(extent.y)};
@@ -1276,6 +1276,44 @@ std::unique_ptr<sb::Semaphore> Vk::createSemaphore(void)
 	ci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
 	return std::make_unique<Semaphore>(m_device, m_device.createVk(vkCreateSemaphore, ci));
+}
+
+Vk::Fence::Fence(Device &dev, VkFence fence) :
+	Device::Handle<VkFence>(dev, fence)
+{
+}
+
+Vk::Fence::~Fence(void)
+{
+}
+
+template <>
+void Vk::Device::Handle<VkFence>::destroy(Vk::Device &device, VkFence fence)
+{
+	device.destroy(vkDestroyFence, fence);
+}
+
+void Vk::Fence::wait(void)
+{
+	VkFence fence = *this;
+
+	Vk::assert(vkWaitForFences(getDep(), 1, &fence, VK_TRUE, ~0ULL));
+}
+
+void Vk::Fence::reset(void)
+{
+	VkFence fence = *this;
+
+	Vk::assert(vkResetFences(getDep(), 1, &fence));
+}
+
+std::unique_ptr<sb::Fence> Vk::createFence(bool isSignaled)
+{
+	VkFenceCreateInfo ci {};
+	ci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	ci.flags = isSignaled ? VK_FENCE_CREATE_SIGNALED_BIT : 0;
+
+	return std::make_unique<Fence>(m_device, m_device.createVk(vkCreateFence, ci));
 }
 
 VkDescriptorType Vk::descriptorType(sb::Shader::DescriptorType type)
@@ -2097,7 +2135,7 @@ std::unique_ptr<sb::CommandPool> Vk::Queue::commandPool(bool isReset)
 	return std::make_unique<CommandPool>(m_device, m_family_index, isReset);
 }
 
-void Vk::Queue::submit(size_t submitCount, SubmitInfo *submits)
+void Vk::Queue::submit(size_t submitCount, SubmitInfo *submits, sb::Fence *fence)
 {
 	size_t waitSemaphoreCount = 0;
 	size_t commandBufferCount = 0;
@@ -2136,7 +2174,7 @@ void Vk::Queue::submit(size_t submitCount, SubmitInfo *submits)
 		for (size_t i = 0; i < cur.signalSemaphoreCount; i++)
 			wSignalSemaphores[i] = reinterpret_cast<Semaphore&>(*cur.signalSemaphores[i]);
 
-		VkSubmitInfo sub;
+		VkSubmitInfo sub {};
 		sub.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 		sub.waitSemaphoreCount = cur.waitSemaphoreCount;
 		sub.pWaitSemaphores = wWaitSemaphores;
@@ -2152,7 +2190,7 @@ void Vk::Queue::submit(size_t submitCount, SubmitInfo *submits)
 		submits_vla[i] = sub;
 	}
 
-	Vk::assert(vkQueueSubmit(m_handle, submitCount, submits_vla, VK_NULL_HANDLE));
+	Vk::assert(vkQueueSubmit(m_handle, submitCount, submits_vla, fence ? reinterpret_cast<Fence&>(*fence) : VK_NULL_HANDLE));
 }
 
 void Vk::Queue::present(size_t waitSemaphoreCount, sb::Semaphore **waitSemaphores, sb::Swapchain::Image2D &image)
@@ -2174,6 +2212,11 @@ void Vk::Queue::present(size_t waitSemaphoreCount, sb::Semaphore **waitSemaphore
 	pi.pImageIndices = &ndx;
 
 	Vk::assert(vkQueuePresentKHR(m_handle, &pi));
+}
+
+void Vk::Queue::waitIdle(void)
+{
+	vkQueueWaitIdle(*this);
 }
 
 std::unique_ptr<sb::Queue> Vk::getQueue(sb::Queue::Flag flags, size_t index)

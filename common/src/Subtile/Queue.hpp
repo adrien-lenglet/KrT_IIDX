@@ -7,6 +7,7 @@
 #include "Shader.hpp"
 #include "Framebuffer.hpp"
 #include "Semaphore.hpp"
+#include "Fence.hpp"
 #include "PipelineStage.hpp"
 
 namespace Subtile {
@@ -108,7 +109,8 @@ class Queue
 
 	struct SubmitWaitSemaphoreConverter
 	{
-		static auto convert(std::pair<Semaphore::Handle*, PipelineStage> &pair)
+		template <typename PairType>	// [std::pair<Semaphore::Handle*, PipelineStage] assumed
+		static auto convert(PairType &&pair)
 		{
 			return std::pair<Semaphore*, PipelineStage>(&static_cast<Semaphore&>(*pair.first), pair.second);
 		}
@@ -141,8 +143,9 @@ public:
 		size_t signalSemaphoreCount;
 		Semaphore **signalSemaphores;
 	};
-	virtual void submit(size_t submitCount, SubmitInfo *submits) = 0;
+	virtual void submit(size_t submitCount, SubmitInfo *submits, sb::Fence *fence) = 0;
 	virtual void present(size_t waitSemaphoreCount, Semaphore **waitSemaphores, Swapchain::Image2D &image) = 0;
+	virtual void waitIdle(void) = 0;
 
 	enum class Flag {
 		Empty = 0,
@@ -228,7 +231,37 @@ public:
 			SubmitFill buf {submits_vla, waitSemaphores_vla, commandBuffers_vla, signalSemaphores_vla};
 			submits_fill(buf, std::forward<WaitSemaphoresType>(waitSemaphores), std::forward<CommandBuffersType>(commandBuffers), std::forward<SignalSemaphoresType>(signalSemaphores), std::forward<Args>(args)...);
 
-			m_queue->submit(count.submits, submits_vla);
+			m_queue->submit(count.submits, submits_vla, nullptr);
+		}
+
+		template <typename WaitSemaphoresType, typename CommandBuffersType, typename SignalSemaphoresType, typename ...Args>
+		void submit(Fence::Handle &fence, WaitSemaphoresType &&waitSemaphores, CommandBuffersType &&commandBuffers, SignalSemaphoresType &&signalSemaphores, Args &&...args)
+		{
+			auto count = submitGetCount(std::forward<WaitSemaphoresType>(waitSemaphores), std::forward<CommandBuffersType>(commandBuffers), std::forward<SignalSemaphoresType>(signalSemaphores), std::forward<Args>(args)...);
+			SubmitInfo submits_vla[count.submits];
+			std::pair<Semaphore*, PipelineStage> waitSemaphores_vla[count.waitSemaphores];
+			CommandBuffer *commandBuffers_vla[count.commandBuffers];
+			Semaphore *signalSemaphores_vla[count.signalSemaphores];
+
+			SubmitFill buf {submits_vla, waitSemaphores_vla, commandBuffers_vla, signalSemaphores_vla};
+			submits_fill(buf, std::forward<WaitSemaphoresType>(waitSemaphores), std::forward<CommandBuffersType>(commandBuffers), std::forward<SignalSemaphoresType>(signalSemaphores), std::forward<Args>(args)...);
+
+			Fence &f = fence;
+			m_queue->submit(count.submits, submits_vla, &f);
+		}
+
+		template <typename WaitSemaphoresType>
+		void present(WaitSemaphoresType &&waitSemaphores, Swapchain::Image2D &image)
+		{
+			size_t count = submit_semaphores_conv::count(std::forward<WaitSemaphoresType>(waitSemaphores));
+			Semaphore *sems_vla[count];
+			submit_semaphores_conv::fill_array(sems_vla, std::forward<WaitSemaphoresType>(waitSemaphores));
+			m_queue->present(count, sems_vla, image);
+		}
+
+		void waitIdle(void)
+		{
+			return m_queue->waitIdle();
 		}
 
 		class Getter
@@ -288,18 +321,22 @@ public:
 		template <typename WaitSemaphoresType, typename CommandBuffersType, typename SignalSemaphoresType, typename ...Args>
 		void submits_fill(SubmitFill &fill, WaitSemaphoresType &&waitSemaphores, CommandBuffersType &&commandBuffers, SignalSemaphoresType &&signalSemaphores, Args &&...args)
 		{
-			submit_wait_semaphores_conv::fill_array(fill.waitSemaphores, std::forward<WaitSemaphoresType>(waitSemaphores));
-			submit_command_buffers_conv::fill_array(fill.commandBuffers,std::forward<CommandBuffersType>(commandBuffers));
-			submit_semaphores_conv::fill_array(fill.signalSemaphores, std::forward<SignalSemaphoresType>(signalSemaphores));
+			fill.submitInfo->waitSemaphoreCount = submit_wait_semaphores_conv::count(std::forward<WaitSemaphoresType>(waitSemaphores));
+			fill.submitInfo->commandBufferCount = submit_command_buffers_conv::count(std::forward<CommandBuffersType>(commandBuffers));
+			fill.submitInfo->signalSemaphoreCount = submit_semaphores_conv::count(std::forward<SignalSemaphoresType>(signalSemaphores));
 
 			fill.submitInfo->waitSemaphores = fill.waitSemaphores;
 			fill.submitInfo->commandBuffers = fill.commandBuffers;
 			fill.submitInfo->signalSemaphores = fill.signalSemaphores;
 
+			submit_wait_semaphores_conv::fill_array(fill.submitInfo->waitSemaphores, std::forward<WaitSemaphoresType>(waitSemaphores));
+			submit_command_buffers_conv::fill_array(fill.submitInfo->commandBuffers, std::forward<CommandBuffersType>(commandBuffers));
+			submit_semaphores_conv::fill_array(fill.submitInfo->signalSemaphores, std::forward<SignalSemaphoresType>(signalSemaphores));
+
+			fill.waitSemaphores = &fill.waitSemaphores[fill.submitInfo->waitSemaphoreCount];
+			fill.commandBuffers = &fill.commandBuffers[fill.submitInfo->commandBufferCount];
+			fill.signalSemaphores = &fill.signalSemaphores[fill.submitInfo->signalSemaphoreCount];
 			fill.submitInfo = &fill.submitInfo[1];
-			fill.waitSemaphores = &fill.waitSemaphores[submit_wait_semaphores_conv::count(std::forward<WaitSemaphoresType>(waitSemaphores))];
-			fill.commandBuffers = &fill.commandBuffers[submit_command_buffers_conv::count(std::forward<CommandBuffersType>(commandBuffers))];
-			fill.signalSemaphores = &fill.signalSemaphores[submit_semaphores_conv::count(std::forward<SignalSemaphoresType>(signalSemaphores))];
 			submits_fill(fill, std::forward<Args>(args)...);
 		}
 	};
@@ -316,7 +353,6 @@ struct Queue::SubmitSemaphorePredicate<Semaphore::Handle>
 {
 	static inline constexpr auto value = true;
 };
-
 
 }
 

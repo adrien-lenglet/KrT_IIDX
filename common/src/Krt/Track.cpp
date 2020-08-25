@@ -37,32 +37,26 @@ void Track::Render::render(void)
 	camera.upload();
 	static_cast<sb::Render::Pass&>(*this).render();
 
+	m_render_done_fence.wait();
+	m_render_done_fence.reset();
+
 	auto img = m_instance.swapchain.acquireNextImage(m_swapchain_img_avail);
 
-	auto sec = m_cmd_pool.secondary();
-	sec.recordRender<decltype(m_render_pass)::Subpass::albedo>(m_framebuffers.at(img), [](auto&){
+	m_cmd_sec.recordRender<decltype(m_render_pass)::Subpass::albedo>(m_framebuffers.at(img), [](auto&){
 	});
 
-	auto prim = m_cmd_pool.primary();
-	prim.record([&](decltype(prim)::Record &cmd){
+	m_cmd_prim.record([&](auto &cmd){
 		cmd.render(m_framebuffers.at(img), {{0, 0}, {1600, 900}},
-			sb::Color::f32(0.5f), 1.0f,
+			sb::Color::f32(0.5f), sb::Color::f32(0.0f), 1.0f,
 
-			sec,
+			m_cmd_sec,
 			[](auto&){
 			}
 		);
 	});
 
-	m_instance.graphics.submit(util::empty, prim, util::empty);
-
-	//cmd_buf.renderPass();
-
-	/*cmd_buf [prim / sec]
-		-> record [prim / sec, outside]
-			-> renderPass [prim, inside]
-
-		-> recordRenderPass [sec, inside]*/
+	m_instance.graphics.submit(m_render_done_fence, std::pair {&m_swapchain_img_avail, sb::PipelineStage::ColorAttachmentOutput}, m_cmd_prim, m_render_done);
+	m_instance.graphics.present(m_render_done, m_instance.swapchain.images().at(img));
 }
 
 }

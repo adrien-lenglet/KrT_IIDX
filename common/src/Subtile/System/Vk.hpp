@@ -640,6 +640,18 @@ private:
 
 	std::unique_ptr<sb::Semaphore> createSemaphore(void) override;
 
+	class Fence : public sb::Fence, public Device::Handle<VkFence>
+	{
+	public:
+		Fence(Device &dev, VkFence fence);
+		~Fence(void) override;
+
+		void wait(void) override;
+		void reset(void) override;
+	};
+
+	std::unique_ptr<sb::Fence> createFence(bool isSignaled) override;
+
 	static VkDescriptorType descriptorType(sb::Shader::DescriptorType type);
 
 	class DescriptorSetLayout : public sb::Shader::DescriptorSet::Layout, public Device::Handle<VkDescriptorSetLayout>
@@ -822,8 +834,9 @@ private:
 		~Queue(void) override;
 
 		std::unique_ptr<sb::CommandPool> commandPool(bool isReset) override;
-		void submit(size_t submitCount, SubmitInfo *submits) override;
+		void submit(size_t submitCount, SubmitInfo *submits, sb::Fence *fence) override;
 		void present(size_t waitSemaphoreCount, sb::Semaphore **waitSemaphores, sb::Swapchain::Image2D &image) override;
+		void waitIdle(void) override;
 
 		operator VkQueue(void) const
 		{
