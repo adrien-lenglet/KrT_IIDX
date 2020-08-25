@@ -12,4 +12,6 @@ KrT_IIDX.exe
 *.resdecl.hpp
 
 common/tools/res_detector/res_detector
+common/tools/res_detector/res_detector.exe
 common/res_ship
+common/res_ship.exe
