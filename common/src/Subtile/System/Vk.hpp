@@ -551,7 +551,7 @@ private:
 	class DescriptorSet : public sb::Shader::DescriptorSet
 	{
 	public:
-		DescriptorSet(Device &dev, const DescriptorSetLayout &layout);
+		DescriptorSet(Device &dev, const DescriptorSetLayout &layout, sb::Queue *queue);	// ptr for queue buffer attribution
 
 		void write(size_t offset, size_t range, const void *data) override;
 
@@ -564,7 +564,7 @@ private:
 
 		VkDescriptorPool createPool(Device &dev, const DescriptorSetLayout &layout);
 		VkDescriptorSet create(Device &dev, const DescriptorSetLayout &layout);
-		VmaBuffer createBuffer(Device &dev, const DescriptorSetLayout &layout);
+		VmaBuffer createBuffer(Device &dev, const DescriptorSetLayout &layout, sb::Queue *queue);
 	};
 
 	class RenderPass;
@@ -709,7 +709,7 @@ private:
 
 		//std::unique_ptr<sb::Shader::Model> model(size_t count, size_t stride, const void *data) override;
 		const sb::Shader::DescriptorSet::Layout& setLayout(size_t ndx) override;
-		std::unique_ptr<sb::Shader::DescriptorSet> set(size_t ndx) override;
+		std::unique_ptr<sb::Shader::DescriptorSet> set(size_t ndx, sb::Queue &queue) override;
 
 		PipelineLayout& getPipelineLayout(void);
 		Pipeline& getPipeline(void);

@@ -304,9 +304,9 @@ class FolderPrinter
 				throw std::runtime_error("Can't emplace local set in all sets list");
 			it->second.inlineValue.emplace(layouts.at(ndx));
 			auto handle_t = "sb::Shader::DescriptorSet::Handle"_t.T(set_scope);
-			runtime += handle_t | Id(s.get().getName())(Void) | S
+			runtime += handle_t | Id(s.get().getName())("sb::Queue"_t | &N | Id("queue")) | S
 			{
-				Return | handle_t("m_ref"_v, s.get().getNdx())
+				Return | handle_t("m_ref"_v, s.get().getNdx(), "queue"_v)
 			};
 
 			ndx++;

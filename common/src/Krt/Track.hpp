@@ -59,7 +59,7 @@ public:
 			m_cmd_pool(instance.graphics.pool<true>()),
 			m_cmd_prim(m_cmd_pool.primary()),
 			m_cmd_sec(m_cmd_pool.secondary()),
-			camera(m_camera_shader.camera())
+			camera(m_camera_shader.camera(instance.graphics))
 		{
 		}
 		~Render(void)
@@ -69,7 +69,7 @@ public:
 
 		void render(void);
 
-		decltype(m_camera_shader.camera()) camera;
+		decltype(m_camera_shader.camera(instance.graphics)) camera;
 	};
 
 	Render render;

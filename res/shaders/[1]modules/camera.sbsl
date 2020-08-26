@@ -1,5 +1,6 @@
 set camera {
 	mat4 vp;
+	//push_constant mat4 vp;
 };
 
 vec4 camera_project_point(vec3 p)

@@ -24,6 +24,7 @@ namespace Resource {
 class Shader;
 }
 class InstanceBase;
+class Queue;
 
 class Shader
 {
@@ -775,8 +776,8 @@ public:
 			using Mapped = typename Traits::Mapped;
 
 		public:
-			Handle(Cache::Ref &ref, size_t set_ndx) :
-				BaseHandle((**ref).set(set_ndx)),
+			Handle(Cache::Ref &ref, size_t set_ndx, sb::Queue &queue) :
+				BaseHandle((**ref).set(set_ndx, queue)),
 				Traits::template Runtime<Handle<Traits>>(ref)
 			{
 			}
@@ -840,7 +841,7 @@ public:
 
 	virtual std::unique_ptr<Model> model(size_t count, size_t stride, const void *data) = 0;*/
 	virtual const DescriptorSet::Layout& setLayout(size_t ndx) = 0;
-	virtual std::unique_ptr<DescriptorSet> set(size_t ndx) = 0;
+	virtual std::unique_ptr<DescriptorSet> set(size_t ndx, sb::Queue &queue) = 0;
 
 	template <size_t SetCount>
 	class Render
