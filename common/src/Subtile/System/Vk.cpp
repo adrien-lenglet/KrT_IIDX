@@ -948,9 +948,10 @@ std::unique_ptr<sb::Image> Vk::createImage(sb::Image::Type type, Format format, 
 	return std::make_unique<ImageAllocView>(std::move(image), std::move(view));
 }
 
-Vk::Framebuffer::Framebuffer(Device &dev, VkFramebuffer framebuffer, RenderPass &render_pass) :
+Vk::Framebuffer::Framebuffer(Device &dev, VkFramebuffer framebuffer, RenderPass &render_pass, std::vector<DescriptorSet> &&input_attachments) :
 	Device::Handle<VkFramebuffer>(dev, framebuffer),
-	m_render_pass(render_pass)
+	m_render_pass(render_pass),
+	m_input_attachments(std::move(input_attachments))
 {
 }
 
@@ -962,6 +963,198 @@ template <>
 void Vk::Device::Handle<VkFramebuffer>::destroy(Vk::Device &device, VkFramebuffer framebuffer)
 {
 	device.destroy(vkDestroyFramebuffer, framebuffer);
+}
+
+VkDescriptorType Vk::descriptorType(sb::Shader::DescriptorType type)
+{
+	return static_cast<VkDescriptorType>(util::enum_underlying(type));
+}
+
+Vk::DescriptorSetLayout::DescriptorSetLayout(Vk::Device &device, const sb::Shader::DescriptorSet::Layout::Description &desc) :
+	Device::Handle<VkDescriptorSetLayout>(device, create(device, desc)),
+	m_desc(desc)
+{
+}
+
+Vk::DescriptorSetLayout::~DescriptorSetLayout(void)
+{
+}
+
+const sb::Shader::DescriptorSet::Layout::Description& Vk::DescriptorSetLayout::getDescription(void) const
+{
+	return m_desc;
+}
+
+VkDescriptorSetLayout Vk::DescriptorSetLayout::create(Device &device, const sb::Shader::DescriptorSet::Layout::Description &desc)
+{
+	std::vector<VkDescriptorSetLayoutBinding> bindings;
+	for (auto &b : desc)
+		bindings.emplace_back(bindingtoVk(b));
+
+	VkDescriptorSetLayoutCreateInfo ci {};
+	ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	ci.bindingCount = bindings.size();
+	ci.pBindings = bindings.data();
+
+	if (ci.bindingCount == 0)
+		return VK_NULL_HANDLE;
+	else
+		return device.createVk(vkCreateDescriptorSetLayout, ci);
+}
+
+VkDescriptorSetLayoutBinding Vk::DescriptorSetLayout::bindingtoVk(const sb::Shader::DescriptorSet::Layout::DescriptionBinding &b)
+{
+	VkDescriptorSetLayoutBinding r {};
+	r.binding = b.binding;
+	r.descriptorType = descriptorType(b.descriptorType);
+	r.descriptorCount = b.descriptorCount;
+	if (b.isMapped())
+		r.descriptorCount = 1;
+	for (auto &s : b.stages)
+		r.stageFlags |= Vk::Shader::sbStageToVk(s);
+	return r;
+}
+
+template <>
+void Vk::Device::Handle<VkDescriptorSetLayout>::destroy(Vk::Device &device, VkDescriptorSetLayout layout)
+{
+	device.destroy(vkDestroyDescriptorSetLayout, layout);
+}
+
+std::unique_ptr<sb::Shader::DescriptorSet::Layout> Vk::createDescriptorSetLayout(const sb::Shader::DescriptorSet::Layout::Description &desc)
+{
+	return std::make_unique<DescriptorSetLayout>(m_device, desc);
+}
+
+Vk::DescriptorSet::DescriptorSet(Vk::Device &dev, const Vk::DescriptorSetLayout &layout) :
+	m_descriptor_pool(dev, createPool(dev, layout)),
+	m_descriptor_set(create(dev, layout)),
+	m_buffer(createBuffer(dev, layout))
+{
+	size_t mapped_count = 0;
+	for (auto &b : layout.getDescription())
+		if (b.isMapped())
+			mapped_count++;
+
+	std::vector<VkWriteDescriptorSet> writes;
+	writes.reserve(mapped_count);
+	std::vector<VkDescriptorBufferInfo> bufferInfos;
+	bufferInfos.reserve(mapped_count);
+
+	size_t size = 0;
+	for (auto &b : layout.getDescription()) {
+		if (!b.isMapped())
+			continue;
+
+		VkWriteDescriptorSet w {};
+
+		w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		w.dstSet = m_descriptor_set;
+		w.dstBinding = b.binding;
+		w.dstArrayElement = 0;
+		w.descriptorCount = 1;
+		w.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+
+		size = util::align_dyn(size, dev.physical().properties().getAlignment(b.descriptorType));
+
+		VkDescriptorBufferInfo buf_info;
+		buf_info.buffer = m_buffer;
+		buf_info.offset = size;
+		buf_info.range = b.descriptorCount;
+		w.pBufferInfo = &bufferInfos.emplace_back(buf_info);
+
+		writes.emplace_back(w);
+		size += b.descriptorCount;
+	}
+
+	if (writes.size() > 0)
+		vkUpdateDescriptorSets(dev, writes.size(), writes.data(), 0, nullptr);
+}
+
+void Vk::DescriptorSet::write(size_t offset, size_t range, const void *data)
+{
+	static_cast<void>(offset);
+	static_cast<void>(range);
+	static_cast<void>(data);
+	//m_descriptor_pool.getDep().vk().m_transfer.write(m_buffer, offset, range, data);
+}
+
+Vk::DescriptorSet::operator VkDescriptorSet(void) const
+{
+	return m_descriptor_set;
+}
+
+VkDescriptorPool Vk::DescriptorSet::createPool(Device &dev, const DescriptorSetLayout &layout)
+{
+	std::map<VkDescriptorType, size_t> typeCount;
+	for (auto &b : layout.getDescription())
+		typeCount[descriptorType(b.descriptorType)] += b.descriptorCount;
+	std::vector<VkDescriptorPoolSize> sizes;
+	for (auto &t : typeCount) {
+		VkDescriptorPoolSize s;
+		s.type = t.first;
+		s.descriptorCount = t.second;
+		sizes.emplace_back(s);
+	}
+
+	VkDescriptorPoolCreateInfo ci {};
+	ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	ci.maxSets = 1;
+	ci.poolSizeCount = sizes.size();
+	ci.pPoolSizes = sizes.data();
+
+	if (ci.poolSizeCount == 0)
+		return VK_NULL_HANDLE;
+	else
+		return dev.createVk(vkCreateDescriptorPool, ci);
+}
+
+VkDescriptorSet Vk::DescriptorSet::create(Device &dev, const DescriptorSetLayout &layout)
+{
+	VkDescriptorSetAllocateInfo ai {};
+	ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	ai.descriptorPool = m_descriptor_pool;
+	ai.descriptorSetCount = 1;
+	ai.pSetLayouts = &static_cast<const VkDescriptorSetLayout&>(layout);
+
+	if (ai.descriptorPool == VK_NULL_HANDLE)
+		return VK_NULL_HANDLE;
+	else
+		return dev.allocateVk(vkAllocateDescriptorSets, ai);
+}
+
+Vk::VmaBuffer Vk::DescriptorSet::createBuffer(Device &dev, const DescriptorSetLayout &layout)
+{
+	//std::vector<uint32_t> queues {*dev.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT)};
+	std::vector<uint32_t> queues {};
+	size_t size = 0;
+	for (auto &b : layout.getDescription())
+		if (b.isMapped()) {
+			size = util::align_dyn(size, dev.physical().properties().getAlignment(b.descriptorType));
+			size += b.descriptorCount;
+		}
+
+	if (size == 0)
+		return VmaBuffer(dev, VK_NULL_HANDLE, VK_NULL_HANDLE);
+
+	VkBufferCreateInfo bci {};
+	bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bci.size = size;
+	bci.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	bci.sharingMode = queues.size() > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
+	bci.queueFamilyIndexCount = queues.size();
+	bci.pQueueFamilyIndices = queues.data();
+
+	VmaAllocationCreateInfo aci {};
+	aci.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+	return dev.allocator().createBuffer(bci, aci);
+}
+
+template <>
+void Vk::Device::Handle<VkDescriptorPool>::destroy(Vk::Device &device, VkDescriptorPool pool)
+{
+	device.destroy(vkDestroyDescriptorPool, pool);
 }
 
 VkAttachmentLoadOp Vk::RenderPass::sbLoadOpToVk(sb::Image::LoadOp loadOp)
@@ -1164,7 +1357,38 @@ std::unique_ptr<sb::Framebuffer> Vk::RenderPass::createFramebuffer(const svec2 &
 	ci.height = extent.y;
 	ci.layers = layers;
 
-	return std::make_unique<Framebuffer>(m_handle.getDep(), m_handle.getDep().createVk(vkCreateFramebuffer, ci), *this);
+	size_t n = 0;
+	std::vector<DescriptorSet> input_attachments;
+	for (auto &l : m_subpasses_descriptor_set_layouts) {
+		auto ndx = n++;
+
+		auto &set = input_attachments.emplace_back(m_handle.getDep(), l);
+		auto &subpass = m_layout.subpasses.at(ndx);
+		VkWriteDescriptorSet writes_vla[subpass.inputAttachments.size()];
+		VkDescriptorImageInfo image_info_vla[subpass.inputAttachments.size()];
+		size_t wndx = 0;
+		for (auto &in : subpass.inputAttachments) {
+			VkDescriptorImageInfo image_info {};
+			image_info.sampler = VK_NULL_HANDLE;
+			image_info.imageView = atts_vla[in.ndx];
+			image_info.imageLayout = static_cast<VkImageLayout>(util::enum_underlying(in.layout));
+			image_info_vla[wndx] = image_info;
+
+			VkWriteDescriptorSet write {};
+			write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			write.dstSet = set;
+			write.dstBinding = wndx;
+			write.dstArrayElement = 0;
+			write.descriptorCount = 1;
+			write.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+			write.pImageInfo = &image_info_vla[wndx];
+
+			writes_vla[wndx++] = write;
+		}
+		vkUpdateDescriptorSets(m_handle.getDep(), subpass.inputAttachments.size(), writes_vla, 0, nullptr);
+	}
+
+	return std::make_unique<Framebuffer>(m_handle.getDep(), m_handle.getDep().createVk(vkCreateFramebuffer, ci), *this, std::move(input_attachments));
 }
 
 std::unique_ptr<sb::RenderPass> Vk::createRenderPass(sb::rs::RenderPass &renderpass)
@@ -1314,235 +1538,6 @@ std::unique_ptr<sb::Fence> Vk::createFence(bool isSignaled)
 	ci.flags = isSignaled ? VK_FENCE_CREATE_SIGNALED_BIT : 0;
 
 	return std::make_unique<Fence>(m_device, m_device.createVk(vkCreateFence, ci));
-}
-
-VkDescriptorType Vk::descriptorType(sb::Shader::DescriptorType type)
-{
-	return static_cast<VkDescriptorType>(util::enum_underlying(type));
-}
-
-Vk::DescriptorSetLayout::DescriptorSetLayout(Vk::Device &device, const sb::Shader::DescriptorSet::Layout::Description &desc) :
-	Device::Handle<VkDescriptorSetLayout>(device, create(device, desc)),
-	m_desc(desc)
-{
-}
-
-Vk::DescriptorSetLayout::~DescriptorSetLayout(void)
-{
-}
-
-const sb::Shader::DescriptorSet::Layout::Description& Vk::DescriptorSetLayout::getDescription(void) const
-{
-	return m_desc;
-}
-
-VkDescriptorSetLayout Vk::DescriptorSetLayout::create(Device &device, const sb::Shader::DescriptorSet::Layout::Description &desc)
-{
-	std::vector<VkDescriptorSetLayoutBinding> bindings;
-	for (auto &b : desc)
-		bindings.emplace_back(bindingtoVk(b));
-
-	VkDescriptorSetLayoutCreateInfo ci {};
-	ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	ci.bindingCount = bindings.size();
-	ci.pBindings = bindings.data();
-
-	if (ci.bindingCount == 0)
-		return VK_NULL_HANDLE;
-	else
-		return device.createVk(vkCreateDescriptorSetLayout, ci);
-}
-
-VkDescriptorSetLayoutBinding Vk::DescriptorSetLayout::bindingtoVk(const sb::Shader::DescriptorSet::Layout::DescriptionBinding &b)
-{
-	VkDescriptorSetLayoutBinding r {};
-	r.binding = b.binding;
-	r.descriptorType = descriptorType(b.descriptorType);
-	r.descriptorCount = b.descriptorCount;
-	if (b.isMapped())
-		r.descriptorCount = 1;
-	for (auto &s : b.stages)
-		r.stageFlags |= Vk::Shader::sbStageToVk(s);
-	return r;
-}
-
-template <>
-void Vk::Device::Handle<VkDescriptorSetLayout>::destroy(Vk::Device &device, VkDescriptorSetLayout layout)
-{
-	device.destroy(vkDestroyDescriptorSetLayout, layout);
-}
-
-std::unique_ptr<sb::Shader::DescriptorSet::Layout> Vk::createDescriptorSetLayout(const sb::Shader::DescriptorSet::Layout::Description &desc)
-{
-	return std::make_unique<DescriptorSetLayout>(m_device, desc);
-}
-
-Vk::DescriptorSet::DescriptorSet(Vk::Device &dev, const Vk::DescriptorSetLayout &layout) :
-	m_descriptor_pool(dev, createPool(dev, layout)),
-	m_descriptor_set(create(dev, layout)),
-	m_buffer(createBuffer(dev, layout))
-{
-	size_t mapped_count = 0;
-	for (auto &b : layout.getDescription())
-		if (b.isMapped())
-			mapped_count++;
-
-	std::vector<VkWriteDescriptorSet> writes;
-	writes.reserve(mapped_count);
-	std::vector<VkDescriptorBufferInfo> bufferInfos;
-	bufferInfos.reserve(mapped_count);
-
-	size_t size = 0;
-	for (auto &b : layout.getDescription()) {
-		if (!b.isMapped())
-			continue;
-
-		VkWriteDescriptorSet w {};
-
-		w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		w.dstSet = m_descriptor_set;
-		w.dstBinding = b.binding;
-		w.dstArrayElement = 0;
-		w.descriptorCount = 1;
-		w.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-
-		size = util::align_dyn(size, dev.physical().properties().getAlignment(b.descriptorType));
-
-		VkDescriptorBufferInfo buf_info;
-		buf_info.buffer = m_buffer;
-		buf_info.offset = size;
-		buf_info.range = b.descriptorCount;
-		w.pBufferInfo = &bufferInfos.emplace_back(buf_info);
-
-		writes.emplace_back(w);
-		size += b.descriptorCount;
-	}
-
-	if (writes.size() > 0)
-		vkUpdateDescriptorSets(dev, writes.size(), writes.data(), 0, nullptr);
-}
-
-void Vk::DescriptorSet::write(size_t offset, size_t range, const void *data)
-{
-	static_cast<void>(offset);
-	static_cast<void>(range);
-	static_cast<void>(data);
-	//m_descriptor_pool.getDep().vk().m_transfer.write(m_buffer, offset, range, data);
-}
-
-Vk::DescriptorSet::operator VkDescriptorSet(void) const
-{
-	return m_descriptor_set;
-}
-
-VkDescriptorPool Vk::DescriptorSet::createPool(Device &dev, const DescriptorSetLayout &layout)
-{
-	std::map<VkDescriptorType, size_t> typeCount;
-	for (auto &b : layout.getDescription())
-		typeCount[descriptorType(b.descriptorType)] += b.descriptorCount;
-	std::vector<VkDescriptorPoolSize> sizes;
-	for (auto &t : typeCount) {
-		VkDescriptorPoolSize s;
-		s.type = t.first;
-		s.descriptorCount = t.second;
-		sizes.emplace_back(s);
-	}
-
-	VkDescriptorPoolCreateInfo ci {};
-	ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	ci.maxSets = 1;
-	ci.poolSizeCount = sizes.size();
-	ci.pPoolSizes = sizes.data();
-
-	if (ci.poolSizeCount == 0)
-		return VK_NULL_HANDLE;
-	else
-		return dev.createVk(vkCreateDescriptorPool, ci);
-}
-
-VkDescriptorSet Vk::DescriptorSet::create(Device &dev, const DescriptorSetLayout &layout)
-{
-	VkDescriptorSetAllocateInfo ai {};
-	ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	ai.descriptorPool = m_descriptor_pool;
-	ai.descriptorSetCount = 1;
-	ai.pSetLayouts = &static_cast<const VkDescriptorSetLayout&>(layout);
-
-	if (ai.descriptorPool == VK_NULL_HANDLE)
-		return VK_NULL_HANDLE;
-	else
-		return dev.allocateVk(vkAllocateDescriptorSets, ai);
-}
-
-Vk::VmaBuffer Vk::DescriptorSet::createBuffer(Device &dev, const DescriptorSetLayout &layout)
-{
-	//std::vector<uint32_t> queues {*dev.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT)};
-	std::vector<uint32_t> queues {};
-	size_t size = 0;
-	for (auto &b : layout.getDescription())
-		if (b.isMapped()) {
-			size = util::align_dyn(size, dev.physical().properties().getAlignment(b.descriptorType));
-			size += b.descriptorCount;
-		}
-
-	VkBufferCreateInfo bci {};
-	bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bci.size = size;
-	bci.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-	bci.sharingMode = queues.size() > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
-	bci.queueFamilyIndexCount = queues.size();
-	bci.pQueueFamilyIndices = queues.data();
-
-	VmaAllocationCreateInfo aci {};
-	aci.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-
-	return dev.allocator().createBuffer(bci, aci);
-}
-
-/*Vk::Model::Model(Vk::Device &dev, size_t count, size_t stride, const void *data) :
-	m_count(count),
-	m_buffer(createBuffer(dev, count * stride))
-{
-	static_cast<void>(m_count);
-	static_cast<void>(data);
-	//dev.vk().m_transfer.write(m_buffer, 0, count * stride, data);
-}
-
-Vk::VmaBuffer Vk::Model::createBuffer(Device &dev, size_t size)
-{
-	//std::vector<uint32_t> queues {*dev.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT)};
-	std::vector<uint32_t> queues {};
-
-	VkBufferCreateInfo bci {};
-	bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bci.size = size;
-	bci.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-	bci.sharingMode = queues.size() > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
-	bci.queueFamilyIndexCount = queues.size();
-	bci.pQueueFamilyIndices = queues.data();
-
-	VmaAllocationCreateInfo aci {};
-	aci.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-
-	if (size == 0)
-		return Vk::VmaBuffer(dev, VK_NULL_HANDLE, VK_NULL_HANDLE);
-	else
-		return dev.allocator().createBuffer(bci, aci);
-}
-
-void Vk::Model::draw(CommandBuffer &cmd) const
-{
-	VkBuffer buffer = m_buffer;
-	VkDeviceSize off = 0;
-
-	vkCmdBindVertexBuffers(cmd, 0, 1, &buffer, &off);
-	vkCmdDraw(cmd, m_count, 1, 0, 0);
-}*/
-
-template <>
-void Vk::Device::Handle<VkDescriptorPool>::destroy(Vk::Device &device, VkDescriptorPool pool)
-{
-	device.destroy(vkDestroyDescriptorPool, pool);
 }
 
 template <>
@@ -1794,11 +1789,6 @@ std::unique_ptr<sb::Shader::DescriptorSet> Vk::Shader::set(size_t ndx)
 	return std::make_unique<Vk::DescriptorSet>(m_device, reinterpret_cast<const DescriptorSetLayout&>(m_layouts.at(ndx)->resolve()));
 }
 
-/*std::unique_ptr<sb::Shader::Model> Vk::Shader::model(size_t count, size_t stride, const void *data)
-{
-	return std::make_unique<Vk::Model>(m_device, count, stride, data);
-}*/
-
 Vk::PipelineLayout& Vk::Shader::getPipelineLayout(void)
 {
 	return m_pipeline_layout;
@@ -1813,143 +1803,6 @@ std::unique_ptr<sb::Shader> Vk::createShader(rs::Shader &shader)
 {
 	return std::make_unique<Shader>(m_device, shader);
 }
-
-/*Vk::CommandBuffer::CommandBuffer(Vk::Device &dev, uint32_t queue_type) :
-	m_command_pool(dev, createPool(dev, queue_type)),
-	m_command_buffer(allocCommandBuffer(dev))
-{
-	beginCommandBuffer();
-}
-
-Vk::CommandBuffer Vk::CommandBuffer::Graphics(Device &dev)
-{
-	//return CommandBuffer(dev, *dev.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT));
-	return CommandBuffer(dev, 0);
-}
-
-Vk::CommandBuffer Vk::CommandBuffer::Present(Device &dev)
-{
-	//return CommandBuffer(dev, *dev.physical().queues().presentation());
-	return CommandBuffer(dev, 0);
-}
-
-Vk::CommandBuffer Vk::CommandBuffer::Transfer(Device &dev)
-{
-	//return CommandBuffer(dev, *dev.physical().queues().indexOf(VK_QUEUE_TRANSFER_BIT));
-	return CommandBuffer(dev, 0);
-}
-
-VkCommandPool Vk::CommandBuffer::createPool(Device &dev, uint32_t queueIndex)
-{
-	VkCommandPoolCreateInfo ci {};
-
-	ci.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	ci.queueFamilyIndex = queueIndex;
-
-	return dev.createVk(vkCreateCommandPool, ci);
-}
-
-VkCommandBuffer Vk::CommandBuffer::allocCommandBuffer(Vk::Device &dev)
-{
-	VkCommandBufferAllocateInfo ai {};
-
-	ai.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	ai.commandPool = m_command_pool;
-	ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	ai.commandBufferCount = 1;
-
-	return dev.allocateVk(vkAllocateCommandBuffers, ai);
-}
-
-void Vk::CommandBuffer::beginCommandBuffer(void)
-{
-	VkCommandBufferBeginInfo be {};
-
-	be.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	be.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-	Vk::assert(vkBeginCommandBuffer(m_command_buffer, &be));
-}
-
-Vk::CommandBuffer::~CommandBuffer(void)
-{
-}
-
-template <>
-void Vk::Device::Handle<VkCommandPool>::destroy(Vk::Device &device, VkCommandPool pool)
-{
-	device.destroy(vkDestroyCommandPool, pool);
-}
-
-VkCommandBuffer Vk::CommandBuffer::getHandle(void) const
-{
-	return m_command_buffer;
-}
-
-Vk::CommandBuffer::operator VkCommandBuffer(void) const
-{
-	return m_command_buffer;
-}
-
-void Vk::CommandBuffer::beginRenderPass(void)
-{
-	auto &vk = m_command_pool.getDep().vk();
-
-	VkRenderPassBeginInfo bi {};
-
-	bi.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	bi.renderPass = vk.m_default_render_pass;
-	bi.framebuffer = vk.getSwapchainImage().getDefaultFramebuffer();
-	bi.renderArea = {{0, 0}, {1600, 900}};
-
-	vkCmdBeginRenderPass(m_command_buffer, &bi, VK_SUBPASS_CONTENTS_INLINE);
-}
-
-void Vk::CommandBuffer::endRenderPass(void)
-{
-	vkCmdEndRenderPass(m_command_buffer);
-}
-
-void Vk::CommandBuffer::bindShader(sb::Shader &shader)
-{
-	auto &sha = reinterpret_cast<Vk::Shader&>(shader);
-
-	vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, sha.getPipeline());
-}
-
-void Vk::CommandBuffer::bindDescriptorSet(sb::Shader &shader, sb::Shader::DescriptorSet &set, size_t ndx)
-{
-	auto &sha = reinterpret_cast<Vk::Shader&>(shader);
-	auto &s = reinterpret_cast<Vk::DescriptorSet&>(set);
-
-	VkDescriptorSet desc_set = s;
-	vkCmdBindDescriptorSets(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, sha.getPipelineLayout(), ndx, 1, &desc_set, 0, nullptr);
-}
-
-void Vk::CommandBuffer::draw(const sb::Shader::Model &model)
-{
-	auto &mod = reinterpret_cast<const Vk::Model&>(model);
-
-	mod.draw(*this);
-}
-
-void Vk::CommandBuffer::submit(void)
-{
-	Vk::assert(vkEndCommandBuffer(m_command_buffer));
-
-	VkSubmitInfo s {};
-	s.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	s.commandBufferCount = 1;
-	s.pCommandBuffers = &m_command_buffer;
-
-	Vk::assert(vkQueueSubmit(m_command_pool.getDep().vk().m_graphics_queue, 1, &s, VK_NULL_HANDLE));
-	Vk::assert(vkQueueWaitIdle(m_command_pool.getDep().vk().m_graphics_queue));
-}
-
-std::unique_ptr<sb::Render::CommandBuffer> Vk::createRenderCommandBuffer(void)
-{
-	return std::make_unique<CommandBuffer>(CommandBuffer::Graphics(m_device));
-}*/
 
 Vk::CommandBuffer::CommandBuffer(CommandPool &pool, sb::CommandBuffer::Level level) :
 	m_pool(pool),
@@ -2076,11 +1929,21 @@ void Vk::CommandBuffer::beginRenderPass(bool isInline, sb::Framebuffer &fb, cons
 	bi.clearValueCount = clearValueCount;
 	bi.pClearValues = reinterpret_cast<VkClearValue*>(clearValues);
 	vkCmdBeginRenderPass(*this, &bi, isInline ? VK_SUBPASS_CONTENTS_INLINE : VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+	m_render_pass_subpass_ndx = 0;
+	m_render_pass_fb = &vk_fb;
+	VkDescriptorSet desc_set = m_render_pass_fb->getInputAttachments().at(m_render_pass_subpass_ndx);
+	if (desc_set != VK_NULL_HANDLE)
+		vkCmdBindDescriptorSets(*this, VK_PIPELINE_BIND_POINT_GRAPHICS, m_render_pass_fb->getRenderPass().getSubpassesPipelineLayouts().at(m_render_pass_subpass_ndx), 0, 1, &desc_set, 0, nullptr);
+	m_render_pass_subpass_ndx++;
 }
 
 void Vk::CommandBuffer::nextSubpass(bool isInline)
 {
 	vkCmdNextSubpass(*this, isInline ? VK_SUBPASS_CONTENTS_INLINE : VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+	VkDescriptorSet desc_set = m_render_pass_fb->getInputAttachments().at(m_render_pass_subpass_ndx);
+	if (desc_set != VK_NULL_HANDLE)
+		vkCmdBindDescriptorSets(*this, VK_PIPELINE_BIND_POINT_GRAPHICS, m_render_pass_fb->getRenderPass().getSubpassesPipelineLayouts().at(m_render_pass_subpass_ndx), 0, 1, &desc_set, 0, nullptr);
+	m_render_pass_subpass_ndx++;
 }
 
 void Vk::CommandBuffer::endRenderPass(void)

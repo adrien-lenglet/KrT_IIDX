@@ -528,12 +528,51 @@ private:
 		return static_cast<VkImageLayout>(static_cast<std::underlying_type_t<sb::Image::Layout>>(layout));
 	}
 
+	static VkDescriptorType descriptorType(sb::Shader::DescriptorType type);
+
+	class DescriptorSetLayout : public sb::Shader::DescriptorSet::Layout, public Device::Handle<VkDescriptorSetLayout>
+	{
+	public:
+		DescriptorSetLayout(Device &device, const sb::Shader::DescriptorSet::Layout::Description &layout);
+		~DescriptorSetLayout(void) override;
+		DescriptorSetLayout(DescriptorSetLayout&&) = default;
+
+		const sb::Shader::DescriptorSet::Layout::Description& getDescription(void) const;
+
+	private:
+		const sb::Shader::DescriptorSet::Layout::Description m_desc;
+
+		VkDescriptorSetLayout create(Device &device, const sb::Shader::DescriptorSet::Layout::Description &layout);
+		VkDescriptorSetLayoutBinding bindingtoVk(const sb::Shader::DescriptorSet::Layout::DescriptionBinding &binding);
+	};
+
+	std::unique_ptr<sb::Shader::DescriptorSet::Layout> createDescriptorSetLayout(const sb::Shader::DescriptorSet::Layout::Description &desc) override;
+
+	class DescriptorSet : public sb::Shader::DescriptorSet
+	{
+	public:
+		DescriptorSet(Device &dev, const DescriptorSetLayout &layout);
+
+		void write(size_t offset, size_t range, const void *data) override;
+
+		operator VkDescriptorSet(void) const;
+
+	private:
+		Device::Handle<VkDescriptorPool> m_descriptor_pool;
+		VkDescriptorSet m_descriptor_set;
+		VmaBuffer m_buffer;
+
+		VkDescriptorPool createPool(Device &dev, const DescriptorSetLayout &layout);
+		VkDescriptorSet create(Device &dev, const DescriptorSetLayout &layout);
+		VmaBuffer createBuffer(Device &dev, const DescriptorSetLayout &layout);
+	};
+
 	class RenderPass;
 
 	class Framebuffer : public sb::Framebuffer, public Device::Handle<VkFramebuffer>
 	{
 	public:
-		Framebuffer(Device &dev, VkFramebuffer framebuffer, RenderPass &render_pass);
+		Framebuffer(Device &dev, VkFramebuffer framebuffer, RenderPass &render_pass, std::vector<DescriptorSet> &&input_attachments);
 		~Framebuffer(void) override;
 
 		RenderPass& getRenderPass(void)
@@ -541,11 +580,16 @@ private:
 			return m_render_pass;
 		}
 
+		std::vector<DescriptorSet>& getInputAttachments(void)
+		{
+			return m_input_attachments;
+		}
+
 	private:
 		RenderPass &m_render_pass;
+		std::vector<DescriptorSet> m_input_attachments;
 	};
 
-	class DescriptorSetLayout;
 	using PipelineLayout = Device::Handle<VkPipelineLayout>;
 
 	class RenderPass : public sb::RenderPass
@@ -652,92 +696,6 @@ private:
 
 	std::unique_ptr<sb::Fence> createFence(bool isSignaled) override;
 
-	static VkDescriptorType descriptorType(sb::Shader::DescriptorType type);
-
-	class DescriptorSetLayout : public sb::Shader::DescriptorSet::Layout, public Device::Handle<VkDescriptorSetLayout>
-	{
-	public:
-		DescriptorSetLayout(Device &device, const sb::Shader::DescriptorSet::Layout::Description &layout);
-		~DescriptorSetLayout(void) override;
-		DescriptorSetLayout(DescriptorSetLayout&&) = default;
-
-		const sb::Shader::DescriptorSet::Layout::Description& getDescription(void) const;
-
-	private:
-		const sb::Shader::DescriptorSet::Layout::Description m_desc;
-
-		VkDescriptorSetLayout create(Device &device, const sb::Shader::DescriptorSet::Layout::Description &layout);
-		VkDescriptorSetLayoutBinding bindingtoVk(const sb::Shader::DescriptorSet::Layout::DescriptionBinding &binding);
-	};
-
-	std::unique_ptr<sb::Shader::DescriptorSet::Layout> createDescriptorSetLayout(const sb::Shader::DescriptorSet::Layout::Description &desc) override;
-
-	class DescriptorSet : public sb::Shader::DescriptorSet
-	{
-	public:
-		DescriptorSet(Device &dev, const DescriptorSetLayout &layout);
-
-		void write(size_t offset, size_t range, const void *data) override;
-
-		operator VkDescriptorSet(void) const;
-
-	private:
-		Device::Handle<VkDescriptorPool> m_descriptor_pool;
-		VkDescriptorSet m_descriptor_set;
-		VmaBuffer m_buffer;
-
-		VkDescriptorPool createPool(Device &dev, const DescriptorSetLayout &layout);
-		VkDescriptorSet create(Device &dev, const DescriptorSetLayout &layout);
-		VmaBuffer createBuffer(Device &dev, const DescriptorSetLayout &layout);
-	};
-
-	/*class CommandBuffer : public sb::Render::CommandBuffer
-	{
-		CommandBuffer(Device &dev, uint32_t queue_type);
-
-	public:
-		static CommandBuffer Graphics(Device &dev);
-		static CommandBuffer Present(Device &dev);
-		static CommandBuffer Transfer(Device &dev);
-		~CommandBuffer(void) override;
-		CommandBuffer(CommandBuffer &&) = default;
-
-		void beginRenderPass(void) override;
-		void endRenderPass(void) override;
-		void bindShader(sb::Shader &shader) override;
-		void bindDescriptorSet(sb::Shader &shader, sb::Shader::DescriptorSet &set, size_t ndx) override;
-		void draw(const sb::Shader::Model &model) override;
-
-		void submit(void) override;
-
-		VkCommandBuffer getHandle(void) const;
-		operator VkCommandBuffer(void) const;
-
-	private:
-		Device::Handle<VkCommandPool> m_command_pool;
-		VkCommandBuffer m_command_buffer;
-
-		VkCommandPool createPool(Device &dev, uint32_t queueIndex);
-		VkCommandBuffer allocCommandBuffer(Vk::Device &dev);
-		void beginCommandBuffer(void);
-	};
-
-	std::unique_ptr<sb::Render::CommandBuffer> createRenderCommandBuffer(void) override;*/
-
-	/*class Model : public sb::Shader::Model
-	{
-	public:
-		Model(Device &dev, size_t count, size_t stride, const void *data);
-
-		//void draw(CommandBuffer &cmd) const;
-
-	private:
-		size_t m_count;
-		VmaBuffer m_buffer;
-
-		VmaBuffer createBuffer(Device &dev, size_t size);
-	};*/
-
 	using ShaderModule = Device::Handle<VkShaderModule>;
 	using Pipeline = Device::Handle<VkPipeline>;
 
@@ -811,6 +769,8 @@ private:
 	private:
 		CommandPool &m_pool;
 		VkCommandBuffer m_handle;
+		size_t m_render_pass_subpass_ndx = 0;
+		Framebuffer *m_render_pass_fb;
 
 		VkCommandBuffer createCommandBuffer(sb::CommandBuffer::Level level);
 	};
