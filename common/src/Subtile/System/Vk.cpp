@@ -2080,4 +2080,55 @@ std::unique_ptr<sb::Queue> Vk::getQueue(sb::Queue::Flag flags, size_t index)
 	return std::make_unique<Queue>(m_device, got.first, got.second);
 }
 
+Vk::Model::Model(VmaBuffer &buffer, size_t vertexCount) :
+	m_buffer(buffer),
+	m_vertex_count(vertexCount)
+{
+}
+
+Vk::Model::~Model(void)
+{
+}
+
+void Vk::Model::draw(sb::CommandBuffer &cmd)
+{
+	auto &vk_cmd = reinterpret_cast<CommandBuffer&>(cmd);
+	VkBuffer buffer = m_buffer;
+	VkDeviceSize offset = 0;
+	vkCmdBindVertexBuffers(vk_cmd, 0, 1, &buffer, &offset);
+	vkCmdDraw(vk_cmd, m_vertex_count, 1, 0, 0);
+}
+
+std::unique_ptr<sb::Model> Vk::createModel(sb::Buffer &vertexBuffer, size_t vertexCount)
+{
+	return std::make_unique<Model>(reinterpret_cast<VmaBuffer&>(vertexBuffer), vertexCount);
+}
+
+Vk::ModelIndexed::ModelIndexed(VmaBuffer &buffer, VmaBuffer &indexBuffer, VkIndexType indexType, size_t indexCount) :
+	m_buffer(buffer),
+	m_index_buffer(indexBuffer),
+	m_index_type(indexType),
+	m_index_count(indexCount)
+{
+}
+
+Vk::ModelIndexed::~ModelIndexed(void)
+{
+}
+
+void Vk::ModelIndexed::draw(sb::CommandBuffer &cmd)
+{
+	auto &vk_cmd = reinterpret_cast<CommandBuffer&>(cmd);
+	VkBuffer buffer = m_buffer;
+	VkDeviceSize offset = 0;
+	vkCmdBindVertexBuffers(vk_cmd, 0, 1, &buffer, &offset);
+	vkCmdBindIndexBuffer(vk_cmd, m_index_buffer, 0, m_index_type);
+	vkCmdDrawIndexed(vk_cmd, m_index_count, 1, 0, 0, 0);
+}
+
+std::unique_ptr<sb::Model> Vk::createModelIndexed(sb::Buffer &vertexBuffer, sb::Buffer &indexBuffer, sb::Model::IndexType indexType, size_t indexCount)
+{
+	return std::make_unique<ModelIndexed>(reinterpret_cast<VmaBuffer&>(vertexBuffer), reinterpret_cast<VmaBuffer&>(indexBuffer), indexType == sb::Model::IndexType::Uint16 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32, indexCount);
+}
+
 }

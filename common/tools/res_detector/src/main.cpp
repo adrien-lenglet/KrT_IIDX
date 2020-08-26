@@ -342,7 +342,7 @@ class FolderPrinter
 
 		if (!compiled.isModule()) {
 			auto render_type = "sb::Shader::Render"_t.T(Type(Value(sets.size()).getValue()));
-			auto &render = runtime += render_type | Id("render")(Const | "sb::Model"_t | &N | Id("model")) | S {};
+			auto &render = runtime += render_type | Id("render")("sb::Model::Typed"_t.T(sh>>"Vertex"_t) | &N | Id("model")) | S {};
 			auto render_list = B {};
 			for (auto &set : sets) {
 				auto handle_t = "sb::Shader::DescriptorSet::Handle"_t.T(set.second.set_type);

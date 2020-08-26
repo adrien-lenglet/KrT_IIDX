@@ -22,9 +22,10 @@ private:
 	decltype(res.shaders().diffuse().loaded()) m_shader;
 	decltype(m_shader.material(world.instance.graphics)) m_material;
 	decltype(m_shader.object(world.instance.graphics)) m_object;
-	sb::Buffer::Vertex<decltype(m_shader)::Vertex> m_model;
+	sb::Buffer::Vertex<decltype(m_shader)::Vertex> m_model_buffer;
+	decltype(world.instance.model(m_model_buffer)) m_model;
 
-	decltype(m_model) createModel(void);
+	decltype(m_model_buffer) createModelBuffer(void);
 
 	double m_angle = 0.0;
 };

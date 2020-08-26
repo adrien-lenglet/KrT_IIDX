@@ -43,7 +43,7 @@ public:
 	}
 
 	template <typename RenderType>
-	void bind(Render::Pass &pass, const RenderType &render);
+	void bind(Render::Pass &pass, RenderType &&render);
 
 private:
 	Binding::Dependency::Socket m_dependencies;

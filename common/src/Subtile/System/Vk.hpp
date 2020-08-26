@@ -692,7 +692,6 @@ private:
 
 		Shader(Device &device, rs::Shader &shader);
 
-		//std::unique_ptr<sb::Shader::Model> model(size_t count, size_t stride, const void *data) override;
 		const sb::Shader::DescriptorSet::Layout& setLayout(size_t ndx) override;
 		std::unique_ptr<sb::Shader::DescriptorSet> set(size_t ndx, sb::Queue &queue) override;
 
@@ -803,6 +802,38 @@ private:
 	};
 
 	std::unique_ptr<sb::Queue> getQueue(sb::Queue::Flag flags, size_t index) override;
+
+	class Model : public sb::Model
+	{
+	public:
+		Model(VmaBuffer &buffer, size_t vertexCount);
+		~Model(void) override;
+
+		void draw(sb::CommandBuffer &cmd) override;
+
+	private:
+		VmaBuffer &m_buffer;
+		size_t m_vertex_count;
+	};
+
+	std::unique_ptr<sb::Model> createModel(sb::Buffer &vertexBuffer, size_t vertexCount) override;
+
+	class ModelIndexed : public sb::Model
+	{
+	public:
+		ModelIndexed(VmaBuffer &buffer, VmaBuffer &indexBuffer, VkIndexType indexType, size_t indexCount);
+		~ModelIndexed(void) override;
+
+		void draw(sb::CommandBuffer &cmd) override;
+
+	private:
+		VmaBuffer &m_buffer;
+		VmaBuffer &m_index_buffer;
+		VkIndexType m_index_type;
+		size_t m_index_count;
+	};
+
+	std::unique_ptr<sb::Model> createModelIndexed(sb::Buffer &vertexBuffer, sb::Buffer &indexBuffer, sb::Model::IndexType indexType, size_t indexCount) override;
 };
 
 }

@@ -23,10 +23,10 @@ class Pass
 		ShaderBase& resolve_direct(Shader::DescriptorSet &set);
 		ShaderBase& resolve(const util::ref_wrapper<Shader::DescriptorSet::BaseHandle> *sets, size_t set_count);
 
-		//void bind(Binding::Dependency::Socket &socket, const Shader::Model &model);
+		void bind(Binding::Dependency::Socket &socket, Model &model);
 
 	protected:
-		//void render_models(CommandBuffer &cmd);
+		void render_models(CommandBuffer &cmd);
 
 		virtual void destroy(void) = 0;
 
@@ -34,7 +34,7 @@ class Pass
 		friend SubShader;
 
 		std::map<util::ref_wrapper<Shader::DescriptorSet>, SubShader> m_subpasses;
-		//Binding::Weak<util::ref_wrapper<const Shader::Model>, true> m_to_render;
+		Binding::Weak<util::ref_wrapper<Model>, true> m_to_render;
 	};
 
 	class ShaderPass : public ShaderBase
@@ -42,7 +42,7 @@ class Pass
 	public:
 		ShaderPass(Pass &parent, Shader &shader);
 
-		//void render(CommandBuffer &cmd);
+		void render(CommandBuffer &cmd);
 
 	protected:
 		void destroy(void) override;
@@ -56,7 +56,7 @@ public:
 	Pass(void);
 	~Pass(void);
 
-	void render(void);
+	void render(CommandBuffer &cmd);
 
 protected:
 	void remove_shaderpass(Shader &shader);
@@ -71,7 +71,7 @@ private:
 	template <size_t SetCount>
 	void bind(Binding::Dependency::Socket &socket, const Shader::Render<SetCount> &render)
 	{
-		resolve(render.getShader()).resolve(render.getSets().data(), render.getSets().size()).bind(socket, render.getModel());
+		resolve(render.shader).resolve(render.sets.data(), render.sets.size()).bind(socket, render.model);
 	}
 };
 
@@ -80,7 +80,7 @@ class Pass::SubShader : public Pass::ShaderBase
 public:
 	SubShader(ShaderBase &parent, Shader::DescriptorSet &set);
 
-	//void render(CommandBuffer &cmd, Shader &shader, Shader::DescriptorSet &set, size_t depth);
+	void render(CommandBuffer &cmd, Shader &shader, Shader::DescriptorSet &set, size_t depth);
 
 protected:
 	void destroy(void) override;
@@ -99,7 +99,7 @@ namespace Subtile {
 namespace Event {
 
 template <typename RenderType>
-void Socket::bind(Render::Pass &pass, const RenderType &render)
+void Socket::bind(Render::Pass &pass, RenderType &&render)
 {
 	pass.bind(m_dependencies, render);
 }

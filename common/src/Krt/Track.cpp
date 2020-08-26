@@ -29,13 +29,13 @@ Track::~Track(void)
 	destroy_children();
 }
 
-void Track::Render::render(sb::CommandBuffer::Record::RenderPass::Primary&)
+void Track::Render::render(sb::CommandBuffer::Record::RenderPass::Primary &cmd)
 {
 	auto mat = glm::perspectiveLH_NO<float>(90.0, 16.0 / 9.0, 0.1, 1000.0);
 	mat *= glm::lookAtLH(glm::vec3(0.0, 0.0, -7.0), glm::vec3(0.0), glm::vec3(0.0, 1.0, 0.0));
 	camera.vp = mat;
 	m_instance.uploadDescSet(camera);
-	static_cast<sb::Render::Pass&>(*this).render();
+	static_cast<sb::Render::Pass&>(*this).render(sb::CommandBuffer::CmdGetter<sb::CommandBuffer::Record::RenderPass::Primary>().get(cmd));
 }
 
 }

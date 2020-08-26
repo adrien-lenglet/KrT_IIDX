@@ -156,11 +156,29 @@ public:
 	{
 		return Buffer::Handle(system().createBuffer(size, Buffer::Location::Device, usage, queue), size);
 	}
+
 	auto mappableBuffer(size_t size, Buffer::Usage usage, sb::Queue &queue)
 	{
 		return Buffer::Mappable(system().createBuffer(size, Buffer::Location::Host, usage, queue), size);
 	}
 
+	template <typename VertexType>
+	auto model(Buffer::Vertex<VertexType> &vertex)
+	{
+		return Model::Typed<VertexType>(system().createModel(vertex, vertex.size()));
+	}
+
+	template <typename VertexType>
+	auto model(Buffer::Vertex<VertexType> &vertex, Buffer::Index16 &index_buffer)
+	{
+		return Model::Typed<VertexType>::Indexed16(system().createModelIndexed(vertex, vertex.size(), index_buffer, Model::IndexType::Uint16));
+	}
+
+	template <typename VertexType>
+	auto model(Buffer::Vertex<VertexType> &vertex, Buffer::Index32 &index_buffer)
+	{
+		return Model::Typed<VertexType>::Indexed32(system().createModelIndexed(vertex, index_buffer, Model::IndexType::Uint32, index_buffer.size()));
+	}
 
 	void scanInputs(void)
 	{

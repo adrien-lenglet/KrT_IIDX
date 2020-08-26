@@ -1,57 +1,60 @@
 #pragma once
 
-#include <vector>
+#include "Buffer.hpp"
 
 namespace Subtile {
+
+class CommandBuffer;
 
 class Model
 {
 public:
 	virtual ~Model(void) = default;
+
+	enum class IndexType {
+		Uint16,
+		Uint32
+	};
+
+	virtual void draw(CommandBuffer&) = 0;
+
+	template <typename VertexType>
+	class Typed;
 };
 
-/*template <typename VertexType>
-class Model
+template <typename VertexType>
+class Model::Typed
 {
+	std::unique_ptr<Model> m_model;
+
 public:
-	using Vertex = VertexType;
-
-	struct Triangle
+	Typed(std::unique_ptr<Model> &&model) :
+		m_model(std::move(model))
 	{
-		using Vertex = typename Model::Vertex;
+	}
 
-		Vertex a;
-		Vertex b;
-		Vertex c;
+	operator Model&(void)
+	{
+		return *m_model;
+	}
 
-		auto& operator[](size_t ndx)
+	class Indexed16 : public Typed
+	{
+	public:
+		Indexed16(std::unique_ptr<Model> &&model) :
+			Typed(std::move(model))
 		{
-			return reinterpret_cast<Vertex*>(this)[ndx];
-		}
-
-		auto& operator[](size_t ndx) const
-		{
-			return reinterpret_cast<const Vertex*>(this)[ndx];
 		}
 	};
 
-	Model(std::vector<Triangle> &&triangles) :
-		m_triangles(std::move(triangles))
+	class Indexed32 : public Typed
 	{
-	}
-
-	auto vertex_count(void) const
-	{
-		return m_triangles.size() * 3;
-	}
-
-	auto vertex_data(void) const
-	{
-		return reinterpret_cast<const Vertex*>(m_triangles.data());
-	}
-
-private:
-	std::vector<Triangle> m_triangles;
-};*/
+	public:
+		Indexed32(std::unique_ptr<Model> &&model) :
+			Typed(std::move(model))
+		{
+		}
+	};
+};
 
 }

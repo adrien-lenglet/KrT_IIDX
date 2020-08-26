@@ -108,15 +108,40 @@ public:
 
 		auto size(void) const
 		{
-			return static_cast<Handle&>(*this).size() / sizeof(T);
+			return static_cast<const Handle&>(*this).size() / sizeof(T);
 		}
 	};
 
 	template <typename VertexType>
-	using Vertex = Array<VertexType>;
+	class Vertex : public Array<VertexType>
+	{
+	public:
+		template <typename ...Args>
+		Vertex(Args &&...args) :
+			Array<VertexType>(std::forward<Args>(args)...)
+		{
+		}
+	};
 
-	using Index16 = Array<uint16_t>;
-	using Index32 = Array<uint32_t>;
+	class Index16 : public Array<uint16_t>
+	{
+	public:
+		template <typename ...Args>
+		Index16(Args &&...args) :
+			Array<uint16_t>(std::forward<Args>(args)...)
+		{
+		}
+	};
+
+	class Index32 : public Array<uint32_t>
+	{
+	public:
+		template <typename ...Args>
+		Index32(Args &&...args) :
+			Array<uint32_t>(std::forward<Args>(args)...)
+		{
+		}
+	};
 };
 
 }

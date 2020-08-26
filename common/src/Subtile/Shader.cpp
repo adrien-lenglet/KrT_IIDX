@@ -145,16 +145,6 @@ const Shader::DescriptorSet::Layout& Shader::DescriptorSet::Layout::Resolver::Fo
 	return m_layout;
 }
 
-/*Shader::Model::BaseHandle::BaseHandle(std::unique_ptr<Shader::Model> &&model) :
-	m_model(std::move(model))
-{
-}
-
-Shader::Model& Shader::Model::BaseHandle::getModel(void) const
-{
-	return *m_model;
-}*/
-
 Shader::Cache::Ref InstanceBase::loadShaderRef(rs::Shader &shaderres)
 {
 	auto got = m_shaders.find(shaderres);

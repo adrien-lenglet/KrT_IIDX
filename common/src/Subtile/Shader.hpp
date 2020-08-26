@@ -796,57 +796,6 @@ public:
 		};
 	};
 
-	/*class Model
-	{
-	public:
-		virtual ~Model(void) = default;
-
-		class BaseHandle
-		{
-		public:
-			BaseHandle(std::unique_ptr<Model> &&model);
-
-			class Getter
-			{
-			public:
-				Getter(const BaseHandle &handle) :
-					m_handle(handle)
-				{
-				}
-
-				decltype(auto) getModel(void) const
-				{
-					return m_handle.getModel();
-				}
-
-			private:
-				const BaseHandle &m_handle;
-			};
-
-		private:
-			std::unique_ptr<Model> m_model;
-
-			friend Getter;
-			Model& getModel(void) const;
-		};
-
-		template <typename ModelType>
-		class Handle : public BaseHandle
-		{
-		public:
-			//using model = ModelType;
-			using Vertex = typename ModelType::Vertex;
-			using Triangle = typename ModelType::Triangle;
-
-			template <typename ...Args>
-			Handle(Args &&...args) :
-				BaseHandle(std::forward<Args>(args)...)
-			{
-			}
-		};
-	};
-
-	virtual std::unique_ptr<Model> model(size_t count, size_t stride, const void *data) = 0;*/
 	virtual const DescriptorSet::Layout& setLayout(size_t ndx) = 0;
 	virtual std::unique_ptr<DescriptorSet> set(size_t ndx, sb::Queue &queue) = 0;
 
@@ -856,32 +805,16 @@ public:
 		using SetsType = std::array<util::ref_wrapper<DescriptorSet::BaseHandle>, SetCount>;
 
 	public:
-		Render(Shader &shader, const Model &model, SetsType &&sets) :
-			m_shader(shader),
-			m_model(model),
-			m_sets(sets)
+		Render(Shader &shader, Model &model, SetsType &&sets) :
+			shader(shader),
+			model(model),
+			sets(sets)
 		{
 		}
 
-		Shader& getShader(void) const
-		{
-			return m_shader;
-		}
-
-		auto& getModel(void) const
-		{
-			return m_model;
-		}
-
-		auto& getSets(void) const
-		{
-			return m_sets;
-		}
-
-	private:
-		Shader &m_shader;
-		const Model &m_model;
-		SetsType m_sets;
+		Shader &shader;
+		Model &model;
+		SetsType sets;
 	};
 
 	template <typename ResType>
@@ -902,21 +835,6 @@ public:
 			Res::template Runtime<Loaded<ResType>>(m_ref)
 		{
 		}
-
-		/*using ResModel = typename Res::Model;
-		using Model = Shader::Model::Handle<ResModel>;
-		auto model(const ResModel &in)
-		{
-			return Model((**m_ref).model(in.vertex_count(), sizeof(typename ResModel::Vertex), in.vertex_data()));
-		}
-
-		auto model(void)
-		{
-			// don't actually thow a fatal error for a misuse
-			std::cerr << "Shader::model() called at runtime with no argument, use it on static time with decltype for the return type" << std::endl;
-
-			return Model((**m_ref).model(0, sizeof(typename ResModel::Vertex), nullptr));
-		}*/
 	};
 };
 
