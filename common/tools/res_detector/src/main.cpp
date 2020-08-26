@@ -268,7 +268,8 @@ class FolderPrinter
 			Ctor(unique_ref | &N | Id("ref"))  | C(Id("m_ref")("ref"_v)) | S
 			{
 				StaticCast(Void, "m_ref"_v)
-			}
+			},
+			Using | "Vertex" = sh>>"Vertex"_t
 		};
 
 		size_t ndx = 0;

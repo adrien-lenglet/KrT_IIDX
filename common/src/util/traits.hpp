@@ -54,4 +54,28 @@ struct elems_to_count_ptr
 	}
 };
 
+template <typename ValueType>
+struct abstract_array
+{
+	abstract_array(size_t size, ValueType *data) :
+		m_size(size),
+		m_data(data)
+	{
+	}
+
+	auto size(void) const
+	{
+		return m_size;
+	}
+
+	auto data(void) const
+	{
+		return m_data;
+	}
+
+private:
+	size_t m_size;
+	ValueType *m_data;
+};
+
 }

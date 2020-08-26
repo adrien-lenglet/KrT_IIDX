@@ -464,38 +464,21 @@ private:
 		Buffer(Device &dev, VkBuffer buffer);
 	};
 
-	class VmaBuffer : public Allocation, public Buffer
+	class VmaBuffer : public sb::Buffer, public Allocation, public Vk::Buffer
 	{
 	public:
 		VmaBuffer(Device &dev, VkBuffer buffer, VmaAllocation allocation);
+		~VmaBuffer(void) override;
+
+		VmaBuffer(VmaBuffer&&) = default;
+
+		void write(size_t off, size_t size, const void *data) override;
 	};
+
+	std::unique_ptr<sb::Buffer> createBuffer(size_t size, sb::Buffer::Location location, sb::Buffer::Usage usage, sb::Queue &queue) override;
 
 	Device m_device;
 	Device createDevice(const sb::Queue::Set &queues);
-
-	//VkQueue m_graphics_queue;
-	//VkQueue m_present_queue;
-	//VkQueue m_transfer_queue;
-
-	/*class Transfer
-	{
-	public:
-		Transfer(Device &dev, VkQueue transferQueue);
-
-		void write(VkBuffer buf, size_t offset, size_t range, const void *data);
-
-	private:
-		Device &m_dev;
-		VkQueue m_transfer_queue;
-		size_t m_staging_buffer_size;
-		VmaBuffer m_staging_buffer;
-
-		VmaBuffer createStagingBuffer(size_t size);
-
-		void write_w_staging(VkBuffer buf, size_t offset, size_t range, const void *data, VmaBuffer &staging);
-	};
-
-	Transfer m_transfer;*/
 
 	class Image : private Allocation, public Device::Handle<VkImage>
 	{
@@ -553,18 +536,20 @@ private:
 	public:
 		DescriptorSet(Device &dev, const DescriptorSetLayout &layout, sb::Queue *queue);	// ptr for queue buffer attribution
 
-		void write(size_t offset, size_t range, const void *data) override;
+		sb::Buffer::Region bufferRegion(void) override;
 
 		operator VkDescriptorSet(void) const;
 
 	private:
 		Device::Handle<VkDescriptorPool> m_descriptor_pool;
 		VkDescriptorSet m_descriptor_set;
+		size_t m_buffer_size;
 		VmaBuffer m_buffer;
 
 		VkDescriptorPool createPool(Device &dev, const DescriptorSetLayout &layout);
 		VkDescriptorSet create(Device &dev, const DescriptorSetLayout &layout);
-		VmaBuffer createBuffer(Device &dev, const DescriptorSetLayout &layout, sb::Queue *queue);
+		size_t getBufferSize(Device &dev, const DescriptorSetLayout &layout);
+		VmaBuffer createBuffer(Device &dev, sb::Queue *queue);
 	};
 
 	class RenderPass;
@@ -765,6 +750,9 @@ private:
 		void beginRenderPass(bool isInline, sb::Framebuffer &fb, const srect2 &renderArea, size_t clearValueCount, ClearValue *clearValues) override;
 		void nextSubpass(bool isInline) override;
 		void endRenderPass(void) override;
+
+		void copy(const sb::Buffer::Region &src, const sb::Buffer::Region &dst) override;
+		void memoryBarrier(PipelineStage srcStageMask, PipelineStage dstStageMask, Access srcAccessMask, Access dstAccessMask, DependencyFlag flags) override;
 
 	private:
 		CommandPool &m_pool;

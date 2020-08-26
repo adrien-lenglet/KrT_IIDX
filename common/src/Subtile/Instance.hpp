@@ -108,25 +108,19 @@ public:
 		return Queue::Handle<Flags>(system().getQueue(Flags, index));
 	}
 
-	template <sb::Queue::Flag Q>
-	auto image2D(Format format, Image::Sample sampleCount, const svec2 &extent, Image::Usage usage, sb::Queue::Handle<Q> &queue)
+	auto image2D(Format format, Image::Sample sampleCount, const svec2 &extent, Image::Usage usage, sb::Queue &queue)
 	{
-		using Getter = typename sb::Queue::Handle<Q>::Getter;
-		return Image2D(system().createImage(Image::Type::Image2D, format, sampleCount, svec3(extent.x, extent.y, 1), 1, usage, Getter().get(queue)));
+		return Image2D(system().createImage(Image::Type::Image2D, format, sampleCount, svec3(extent.x, extent.y, 1), 1, usage, queue));
 	}
 
-	template <sb::Queue::Flag Q>
-	auto image2DArray(Format format, Image::Sample sampleCount, const svec2 &extent, size_t layers, Image::Usage usage, sb::Queue::Handle<Q> &queue)
+	auto image2DArray(Format format, Image::Sample sampleCount, const svec2 &extent, size_t layers, Image::Usage usage, sb::Queue &queue)
 	{
-		using Getter = typename sb::Queue::Handle<Q>::Getter;
-		return Image2DArray(system().createImage(Image::Type::Image2DArray, format, sampleCount, svec3(extent.x, extent.y, 1), layers, usage, Getter().get(queue)));
+		return Image2DArray(system().createImage(Image::Type::Image2DArray, format, sampleCount, svec3(extent.x, extent.y, 1), layers, usage, queue));
 	}
 
-	template <sb::Queue::Flag Q>
-	auto swapchain(const svec2 &extent, Image::Usage usage, sb::Queue::Handle<Q> &queue)
+	auto swapchain(const svec2 &extent, Image::Usage usage, sb::Queue &queue)
 	{
-		using Getter = typename sb::Queue::Handle<Q>::Getter;
-		return Swapchain::Handle(system().createSwapchain(extent, usage, Getter().get(queue)));
+		return Swapchain::Handle(system().createSwapchain(extent, usage, queue));
 	}
 
 	auto semaphore(void)
@@ -137,6 +131,41 @@ public:
 	auto fence(bool isSignaled = false)
 	{
 		return Fence::Handle(system().createFence(isSignaled));
+	}
+
+	template <typename VertexType>
+	auto vertexBuffer(size_t size, sb::Queue &queue)
+	{
+		auto s = size * sizeof(VertexType);
+		return Buffer::Vertex<VertexType>(system().createBuffer(s, Buffer::Location::Device, Buffer::Usage::TransferDst | Buffer::Usage::VertexBuffer, queue), s);
+	}
+
+	auto index16Buffer(size_t size, sb::Queue &queue)
+	{
+		auto s = size * sizeof(uint16_t);
+		return Buffer::Index16(system().createBuffer(s, Buffer::Location::Device, Buffer::Usage::TransferDst | Buffer::Usage::IndexBuffer, queue), s);
+	}
+
+	auto index32Buffer(size_t size, sb::Queue &queue)
+	{
+		auto s = size * sizeof(uint32_t);
+		return Buffer::Index32(system().createBuffer(s, Buffer::Location::Device, Buffer::Usage::TransferDst | Buffer::Usage::IndexBuffer, queue), s);
+	}
+
+	auto buffer(size_t size, Buffer::Usage usage, sb::Queue &queue)
+	{
+		return Buffer::Handle(system().createBuffer(size, Buffer::Location::Device, usage, queue), size);
+	}
+	auto mappableBuffer(size_t size, Buffer::Usage usage, sb::Queue &queue)
+	{
+		return Buffer::Mappable(system().createBuffer(size, Buffer::Location::Host, usage, queue), size);
+	}
+
+
+	void scanInputs(void)
+	{
+		system().scanInputs();
+		m_events.updateEvents();
 	}
 };
 

@@ -27,10 +27,10 @@ public:
 		std::chrono::high_resolution_clock::time_point m_time_before;
 	} update;
 
+	void updateEvents(void);
+
 private:
 	friend SessionBase;
-
-	void updateEvents(void);
 };
 
 }

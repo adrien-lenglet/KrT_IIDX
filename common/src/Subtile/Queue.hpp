@@ -8,7 +8,10 @@
 #include "Framebuffer.hpp"
 #include "Semaphore.hpp"
 #include "Fence.hpp"
+#include "Buffer.hpp"
 #include "PipelineStage.hpp"
+#include "Access.hpp"
+#include "DependencyFlag.hpp"
 
 namespace Subtile {
 
@@ -52,6 +55,10 @@ public:
 	void beginRenderPassCmds(Framebuffer &fb, const srect2 &renderArea, size_t clearValueCount, sb::ClearValue *clearValues, CommandsType &&commands);
 	template <typename CommandsType>
 	void nextSubpassCmds(CommandsType &&commands);
+
+	virtual void copy(const Buffer::Region &src, const Buffer::Region &dst) = 0;
+
+	virtual void memoryBarrier(PipelineStage srcStageMask, PipelineStage dstStageMask, Access srcAccessMask, Access dstAccessMask, DependencyFlag flags) = 0;
 
 	template <typename Type>
 	class CmdGetter
@@ -390,6 +397,7 @@ namespace Subtile {
 class CommandBuffer::Cmds
 {
 	static inline constexpr auto PrimarySecondary = Level::Primary | Level::Secondary;
+	static inline constexpr auto GCT = Queue::Flag::Graphics | Queue::Flag::Compute | Queue::Flag::Transfer;
 
 	template <typename Up>
 	class PrimaryBothGCT;
@@ -399,6 +407,12 @@ class CommandBuffer::Cmds
 
 	template <typename Up>
 	class PrimaryOutsideG;
+
+	template <typename Up>
+	class PrimarySecondaryOutsideGCT;
+
+	template <typename Up>
+	class PrimarySecondaryBothGCT;
 
 public:
 	template <Level L, RenderPassScope S, Queue::Flag Q>
@@ -425,8 +439,6 @@ template <typename Up>
 class CommandBuffer::Cmds::PrimaryBothGCT
 {
 	CommandBuffer& cmd(void) { return CmdGetter<Up>().get(static_cast<Up&>(*this)); }
-
-	static inline constexpr auto GCT = Queue::Flag::Graphics | Queue::Flag::Compute | Queue::Flag::Transfer;
 
 public:
 	PrimaryBothGCT(void) = default;
@@ -490,11 +502,51 @@ public:
 	}
 };
 
+template <typename Up>
+class CommandBuffer::Cmds::PrimarySecondaryOutsideGCT
+{
+	CommandBuffer& cmd(void) { return CmdGetter<Up>().get(static_cast<Up&>(*this)); }
+
+public:
+	PrimarySecondaryOutsideGCT(void) = default;
+
+	struct empty {};
+	template <Level L, RenderPassScope S, Queue::Flag Q>
+	using query = std::conditional_t<!!(L & PrimarySecondary) && !!(S & RenderPassScope::Outside) && !!(Q & GCT), PrimarySecondaryOutsideGCT, empty>;
+
+	void copy(const Buffer::Region &src, const Buffer::Region &dst)
+	{
+		if (src.size != dst.size)
+			throw std::runtime_error("Writing regions don't match");
+		cmd().copy(src, dst);
+	}
+};
+
+template <typename Up>
+class CommandBuffer::Cmds::PrimarySecondaryBothGCT
+{
+	CommandBuffer& cmd(void) { return CmdGetter<Up>().get(static_cast<Up&>(*this)); }
+
+public:
+	PrimarySecondaryBothGCT(void) = default;
+
+	struct empty {};
+	template <Level L, RenderPassScope S, Queue::Flag Q>
+	using query = std::conditional_t<!!(L & PrimarySecondary) && !!(S & RenderPassScope::Both) && !!(Q & GCT), PrimarySecondaryBothGCT, empty>;
+
+	void memoryBarrier(PipelineStage srcStageMask, PipelineStage dstStageMask, Access srcAccessMask, Access dstAccessMask, DependencyFlag flags)
+	{
+		cmd().memoryBarrier(srcStageMask, dstStageMask, srcAccessMask, dstAccessMask, flags);
+	}
+};
+
 template <CommandBuffer::Level L, CommandBuffer::RenderPassScope S, Queue::Flag Q>
 class CommandBuffer::Cmds::For :
 	public PrimaryBothGCT<For<L, S, Q>>::template query<L, S, Q>,
 	public PrimarySecondaryBothGC<For<L, S, Q>>::template query<L, S, Q>,
-	public PrimaryOutsideG<For<L, S, Q>>::template query<L, S, Q>
+	public PrimaryOutsideG<For<L, S, Q>>::template query<L, S, Q>,
+	public PrimarySecondaryOutsideGCT<For<L, S, Q>>::template query<L, S, Q>,
+	public PrimarySecondaryBothGCT<For<L, S, Q>>::template query<L, S, Q>
 {
 public:
 	For(CommandBuffer &cmd) :
@@ -647,6 +699,11 @@ public:
 		CommandBufferHolder(std::move(commandBuffer)),
 		m_cmd(*m_unique_cmd)
 	{
+	}
+
+	operator CommandBuffer&(void)
+	{
+		return m_cmd;
 	}
 
 private:

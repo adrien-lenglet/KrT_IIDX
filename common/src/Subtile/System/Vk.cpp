@@ -17,10 +17,6 @@ Vk::Vk(sb::InstanceBase &instance, const std::string &name, bool isDebug, bool i
 	m_debug_messenger(createDebugMessenger()),
 	m_surface(createSurface()),
 	m_device(createDevice(queues)),
-	//m_graphics_queue(m_device.getQueue(*m_device.physical().queues().indexOf(VK_QUEUE_GRAPHICS_BIT), 0)),
-	//m_present_queue(m_device.getQueue(*m_device.physical().queues().presentation(), 0)),
-	//m_transfer_queue(m_device.getQueue(*m_device.physical().queues().indexOf(VK_QUEUE_TRANSFER_BIT), 0)),
-	//m_transfer(m_device, m_transfer_queue),
 	m_swapchain_format(m_device.physical().surface().chooseFormat())
 {
 }
@@ -774,67 +770,39 @@ void Vk::Device::Handle<VkBuffer>::destroy(Vk::Device &device, VkBuffer buffer)
 
 Vk::VmaBuffer::VmaBuffer(Device &dev, VkBuffer buffer, VmaAllocation allocation) :
 	Allocation(dev.allocator(), allocation),
-	Buffer(dev, buffer)
+	Vk::Buffer(dev, buffer)
 {
 }
 
-/*Vk::Transfer::Transfer(Device &dev, VkQueue transferQueue) :
-	m_dev(dev),
-	m_transfer_queue(transferQueue),
-	m_staging_buffer_size(32000000),
-	m_staging_buffer(createStagingBuffer(m_staging_buffer_size))
+Vk::VmaBuffer::~VmaBuffer(void)
 {
 }
 
-Vk::VmaBuffer Vk::Transfer::createStagingBuffer(size_t size)
+void Vk::VmaBuffer::write(size_t off, size_t size, const void *data)
 {
-	std::vector<uint32_t> queues {*m_dev.physical().queues().indexOf(VK_QUEUE_TRANSFER_BIT)};
+	auto mapped = map();
+	std::memcpy(static_cast<char*>(mapped) + off, data, size);
+	unmap();
+}
+
+std::unique_ptr<sb::Buffer> Vk::createBuffer(size_t size, sb::Buffer::Location location, sb::Buffer::Usage usage, sb::Queue &queue)
+{
+	VkQueueFamilyIndex familyIndex = reinterpret_cast<Queue&>(queue).getFamilyIndex();
 
 	VkBufferCreateInfo bci {};
 	bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bci.size = size;
-	bci.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-	bci.sharingMode = queues.size() > 1 ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
-	bci.queueFamilyIndexCount = queues.size();
-	bci.pQueueFamilyIndices = queues.data();
+	bci.usage = util::enum_underlying(usage);
+	bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	bci.queueFamilyIndexCount = 1;
+	bci.pQueueFamilyIndices = &familyIndex;
 
 	VmaAllocationCreateInfo aci {};
-	aci.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+	aci.usage = location == sb::Buffer::Location::Device ? VMA_MEMORY_USAGE_GPU_ONLY : VMA_MEMORY_USAGE_CPU_TO_GPU;
+	aci.requiredFlags = location == sb::Buffer::Location::Device ? 0 : (VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
-	return m_dev.allocator().createBuffer(bci, aci);
+	return std::make_unique<VmaBuffer>(m_device.allocator().createBuffer(bci, aci));
 }
-
-void Vk::Transfer::write(VkBuffer buf, size_t offset, size_t range, const void *data)
-{
-	if (range == 0)
-		return;
-
-	if (range < m_staging_buffer_size)
-		write_w_staging(buf, offset, range, data, m_staging_buffer);
-	else {
-		auto sbuf = createStagingBuffer(range);
-		write_w_staging(buf, offset, range, data, sbuf);
-	}
-}
-
-void Vk::Transfer::write_w_staging(VkBuffer buf, size_t offset, size_t range, const void *data, VmaBuffer &staging)
-{
-	auto mapped = staging.map();
-	std::memcpy(mapped, data, range);
-	staging.unmap();
-
-	auto cmd = CommandBuffer::Transfer(m_dev);
-
-	VkBufferCopy r {};
-	r.srcOffset = 0;
-	r.dstOffset = offset;
-	r.size = range;
-
-	vkCmdCopyBuffer(cmd, staging, buf, 1, &r);
-
-	cmd.submit();
-	vkQueueWaitIdle(m_transfer_queue);
-}*/
 
 Vk::Image::Image(Device &dev, VkImage image, VmaAllocation allocation) :
 	Allocation(dev.allocator(), allocation),
@@ -1031,7 +999,8 @@ std::unique_ptr<sb::Shader::DescriptorSet::Layout> Vk::createDescriptorSetLayout
 Vk::DescriptorSet::DescriptorSet(Vk::Device &dev, const Vk::DescriptorSetLayout &layout, sb::Queue *queue) :
 	m_descriptor_pool(dev, createPool(dev, layout)),
 	m_descriptor_set(create(dev, layout)),
-	m_buffer(createBuffer(dev, layout, queue))
+	m_buffer_size(getBufferSize(dev, layout)),
+	m_buffer(createBuffer(dev, queue))
 {
 	size_t mapped_count = 0;
 	for (auto &b : layout.getDescription())
@@ -1073,12 +1042,10 @@ Vk::DescriptorSet::DescriptorSet(Vk::Device &dev, const Vk::DescriptorSetLayout 
 		vkUpdateDescriptorSets(dev, writes.size(), writes.data(), 0, nullptr);
 }
 
-void Vk::DescriptorSet::write(size_t offset, size_t range, const void *data)
+
+sb::Buffer::Region Vk::DescriptorSet::bufferRegion(void)
 {
-	static_cast<void>(offset);
-	static_cast<void>(range);
-	static_cast<void>(data);
-	//m_descriptor_pool.getDep().vk().m_transfer.write(m_buffer, offset, range, data);
+	return sb::Buffer::Region(m_buffer, 0, m_buffer_size);
 }
 
 Vk::DescriptorSet::operator VkDescriptorSet(void) const
@@ -1125,7 +1092,7 @@ VkDescriptorSet Vk::DescriptorSet::create(Device &dev, const DescriptorSetLayout
 		return dev.allocateVk(vkAllocateDescriptorSets, ai);
 }
 
-Vk::VmaBuffer Vk::DescriptorSet::createBuffer(Device &dev, const DescriptorSetLayout &layout, sb::Queue *queue)
+size_t Vk::DescriptorSet::getBufferSize(Device &dev, const DescriptorSetLayout &layout)
 {
 	size_t size = 0;
 	for (auto &b : layout.getDescription())
@@ -1133,15 +1100,19 @@ Vk::VmaBuffer Vk::DescriptorSet::createBuffer(Device &dev, const DescriptorSetLa
 			size = util::align_dyn(size, dev.physical().properties().getAlignment(b.descriptorType));
 			size += b.descriptorCount;
 		}
+	return size;
+}
 
-	if (size == 0 || queue == nullptr)
+Vk::VmaBuffer Vk::DescriptorSet::createBuffer(Device &dev, sb::Queue *queue)
+{
+	if (m_buffer_size == 0 || queue == nullptr)
 		return VmaBuffer(dev, VK_NULL_HANDLE, VK_NULL_HANDLE);
 
 	VkQueueFamilyIndex queueIndex = reinterpret_cast<Queue*>(queue)->getFamilyIndex();
 
 	VkBufferCreateInfo bci {};
 	bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bci.size = size;
+	bci.size = m_buffer_size;
 	bci.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	bci.queueFamilyIndexCount = 1;
@@ -1951,6 +1922,25 @@ void Vk::CommandBuffer::nextSubpass(bool isInline)
 void Vk::CommandBuffer::endRenderPass(void)
 {
 	vkCmdEndRenderPass(*this);
+}
+
+void Vk::CommandBuffer::copy(const sb::Buffer::Region &src, const sb::Buffer::Region &dst)
+{
+	VkBufferCopy bc;
+	bc.srcOffset = src.offset;
+	bc.dstOffset = dst.offset;
+	bc.size = src.size;
+
+	vkCmdCopyBuffer(*this, reinterpret_cast<VmaBuffer&>(src.buffer), reinterpret_cast<VmaBuffer&>(dst.buffer), 1, &bc);
+}
+
+void Vk::CommandBuffer::memoryBarrier(PipelineStage srcStageMask, PipelineStage dstStageMask, Access srcAccessMask, Access dstAccessMask, DependencyFlag flags)
+{
+	VkMemoryBarrier barrier {};
+	barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+	barrier.srcAccessMask = util::enum_underlying(srcAccessMask);
+	barrier.dstAccessMask = util::enum_underlying(dstAccessMask);
+	vkCmdPipelineBarrier(*this, util::enum_underlying(srcStageMask), util::enum_underlying(dstStageMask), util::enum_underlying(flags), 1, &barrier, 0, nullptr, 0, nullptr);
 }
 
 Vk::CommandPool::CommandPool(Device &dev, VkQueueFamilyIndex familyIndex, bool isReset) :

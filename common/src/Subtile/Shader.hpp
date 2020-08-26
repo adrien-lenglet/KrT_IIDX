@@ -13,9 +13,11 @@
 #include <glm/detail/type_vec3.hpp>
 #include <glm/detail/type_vec4.hpp>
 #include "util/bin.hpp"
+#include "util/traits.hpp"
 #include "util.hpp"
 
 #include "RenderPass.hpp"
+#include "Buffer.hpp"
 
 namespace Subtile {
 
@@ -702,7 +704,7 @@ public:
 	public:
 		virtual ~DescriptorSet(void);
 
-		virtual void write(size_t offset, size_t range, const void *data) = 0;
+		virtual sb::Buffer::Region bufferRegion(void) = 0;
 		//virtual void bindCombinedImageSampler(RImage &img) = 0;
 
 		class Layout
@@ -782,9 +784,14 @@ public:
 			{
 			}
 
-			void upload(void)
+			auto bufferData(void)
 			{
-				m_set->write(0, sizeof(Mapped), &static_cast<Mapped&>(*this));
+				return util::abstract_array<char>(sizeof(Mapped), reinterpret_cast<char*>(&static_cast<Mapped&>(*this)));
+			}
+
+			auto bufferRegion(void)
+			{
+				return m_set->bufferRegion();
 			}
 		};
 	};

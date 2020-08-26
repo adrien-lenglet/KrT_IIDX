@@ -144,10 +144,10 @@ public:
 		} quit;
 	} system;
 
+	void updateEvents(void);
+
 private:
 	friend SessionBase;
-
-	void updateEvents(void);
 };
 
 }

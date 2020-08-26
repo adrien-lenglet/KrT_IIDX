@@ -9,8 +9,8 @@ EntityTest::EntityTest(void) :
 	entity2(add<EntityTest2>()),
 	m_shader(load(res.shaders().diffuse())),
 	m_material(m_shader.material(world.instance.graphics)),
-	m_object(m_shader.object(world.instance.graphics))
-	/*m_model(createModel())*/
+	m_object(m_shader.object(world.instance.graphics)),
+	m_model(createModel())
 {
 	bind(world.events.system.input.button.pressed("quit"), [this](){
 		//std::cout << "quit pressed" << std::endl;
@@ -22,46 +22,49 @@ EntityTest::EntityTest(void) :
 		trigger(got_score, 7.92);
 	});
 
-	/*bind(world.render, m_shader.render(m_model, world.render.camera, m_material, m_object));
+	/*bind(world.render, m_shader.render(m_model, world.render.camera, m_material, m_object));*/
 
 	bind(world.events.update, [this](auto &time){
 		m_material.counter++;
 		if (m_material.counter > 256) {
 			m_material.counter = 0;
 		}
-		m_material.upload();
+		world.instance.uploadDescSet(m_material);
 
 		m_angle += time;
 		auto mat = glm::rotate((float)m_angle, glm::normalize(glm::vec3(1.0, 1.0, 1.0)));
 		m_object.model_world = mat;
-		m_object.upload();
-	});*/
+		world.instance.uploadDescSet(m_object);
+	});
 }
 
 EntityTest::~EntityTest(void)
 {
 }
 
-/*decltype(EntityTest::m_model) EntityTest::createModel(void)
+decltype(EntityTest::m_model) EntityTest::createModel(void)
 {
-	std::vector<decltype(m_model)::Triangle> triangles;
-	auto gen_vtx = [this](){
-		decltype(m_shader)::Model::Vertex res;
-		for (size_t i = 0; i < 3; i++)
-			res.pos[i] = world.srandf() * 5.0;
-		for (size_t i = 0; i < 3; i++)
-			res.normal[i] = world.srandf();
-		res.normal = sb::math::normalize(res.normal);
-		for (size_t i = 0; i < 2; i++)
-			res.uv[i] = world.urandf();
-		return res;
-	};
+	std::vector<decltype(m_model)::value_type> values;
 
 	for (size_t i = 0; i < 1000; i++) {
-		decltype(m_model)::Triangle tri {gen_vtx(), gen_vtx(), gen_vtx()};
-		triangles.emplace_back(tri);
+		decltype(m_model)::value_type tri[3];
+		for (size_t i = 0; i < 3; i++)
+			for (size_t j = 0; j < 3; j++)
+				tri[i].pos[j] = world.srandf() * 5.0;
+		for (size_t i = 0; i < 3; i++) {
+			for (size_t j = 0; j < 3; j++)
+				tri[i].normal[j] = world.srandf();
+			tri[i].normal = sb::math::normalize(tri[i].normal);
+		}
+		for (size_t i = 0; i < 3; i++)
+			for (size_t j = 0; j < 2; j++)
+				tri[i].uv[j] = world.urandf();
+		for (size_t i = 0; i < 3; i++)
+			values.emplace_back(tri[i]);
 	}
-	return m_shader.model(std::move(triangles));
-}*/
+	auto res = world.instance.vertexBuffer<decltype(m_model)::value_type>(values.size(), world.instance.graphics);
+	world.instance.copyBuffer(values, res);
+	return res;
+}
 
 }
