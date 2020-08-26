@@ -835,6 +835,11 @@ public:
 			Res::template Runtime<Loaded<ResType>>(m_ref)
 		{
 		}
+
+		operator Shader&(void)
+		{
+			return **m_ref;
+		}
 	};
 };
 

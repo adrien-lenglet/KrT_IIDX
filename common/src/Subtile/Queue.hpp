@@ -414,6 +414,9 @@ class CommandBuffer::Cmds
 	template <typename Up>
 	class PrimarySecondaryBothGCT;
 
+	template <typename Up>
+	class PrimarySecondaryInsideG;
+
 public:
 	template <Level L, RenderPassScope S, Queue::Flag Q>
 	class For;
@@ -540,13 +543,34 @@ public:
 	}
 };
 
+template <typename Up>
+class CommandBuffer::Cmds::PrimarySecondaryInsideG
+{
+	CommandBuffer& cmd(void) { return CmdGetter<Up>().get(static_cast<Up&>(*this)); }
+
+public:
+	PrimarySecondaryInsideG(void) = default;
+
+	struct empty {};
+	template <Level L, RenderPassScope S, Queue::Flag Q>
+	using query = std::conditional_t<!!(L & PrimarySecondary) && !!(S & RenderPassScope::Inside) && !!(Q & Queue::Flag::Graphics), PrimarySecondaryInsideG, empty>;
+
+	template <typename ModelType>
+	void draw(ModelType &&model)
+	{
+		sb::Model &m = model;
+		m.draw(cmd());
+	}
+};
+
 template <CommandBuffer::Level L, CommandBuffer::RenderPassScope S, Queue::Flag Q>
 class CommandBuffer::Cmds::For :
 	public PrimaryBothGCT<For<L, S, Q>>::template query<L, S, Q>,
 	public PrimarySecondaryBothGC<For<L, S, Q>>::template query<L, S, Q>,
 	public PrimaryOutsideG<For<L, S, Q>>::template query<L, S, Q>,
 	public PrimarySecondaryOutsideGCT<For<L, S, Q>>::template query<L, S, Q>,
-	public PrimarySecondaryBothGCT<For<L, S, Q>>::template query<L, S, Q>
+	public PrimarySecondaryBothGCT<For<L, S, Q>>::template query<L, S, Q>,
+	public PrimarySecondaryInsideG<For<L, S, Q>>::template query<L, S, Q>
 {
 public:
 	For(CommandBuffer &cmd) :

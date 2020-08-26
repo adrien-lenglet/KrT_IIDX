@@ -17,7 +17,7 @@ Race::Race(Instance &instance) :
 	m_cmd_pool(instance.graphics.pool<true>()),
 	m_cmd_prim(m_cmd_pool.primary()),
 
-	m_track((instance.transfer_unsafe.begin(sb::CommandBuffer::Usage::OneTimeSubmit), instance.create<Track>()))
+	m_track(instance.create<Track>())
 {
 	bind(m_track->done, [this](){
 		m_is_done = true;
@@ -39,12 +39,14 @@ void Race::run(void)
 			cmd.memoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::AllGraphics, sb::Access::TransferWrite, sb::Access::MemoryRead, sb::DependencyFlag::None);
 
 			cmd.render(m_framebuffers.at(img), {{0, 0}, {1600, 900}},
-				sb::Color::f32(0.5f), sb::Color::f32(0.0f), 1.0f,
+				sb::Color::f32(0.5f), 1.0f,
 
 				[&](auto &cmd){
 					m_track->render.render(cmd);
 				},
-				[](auto&){
+				[&](auto &cmd){
+					cmd.bind(m_lighting_shader);
+					cmd.draw(instance.screen_quad);
 				}
 			);
 		});

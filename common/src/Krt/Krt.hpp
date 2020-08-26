@@ -4,6 +4,7 @@
 #include <string>
 
 #include "Subtile/Instance.hpp"
+#include "res.resdecl.hpp"
 
 namespace Krt {
 
@@ -64,6 +65,13 @@ public:
 		transfer.copy(m_staging_buffer.region(m_staging_off, src_size), set.bufferRegion());
 		m_staging_off += src_size;
 	}
+
+private:
+	sb::Buffer::Vertex<decltype(res.shaders().vertex().p2().loaded())::Vertex> m_screen_quad_buffer;
+	decltype(m_screen_quad_buffer) createScreenQuadBuffer(void);
+
+public:
+	sb::Model::Typed<decltype(res.shaders().vertex().p2().loaded())::Vertex> screen_quad;
 };
 
 }
