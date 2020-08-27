@@ -29,7 +29,7 @@ resources_detect: $(RES_DETECTOR) .FORCE
 
 USER_RESOURCES_SRC = $(SRC_FOLDER)/Krt/res.resdecl.cpp
 USER_RESOURCES_HEADER = $(USER_RESOURCES_SRC:.cpp=.hpp)
-RESOURCES_SRC = $(USER_RESOURCES_SRC) $(wildcard $(SRC_FOLDER)/Subtile/Resource/*.cpp) $(wildcard $(SRC_FOLDER)/Subtile/Shader.cpp)
+RESOURCES_SRC = $(USER_RESOURCES_SRC) $(wildcard $(SRC_FOLDER)/Subtile/Resource/*.cpp) $(wildcard $(SRC_FOLDER)/Subtile/Shader.cpp) $(wildcard $(SRC_FOLDER)/Subtile/RenderPass.cpp)
 RESOURCES_OBJ = $(RESOURCES_SRC:.cpp=.res_detector.o)
 
 RESOURCE_DUMMY_MAIN = .sb_dummy_main.cpp

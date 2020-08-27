@@ -34,7 +34,7 @@ public:
 			m_instance.graphics.waitIdle();
 		}
 
-		void render(sb::CommandBuffer::Record::RenderPass::Primary&);
+		void render(sb::CommandBuffer::Record::RenderPass &cmd);
 
 		decltype(m_camera_shader.camera(instance.graphics)) camera;
 	};

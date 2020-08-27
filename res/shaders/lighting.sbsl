@@ -14,6 +14,6 @@ fragment {
 
 	void main(void)
 	{
-		(out)wsi_screen = subpassLoad((in)color).xyz;
+		(out)wsi_screen = subpassLoad((in)color).xyz + vec3(abs(subpassLoad((in)depth_buffer).x - 0.5) / 2.0);
 	}
 }

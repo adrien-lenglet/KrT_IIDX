@@ -6,6 +6,7 @@
 #include "util/traits.hpp"
 #include "Shader.hpp"
 #include "Framebuffer.hpp"
+#include "Swapchain.hpp"
 #include "Semaphore.hpp"
 #include "Fence.hpp"
 #include "Buffer.hpp"
@@ -19,6 +20,7 @@ class CommandBuffer
 {
 public:
 	enum class Level {
+		Neither = 0,
 		Primary = 0x00000001,
 		Secondary = 0x00000002
 	};
@@ -396,7 +398,6 @@ namespace Subtile {
 
 class CommandBuffer::Cmds
 {
-	static inline constexpr auto PrimarySecondary = Level::Primary | Level::Secondary;
 	static inline constexpr auto GCT = Queue::Flag::Graphics | Queue::Flag::Compute | Queue::Flag::Transfer;
 
 	template <typename Up>
@@ -425,12 +426,9 @@ public:
 class CommandBuffer::Record
 {
 public:
-	class RenderPass
-	{
-	public:
-		using Primary = Cmds::For<Level::Primary, RenderPassScope::Inside, Queue::Flag::Graphics>;
-		using Secondary = Cmds::For<Level::Secondary, RenderPassScope::Inside, Queue::Flag::Graphics>;
-	};
+	using RenderPass = CommandBuffer::Cmds::For<Level::Neither, RenderPassScope::Inside, Queue::Flag::Graphics>;
+	using RenderPassPrimary = Cmds::For<Level::Primary, RenderPassScope::Inside, Queue::Flag::Graphics>;
+	using RenderPassSecondary = Cmds::For<Level::Secondary, RenderPassScope::Inside, Queue::Flag::Graphics>;
 
 	template <Queue::Flag Flags>
 	using Primary = Cmds::For<Level::Primary, RenderPassScope::Outside, Flags>;
@@ -470,7 +468,7 @@ public:
 
 	struct empty {};
 	template <Level L, RenderPassScope S, Queue::Flag Q>
-	using query = std::conditional_t<!!(L & PrimarySecondary) && !!(S & RenderPassScope::Both) && !!(Q & GC), PrimarySecondaryBothGC, empty>;
+	using query = std::conditional_t<!!(S & RenderPassScope::Both) && !!(Q & GC), PrimarySecondaryBothGC, empty>;
 
 	void bind(Shader &shader)
 	{
@@ -515,7 +513,7 @@ public:
 
 	struct empty {};
 	template <Level L, RenderPassScope S, Queue::Flag Q>
-	using query = std::conditional_t<!!(L & PrimarySecondary) && !!(S & RenderPassScope::Outside) && !!(Q & GCT), PrimarySecondaryOutsideGCT, empty>;
+	using query = std::conditional_t<!!(S & RenderPassScope::Outside) && !!(Q & GCT), PrimarySecondaryOutsideGCT, empty>;
 
 	void copy(const Buffer::Region &src, const Buffer::Region &dst)
 	{
@@ -535,7 +533,7 @@ public:
 
 	struct empty {};
 	template <Level L, RenderPassScope S, Queue::Flag Q>
-	using query = std::conditional_t<!!(L & PrimarySecondary) && !!(S & RenderPassScope::Both) && !!(Q & GCT), PrimarySecondaryBothGCT, empty>;
+	using query = std::conditional_t<!!(S & RenderPassScope::Both) && !!(Q & GCT), PrimarySecondaryBothGCT, empty>;
 
 	void memoryBarrier(PipelineStage srcStageMask, PipelineStage dstStageMask, Access srcAccessMask, Access dstAccessMask, DependencyFlag flags)
 	{
@@ -553,7 +551,7 @@ public:
 
 	struct empty {};
 	template <Level L, RenderPassScope S, Queue::Flag Q>
-	using query = std::conditional_t<!!(L & PrimarySecondary) && !!(S & RenderPassScope::Inside) && !!(Q & Queue::Flag::Graphics), PrimarySecondaryInsideG, empty>;
+	using query = std::conditional_t<!!(S & RenderPassScope::Inside) && !!(Q & Queue::Flag::Graphics), PrimarySecondaryInsideG, empty>;
 
 	template <typename ModelType>
 	void draw(ModelType &&model)
@@ -576,6 +574,12 @@ public:
 	For(CommandBuffer &cmd) :
 		m_cmd(cmd)
 	{
+	}
+
+	template <CommandBuffer::Level cL, CommandBuffer::RenderPassScope cS, Queue::Flag cQ, class = std::enable_if_t<(cL & L) == cL && (cS & S) == cS && (cQ & Q) == cQ>>
+	operator For<cL, cS, cQ>&(void)
+	{
+		return reinterpret_cast<For<cL, cS, cQ>&>(*this);
 	}
 
 private:
@@ -640,7 +644,7 @@ struct Queue::CmdBufHandleTraits
 		Secondary(void) = default;
 
 		using Record = CommandBuffer::Record::Secondary<Flags>;
-		using RecordRender = CommandBuffer::Record::RenderPass::Secondary;
+		using RecordRender = CommandBuffer::Record::RenderPassSecondary;
 
 		template <typename Callable>
 		void record(Callable &&callable)
@@ -756,9 +760,9 @@ void CommandBuffer::beginRenderPassCmds(Framebuffer &fb, const srect2 &renderAre
 {
 	using Commands_t = util::remove_cvr_t<CommandsType>;
 
-	if constexpr (std::is_invocable_v<Commands_t, CommandBuffer::Record::RenderPass::Primary&>) {
+	if constexpr (std::is_invocable_v<Commands_t, CommandBuffer::Record::RenderPassPrimary&>) {
 		beginRenderPass(true, fb, renderArea, clearValueCount, clearValues);
-		CommandBuffer::Record::RenderPass::Primary cmd(*this);
+		CommandBuffer::Record::RenderPassPrimary cmd(*this);
 		commands(cmd);
 	} else {
 		beginRenderPass(false, fb, renderArea, clearValueCount, clearValues);
@@ -777,9 +781,9 @@ void CommandBuffer::nextSubpassCmds(CommandsType &&commands)
 {
 	using Commands_t = util::remove_cvr_t<CommandsType>;
 
-	if constexpr (std::is_invocable_v<Commands_t, CommandBuffer::Record::RenderPass::Primary&>) {
+	if constexpr (std::is_invocable_v<Commands_t, CommandBuffer::Record::RenderPassPrimary&>) {
 		nextSubpass(true);
-		CommandBuffer::Record::RenderPass::Primary cmd(*this);
+		CommandBuffer::Record::RenderPassPrimary cmd(*this);
 		commands(cmd);
 	} else {
 		nextSubpass(false);

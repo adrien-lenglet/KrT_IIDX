@@ -2,6 +2,7 @@
 
 #include "Shader.hpp"
 #include "Binding.hpp"
+#include "Queue.hpp"
 
 namespace Subtile {
 
@@ -26,7 +27,7 @@ class Pass
 		void bind(Binding::Dependency::Socket &socket, Model &model);
 
 	protected:
-		void render_models(CommandBuffer &cmd);
+		void render_models(sb::CommandBuffer::Record::RenderPass &cmd);
 
 		virtual void destroy(void) = 0;
 
@@ -42,7 +43,7 @@ class Pass
 	public:
 		ShaderPass(Pass &parent, Shader &shader);
 
-		void render(CommandBuffer &cmd);
+		void render(sb::CommandBuffer::Record::RenderPass &cmd);
 
 	protected:
 		void destroy(void) override;
@@ -56,7 +57,7 @@ public:
 	Pass(void);
 	~Pass(void);
 
-	void render(CommandBuffer &cmd);
+	void render(sb::CommandBuffer::Record::RenderPass &cmd);
 
 protected:
 	void remove_shaderpass(Shader &shader);
@@ -80,7 +81,7 @@ class Pass::SubShader : public Pass::ShaderBase
 public:
 	SubShader(ShaderBase &parent, Shader::DescriptorSet &set);
 
-	void render(CommandBuffer &cmd, Shader &shader, Shader::DescriptorSet &set, size_t depth);
+	void render(sb::CommandBuffer::Record::RenderPass &cmd, Shader &shader, Shader::DescriptorSet &set, size_t depth);
 
 protected:
 	void destroy(void) override;
