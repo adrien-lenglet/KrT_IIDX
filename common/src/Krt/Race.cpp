@@ -5,11 +5,12 @@ namespace Krt {
 
 Race::Race(Instance &instance) :
 	instance(instance),
-	m_render_pass(instance.load(res.shaders().render_passes().deffered())),
+	m_color_pass(instance.load(res.shaders().render_passes().color())),
+	m_post_pass(instance.load(res.shaders().render_passes().post())),
 	m_fb_color(instance.image2D(sb::Format::rgba32_sfloat, sb::Image::Sample::Count1, {1600, 900}, sb::Image::Usage::InputAttachment | sb::Image::Usage::ColorAttachment, instance.graphics)),
-	m_fb_normal(instance.image2D(sb::Format::rgba8_unorm, sb::Image::Sample::Count1, {1600, 900}, sb::Image::Usage::InputAttachment | sb::Image::Usage::ColorAttachment, instance.graphics)),
 	m_fb_depth_buffer(instance.image2D(sb::Format::d24un_or_32sf_spl_att_sfb, sb::Image::Sample::Count1, {1600, 900}, sb::Image::Usage::InputAttachment | sb::Image::Usage::DepthStencilAttachment, instance.graphics)),
-	m_framebuffers(createFramebuffers()),
+	m_color_fb(m_color_pass.framebuffer({1600, 900}, 1, m_fb_color, m_fb_depth_buffer)),
+	m_post_fbs(createPostFramebuffers()),
 	m_swapchain_img_avail(instance.semaphore()),
 	m_render_done(instance.semaphore()),
 	m_render_done_fence(instance.fence(false)),
@@ -38,12 +39,17 @@ void Race::run(void)
 		m_cmd_prim.record([&](auto &cmd){
 			cmd.memoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::AllGraphics, sb::Access::TransferWrite, sb::Access::MemoryRead, sb::DependencyFlag::None);
 
-			cmd.render(m_framebuffers.at(img), {{0, 0}, {1600, 900}},
+			cmd.render(m_color_fb, {{0, 0}, {1600, 900}},
 				sb::Color::f32(0.5f), 1.0f,
 
 				[&](auto &cmd){
 					m_track->render.render(cmd);
-				},
+				}
+			);
+
+			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput | sb::PipelineStage::LateFragmentTests, sb::PipelineStage::FragmentShader, sb::Access::ColorAttachmentWrite | sb::Access::DepthStencilAttachmentWrite, sb::Access::InputAttachmentRead | sb::Access::ShaderRead, sb::DependencyFlag::ByRegion);
+
+			cmd.render(m_post_fbs.at(img), {{0, 0}, {1600, 900}},
 				[&](auto &cmd){
 					cmd.bind(m_lighting_shader);
 					cmd.draw(instance.screen_quad);

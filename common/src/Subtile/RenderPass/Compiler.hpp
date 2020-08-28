@@ -108,7 +108,7 @@ public:
 			while (continue_list(s, force_next)) {
 				auto &attr = s.poll();
 
-				if (s.peek() == ",") {
+				if (s.peek() == "," || s.peek() == "}") {
 					if (attr == "load")
 						m_load_op = Image::LoadOp::Load;
 					else if (attr == "store")

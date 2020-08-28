@@ -69,8 +69,8 @@ private:
 	ShaderPass& resolve(Shader &shader);
 
 	friend Event::Socket;
-	template <size_t SetCount>
-	void bind(Binding::Dependency::Socket &socket, const Shader::Render<SetCount> &render)
+	template <typename RenderShaderType, size_t SetCount>
+	void bind(Binding::Dependency::Socket &socket, const Shader::Render<RenderShaderType, SetCount> &render)
 	{
 		resolve(render.shader).resolve(render.sets.data(), render.sets.size()).bind(socket, render.model);
 	}
@@ -92,6 +92,10 @@ private:
 };
 
 }
+
+/*template <typename SubpassType>
+class Render*/
+
 }
 
 #include "Event/Socket.hpp"

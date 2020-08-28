@@ -799,7 +799,7 @@ public:
 	virtual const DescriptorSet::Layout& setLayout(size_t ndx) = 0;
 	virtual std::unique_ptr<DescriptorSet> set(size_t ndx, sb::Queue &queue) = 0;
 
-	template <size_t SetCount>
+	template <typename ShaderType, size_t SetCount>
 	class Render
 	{
 		using SetsType = std::array<util::ref_wrapper<DescriptorSet::BaseHandle>, SetCount>;

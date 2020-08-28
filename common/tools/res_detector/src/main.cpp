@@ -341,7 +341,7 @@ class FolderPrinter
 		desc_layout += Return | desc_layout_res;
 
 		if (!compiled.isModule()) {
-			auto render_type = "sb::Shader::Render"_t.T(Type(Value(sets.size()).getValue()));
+			auto render_type = "sb::Shader::Render"_t.T(sh, Type(Value(sets.size()).getValue()));
 			auto &render = runtime += render_type | Id("render")("sb::Model::Typed"_t.T(sh>>"Vertex"_t) | &N | Id("model")) | S {};
 			auto render_list = B {};
 			for (auto &set : sets) {
@@ -359,9 +359,10 @@ class FolderPrinter
 		auto render_pass = compiled.getRenderPass();
 		auto get_render_pass_fwd = sh += render_pass_t | Id("getRenderPass")(Void) | Const | Override;
 		auto &get_render_pass = m_impl_out += render_pass_t | get_render_pass_fwd(Void) | Const | S {};
-		if (render_pass)
+		if (render_pass) {
+			//sh += Using | "RenderPass" = render_pass->getCompiled().getModuleEntry().getResValue;
 			get_render_pass += Return | render_pass_t(Vd(render_pass->getCompiled().getModuleEntry().getResValue()), render_pass->getSubpass().getNdx());
-		else
+		} else
 			get_render_pass += "throw"_v;
 
 		auto is_module_fwd = sh += Bool | Id("isModule")(Void) | Const | Override;

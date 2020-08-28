@@ -1,5 +1,5 @@
 
-render_pass render_passes::deffered : lighting;
+render_pass render_passes::post : lighting;
 
 require vertex::p2;
 vertex {
@@ -14,6 +14,6 @@ fragment {
 
 	void main(void)
 	{
-		(out)wsi_screen = subpassLoad((in)color).xyz + vec3(abs(subpassLoad((in)depth_buffer).x - 0.5) / 2.0);
+		(out)wsi_screen = subpassLoad((in)color).xyz;// + vec3(abs(subpassLoad((in)depth_buffer).x - 0.5) / 2.0);
 	}
 }
