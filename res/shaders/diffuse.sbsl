@@ -7,16 +7,16 @@ vertex {
 
 fragment {
 	set material {
-		storage vec3 color;
-		storage vec3 normal;
-		storage uint counter;
+		vec3 color;
+		vec3 normal;
+		uint counter;
 	};
 }
 
 vertex {
 	set object {
-		storage float time;
-		storage mat4 model_world;
+		float time;
+		mat4 model_world;
 	};
 
 	out vec3 pos;

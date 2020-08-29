@@ -948,6 +948,7 @@ Vk::DescriptorSetLayout::DescriptorSetLayout(Vk::Device &dev, const sb::Shader::
 {
 	for (auto &b : getDescription())
 		if (b.isMapped()) {
+			m_buffer_size = util::align_dyn(m_buffer_size, dev.physical().properties().getAlignment(b.descriptorType));
 			if (b.descriptorType == sb::Shader::DescriptorType::UniformBuffer) {
 				m_uniform_off = m_buffer_size;
 				m_uniform_size = b.descriptorCount;
@@ -956,7 +957,6 @@ Vk::DescriptorSetLayout::DescriptorSetLayout(Vk::Device &dev, const sb::Shader::
 				m_storage_size = b.descriptorCount;
 			} else
 				throw std::runtime_error("Unkown mapped buffer type");
-			m_buffer_size = util::align_dyn(m_buffer_size, dev.physical().properties().getAlignment(b.descriptorType));
 			m_buffer_size += b.descriptorCount;
 		}
 }
@@ -1122,7 +1122,11 @@ Vk::VmaBuffer Vk::DescriptorSet::createBuffer(Device &dev, sb::Queue *queue)
 	VkBufferCreateInfo bci {};
 	bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bci.size = m_layout.getBufferSize();
-	bci.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	bci.usage = 0;
+	if (m_layout.getUniformSize() > 0)
+		bci.usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	if (m_layout.getStorageSize() > 0)
+		bci.usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	bci.queueFamilyIndexCount = 1;
 	bci.pQueueFamilyIndices = &queueIndex;

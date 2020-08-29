@@ -1,5 +1,5 @@
 set camera {
-	storage mat4 vp;
+	mat4 vp;
 	//push_constant mat4 vp;
 };
 
