@@ -965,11 +965,6 @@ Vk::DescriptorSetLayout::~DescriptorSetLayout(void)
 {
 }
 
-const sb::Shader::DescriptorSet::Layout::Description& Vk::DescriptorSetLayout::getDescription(void) const
-{
-	return m_desc;
-}
-
 VkDescriptorSetLayout Vk::DescriptorSetLayout::create(Device &device, const sb::Shader::DescriptorSet::Layout::Description &desc)
 {
 	std::vector<VkDescriptorSetLayoutBinding> bindings;
@@ -1066,6 +1061,60 @@ sb::Buffer::Region Vk::DescriptorSet::uniformBufferRegion(void)
 sb::Buffer::Region Vk::DescriptorSet::storageBufferRegion(void)
 {
 	return sb::Buffer::Region(m_buffer, m_layout.getStorageOff(), m_layout.getStorageSize());
+}
+
+void Vk::DescriptorSet::bindSampler(size_t binding, sb::Sampler &sampler)
+{
+	VkDescriptorImageInfo ii {};
+	ii.sampler = reinterpret_cast<Sampler&>(sampler);
+
+	VkWriteDescriptorSet w {};
+	w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	w.dstSet = m_descriptor_set;
+	w.dstBinding = binding;
+	w.dstArrayElement = 0;
+	w.descriptorCount = 1;
+	w.descriptorType = static_cast<VkDescriptorType>(util::enum_underlying(m_layout.getDescription().at(binding).descriptorType));
+	w.pImageInfo = &ii;
+
+	vkUpdateDescriptorSets(m_descriptor_pool.getDep(), 1, &w, 0, nullptr);
+}
+
+void Vk::DescriptorSet::bindImage(size_t binding, sb::Image &image, sb::Image::Layout layout)
+{
+	VkDescriptorImageInfo ii {};
+	ii.imageView = reinterpret_cast<ImageView&>(image);
+	ii.imageLayout = static_cast<VkImageLayout>(util::enum_underlying(layout));
+
+	VkWriteDescriptorSet w {};
+	w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	w.dstSet = m_descriptor_set;
+	w.dstBinding = binding;
+	w.dstArrayElement = 0;
+	w.descriptorCount = 1;
+	w.descriptorType = static_cast<VkDescriptorType>(util::enum_underlying(m_layout.getDescription().at(binding).descriptorType));
+	w.pImageInfo = &ii;
+
+	vkUpdateDescriptorSets(m_descriptor_pool.getDep(), 1, &w, 0, nullptr);
+}
+
+void Vk::DescriptorSet::bindCombinedImageSampler(size_t binding, sb::Sampler &sampler, sb::Image &image, sb::Image::Layout layout)
+{
+	VkDescriptorImageInfo ii {};
+	ii.sampler = reinterpret_cast<Sampler&>(sampler);
+	ii.imageView = reinterpret_cast<ImageView&>(image);
+	ii.imageLayout = static_cast<VkImageLayout>(util::enum_underlying(layout));
+
+	VkWriteDescriptorSet w {};
+	w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	w.dstSet = m_descriptor_set;
+	w.dstBinding = binding;
+	w.dstArrayElement = 0;
+	w.descriptorCount = 1;
+	w.descriptorType = static_cast<VkDescriptorType>(util::enum_underlying(m_layout.getDescription().at(binding).descriptorType));
+	w.pImageInfo = &ii;
+
+	vkUpdateDescriptorSets(m_descriptor_pool.getDep(), 1, &w, 0, nullptr);
 }
 
 Vk::DescriptorSet::operator VkDescriptorSet(void) const
@@ -2142,6 +2191,42 @@ void Vk::ModelIndexed::draw(sb::CommandBuffer &cmd)
 std::unique_ptr<sb::Model> Vk::createModelIndexed(sb::Buffer &vertexBuffer, sb::Buffer &indexBuffer, sb::Model::IndexType indexType, size_t indexCount)
 {
 	return std::make_unique<ModelIndexed>(reinterpret_cast<VmaBuffer&>(vertexBuffer), reinterpret_cast<VmaBuffer&>(indexBuffer), indexType == sb::Model::IndexType::Uint16 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32, indexCount);
+}
+
+Vk::Sampler::Sampler(Device &dev, VkSampler sampler) :
+	Device::Handle<VkSampler>(dev, sampler)
+{
+}
+
+Vk::Sampler::~Sampler(void)
+{
+}
+
+template <>
+void Vk::Device::Handle<VkSampler>::destroy(Vk::Device &device, VkSampler sampler)
+{
+	device.destroy(vkDestroySampler, sampler);
+}
+
+std::unique_ptr<sb::Sampler> Vk::createSampler(Filter magFilter, Filter minFilter, sb::Sampler::MipmapMode mipmapMode, sb::Sampler::AddressMode addressMode)
+{
+	VkSamplerCreateInfo ci {};
+	ci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	ci.magFilter = static_cast<VkFilter>(util::enum_underlying(magFilter));
+	ci.minFilter = static_cast<VkFilter>(util::enum_underlying(minFilter));
+	ci.mipmapMode = static_cast<VkSamplerMipmapMode>(util::enum_underlying(mipmapMode));
+	ci.addressModeU = static_cast<VkSamplerAddressMode>(util::enum_underlying(addressMode));
+	ci.addressModeV = static_cast<VkSamplerAddressMode>(util::enum_underlying(addressMode));
+	ci.addressModeW = static_cast<VkSamplerAddressMode>(util::enum_underlying(addressMode));
+	ci.mipLodBias = 0.0f;
+	ci.anisotropyEnable = VK_FALSE;
+	ci.compareEnable = VK_FALSE;
+	ci.minLod = 0.0f;
+	ci.maxLod = 64.0f;
+	ci.borderColor = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
+	ci.unnormalizedCoordinates = VK_FALSE;
+
+	return std::make_unique<Sampler>(m_device, m_device.createVk(vkCreateSampler, ci));
 }
 
 }

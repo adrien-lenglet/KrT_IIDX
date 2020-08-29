@@ -520,7 +520,7 @@ private:
 		~DescriptorSetLayout(void) override;
 		DescriptorSetLayout(DescriptorSetLayout&&) = default;
 
-		const sb::Shader::DescriptorSet::Layout::Description& getDescription(void) const;
+		const sb::Shader::DescriptorSet::Layout::Description& getDescription(void) const { return m_desc; }
 		auto getBufferSize(void) const { return m_buffer_size; }
 		auto getUniformOff(void) const { return m_uniform_off; }
 		auto getUniformSize(void) const { return m_uniform_size; }
@@ -548,6 +548,9 @@ private:
 
 		sb::Buffer::Region uniformBufferRegion(void) override;
 		sb::Buffer::Region storageBufferRegion(void) override;
+		void bindSampler(size_t binding, sb::Sampler &sampler) override;
+		void bindImage(size_t binding, sb::Image &image, sb::Image::Layout layout) override;
+		void bindCombinedImageSampler(size_t binding, sb::Sampler &sampler, sb::Image &image, sb::Image::Layout layout) override;
 
 		operator VkDescriptorSet(void) const;
 
@@ -844,6 +847,15 @@ private:
 	};
 
 	std::unique_ptr<sb::Model> createModelIndexed(sb::Buffer &vertexBuffer, sb::Buffer &indexBuffer, sb::Model::IndexType indexType, size_t indexCount) override;
+
+	class Sampler : public sb::Sampler, public Device::Handle<VkSampler>
+	{
+	public:
+		Sampler(Device &dev, VkSampler sampler);
+		~Sampler(void) override;
+	};
+
+	std::unique_ptr<sb::Sampler> createSampler(Filter magminFilter, Filter minminFilter, sb::Sampler::MipmapMode mipmapMode, sb::Sampler::AddressMode addressMode) override;
 };
 
 }

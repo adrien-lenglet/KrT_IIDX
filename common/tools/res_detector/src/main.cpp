@@ -160,9 +160,17 @@ class FolderPrinter
 	Value getDescriptorType(sb::Shader::DescriptorType type)
 	{
 		static const std::map<sb::Shader::DescriptorType, Value> table {
+			{sb::Shader::DescriptorType::Sampler, "sb::Shader::DescriptorType::Sampler"_v},
+			{sb::Shader::DescriptorType::CombinedImageSampler, "sb::Shader::DescriptorType::CombinedImageSampler"_v},
+			{sb::Shader::DescriptorType::SampledImage, "sb::Shader::DescriptorType::SampledImage"_v},
+			{sb::Shader::DescriptorType::StorageImage, "sb::Shader::DescriptorType::StorageImage"_v},
+			{sb::Shader::DescriptorType::UniformTexelBuffer, "sb::Shader::DescriptorType::UniformTexelBuffer"_v},
+			{sb::Shader::DescriptorType::StorageTexelBuffer, "sb::Shader::DescriptorType::StorageTexelBuffer"_v},
 			{sb::Shader::DescriptorType::UniformBuffer, "sb::Shader::DescriptorType::UniformBuffer"_v},
 			{sb::Shader::DescriptorType::StorageBuffer, "sb::Shader::DescriptorType::StorageBuffer"_v},
-			{sb::Shader::DescriptorType::CombinedImageSampler, "sb::Shader::DescriptorType::CombinedImageSampler"_v}
+			{sb::Shader::DescriptorType::UniformBufferDynamic, "sb::Shader::DescriptorType::UniformBufferDynamic"_v},
+			{sb::Shader::DescriptorType::StorageBufferDynamic, "sb::Shader::DescriptorType::StorageBufferDynamic"_v},
+			{sb::Shader::DescriptorType::InputAttachment, "sb::Shader::DescriptorType::InputAttachment"_v}
 		};
 
 		return table.at(type);
@@ -300,15 +308,26 @@ class FolderPrinter
 			set_scopes.emplace_back(set_scope);
 			layouts.emplace_back(getLayout);
 
-			set_scope +=
+			auto &set_runtime = set_scope +=
 			Template(Typename | "Up") ||
 			Class | "Runtime" | C(Public | set_scope>>"Uniform"_t, Public | set_scope>>"Storage"_t) | S
 			{
-			Public,
-				Ctor(Void) | S
-				{
-				}
+			Public
 			};
+
+			auto &ctor = set_runtime +=
+			Ctor("sb::Shader::DescriptorSet"_t | &N | Id("set")) | S
+			{
+				StaticCast(Void, "set"_v)
+			};
+
+			for (auto &nopq : set.get().getOpaque()) {
+				auto &v = nopq.getVariable();
+				auto p = v.getType().parse("irrelevant");
+
+				auto mem = set_runtime += Type(p.name).T(Type(Value(nopq.getBinding()).getValue())) | Id(v.getName());
+				ctor /= mem("set"_v);
+			}
 
 			ndx++;
 		}

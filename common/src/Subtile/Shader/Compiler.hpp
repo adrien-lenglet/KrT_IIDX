@@ -1161,16 +1161,19 @@ public:
 			return std::nullopt;
 		}
 
-		//static std::map<std::string, s>
-
 		std::optional<std::string> parseOpq(void) const
 		{
-			//static const std::map<std::string, std::string> sampler_table;
-			//static const std::map<std::string, std::string> image_table = getImageTable("image");
+			static const std::map<std::string, std::string> table {
+				{"atomic_uint", "AtomicUint"},
+				{"sampler2D", "Sampler2D"},
+				{"texture2D", "Texture2D"}
+			};
 
-			if (m_name == "atomic_uint")
-				return typePrefix("AtomicUint");
-			return std::nullopt;
+			auto got = table.find(m_name);
+			if (got == table.end())
+				return std::nullopt;
+			else
+				return typePrefix(got->second);
 		}
 	};
 
@@ -1581,13 +1584,20 @@ public:
 				throw std::runtime_error("Sbi not supported");
 		}
 
+		auto getBinding(void) const { return m_binding; }
+
 		auto getLayoutBinding(void) const
 		{
+			static const std::map<std::string, sb::Shader::DescriptorType> descTypeTable {
+				{"sb::Shader::Type::Sampler2D", sb::Shader::DescriptorType::CombinedImageSampler},
+				{"sb::Shader::Type::Texture2D", sb::Shader::DescriptorType::SampledImage}
+			};
+
 			sb::Shader::DescriptorSet::Layout::DescriptionBinding res;
 
 			res.binding = m_binding;
 			res.descriptorCount = m_variable.getType().getArrayElems();
-			res.descriptorType = sb::Shader::DescriptorType::CombinedImageSampler;
+			res.descriptorType = descTypeTable.at(m_variable.getType().parse("irrelevant").name);
 			res.stages = m_set.getStages();
 			return res;
 		}
@@ -1604,8 +1614,7 @@ public:
 		void write_vulkan(token_output &o, size_t set_ndx) const
 		{
 			o << "layout" << "(" << "set" << "=" << set_ndx << "," << "binding" << "=" << m_binding << ")" << "uniform";
-			o << m_variable.getType().getName() << m_variable.getName();
-			m_variable.declare(o);
+			o << m_variable.getType().getName() << m_name << ";";
 		}
 
 		std::string getName(const std::string &set_name)
@@ -1671,7 +1680,7 @@ public:
 
 		void write(token_output &o, Sbi sbi) const override
 		{
-			write_custom_set_ndx(o, sbi, m_set_ndx);
+			write_custom_set_ndx(o, sbi, m_set_ndx + (m_compiler.hasInputAttachment() ? 1 : 0));
 		}
 
 		void addToStage(Stage &stage)
@@ -2021,6 +2030,7 @@ private:
 	bool m_has_custom_render_pass;
 	bool m_is_complete;
 	std::map<std::string, util::ref_wrapper<Set>> m_all_sets;
+	bool m_has_input_attachment;
 
 	std::map<std::string, util::ref_wrapper<Set>> buildAllSets(void)
 	{
@@ -2067,6 +2077,11 @@ public:
 			throw std::runtime_error(ss.str());
 		}
 		m_local_render_pass = &rp;
+	}
+
+	bool hasInputAttachment(void)
+	{
+		return m_has_input_attachment;
 	}
 
 private:
@@ -2156,6 +2171,14 @@ private:
 		if (getRenderPass() == nullptr)
 			return false;
 		return true;
+	}
+
+	bool computeHasInputAttachment(void)
+	{
+		if (getRenderPass()) {
+			return getRenderPass()->getSubpass().getIn().size() > 0;
+		} else
+			return 0;
 	}
 
 public:
@@ -2275,7 +2298,8 @@ inline Shader::Compiler::Compiler(const sb::Resource::Compiler::modules_entry &e
 	m_has_custom_vertex((m_collec.dispatch(), computeHasCustomVertex())),
 	m_has_custom_render_pass(computeHasCustomRenderPass()),
 	m_is_complete(getIsComplete()),
-	m_all_sets(buildAllSets())
+	m_all_sets(buildAllSets()),
+	m_has_input_attachment(computeHasInputAttachment())
 {
 	if (isPureModule()) {
 		for (auto &d : m_read_deps) {

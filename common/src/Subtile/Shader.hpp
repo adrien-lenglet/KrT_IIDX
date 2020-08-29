@@ -18,6 +18,8 @@
 
 #include "RenderPass.hpp"
 #include "Buffer.hpp"
+#include "Image.hpp"
+#include "Sampler.hpp"
 
 namespace Subtile {
 
@@ -149,6 +151,184 @@ public:
 			size_t m_loc_acc;
 			std::vector<Attribute> &m_attributes;
 		};
+	};
+
+	enum class Sbi {  // shader binary interface
+		Vulkan
+	};
+
+	static const std::set<Sbi>& getSbi(void);
+
+	class Compiler;
+
+	enum class DescriptorType
+	{
+		Sampler = 0,
+		CombinedImageSampler = 1,
+		SampledImage = 2,
+		StorageImage = 3,
+		UniformTexelBuffer = 4,
+		StorageTexelBuffer = 5,
+		UniformBuffer = 6,
+		StorageBuffer = 7,
+		UniformBufferDynamic = 8,
+		StorageBufferDynamic = 9,
+		InputAttachment = 10
+	};
+
+	static bool descriptorTypeIsMapped(DescriptorType type);
+
+	class DescriptorSet
+	{
+	public:
+		virtual ~DescriptorSet(void);
+
+		virtual sb::Buffer::Region uniformBufferRegion(void) = 0;
+		virtual sb::Buffer::Region storageBufferRegion(void) = 0;
+		virtual void bindSampler(size_t binding, Sampler &sampler) = 0;
+		virtual void bindImage(size_t binding, Image &image, Image::Layout layout) = 0;
+		virtual void bindCombinedImageSampler(size_t binding, Sampler &sampler, Image &image, Image::Layout layout) = 0;
+
+		class Layout
+		{
+		public:
+			class DescriptionBinding
+			{
+			public:
+				size_t binding;
+				size_t descriptorCount;	// buffer size when descriptorType is UniformBuffer
+				DescriptorType descriptorType;
+				std::set<Stage> stages;
+
+				bool isMapped(void) const;
+			};
+			using Description = std::vector<DescriptionBinding>;
+
+			virtual ~Layout(void) = default;
+
+			class Inline;
+
+			class Resolver
+			{
+			public:
+				virtual ~Resolver(void) = default;
+
+				virtual const Layout& resolve(void) const = 0;
+
+				class Inline;
+				class ForeignBase;
+				template <typename ShaderRes>
+				class Foreign;
+			};
+		};
+
+		class BaseHandle
+		{
+		public:
+			BaseHandle(std::unique_ptr<DescriptorSet> &&desc_set);
+
+			class Getter
+			{
+			public:
+				Getter(void)
+				{
+				}
+
+				decltype(auto) getSet(BaseHandle &handle)
+				{
+					return *handle.m_set;
+				}
+			};
+
+		protected:
+			friend Getter;
+			std::unique_ptr<DescriptorSet> m_set;
+		};
+
+		template <typename Traits>
+		class Handle :
+			public BaseHandle,
+			public Traits::template Runtime<Handle<Traits>>
+		{
+			using Uniform = typename Traits::Uniform;
+			using Storage = typename Traits::Storage;
+
+			using UniformSize = std::integral_constant<size_t, (Uniform::MemberCount::value > 0 ? sizeof(Uniform) : 0)>;
+			using StorageSize = std::integral_constant<size_t, (Storage::MemberCount::value > 0 ? sizeof(Storage) : 0)>;
+
+		public:
+			Handle(Cache::Ref &ref, size_t set_ndx, sb::Queue &queue) :
+				BaseHandle((**ref).set(set_ndx, queue)),
+				Traits::template Runtime<Handle<Traits>>(*m_set)
+			{
+			}
+
+			auto uniformBufferData(void)
+			{
+				return util::abstract_array<char>(UniformSize::value, reinterpret_cast<char*>(&static_cast<Uniform&>(*this)));
+			}
+
+			auto uniformBufferRegion(void)
+			{
+				return m_set->uniformBufferRegion();
+			}
+
+			auto storageBufferData(void)
+			{
+				return util::abstract_array<char>(StorageSize::value, reinterpret_cast<char*>(&static_cast<Storage&>(*this)));
+			}
+
+			auto storageBufferRegion(void)
+			{
+				return m_set->storageBufferRegion();
+			}
+		};
+	};
+
+	virtual const DescriptorSet::Layout& setLayout(size_t ndx) = 0;
+	virtual std::unique_ptr<DescriptorSet> set(size_t ndx, sb::Queue &queue) = 0;
+
+	template <typename ShaderType, size_t SetCount>
+	class Render
+	{
+		using SetsType = std::array<util::ref_wrapper<DescriptorSet::BaseHandle>, SetCount>;
+
+	public:
+		Render(Shader &shader, Model &model, SetsType &&sets) :
+			shader(shader),
+			model(model),
+			sets(sets)
+		{
+		}
+
+		Shader &shader;
+		Model &model;
+		SetsType sets;
+	};
+
+	template <typename ResType>
+	class Loaded :
+		public CacheRefHolder,
+		public util::remove_cvr_t<ResType>::template Runtime<Loaded<ResType>>
+	{
+		using Res = util::remove_cvr_t<ResType>;
+
+	public:
+		Loaded(Cache::Ref &&shader_ref) :
+			CacheRefHolder(std::move(shader_ref)),
+			Res::template Runtime<Loaded<ResType>>(m_ref)
+		{
+		}
+		Loaded(Loaded<Res> &&other) :
+			CacheRefHolder(std::move(RefGetter<CacheRefHolder>(other).get())),
+			Res::template Runtime<Loaded<ResType>>(m_ref)
+		{
+		}
+
+		operator Shader&(void)
+		{
+			return **m_ref;
+		}
 	};
 
 	struct Type {
@@ -672,185 +852,42 @@ public:
 			using balign = get_align_t<balign_getter, Members...>;
 			using ealign = util::align_t<get_align_t<ealign_getter, Members...>{}, 16>;
 		};
-	};
 
-	enum class Sbi {  // shader binary interface
-		Vulkan
-	};
-
-	static const std::set<Sbi>& getSbi(void);
-
-	class Compiler;
-
-	enum class DescriptorType
-	{
-		Sampler = 0,
-		CombinedImageSampler = 1,
-		SampledImage = 2,
-		StorageImage = 3,
-		UniformTexelBuffer = 4,
-		StorageTexelBuffer = 5,
-		UniformBuffer = 6,
-		StorageBuffer = 7,
-		UniformBufferDynamic = 8,
-		StorageBufferDynamic = 9,
-		InputAttachment = 10
-	};
-
-	static bool descriptorTypeIsMapped(DescriptorType type);
-
-	class DescriptorSet
-	{
-	public:
-		virtual ~DescriptorSet(void);
-
-		virtual sb::Buffer::Region uniformBufferRegion(void) = 0;
-		virtual sb::Buffer::Region storageBufferRegion(void) = 0;
-		//virtual void bindCombinedImageSampler(RImage &img) = 0;
-
-		class Layout
+		template <size_t Binding>
+		class Sampler2D
 		{
 		public:
-			class DescriptionBinding
+			Sampler2D(DescriptorSet &set) :
+				m_set(set)
 			{
-			public:
-				size_t binding;
-				size_t descriptorCount;	// buffer size when descriptorType is UniformBuffer
-				DescriptorType descriptorType;
-				std::set<Stage> stages;
+			}
 
-				bool isMapped(void) const;
-			};
-			using Description = std::vector<DescriptionBinding>;
-
-			virtual ~Layout(void) = default;
-
-			class Inline;
-
-			class Resolver
+			void bind(Sampler &sampler, Image2D &image, Image::Layout layout)
 			{
-			public:
-				virtual ~Resolver(void) = default;
+				m_set.bindCombinedImageSampler(Binding, sampler, image, layout);
+			}
 
-				virtual const Layout& resolve(void) const = 0;
-
-				class Inline;
-				class ForeignBase;
-				template <typename ShaderRes>
-				class Foreign;
-			};
+		private:
+			DescriptorSet &m_set;
 		};
 
-		class BaseHandle
+		template <size_t Binding>
+		class Texture2D
 		{
 		public:
-			BaseHandle(std::unique_ptr<DescriptorSet> &&desc_set);
-
-			class Getter
+			Texture2D(DescriptorSet &set) :
+				m_set(set)
 			{
-			public:
-				Getter(BaseHandle &handle) :
-					m_handle(handle)
-				{
-				}
+			}
 
-				decltype(auto) getSet(void)
-				{
-					return *m_handle.m_set;
-				}
+			void bind(Image2D &image, Image::Layout layout)
+			{
+				m_set.bindImage(Binding, image, layout);
+			}
 
-			private:
-				BaseHandle &m_handle;
-			};
-
-		protected:
-			friend Getter;
-			std::unique_ptr<DescriptorSet> m_set;
+		private:
+			DescriptorSet &m_set;
 		};
-
-		template <typename Traits>
-		class Handle :
-			public BaseHandle,
-			public Traits::template Runtime<Handle<Traits>>
-		{
-			using Uniform = typename Traits::Uniform;
-			using Storage = typename Traits::Storage;
-
-			using UniformSize = std::integral_constant<size_t, (Uniform::MemberCount::value > 0 ? sizeof(Uniform) : 0)>;
-			using StorageSize = std::integral_constant<size_t, (Storage::MemberCount::value > 0 ? sizeof(Storage) : 0)>;
-
-		public:
-			Handle(Cache::Ref &ref, size_t set_ndx, sb::Queue &queue) :
-				BaseHandle((**ref).set(set_ndx, queue))
-			{
-			}
-
-			auto uniformBufferData(void)
-			{
-				return util::abstract_array<char>(UniformSize::value, reinterpret_cast<char*>(&static_cast<Uniform&>(*this)));
-			}
-
-			auto uniformBufferRegion(void)
-			{
-				return m_set->uniformBufferRegion();
-			}
-
-			auto storageBufferData(void)
-			{
-				return util::abstract_array<char>(StorageSize::value, reinterpret_cast<char*>(&static_cast<Storage&>(*this)));
-			}
-
-			auto storageBufferRegion(void)
-			{
-				return m_set->storageBufferRegion();
-			}
-		};
-	};
-
-	virtual const DescriptorSet::Layout& setLayout(size_t ndx) = 0;
-	virtual std::unique_ptr<DescriptorSet> set(size_t ndx, sb::Queue &queue) = 0;
-
-	template <typename ShaderType, size_t SetCount>
-	class Render
-	{
-		using SetsType = std::array<util::ref_wrapper<DescriptorSet::BaseHandle>, SetCount>;
-
-	public:
-		Render(Shader &shader, Model &model, SetsType &&sets) :
-			shader(shader),
-			model(model),
-			sets(sets)
-		{
-		}
-
-		Shader &shader;
-		Model &model;
-		SetsType sets;
-	};
-
-	template <typename ResType>
-	class Loaded :
-		public CacheRefHolder,
-		public util::remove_cvr_t<ResType>::template Runtime<Loaded<ResType>>
-	{
-		using Res = util::remove_cvr_t<ResType>;
-
-	public:
-		Loaded(Cache::Ref &&shader_ref) :
-			CacheRefHolder(std::move(shader_ref)),
-			Res::template Runtime<Loaded<ResType>>(m_ref)
-		{
-		}
-		Loaded(Loaded<Res> &&other) :
-			CacheRefHolder(std::move(RefGetter<CacheRefHolder>(other).get())),
-			Res::template Runtime<Loaded<ResType>>(m_ref)
-		{
-		}
-
-		operator Shader&(void)
-		{
-			return **m_ref;
-		}
 	};
 };
 

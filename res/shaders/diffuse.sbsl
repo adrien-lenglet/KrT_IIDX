@@ -33,7 +33,7 @@ vertex {
 	}
 }
 
-geometry {
+/*geometry {
 	out vec3 pos;
 	out vec3 normal;
 	out vec2 uv;
@@ -54,7 +54,7 @@ geometry {
 			EndPrimitive();
 		}
 	}
-}
+}*/
 
 fragment {
 	out vec3 color;

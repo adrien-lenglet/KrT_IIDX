@@ -3,6 +3,7 @@
 #include "Shader.hpp"
 #include "Binding.hpp"
 #include "Queue.hpp"
+#include "Event/Socket.hpp"
 
 namespace Subtile {
 
@@ -59,12 +60,18 @@ public:
 
 	void render(sb::CommandBuffer::Record::RenderPass &cmd);
 
+	template <typename RenderShaderType, size_t SetCount>
+	void insert(const Shader::Render<RenderShaderType, SetCount> &render)
+	{
+		resolve(render.shader).resolve(render.sets.data(), render.sets.size()).bind(m_inserted_models, render.model);
+	}
+
 protected:
 	void remove_shaderpass(Shader &shader);
 
 private:
-	System &m_system;
 	std::map<util::ref_wrapper<Shader>, ShaderPass> m_shaderpasses;
+	Binding::Dependency::Socket m_inserted_models;
 
 	ShaderPass& resolve(Shader &shader);
 
@@ -97,8 +104,6 @@ private:
 class Render*/
 
 }
-
-#include "Event/Socket.hpp"
 
 namespace Subtile {
 namespace Event {

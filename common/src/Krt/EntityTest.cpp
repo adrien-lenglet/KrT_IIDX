@@ -32,7 +32,7 @@ EntityTest::EntityTest(void) :
 		}
 		world.instance.uploadDescSet(m_material);
 
-		m_angle += time;
+		m_angle += time / 16.0;
 		auto mat = glm::rotate((float)m_angle, glm::normalize(glm::vec3(1.0, 1.0, 1.0)));
 		m_object.model_world = mat;
 		world.instance.uploadDescSet(m_object);

@@ -180,6 +180,12 @@ public:
 		return Model::Typed<VertexType>::Indexed32(system().createModelIndexed(vertex, index_buffer, Model::IndexType::Uint32, index_buffer.size()));
 	}
 
+	auto sampler(Filter magFilter, Filter minFilter, Sampler::MipmapMode mipmapMode, Sampler::AddressMode addressMode)
+	{
+		return Sampler::Handle(system().createSampler(magFilter, minFilter, mipmapMode, addressMode));
+	}
+
+
 	void scanInputs(void)
 	{
 		system().scanInputs();

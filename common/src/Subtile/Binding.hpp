@@ -47,13 +47,19 @@ public:
 			}
 			~Socket(void)
 			{
-				for (auto &d : m_deps)
-					d.destroyBound();
+				clear();
 			}
 
 			Dependency& add(Source &source)
 			{
 				return m_deps.emplace(source);
+			}
+
+			void clear(void)
+			{
+				for (auto &d : m_deps)
+					d.destroyBound();
+				m_deps.clear();
 			}
 
 		private:

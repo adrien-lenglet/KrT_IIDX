@@ -7,14 +7,16 @@ Race::Race(Instance &instance) :
 	instance(instance),
 	m_color_pass(instance.load(res.shaders().render_passes().color())),
 	m_post_pass(instance.load(res.shaders().render_passes().post())),
-	m_fb_color(instance.image2D(sb::Format::rgba32_sfloat, sb::Image::Sample::Count1, {1600, 900}, sb::Image::Usage::InputAttachment | sb::Image::Usage::ColorAttachment, instance.graphics)),
-	m_fb_depth_buffer(instance.image2D(sb::Format::d24un_or_32sf_spl_att_sfb, sb::Image::Sample::Count1, {1600, 900}, sb::Image::Usage::InputAttachment | sb::Image::Usage::DepthStencilAttachment, instance.graphics)),
+	m_fb_color(instance.image2D(sb::Format::rgba32_sfloat, sb::Image::Sample::Count1, {1600, 900}, sb::Image::Usage::InputAttachment | sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, instance.graphics)),
+	m_fb_depth_buffer(instance.image2D(sb::Format::d24un_or_32sf_spl_att_sfb, sb::Image::Sample::Count1, {1600, 900}, sb::Image::Usage::InputAttachment | sb::Image::Usage::DepthStencilAttachment | sb::Image::Usage::Sampled, instance.graphics)),
 	m_color_fb(m_color_pass.framebuffer({1600, 900}, 1, m_fb_color, m_fb_depth_buffer)),
 	m_post_fbs(createPostFramebuffers()),
 	m_swapchain_img_avail(instance.semaphore()),
 	m_render_done(instance.semaphore()),
 	m_render_done_fence(instance.fence(false)),
 	m_lighting_shader(instance.load(res.shaders().lighting())),
+	m_sampler(instance.sampler(sb::Filter::Linear, sb::Filter::Nearest, sb::Sampler::MipmapMode::Linear, sb::Sampler::AddressMode::MirroredRepeat)),
+	m_lighting_samplers(m_lighting_shader.fb(instance.graphics)),
 	m_cmd_pool(instance.graphics.pool<true>()),
 	m_cmd_prim(m_cmd_pool.primary()),
 
@@ -23,7 +25,12 @@ Race::Race(Instance &instance) :
 	bind(m_track->done, [this](){
 		m_is_done = true;
 	});
+
+	m_lighting_samplers.color.bind(m_sampler, m_fb_color, sb::Image::Layout::ShaderReadOnlyOptimal);
+	m_lighting_samplers.depth_buffer.bind(m_sampler, m_fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
+	m_lighting_draw_list.insert(m_lighting_shader.render(instance.screen_quad, m_lighting_samplers));
 }
+
 Race::~Race(void)
 {
 }
@@ -51,8 +58,7 @@ void Race::run(void)
 
 			cmd.render(m_post_fbs.at(img), {{0, 0}, {1600, 900}},
 				[&](auto &cmd){
-					cmd.bind(m_lighting_shader);
-					cmd.draw(instance.screen_quad);
+					m_lighting_draw_list.render(cmd);
 				}
 			);
 		});

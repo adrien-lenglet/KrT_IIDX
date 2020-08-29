@@ -10,10 +10,36 @@ vertex {
 }
 
 fragment {
+	set fb {
+		sampler2D color;
+		sampler2D depth_buffer;
+	};
+
 	out vec3 wsi_screen;
 
+	bool isShadow()
+	{
+		vec2 size = textureSize(fb.color, 0);
+		vec2 dir = normalize(vec2(1, -1)) / size;
+		vec2 uv = gl_FragCoord.xy / textureSize(fb.color, 0);
+
+		float base_depth = texture(fb.depth_buffer, uv).x;
+		while (uv.x > 0 && uv.y > 0 && uv.x < 1 && uv.y < 1) {
+			uv += dir;
+			float depth = texture(fb.depth_buffer, uv).x;
+			if (depth < base_depth)
+				return true;
+		}
+		return false;
+	}
 	void main(void)
 	{
-		(out)wsi_screen = subpassLoad((in)color).xyz;// + vec3(abs(subpassLoad((in)depth_buffer).x - 0.5) / 2.0);
+
+		//(out)wsi_screen = texture(fb.color, vec2(tan(uv.x / 4.0 + 1.0), tan(uv.y / 8.0))).xyz;
+		if (isShadow())
+			(out)wsi_screen = texture(fb.color, gl_FragCoord.xy / textureSize(fb.color, 0)).xyz / 16.0;
+		else
+			(out)wsi_screen = texture(fb.color, gl_FragCoord.xy / textureSize(fb.color, 0)).xyz;
+		//(out)wsi_screen = subpassLoad((in)color).xyz + vec3(abs(texture(fb.depth_buffer, (gl_FragCoord.xy / textureSize(fb.depth_buffer, 0)) * 16.0).x - 0.5) / 2.0);
 	}
 }

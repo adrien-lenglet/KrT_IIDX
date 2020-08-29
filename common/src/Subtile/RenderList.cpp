@@ -30,7 +30,7 @@ Pass::ShaderBase& Pass::ShaderBase::resolve(const util::ref_wrapper<Shader::Desc
 	if (set_count == 0)
 		return *this;
 
-	return resolve_direct(Shader::DescriptorSet::BaseHandle::Getter(*sets).getSet()).resolve(&sets[1], set_count - 1);
+	return resolve_direct(Shader::DescriptorSet::BaseHandle::Getter().getSet(*sets)).resolve(&sets[1], set_count - 1);
 }
 
 void Pass::ShaderBase::bind(Binding::Dependency::Socket &socket, Model &model)
@@ -74,8 +74,7 @@ void Pass::ShaderPass::destroy(void)
 	m_parent.remove_shaderpass(m_shader);
 }
 
-Pass::Pass(void) :
-	m_system(WorldBase::getInstanceStack().top().get().system())
+Pass::Pass(void)
 {
 }
 
@@ -87,6 +86,7 @@ void Pass::render(sb::CommandBuffer::Record::RenderPass &cmd)
 
 Pass::~Pass(void)
 {
+	m_inserted_models.clear();
 	if (m_shaderpasses.size() > 0)
 		util::fatal_throw([](){
 			throw std::runtime_error("Shader passes still in pass");
