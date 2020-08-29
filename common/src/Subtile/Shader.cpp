@@ -114,11 +114,6 @@ Shader::DescriptorSet::BaseHandle::BaseHandle(std::unique_ptr<DescriptorSet> &&d
 {
 }
 
-Shader::DescriptorSet& Shader::DescriptorSet::BaseHandle::getSet(void)
-{
-	return *m_set;
-}
-
 Shader::DescriptorSet::Layout::Resolver::Inline::Inline(InstanceBase &ins, const Layout::Description &desc) :
 	m_layout(InstanceBase::Getter(ins).system().createDescriptorSetLayout(desc))
 {

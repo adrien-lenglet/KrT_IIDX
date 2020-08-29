@@ -304,12 +304,9 @@ class FolderPrinter
 			Template(Typename | "Up") ||
 			Class | "Runtime" | C(Public | set_scope>>"Uniform"_t, Public | set_scope>>"Storage"_t) | S
 			{
-				unique_ref | &N | Id("m_ref"),
-				"template <typename> friend class sb::Shader::RefGetter"_v,
 			Public,
-				Ctor(unique_ref | &N | Id("ref")) | C(Id("m_ref")("ref"_v)) | S
+				Ctor(Void) | S
 				{
-					StaticCast(Void, "m_ref"_v)
 				}
 			};
 

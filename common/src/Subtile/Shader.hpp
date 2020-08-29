@@ -756,7 +756,7 @@ public:
 
 				decltype(auto) getSet(void)
 				{
-					return m_handle.getSet();
+					return *m_handle.m_set;
 				}
 
 			private:
@@ -764,11 +764,8 @@ public:
 			};
 
 		protected:
-			std::unique_ptr<DescriptorSet> m_set;
-
-		private:
 			friend Getter;
-			DescriptorSet& getSet(void);
+			std::unique_ptr<DescriptorSet> m_set;
 		};
 
 		template <typename Traits>
@@ -779,19 +776,18 @@ public:
 			using Uniform = typename Traits::Uniform;
 			using Storage = typename Traits::Storage;
 
-			static inline constexpr size_t uniform_size = Uniform::MemberCount::value > 0 ? sizeof(Uniform) : 0;
-			static inline constexpr size_t storage_size = Storage::MemberCount::value > 0 ? sizeof(Storage) : 0;
+			using UniformSize = std::integral_constant<size_t, (Uniform::MemberCount::value > 0 ? sizeof(Uniform) : 0)>;
+			using StorageSize = std::integral_constant<size_t, (Storage::MemberCount::value > 0 ? sizeof(Storage) : 0)>;
 
 		public:
 			Handle(Cache::Ref &ref, size_t set_ndx, sb::Queue &queue) :
-				BaseHandle((**ref).set(set_ndx, queue)),
-				Traits::template Runtime<Handle<Traits>>(ref)
+				BaseHandle((**ref).set(set_ndx, queue))
 			{
 			}
 
 			auto uniformBufferData(void)
 			{
-				return util::abstract_array<char>(uniform_size, reinterpret_cast<char*>(&static_cast<Uniform&>(*this)));
+				return util::abstract_array<char>(UniformSize::value, reinterpret_cast<char*>(&static_cast<Uniform&>(*this)));
 			}
 
 			auto uniformBufferRegion(void)
@@ -801,7 +797,7 @@ public:
 
 			auto storageBufferData(void)
 			{
-				return util::abstract_array<char>(storage_size, reinterpret_cast<char*>(&static_cast<Storage&>(*this)));
+				return util::abstract_array<char>(StorageSize::value, reinterpret_cast<char*>(&static_cast<Storage&>(*this)));
 			}
 
 			auto storageBufferRegion(void)
