@@ -521,9 +521,19 @@ private:
 		DescriptorSetLayout(DescriptorSetLayout&&) = default;
 
 		const sb::Shader::DescriptorSet::Layout::Description& getDescription(void) const;
+		auto getBufferSize(void) const { return m_buffer_size; }
+		auto getUniformOff(void) const { return m_uniform_off; }
+		auto getUniformSize(void) const { return m_uniform_size; }
+		auto getStorageOff(void) const { return m_storage_off; }
+		auto getStorageSize(void) const { return m_storage_size; }
 
 	private:
 		const sb::Shader::DescriptorSet::Layout::Description m_desc;
+		size_t m_buffer_size = 0;
+		size_t m_uniform_off = 0;
+		size_t m_uniform_size = 0;
+		size_t m_storage_off = 0;
+		size_t m_storage_size = 0;
 
 		VkDescriptorSetLayout create(Device &device, const sb::Shader::DescriptorSet::Layout::Description &layout);
 		VkDescriptorSetLayoutBinding bindingtoVk(const sb::Shader::DescriptorSet::Layout::DescriptionBinding &binding);
@@ -536,19 +546,19 @@ private:
 	public:
 		DescriptorSet(Device &dev, const DescriptorSetLayout &layout, sb::Queue *queue);	// ptr for queue buffer attribution
 
-		sb::Buffer::Region bufferRegion(void) override;
+		sb::Buffer::Region uniformBufferRegion(void) override;
+		sb::Buffer::Region storageBufferRegion(void) override;
 
 		operator VkDescriptorSet(void) const;
 
 	private:
+		const DescriptorSetLayout &m_layout;
 		Device::Handle<VkDescriptorPool> m_descriptor_pool;
 		VkDescriptorSet m_descriptor_set;
-		size_t m_buffer_size;
 		VmaBuffer m_buffer;
 
 		VkDescriptorPool createPool(Device &dev, const DescriptorSetLayout &layout);
 		VkDescriptorSet create(Device &dev, const DescriptorSetLayout &layout);
-		size_t getBufferSize(Device &dev, const DescriptorSetLayout &layout);
 		VmaBuffer createBuffer(Device &dev, sb::Queue *queue);
 	};
 

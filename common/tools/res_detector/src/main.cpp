@@ -114,12 +114,17 @@ class FolderPrinter
 		auto layout_c = isTemplate ? "Layout"_t : Type(layout);
 		auto &s = createShaderStructCollec<isTemplate>(scope, name);
 
+		s += Using | "MemberCount" = "std::integral_constant"_t.T(Size_t, Type(Value(variables.size()).getValue()));
+
 		std::vector<Id> ids;
 		std::optional<Id> prev_id;
 		for (auto &var : variables) {
 			auto &v = var.get();
 			auto p = v.getType().parse(layout);
 			Type t = p.name;
+			if (p.is_opaque)
+				std::runtime_error(std::string("Opaque variable '") + v.getName() + std::string("' found in struct"));
+
 			if (p.is_user_defined)
 				t.assign((m_scope >> Type(p.user_defined_type)).T(layout_c));
 
@@ -165,10 +170,18 @@ class FolderPrinter
 	auto shaderAddLayout(Util::CollectionBase &scope, const sb::Shader::Compiler::Set &set)
 	{
 		auto &set_scope = scope += Struct | set.getName() | S {};
-		std::vector<std::reference_wrapper<const sb::Shader::Compiler::Variable>> vars;
-		for (auto &v : set.getVariables())
-			vars.emplace_back(v);
-		auto mapped_str = createShaderStruct<false>(set_scope, "Mapped", vars, "sb::Shader::Type::Std140");
+		std::vector<std::reference_wrapper<const sb::Shader::Compiler::Variable>> uniform_vars;
+		std::vector<std::reference_wrapper<const sb::Shader::Compiler::Variable>> storage_vars;
+		if (set.getUniform()) {
+			for (auto &v : set.getUniform()->getVariables())
+				uniform_vars.emplace_back(v);
+		}
+		if (set.getStorage()) {
+			for (auto &v : set.getStorage()->getVariables())
+				storage_vars.emplace_back(v);
+		}
+		auto uniform_str = createShaderStruct<false>(set_scope, "Uniform", uniform_vars, "sb::Shader::Type::Std140");
+		auto storage_str = createShaderStruct<false>(set_scope, "Storage", storage_vars, "sb::Shader::Type::Std430");
 
 		auto t = "sb::Shader::DescriptorSet::Layout::Description"_t;
 
@@ -179,8 +192,14 @@ class FolderPrinter
 		auto layout = set.getLayout();
 		for (auto &b : layout) {
 			Value count = b.descriptorCount;
-			if (sb::Shader::descriptorTypeIsMapped(b.descriptorType))
-				count.assign(Sizeof(mapped_str));
+			if (sb::Shader::descriptorTypeIsMapped(b.descriptorType)) {
+				if (b.descriptorType == sb::Shader::DescriptorType::UniformBuffer)
+					count.assign(Sizeof(uniform_str));
+				else if (b.descriptorType == sb::Shader::DescriptorType::StorageBuffer)
+					count.assign(Sizeof(storage_str));
+				else
+					throw std::runtime_error("Unknown storage type");
+			}
 			gen_bindings.add(B {b.binding, count, getDescriptorType(b.descriptorType), shaderStagesToBrace(b.stages)});
 		}
 		impl += Return | gen_bindings;
@@ -282,7 +301,7 @@ class FolderPrinter
 
 			set_scope +=
 			Template(Typename | "Up") ||
-			Class | "Runtime" | C(Public | set_scope>>"Mapped"_t) | S
+			Class | "Runtime" | C(Public | set_scope>>"Uniform"_t, Public | set_scope>>"Storage"_t) | S
 			{
 				unique_ref | &N | Id("m_ref"),
 				"template <typename> friend class sb::Shader::RefGetter"_v,

@@ -704,7 +704,8 @@ public:
 	public:
 		virtual ~DescriptorSet(void);
 
-		virtual sb::Buffer::Region bufferRegion(void) = 0;
+		virtual sb::Buffer::Region uniformBufferRegion(void) = 0;
+		virtual sb::Buffer::Region storageBufferRegion(void) = 0;
 		//virtual void bindCombinedImageSampler(RImage &img) = 0;
 
 		class Layout
@@ -775,7 +776,11 @@ public:
 			public BaseHandle,
 			public Traits::template Runtime<Handle<Traits>>
 		{
-			using Mapped = typename Traits::Mapped;
+			using Uniform = typename Traits::Uniform;
+			using Storage = typename Traits::Storage;
+
+			static inline constexpr size_t uniform_size = Uniform::MemberCount::value > 0 ? sizeof(Uniform) : 0;
+			static inline constexpr size_t storage_size = Storage::MemberCount::value > 0 ? sizeof(Storage) : 0;
 
 		public:
 			Handle(Cache::Ref &ref, size_t set_ndx, sb::Queue &queue) :
@@ -784,14 +789,24 @@ public:
 			{
 			}
 
-			auto bufferData(void)
+			auto uniformBufferData(void)
 			{
-				return util::abstract_array<char>(sizeof(Mapped), reinterpret_cast<char*>(&static_cast<Mapped&>(*this)));
+				return util::abstract_array<char>(uniform_size, reinterpret_cast<char*>(&static_cast<Uniform&>(*this)));
 			}
 
-			auto bufferRegion(void)
+			auto uniformBufferRegion(void)
 			{
-				return m_set->bufferRegion();
+				return m_set->uniformBufferRegion();
+			}
+
+			auto storageBufferData(void)
+			{
+				return util::abstract_array<char>(storage_size, reinterpret_cast<char*>(&static_cast<Storage&>(*this)));
+			}
+
+			auto storageBufferRegion(void)
+			{
+				return m_set->storageBufferRegion();
 			}
 		};
 	};

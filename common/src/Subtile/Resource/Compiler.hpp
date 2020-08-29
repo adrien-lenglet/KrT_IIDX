@@ -478,6 +478,11 @@ public:
 		return m_tokens;
 	}
 
+	auto& getBuffer(void)
+	{
+		return m_tokens;
+	}
+
 private:
 	std::vector<std::string> m_tokens;
 

@@ -46,9 +46,10 @@ public:
 	class Function : public Primitive
 	{
 	public:
-		Function(tstream &s) :
+		Function(tstream &s, Compiler &compiler) :
 			m_proto_tokens(getProtoTokens(s)),
-			m_tokens(getTokens(s))
+			m_tokens(getTokens(s)),
+			m_compiler(compiler)
 		{
 		}
 
@@ -57,8 +58,19 @@ public:
 			o << m_return_type << m_name;
 			for (auto &t : m_proto_tokens)
 				o << t;
-			for (auto &t : m_tokens)
+			auto &buf = o.getBuffer();
+			for (auto &t : m_tokens) {
+				if (buf.size() >= 2) {
+					auto set = m_compiler.find_set(buf.rbegin()[1]);
+					if (set && buf.rbegin()[0] == "." && ((buf.size() == 2) || (buf.rbegin()[2] != "."))) {
+						for (size_t i = 0; i < 2; i++)
+							buf.pop_back();
+						o << set->resolve_variable(t);
+						continue;
+					}
+				}
 				o << t;
+			}
 		}
 
 		auto& getName(void) const
@@ -71,6 +83,7 @@ public:
 		std::string m_name;
 		std::vector<std::string> m_proto_tokens;
 		std::vector<std::string> m_tokens;
+		Compiler &m_compiler;
 
 		std::vector<std::string> getProtoTokens(tstream &s)
 		{
@@ -1165,16 +1178,19 @@ public:
 	{
 	public:
 		enum class Storage {
-			Inline,
-			Const,
+			Inline,	// struct
+			Uniform, /* set begin */
+			Storage,
+			PushConstant, /* set end */
+			Const, /* plain begin */
 			In,
-			Out
+			Out /* plain end */
 		};
 
 	private:
 		using StorageTable = std::map<std::string, Storage>;
 
-		static auto& storageTable(void)
+		static auto& storageTable(void)	// by default, use plain storage, otherwise externally parsed
 		{
 			static const StorageTable table {
 				{"const", Storage::Const},
@@ -1453,10 +1469,16 @@ public:
 	class GlslMappedBlock
 	{
 	public:
-		GlslMappedBlock(Set &set, size_t binding, const std::string &name) :
+		enum class Storage {
+			Uniform,
+			Storage
+		};
+
+		GlslMappedBlock(Set &set, size_t binding, const std::string &name, Storage storage) :
 			m_set(set),
 			m_binding(binding),
-			m_name(name)
+			m_storage(storage),
+			m_name(getName(name))
 		{
 		}
 
@@ -1475,37 +1497,79 @@ public:
 
 		auto getLayoutBinding(void) const
 		{
+			static const std::map<Storage, sb::Shader::DescriptorType> descriptorTypeTable {
+				{Storage::Uniform, sb::Shader::DescriptorType::UniformBuffer},
+				{Storage::Storage, sb::Shader::DescriptorType::StorageBuffer}
+			};
+
 			sb::Shader::DescriptorSet::Layout::DescriptionBinding res;
 
 			res.binding = m_binding;
 			res.descriptorCount = 0;
-			res.descriptorType = sb::Shader::DescriptorType::UniformBuffer;
+			res.descriptorType = descriptorTypeTable.at(m_storage);
 			res.stages = m_set.getStages();
 			return res;
+		}
+
+		auto& getVariables(void) const
+		{
+			return m_variables;
+		}
+
+		auto& getName(void) const
+		{
+			return m_name;
 		}
 
 	private:
 		Set &m_set;
 		size_t m_binding;
-		const std::string &m_name;
+		Storage m_storage;
+		std::string m_name;
 		std::vector<std::reference_wrapper<Variable>> m_variables;
+
+		static auto& getStorageName(Storage storage)
+		{
+			static const std::map<Storage, std::string> table {
+				{Storage::Uniform, "uniform"},
+				{Storage::Storage, "buffer"}
+			};
+
+			return table.at(storage);
+		}
 
 		void write_vulkan(token_output &o, size_t set_ndx) const
 		{
-			o << "layout" << "(" << "std140" << "," << "set" << "=" << set_ndx << "," << "binding" << "=" << m_binding << ")" << "uniform" << (std::string("_") + m_name + std::string("_t_")) << "{";
+			static const std::map<Storage, std::string> layoutTable {
+				{Storage::Uniform, "std140"},
+				{Storage::Storage, "std430"}
+			};
+
+			auto &type = getStorageName(m_storage);
+			o << "layout" << "(" << layoutTable.at(m_storage) << "," << "set" << "=" << set_ndx << "," << "binding" << "=" << m_binding << ")" << type << (m_name + std::string("_t_")) << "{";
 			for (auto &v : m_variables)
 				v.get().declare(o);
 			o << "}" << m_name << ";";
+		}
+
+		std::string getName(const std::string &set_name)
+		{
+			auto &type = getStorageName(m_storage);
+
+			std::stringstream ss;
+			ss << "_" << set_name << "_" << type;
+			return ss.str();
 		}
 	};
 
 	class GlslOpaqueVar
 	{
 	public:
-		GlslOpaqueVar(Set &set, size_t binding, Variable &variable) :
+		GlslOpaqueVar(Set &set, size_t binding, Variable &variable, const std::string &set_name) :
 			m_set(set),
 			m_binding(binding),
-			m_variable(variable)
+			m_variable(variable),
+			m_name(getName(set_name))
 		{
 		}
 
@@ -1528,15 +1592,27 @@ public:
 			return res;
 		}
 
+		auto& getVariable(void) const { return m_variable; }
+		auto& getName(void) const { return m_name; }
+
 	private:
 		Set &m_set;
 		size_t m_binding;
 		Variable &m_variable;
+		std::string m_name;
 
 		void write_vulkan(token_output &o, size_t set_ndx) const
 		{
-			o << "layout" << "(" << "std140" << "," << "set" << "=" << set_ndx << "," << "binding" << "=" << m_binding << ")" << "uniform";
+			o << "layout" << "(" << "set" << "=" << set_ndx << "," << "binding" << "=" << m_binding << ")" << "uniform";
+			o << m_variable.getType().getName() << m_variable.getName();
 			m_variable.declare(o);
+		}
+
+		std::string getName(const std::string &set_name)
+		{
+			std::stringstream ss;
+			ss << "_" << set_name << "_" << m_variable.getName();
+			return ss.str();
 		}
 	};
 
@@ -1583,8 +1659,10 @@ public:
 		void write_custom_set_ndx(token_output &o, Sbi sbi, size_t set_ndx) const
 		{
 			if (sbiIsGlsl(sbi)) {
-				if (m_mapped_block)
-					m_mapped_block->write(o, sbi, set_ndx);
+				if (m_uniform_block)
+					m_uniform_block->write(o, sbi, set_ndx);
+				if (m_storage_block)
+					m_storage_block->write(o, sbi, set_ndx);
 				for (auto &opq : m_opaque_vars)
 					opq.write(o, sbi, set_ndx);
 			} else
@@ -1603,13 +1681,17 @@ public:
 		};
 
 		auto& getName(void) const { return m_name; }
-		auto& getVariables(void) const { return m_variables; }
+		auto& getUniform(void) const { return m_uniform_block; }
+		auto& getStorage(void) const { return m_storage_block; }
+		auto& getOpaque(void) const { return m_opaque_vars; }
 		auto getLayout(void) const
 		{
 			sb::Shader::DescriptorSet::Layout::Description res;
 
-			if (m_mapped_block)
-				res.emplace_back(m_mapped_block->getLayoutBinding());
+			if (m_uniform_block)
+				res.emplace_back(m_uniform_block->getLayoutBinding());
+			if (m_storage_block)
+				res.emplace_back(m_storage_block->getLayoutBinding());
 			for (auto &o : m_opaque_vars)
 				res.emplace_back(o.getLayoutBinding());
 			return res;
@@ -1617,12 +1699,31 @@ public:
 
 		auto& getCompiler(void) { return m_compiler; }
 
+		std::string resolve_variable(const std::string &member_name) const
+		{
+			if (m_uniform_block)
+				for (auto &var : m_uniform_block->getVariables())
+					if (var.get().getName() == member_name)
+						return m_uniform_block->getName() + std::string(".") + member_name;
+			if (m_storage_block)
+				for (auto &var : m_storage_block->getVariables())
+					if (var.get().getName() == member_name)
+						return m_storage_block->getName() + std::string(".") + member_name;
+			for (auto &var : m_opaque_vars)
+				if (var.getVariable().getName() == member_name)
+					return var.getName();
+			std::stringstream ss;
+			ss << "Can't find member '" << member_name << "' in set '" << m_name << "'";
+			throw std::runtime_error(ss.str());
+		}
+
 	private:
 		Compiler &m_compiler;
 		size_t m_set_ndx;
 		Counter m_binding_counter;
 		std::string m_name;
-		std::optional<GlslMappedBlock> m_mapped_block;
+		std::optional<GlslMappedBlock> m_uniform_block;
+		std::optional<GlslMappedBlock> m_storage_block;
 		std::vector<GlslOpaqueVar> m_opaque_vars;
 		std::set<sb::Shader::Stage> m_stages;
 		bool m_is_all_stages;
@@ -1637,11 +1738,22 @@ public:
 
 		util::unique_vector<Variable> getVariables(tstream &s, Compiler &compiler)
 		{
+			static const std::map<std::string, Variable::Storage> storageTable {
+				{"uniform", Variable::Storage::Uniform},
+				{"storage", Variable::Storage::Storage},
+				{"push_constant", Variable::Storage::PushConstant}
+			};
 			util::unique_vector<Variable> res;
 
 			s.expect("{");
 			while (s.peek() != "}") {
-				auto &first = res.emplace(compiler, s, Variable::Storage::Inline);
+				Variable::Storage storage = Variable::Storage::Uniform;
+				auto storage_got = storageTable.find(s.peek());
+				if (storage_got != storageTable.end()) {
+					s.poll();
+					storage = storage_got->second;
+				}
+				auto &first = res.emplace(compiler, s, storage);
 				varAdded(first);
 				while (s.peek() == ",") {
 					s.poll();
@@ -1658,11 +1770,17 @@ public:
 			auto parsed = var.getType().parse("nolayout");
 
 			if (parsed.is_opaque) {
-				m_opaque_vars.emplace_back(*this, m_binding_counter.next(), var);
+				m_opaque_vars.emplace_back(*this, m_binding_counter.next(), var, m_name);
+			} else if (var.getStorage() == Variable::Storage::Uniform) {
+				if (!m_uniform_block)
+					m_uniform_block.emplace(*this, m_binding_counter.next(), m_name, GlslMappedBlock::Storage::Uniform);
+				m_uniform_block->add(var);
+			} else if (var.getStorage() == Variable::Storage::Storage) {
+				if (!m_storage_block)
+					m_storage_block.emplace(*this, m_binding_counter.next(), m_name, GlslMappedBlock::Storage::Storage);
+				m_storage_block->add(var);
 			} else {
-				if (!m_mapped_block)
-					m_mapped_block.emplace(*this, m_binding_counter.next(), m_name);
-				m_mapped_block->add(var);
+				throw std::runtime_error("Push constants not handled yet");
 			}
 		}
 	};
@@ -1902,6 +2020,28 @@ private:
 	bool m_has_custom_vertex;
 	bool m_has_custom_render_pass;
 	bool m_is_complete;
+	std::map<std::string, util::ref_wrapper<Set>> m_all_sets;
+
+	std::map<std::string, util::ref_wrapper<Set>> buildAllSets(void)
+	{
+		std::map<std::string, util::ref_wrapper<Set>> res;
+
+		for (auto &s : m_sets)
+			res.emplace(s.get().getName(), s);
+		for (auto &fshader : m_foreign_sets)
+			for (auto &s : fshader.second)
+				res.emplace(s.getSet().getName(), s.getSet());
+		return res;
+	}
+
+	Set* find_set(const std::string &name)
+	{
+		auto got = m_all_sets.find(name);
+		if (got == m_all_sets.end())
+			return nullptr;
+		else
+			return &got->second.get();
+	}
 
 public:
 	Compiler* getVertex(void)
@@ -2124,7 +2264,7 @@ inline void Shader::Compiler::Section::poll(tstream &s, Compiler &compiler)
 	} else if (RenderPass::isComingUp(s)) {
 		m_primitives.emplace<RenderPass>(s, compiler);
 	} else
-		m_primitives.emplace<Function>(s);
+		m_primitives.emplace<Function>(s, compiler);
 }
 
 inline Shader::Compiler::Compiler(const sb::Resource::Compiler::modules_entry &entry) :
@@ -2134,7 +2274,8 @@ inline Shader::Compiler::Compiler(const sb::Resource::Compiler::modules_entry &e
 	m_collec(m_stream, *this),
 	m_has_custom_vertex((m_collec.dispatch(), computeHasCustomVertex())),
 	m_has_custom_render_pass(computeHasCustomRenderPass()),
-	m_is_complete(getIsComplete())
+	m_is_complete(getIsComplete()),
+	m_all_sets(buildAllSets())
 {
 	if (isPureModule()) {
 		for (auto &d : m_read_deps) {

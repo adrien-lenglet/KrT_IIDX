@@ -940,10 +940,23 @@ VkDescriptorType Vk::descriptorType(sb::Shader::DescriptorType type)
 	return static_cast<VkDescriptorType>(util::enum_underlying(type));
 }
 
-Vk::DescriptorSetLayout::DescriptorSetLayout(Vk::Device &device, const sb::Shader::DescriptorSet::Layout::Description &desc) :
-	Device::Handle<VkDescriptorSetLayout>(device, create(device, desc)),
+Vk::DescriptorSetLayout::DescriptorSetLayout(Vk::Device &dev, const sb::Shader::DescriptorSet::Layout::Description &desc) :
+	Device::Handle<VkDescriptorSetLayout>(dev, create(dev, desc)),
 	m_desc(desc)
 {
+	for (auto &b : getDescription())
+		if (b.isMapped()) {
+			if (b.descriptorType == sb::Shader::DescriptorType::UniformBuffer) {
+				m_uniform_off = m_buffer_size;
+				m_uniform_size = b.descriptorCount;
+			} else if (b.descriptorType == sb::Shader::DescriptorType::StorageBuffer) {
+				m_storage_off = m_buffer_size;
+				m_storage_size = b.descriptorCount;
+			} else
+				throw std::runtime_error("Unkown mapped buffer type");
+			m_buffer_size = util::align_dyn(m_buffer_size, dev.physical().properties().getAlignment(b.descriptorType));
+			m_buffer_size += b.descriptorCount;
+		}
 }
 
 Vk::DescriptorSetLayout::~DescriptorSetLayout(void)
@@ -997,9 +1010,9 @@ std::unique_ptr<sb::Shader::DescriptorSet::Layout> Vk::createDescriptorSetLayout
 }
 
 Vk::DescriptorSet::DescriptorSet(Vk::Device &dev, const Vk::DescriptorSetLayout &layout, sb::Queue *queue) :
+	m_layout(layout),
 	m_descriptor_pool(dev, createPool(dev, layout)),
 	m_descriptor_set(create(dev, layout)),
-	m_buffer_size(getBufferSize(dev, layout)),
 	m_buffer(createBuffer(dev, queue))
 {
 	size_t mapped_count = 0;
@@ -1024,7 +1037,7 @@ Vk::DescriptorSet::DescriptorSet(Vk::Device &dev, const Vk::DescriptorSetLayout 
 		w.dstBinding = b.binding;
 		w.dstArrayElement = 0;
 		w.descriptorCount = 1;
-		w.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		w.descriptorType = static_cast<VkDescriptorType>(util::enum_underlying(b.descriptorType));
 
 		size = util::align_dyn(size, dev.physical().properties().getAlignment(b.descriptorType));
 
@@ -1043,9 +1056,14 @@ Vk::DescriptorSet::DescriptorSet(Vk::Device &dev, const Vk::DescriptorSetLayout 
 }
 
 
-sb::Buffer::Region Vk::DescriptorSet::bufferRegion(void)
+sb::Buffer::Region Vk::DescriptorSet::uniformBufferRegion(void)
 {
-	return sb::Buffer::Region(m_buffer, 0, m_buffer_size);
+	return sb::Buffer::Region(m_buffer, m_layout.getUniformOff(), m_layout.getUniformSize());
+}
+
+sb::Buffer::Region Vk::DescriptorSet::storageBufferRegion(void)
+{
+	return sb::Buffer::Region(m_buffer, m_layout.getStorageOff(), m_layout.getStorageSize());
 }
 
 Vk::DescriptorSet::operator VkDescriptorSet(void) const
@@ -1092,28 +1110,17 @@ VkDescriptorSet Vk::DescriptorSet::create(Device &dev, const DescriptorSetLayout
 		return dev.allocateVk(vkAllocateDescriptorSets, ai);
 }
 
-size_t Vk::DescriptorSet::getBufferSize(Device &dev, const DescriptorSetLayout &layout)
-{
-	size_t size = 0;
-	for (auto &b : layout.getDescription())
-		if (b.isMapped()) {
-			size = util::align_dyn(size, dev.physical().properties().getAlignment(b.descriptorType));
-			size += b.descriptorCount;
-		}
-	return size;
-}
-
 Vk::VmaBuffer Vk::DescriptorSet::createBuffer(Device &dev, sb::Queue *queue)
 {
-	if (m_buffer_size == 0 || queue == nullptr)
+	if (m_layout.getBufferSize() == 0 || queue == nullptr)
 		return VmaBuffer(dev, VK_NULL_HANDLE, VK_NULL_HANDLE);
 
 	VkQueueFamilyIndex queueIndex = reinterpret_cast<Queue*>(queue)->getFamilyIndex();
 
 	VkBufferCreateInfo bci {};
 	bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bci.size = m_buffer_size;
-	bci.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+	bci.size = m_layout.getBufferSize();
+	bci.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	bci.queueFamilyIndexCount = 1;
 	bci.pQueueFamilyIndices = &queueIndex;

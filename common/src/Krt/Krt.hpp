@@ -59,10 +59,20 @@ public:
 	template <typename DescSet>
 	void uploadDescSet(DescSet &&set)
 	{
-		auto src = set.bufferData();
+		auto src = set.uniformBufferData();
 		auto src_size = src.size() * sizeof(decltype(*src.data()));
-		m_staging_buffer.write(m_staging_off, src_size, src.data());
-		transfer.copy(m_staging_buffer.region(m_staging_off, src_size), set.bufferRegion());
+		if (src_size > 0) {
+			m_staging_buffer.write(m_staging_off, src_size, src.data());
+			transfer.copy(m_staging_buffer.region(m_staging_off, src_size), set.uniformBufferRegion());
+		}
+		m_staging_off += src_size;
+
+		src = set.storageBufferData();
+		src_size = src.size() * sizeof(decltype(*src.data()));
+		if (src_size > 0) {
+			m_staging_buffer.write(m_staging_off, src_size, src.data());
+			transfer.copy(m_staging_buffer.region(m_staging_off, src_size), set.storageBufferRegion());
+		}
 		m_staging_off += src_size;
 	}
 
