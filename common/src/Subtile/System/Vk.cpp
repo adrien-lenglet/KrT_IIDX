@@ -278,7 +278,9 @@ bool Vk::PhysicalDevice::getSurfaceSupport(uint32_t queueFamilyIndex) const
 const VkPhysicalDeviceFeatures& Vk::PhysicalDevice::requiredFeatures(void)
 {
 	static const VkPhysicalDeviceFeatures res {
-		.geometryShader = true
+		.geometryShader = true,
+		.vertexPipelineStoresAndAtomics = true,
+		.fragmentStoresAndAtomics = true
 	};
 
 	return res;
@@ -1075,7 +1077,7 @@ VkDescriptorPool Vk::DescriptorSet::createPool(Device &dev, const DescriptorSetL
 {
 	std::map<VkDescriptorType, size_t> typeCount;
 	for (auto &b : layout.getDescription())
-		typeCount[descriptorType(b.descriptorType)] += b.descriptorCount;
+		typeCount[descriptorType(b.descriptorType)] += b.isMapped() ? 1 : b.descriptorCount;
 	std::vector<VkDescriptorPoolSize> sizes;
 	for (auto &t : typeCount) {
 		VkDescriptorPoolSize s;

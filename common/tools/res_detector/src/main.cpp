@@ -161,6 +161,7 @@ class FolderPrinter
 	{
 		static const std::map<sb::Shader::DescriptorType, Value> table {
 			{sb::Shader::DescriptorType::UniformBuffer, "sb::Shader::DescriptorType::UniformBuffer"_v},
+			{sb::Shader::DescriptorType::StorageBuffer, "sb::Shader::DescriptorType::StorageBuffer"_v},
 			{sb::Shader::DescriptorType::CombinedImageSampler, "sb::Shader::DescriptorType::CombinedImageSampler"_v}
 		};
 

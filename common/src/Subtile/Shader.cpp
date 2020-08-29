@@ -93,7 +93,8 @@ void Shader::Type::Vec<Shader::Type::Double, 4>::createVertexInput(Shader::Verte
 bool Shader::descriptorTypeIsMapped(DescriptorType type)
 {
 	static const std::set<DescriptorType> table {
-		DescriptorType::UniformBuffer
+		DescriptorType::UniformBuffer,
+		DescriptorType::StorageBuffer
 	};
 
 	return table.find(type) != table.end();
