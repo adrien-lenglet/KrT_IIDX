@@ -71,7 +71,7 @@ fragment {
 	{
 		vec2 size = textureSize(fb.color, 0);
 		//vec3 sun_dir = normalize(vec3(-1.0, 0.0, 0.1)).xyz;
-		vec3 sun_dir = normalize(vec3(-1.0, 0.0, 0.1)).xyz;
+		vec3 sun_dir = normalize(vec3(1.0, -1.0, -1.0)).xyz;
 		vec3 origin = texture(fb.view, gl_FragCoord.xy / size).xyz;
 		vec3 p0, p1;
 		project_ray(origin, sun_dir, p0, p1);
