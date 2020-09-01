@@ -1,10 +1,12 @@
 rgba32_sfloat color { load = clear, store, out_layout = shader_read_only_optimal };
 d24un_or_32sf_spl_att_sfb depth_buffer { load = clear, store, out_layout = shader_read_only_optimal};
+rgba32_sfloat view { load = clear, store, out_layout = shader_read_only_optimal};
 
 albedo {
 	depth_stencil depth_buffer;
 
 	out color;
+	out view;
 }
 
 /*[

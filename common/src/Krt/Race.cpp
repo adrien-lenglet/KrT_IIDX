@@ -9,7 +9,8 @@ Race::Race(Instance &instance) :
 	m_post_pass(instance.load(res.shaders().render_passes().post())),
 	m_fb_color(instance.image2D(sb::Format::rgba32_sfloat, sb::Image::Sample::Count1, {1600, 900}, sb::Image::Usage::InputAttachment | sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, instance.graphics)),
 	m_fb_depth_buffer(instance.image2D(sb::Format::d24un_or_32sf_spl_att_sfb, sb::Image::Sample::Count1, {1600, 900}, sb::Image::Usage::InputAttachment | sb::Image::Usage::DepthStencilAttachment | sb::Image::Usage::Sampled, instance.graphics)),
-	m_color_fb(m_color_pass.framebuffer({1600, 900}, 1, m_fb_color, m_fb_depth_buffer)),
+	m_fb_view(instance.image2D(sb::Format::rgba32_sfloat, sb::Image::Sample::Count1, {1600, 900}, sb::Image::Usage::InputAttachment | sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, instance.graphics)),
+	m_color_fb(m_color_pass.framebuffer({1600, 900}, 1, m_fb_color, m_fb_depth_buffer, m_fb_view)),
 	m_post_fbs(createPostFramebuffers()),
 	m_swapchain_img_avail(instance.semaphore()),
 	m_render_done(instance.semaphore()),
@@ -28,7 +29,8 @@ Race::Race(Instance &instance) :
 
 	m_lighting_samplers.color.bind(m_sampler, m_fb_color, sb::Image::Layout::ShaderReadOnlyOptimal);
 	m_lighting_samplers.depth_buffer.bind(m_sampler, m_fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
-	m_lighting_draw_list.insert(m_lighting_shader.render(instance.screen_quad, m_lighting_samplers));
+	m_lighting_samplers.view.bind(m_sampler, m_fb_view, sb::Image::Layout::ShaderReadOnlyOptimal);
+	m_lighting_draw_list.insert(m_lighting_shader.render(instance.screen_quad, m_lighting_samplers, m_track->render.camera));
 }
 
 Race::~Race(void)
@@ -47,7 +49,7 @@ void Race::run(void)
 			cmd.memoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::AllGraphics, sb::Access::TransferWrite, sb::Access::MemoryRead, sb::DependencyFlag::None);
 
 			cmd.render(m_color_fb, {{0, 0}, {1600, 900}},
-				sb::Color::f32(0.5f), 1.0f,
+				sb::Color::f32(0.5f), 1.0f, sb::Color::f32(0.0f, 0.0f, 1.0f, 0.0f),
 
 				[&](auto &cmd){
 					m_track->render.render(cmd);

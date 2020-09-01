@@ -1,9 +1,7 @@
 render_pass render_passes::color : albedo;
 
 require vertex::pnu;
-vertex {
-	require modules::camera;
-}
+require modules::camera;
 
 fragment {
 	set material {
@@ -58,11 +56,13 @@ vertex {
 
 fragment {
 	out vec3 color;
+	out vec3 view;
 
 	void main(void)
 	{
 		vec3 lightp = vec3(-2.0, 1.0, -3.0);
 		float dist = length(lightp - (in)pos);
+		(out)view = (camera.view * vec4((in)pos, 1.0)).xyz;
 
 		vec3 color = normalize((in)normal);// + vec3(material.counter / 256.0);
 		//vec3 color = vec3(1.0);

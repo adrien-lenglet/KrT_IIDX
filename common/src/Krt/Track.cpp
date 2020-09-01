@@ -31,9 +31,11 @@ Track::~Track(void)
 
 void Track::Render::render(sb::CommandBuffer::Record::RenderPass &cmd)
 {
-	auto mat = glm::perspectiveLH_NO<float>(90.0, 16.0 / 9.0, 0.1, 1000.0);
-	mat *= glm::lookAtLH(glm::vec3(0.0, 0.0, -7.0), glm::vec3(0.0), glm::vec3(0.0, 1.0, 0.0));
-	camera.vp = mat;
+	auto proj = glm::perspectiveLH_NO<float>(90.0, 16.0 / 9.0, 0.1, 1000.0);
+	auto view = glm::lookAtLH(glm::vec3(0.0, 0.0, -7.0), glm::vec3(0.0), glm::vec3(0.0, 1.0, 0.0));
+	camera.vp = proj * view;
+	camera.view = view;
+	camera.proj = proj;
 	m_instance.uploadDescSet(camera);
 	static_cast<sb::Render::Pass&>(*this).render(cmd);
 }
