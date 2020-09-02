@@ -36,6 +36,7 @@ void Track::Render::render(sb::CommandBuffer::Record::RenderPass &cmd)
 	camera.vp = proj * view;
 	camera.view = view;
 	camera.proj = proj;
+	camera.inv_proj = glm::inverse(proj);
 	m_instance.uploadDescSet(camera);
 	static_cast<sb::Render::Pass&>(*this).render(cmd);
 }

@@ -19,7 +19,7 @@ private:
 	decltype(instance.load(res.shaders().render_passes().post())) m_post_pass;
 	sb::Image2D m_fb_color;
 	sb::Image2D m_fb_depth_buffer;
-	sb::Image2D m_fb_view;
+	sb::Image2D m_fb_w;
 	decltype(m_color_pass)::Framebuffer m_color_fb;
 	std::vector<decltype(m_post_pass)::Framebuffer> m_post_fbs;
 	decltype(instance.semaphore()) m_swapchain_img_avail;

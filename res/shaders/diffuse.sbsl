@@ -56,13 +56,15 @@ vertex {
 
 fragment {
 	out vec3 color;
-	out vec3 view;
+	out float w;
 
 	void main(void)
 	{
+		(out)w = gl_FragCoord.w;
+
 		vec3 lightp = vec3(-2.0, 1.0, -3.0);
 		float dist = length(lightp - (in)pos);
-		(out)view = (camera.view * vec4((in)pos, 1.0)).xyz;
+		//(out)view = (camera.view * vec4((in)pos, 1.0)).xyz;
 
 		vec3 color = normalize((in)normal);// + vec3(material.counter / 256.0);
 		//vec3 color = vec3(1.0);
