@@ -65,8 +65,11 @@ fragment {
 	// dir is the direction of the ray, camera space
 	void project_ray(vec3 origin, vec3 dir, out vec3 ss_p0, out vec3 ss_p1)
 	{
-		if (dir.z == 0.0)
+		if (dir.z == 0.0) {
+			ss_p0 = project_point(origin);
+			ss_p1 = project_point(origin + dir * 16000.0);	// max screen size is 16k because of that 'trick'
 			return;
+		}
 		float len;
 		if (dir.z > 0.0) {
 			len = (far_plane - origin.z) / dir.z;
@@ -82,7 +85,7 @@ fragment {
 	{
 		vec2 size = textureSize(fb.color, 0);
 		//vec3 sun_dir = normalize(vec3(-1.0, 0.0, 0.1)).xyz;
-		vec3 sun_dir = normalize(vec3(-1.0, -1.0, -1.0)).xyz;
+		vec3 sun_dir = normalize(vec3(1.0, 1.0, -1.0)).xyz;
 		vec3 origin = current_view();//texture(fb.view, gl_FragCoord.xy / size).xyz;
 		vec3 p0, p1;
 		project_ray(origin, sun_dir, p0, p1);

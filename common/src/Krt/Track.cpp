@@ -31,7 +31,9 @@ Track::~Track(void)
 
 void Track::Render::render(sb::CommandBuffer::Record::RenderPass &cmd)
 {
-	auto proj = glm::perspectiveLH_NO<float>(90.0, 16.0 / 9.0, 0.1, 1000.0);
+	auto proj = glm::perspectiveLH_ZO<float>(90.0, 16.0 / 9.0, 0.1, 1000.0);
+	proj[1][1] *= -1.0;
+
 	auto view = glm::lookAtLH(glm::vec3(0.0, 0.0, -7.0), glm::vec3(0.0), glm::vec3(0.0, 1.0, 0.0));
 	camera.vp = proj * view;
 	camera.view = view;
