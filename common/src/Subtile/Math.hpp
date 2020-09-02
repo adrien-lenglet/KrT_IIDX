@@ -9,6 +9,8 @@
 
 namespace Subtile {
 
+static inline constexpr double pi = 3.141592653589793238462643383279502884;
+
 namespace math = glm;
 
 // Logical vector types
