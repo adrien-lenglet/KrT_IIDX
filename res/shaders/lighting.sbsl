@@ -81,9 +81,8 @@ fragment {
 	bool isShadow()
 	{
 		vec2 size = textureSize(fb.color, 0);
-		//vec3 sun_dir = normalize(vec3(-1.0, 0.0, 0.1)).xyz;
 		vec3 sun_dir = normalize(vec3(-1.0, 1.0, -1.0)).xyz;
-		vec3 origin = current_view();//texture(fb.view, gl_FragCoord.xy / size).xyz;
+		vec3 origin = current_view();
 		vec3 p0, p1;
 		project_ray(origin, sun_dir, p0, p1);
 		vec2 dir = p1.xy - p0.xy;
@@ -91,20 +90,9 @@ fragment {
 
 		float z0 = p0.z;
 		float z1 = p1.z;
-		//float z0_inv = 1.0 / z0;
-		//float z1_inv = 1.0 / z1;
 		float t = 0.0;
 		vec2 coord = p0.xy;
-
-		t = dir_pp / 16.0;
-		coord = mix(p0.xy, p1.xy, t);
-		float bdepth = texture(fb.depth_buffer, coord / size).x;
-		float bray_depth = mix(z0, z1, t);
-
-		bool base_comp = bdepth > bray_depth;
-
-		t = 0.0;
-		coord = p0.xy;
+		bool base_comp = true;
 
 		while (coord.x > 0 && coord.y > 0 && coord.x < size.x && coord.y < size.y && t < 1.0) {
 			t += dir_pp;
@@ -120,21 +108,9 @@ fragment {
 
 	void main(void)
 	{
-		/*vec3 p0, p1;
-		project_ray(vec3(0.0, 0.0, 10.0), normalize(vec3(0.0, 0.0, 1.0)), p0, p1);
-		vec2 point = gl_FragCoord.xy;
-		float len = length(point - p1.xy) / 1000.0;
-
-		(out)wsi_screen = vec3(len);
-
-		return;*/
-
-		//(out)wsi_screen = texture(fb.color, vec2(tan(uv.x / 4.0 + 1.0), tan(uv.y / 8.0))).xyz;
 		if (isShadow())
 			(out)wsi_screen = texture(fb.color, gl_FragCoord.xy / textureSize(fb.color, 0)).xyz / 16.0;
 		else
 			(out)wsi_screen = texture(fb.color, gl_FragCoord.xy / textureSize(fb.color, 0)).xyz;
-		//(out)wsi_screen = texture(fb.view, gl_FragCoord.xy / textureSize(fb.color, 0)).xyz / 4.0;
-		//(out)wsi_screen = subpassLoad((in)color).xyz + vec3(abs(texture(fb.depth_buffer, (gl_FragCoord.xy / textureSize(fb.depth_buffer, 0)) * 16.0).x - 0.5) / 2.0);
 	}
 }
