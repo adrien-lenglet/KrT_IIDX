@@ -22,11 +22,13 @@ fragment {
 		return ang * (pi / 180.0);
 	}
 
+	const vec2 depth_buffer_uv = vec2(1600.0, 900.0) / vec2(2048.0);
+
 	vec3 current_view(void)
 	{
 		vec2 size = textureSize(fb.color, 0);
 		vec2 uv = gl_FragCoord.xy / size;
-		float depth = texture(fb.depth_buffer, uv).x;
+		float depth = texture(fb.depth_buffer, uv * depth_buffer_uv).x;
 		const float near = 0.1, far = 1000.0;
 		const float a = far / (far - near), b = -(far * near) / (far - near);
 		const float tanHalfFovy = tan(ang_to_rad(120.0) / 2.0);
@@ -81,7 +83,7 @@ fragment {
 	bool isShadow()
 	{
 		vec2 size = textureSize(fb.color, 0);
-		vec3 sun_dir = normalize(vec3(-1.0, 1.0, -1.0)).xyz;
+		vec3 sun_dir = normalize(vec3(1.0, 1.0, -1.0)).xyz;
 		vec3 origin = current_view();
 		vec3 p0, p1;
 		project_ray(origin, sun_dir, p0, p1);
@@ -94,11 +96,14 @@ fragment {
 		vec2 coord = p0.xy;
 		bool base_comp = true;
 
-		while (coord.x > 0 && coord.y > 0 && coord.x < size.x && coord.y < size.y && t < 1.0) {
+		while (true) {
 			t += dir_pp;
 			coord = mix(p0.xy, p1.xy, t);
 
-			float depth = texture(fb.depth_buffer, coord / size).x;
+			if (!(coord.x > 0 && coord.y > 0 && coord.x <= (size.x - 1) && coord.y <= (size.y - 1) && t < 1.0))
+				break;
+
+			float depth = texture(fb.depth_buffer, coord / size * depth_buffer_uv).x;
 			float ray_depth = mix(z0, z1, t);
 			if ((depth > ray_depth) != base_comp)
 				return true;

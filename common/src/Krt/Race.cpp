@@ -8,7 +8,7 @@ Race::Race(Instance &instance) :
 	m_color_pass(instance.load(res.shaders().render_passes().color())),
 	m_post_pass(instance.load(res.shaders().render_passes().post())),
 	m_fb_color(instance.image2D(sb::Format::rgba32_sfloat, sb::Image::Sample::Count1, {1600, 900}, sb::Image::Usage::InputAttachment | sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, instance.graphics)),
-	m_fb_depth_buffer(instance.image2D(sb::Format::d24un_or_32sf_spl_att_sfb, sb::Image::Sample::Count1, {1600, 900}, sb::Image::Usage::InputAttachment | sb::Image::Usage::DepthStencilAttachment | sb::Image::Usage::Sampled, instance.graphics)),
+	m_fb_depth_buffer(instance.image2D(sb::Format::d24un_or_32sf_spl_att_sfb, sb::Image::Sample::Count1, {2048, 2048}, sb::Image::Usage::InputAttachment | sb::Image::Usage::DepthStencilAttachment | sb::Image::Usage::Sampled, instance.graphics)),
 	m_color_fb(m_color_pass.framebuffer({1600, 900}, 1, m_fb_color, m_fb_depth_buffer)),
 	m_post_fbs(createPostFramebuffers()),
 	m_swapchain_img_avail(instance.semaphore()),
