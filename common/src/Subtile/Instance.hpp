@@ -108,14 +108,14 @@ public:
 		return Queue::Handle<Flags>(system().getQueue(Flags, index));
 	}
 
-	auto image2D(Format format, Image::Sample sampleCount, const svec2 &extent, Image::Usage usage, sb::Queue &queue)
+	auto image2D(Format format, Image::Sample sampleCount, const svec2 &extent, const sb::Image::MipmapLevels &mipLevels, Image::Usage usage, sb::Queue &queue)
 	{
-		return Image2D(system().createImage(Image::Type::Image2D, format, sampleCount, svec3(extent.x, extent.y, 1), 1, usage, queue));
+		return Image2D(system().createImage(Image::Type::Image2D, format, sampleCount, svec3(extent.x, extent.y, 1), 1, mipLevels, usage, queue));
 	}
 
-	auto image2DArray(Format format, Image::Sample sampleCount, const svec2 &extent, size_t layers, Image::Usage usage, sb::Queue &queue)
+	auto image2DArray(Format format, Image::Sample sampleCount, const svec2 &extent, size_t layers, const sb::Image::MipmapLevels &mipLevels, Image::Usage usage, sb::Queue &queue)
 	{
-		return Image2DArray(system().createImage(Image::Type::Image2DArray, format, sampleCount, svec3(extent.x, extent.y, 1), layers, usage, queue));
+		return Image2DArray(system().createImage(Image::Type::Image2DArray, format, sampleCount, svec3(extent.x, extent.y, 1), layers, mipLevels, usage, queue));
 	}
 
 	auto swapchain(const svec2 &extent, Image::Usage usage, sb::Queue &queue)
@@ -180,9 +180,9 @@ public:
 		return Model::Typed<VertexType>::Indexed32(system().createModelIndexed(vertex, index_buffer, Model::IndexType::Uint32, index_buffer.size()));
 	}
 
-	auto sampler(Filter magFilter, Filter minFilter, Sampler::MipmapMode mipmapMode, Sampler::AddressMode addressMode)
+	auto sampler(Filter magFilter, Filter minFilter, bool normalizedCoordinates, const Sampler::AddressModeUVW &addressMode, BorderColor borderColor, const std::optional<CompareOp> &compare, Sampler::MipmapMode mipmapMode, float minLod, float maxLod, float mipLodBias, const std::optional<float> &anisotropy)
 	{
-		return Sampler::Handle(system().createSampler(magFilter, minFilter, mipmapMode, addressMode));
+		return Sampler::Handle(system().createSampler(magFilter, minFilter, normalizedCoordinates, addressMode, borderColor, compare, mipmapMode, minLod, maxLod, mipLodBias, anisotropy));
 	}
 
 

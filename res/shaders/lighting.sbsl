@@ -27,11 +27,11 @@ fragment {
 	vec3 current_view(void)
 	{
 		vec2 size = textureSize(fb.color, 0);
-		vec2 uv = gl_FragCoord.xy / size;
-		float depth = texture(fb.depth_buffer, uv * depth_buffer_uv).x;
+		float depth = texture(fb.depth_buffer, gl_FragCoord.xy).x;
 		const float near = 0.1, far = 1000.0;
 		const float a = far / (far - near), b = -(far * near) / (far - near);
 		const float tanHalfFovy = tan(ang_to_rad(120.0) / 2.0);
+		vec2 uv = gl_FragCoord.xy / size;
 		float z = b / (depth - a);
 		vec2 ndc2 = (uv - 0.5) * 2.0;
 		ndc2.x *= (16.0 / 9.0) * tanHalfFovy;
@@ -100,10 +100,10 @@ fragment {
 			t += dir_pp;
 			coord = mix(p0.xy, p1.xy, t);
 
-			if (!(coord.x > 0 && coord.y > 0 && coord.x <= (size.x - 1) && coord.y <= (size.y - 1) && t < 1.0))
+			if (!(coord.x >= 0 && coord.y >= 0 && coord.x <= (size.x - 1) && coord.y <= (size.y - 1) && t < 1.0))
 				break;
 
-			float depth = texture(fb.depth_buffer, coord / size * depth_buffer_uv).x;
+			float depth = texture(fb.depth_buffer, coord).x;
 			float ray_depth = mix(z0, z1, t);
 			if ((depth > ray_depth) != base_comp)
 				return true;

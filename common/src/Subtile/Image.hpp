@@ -70,6 +70,26 @@ public:
 		CubeArray = 6
 	};
 
+	struct AllMipLevels {};
+	static inline constexpr AllMipLevels allMipLevels{};
+
+	struct MipmapLevels
+	{
+		MipmapLevels(size_t levels) :
+			isFull(false),
+			levels(levels)
+		{
+		}
+		MipmapLevels(AllMipLevels) :
+			isFull(true),
+			levels(0)
+		{
+		}
+
+		bool isFull;
+		size_t levels;
+	};
+
 	virtual ~Image(void) = default;
 };
 

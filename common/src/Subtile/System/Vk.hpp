@@ -504,7 +504,7 @@ private:
 		~ImageAllocView(void) override;
 	};
 
-	std::unique_ptr<sb::Image> createImage(sb::Image::Type type, Format format, sb::Image::Sample sample, const svec3 &extent, size_t layers, sb::Image::Usage usage, sb::Queue &queue) override;
+	std::unique_ptr<sb::Image> createImage(sb::Image::Type type, Format format, sb::Image::Sample sample, const svec3 &extent, size_t layers, const sb::Image::MipmapLevels &mipLevels, sb::Image::Usage usage, sb::Queue &queue) override;
 
 	static inline VkImageLayout sbImageLayoutToVk(sb::Image::Layout layout)
 	{
@@ -855,7 +855,7 @@ private:
 		~Sampler(void) override;
 	};
 
-	std::unique_ptr<sb::Sampler> createSampler(Filter magminFilter, Filter minminFilter, sb::Sampler::MipmapMode mipmapMode, sb::Sampler::AddressMode addressMode) override;
+	std::unique_ptr<sb::Sampler> createSampler(Filter magFilter, Filter minFilter, bool normalizedCoordinates, const sb::Sampler::AddressModeUVW &addressMode, BorderColor borderColor, const std::optional<CompareOp> &compare, sb::Sampler::MipmapMode mipmapMode, float minLod, float maxLod, float mipLodBias, const std::optional<float> &anisotropy) override;
 };
 
 }

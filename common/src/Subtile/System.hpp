@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <optional>
 #include "../Subtile.hpp"
 #include "Shader.hpp"
 #include "Image.hpp"
@@ -39,14 +40,14 @@ public:
 	virtual std::unique_ptr<RenderPass> createRenderPass(rs::RenderPass &renderpass) = 0;
 	virtual std::unique_ptr<Shader> createShader(rs::Shader &shader) = 0;
 	virtual std::unique_ptr<Shader::DescriptorSet::Layout> createDescriptorSetLayout(const Shader::DescriptorSet::Layout::Description &desc) = 0;
-	virtual std::unique_ptr<Image> createImage(Image::Type type, Format format, Image::Sample sample, const svec3 &extent, size_t layers, Image::Usage usage, Queue &queue) = 0;
+	virtual std::unique_ptr<Image> createImage(Image::Type type, Format format, Image::Sample sample, const svec3 &extent, size_t layers, const sb::Image::MipmapLevels &mipLevels, Image::Usage usage, Queue &queue) = 0;
 	virtual std::unique_ptr<Swapchain> createSwapchain(const svec2 &extent, Image::Usage usage, Queue &queue) = 0;
 	virtual std::unique_ptr<Semaphore> createSemaphore(void) = 0;
 	virtual std::unique_ptr<Fence> createFence(bool isSignaled) = 0;
 	virtual std::unique_ptr<Buffer> createBuffer(size_t size, Buffer::Location location, Buffer::Usage usage, Queue &queue) = 0;
 	virtual std::unique_ptr<Model> createModel(Buffer &vertexBuffer, size_t vertexCount) = 0;
 	virtual std::unique_ptr<Model> createModelIndexed(Buffer &vertexBuffer, Buffer &indexBuffer, Model::IndexType indexType, size_t indexCount) = 0;
-	virtual std::unique_ptr<Sampler> createSampler(Filter magminFilter, Filter minminFilter, Sampler::MipmapMode mipmapMode, Sampler::AddressMode addressMode) = 0;
+	virtual std::unique_ptr<Sampler> createSampler(Filter magFilter, Filter minFilter, bool normalizedCoordinates, const Sampler::AddressModeUVW &addressMode, BorderColor borderColor, const std::optional<CompareOp> &compare, Sampler::MipmapMode mipmapMode, float minLod, float maxLod, float mipLodBias, const std::optional<float> &anisotropy) = 0;
 
 	virtual std::unique_ptr<Queue> getQueue(Queue::Flag flags, size_t index) = 0;
 };

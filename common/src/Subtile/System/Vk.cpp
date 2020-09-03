@@ -869,7 +869,7 @@ Vk::ImageAllocView::~ImageAllocView(void)
 {
 }
 
-std::unique_ptr<sb::Image> Vk::createImage(sb::Image::Type type, Format format, sb::Image::Sample sample, const svec3 &extent, size_t layers, sb::Image::Usage usage, sb::Queue &queue)
+std::unique_ptr<sb::Image> Vk::createImage(sb::Image::Type type, Format format, sb::Image::Sample sample, const svec3 &extent, size_t layers, const sb::Image::MipmapLevels &mipLevels, sb::Image::Usage usage, sb::Queue &queue)
 {
 	static const std::map<sb::Image::Type, VkImageType> imageTypeTable {
 		{sb::Image::Type::Image1D, VK_IMAGE_TYPE_1D},
@@ -888,7 +888,7 @@ std::unique_ptr<sb::Image> Vk::createImage(sb::Image::Type type, Format format, 
 	ici.imageType = imageTypeTable.at(type);
 	ici.format = m_device.sbFormatToVk(format);
 	ici.extent = VkExtent3D {static_cast<uint32_t>(extent.x), static_cast<uint32_t>(extent.y), static_cast<uint32_t>(extent.z)};
-	ici.mipLevels = 1;
+	ici.mipLevels = mipLevels.isFull ? static_cast<uint32_t>(std::floor(std::log2(std::max(std::max(extent.x, extent.y), extent.z))) + 1.0) : static_cast<uint32_t>(mipLevels.levels);
 	ici.arrayLayers = layers;
 	ici.samples = static_cast<VkSampleCountFlagBits>(util::enum_underlying(sample));
 	ici.tiling = VK_IMAGE_TILING_OPTIMAL;
@@ -2208,23 +2208,25 @@ void Vk::Device::Handle<VkSampler>::destroy(Vk::Device &device, VkSampler sample
 	device.destroy(vkDestroySampler, sampler);
 }
 
-std::unique_ptr<sb::Sampler> Vk::createSampler(Filter magFilter, Filter minFilter, sb::Sampler::MipmapMode mipmapMode, sb::Sampler::AddressMode addressMode)
+std::unique_ptr<sb::Sampler> Vk::createSampler(Filter magFilter, Filter minFilter, bool normalizedCoordinates, const sb::Sampler::AddressModeUVW &addressMode, BorderColor borderColor, const std::optional<CompareOp> &compare, sb::Sampler::MipmapMode mipmapMode, float minLod, float maxLod, float mipLodBias, const std::optional<float> &anisotropy)
 {
 	VkSamplerCreateInfo ci {};
 	ci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 	ci.magFilter = static_cast<VkFilter>(util::enum_underlying(magFilter));
 	ci.minFilter = static_cast<VkFilter>(util::enum_underlying(minFilter));
 	ci.mipmapMode = static_cast<VkSamplerMipmapMode>(util::enum_underlying(mipmapMode));
-	ci.addressModeU = static_cast<VkSamplerAddressMode>(util::enum_underlying(addressMode));
-	ci.addressModeV = static_cast<VkSamplerAddressMode>(util::enum_underlying(addressMode));
-	ci.addressModeW = static_cast<VkSamplerAddressMode>(util::enum_underlying(addressMode));
-	ci.mipLodBias = 0.0f;
-	ci.anisotropyEnable = VK_FALSE;
-	ci.compareEnable = VK_FALSE;
-	ci.minLod = 0.0f;
-	ci.maxLod = 64.0f;
-	ci.borderColor = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
-	ci.unnormalizedCoordinates = VK_FALSE;
+	ci.addressModeU = static_cast<VkSamplerAddressMode>(util::enum_underlying(addressMode.x));
+	ci.addressModeV = static_cast<VkSamplerAddressMode>(util::enum_underlying(addressMode.y));
+	ci.addressModeW = static_cast<VkSamplerAddressMode>(util::enum_underlying(addressMode.z));
+	ci.mipLodBias = mipLodBias;
+	ci.anisotropyEnable = anisotropy.has_value();
+	ci.maxAnisotropy = *anisotropy;
+	ci.compareEnable = compare.has_value();
+	ci.compareOp = static_cast<VkCompareOp>(util::enum_underlying(*compare));
+	ci.minLod = minLod;
+	ci.maxLod = maxLod;
+	ci.borderColor = static_cast<VkBorderColor>(util::enum_underlying(borderColor));
+	ci.unnormalizedCoordinates = !normalizedCoordinates;
 
 	return std::make_unique<Sampler>(m_device, m_device.createVk(vkCreateSampler, ci));
 }

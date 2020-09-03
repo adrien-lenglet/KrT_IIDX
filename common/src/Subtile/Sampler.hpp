@@ -11,6 +11,26 @@ enum class Filter {
 	Linear = 1
 };
 
+enum class BorderColor {
+	FloatTransparentBlack = 0,
+	IntTransparentBlack = 1,
+	FloatOpaqueBlack = 2,
+	IntOpaqueBlack = 3,
+	FloatOpaqueWhite = 4,
+	IntOpaqueWhite = 5
+};
+
+enum class CompareOp {
+	Never = 0,
+	Less = 1,
+	Equal = 2,
+	LessOrEqual = 3,
+	Greater = 4,
+	NotEqual = 5,
+	GreaterOrEqual = 6,
+	Always = 7
+};
+
 class Sampler
 {
 public:
@@ -26,6 +46,19 @@ public:
 		MirroredRepeat = 1,
 		ClampToEdge = 2,
 		ClampToBorder = 3
+	};
+
+	class AddressModeUVW : public glm::vec<3, AddressMode>
+	{
+	public:
+		AddressModeUVW(const glm::vec<3, AddressMode> &vec) :
+			glm::vec<3, AddressMode>(vec)
+		{
+		}
+		AddressModeUVW(AddressMode vec) :
+			glm::vec<3, AddressMode>(vec, vec, vec)
+		{
+		}
 	};
 
 	class Handle

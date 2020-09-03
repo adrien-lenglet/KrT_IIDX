@@ -28,6 +28,7 @@ private:
 	decltype(res.shaders().lighting().loaded()) m_lighting_shader;
 	sb::Render::Pass m_lighting_draw_list;
 	sb::Sampler::Handle m_sampler;
+	sb::Sampler::Handle m_fb_sampler;
 	decltype(m_lighting_shader.fb(instance.graphics)) m_lighting_samplers;
 
 	decltype(instance.graphics.pool<true>()) m_cmd_pool;
