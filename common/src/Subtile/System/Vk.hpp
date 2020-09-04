@@ -498,7 +498,9 @@ private:
 
 		ImageView(ImageView&&) = default;
 
-		std::unique_ptr<sb::Image> createView(sb::Image::Type type, const ComponentMapping &components, Aspect aspect, const Range &arrayRange, const Range &mipRange) override;
+		std::unique_ptr<sb::Image> createView(sb::Image::Type type, const ComponentMapping &components, Aspect aspect, const Range &arrayRange, const Range &mipRange) const override;
+		size_t getArrayLayers(void) const override;
+		size_t getMipLevels(void) const override;
 
 	private:
 		VkImage m_image;

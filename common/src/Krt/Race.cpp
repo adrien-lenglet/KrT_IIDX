@@ -14,6 +14,7 @@ Race::Race(Instance &instance) :
 	m_swapchain_img_avail(instance.semaphore()),
 
 	m_fb_depth_range(instance.image2D(sb::Format::rg16_sfloat, {2048, 2048}, sb::Image::allMipLevels, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, instance.graphics)),
+	m_fb_depth_range_mips(getFbDepthRangeMips()),
 
 	m_render_done(instance.semaphore()),
 	m_render_done_fence(instance.fence(false)),

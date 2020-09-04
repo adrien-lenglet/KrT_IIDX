@@ -155,7 +155,9 @@ public:
 
 	virtual ~Image(void) = default;
 
-	virtual std::unique_ptr<Image> createView(Type type, const ComponentMapping &components, Aspect aspect, const Range &arrayRange, const Range &mipRange) = 0;
+	virtual std::unique_ptr<Image> createView(Type type, const ComponentMapping &components, Aspect aspect, const Range &arrayRange, const Range &mipRange) const = 0;
+	virtual size_t getArrayLayers(void) const = 0;
+	virtual size_t getMipLevels(void) const = 0;
 };
 
 class Image::Handle
@@ -171,8 +173,17 @@ public:
 		return *m_image;
 	}
 
+	size_t mipLevels(void) const
+	{
+		return image().getMipLevels();
+	}
+
 protected:
 	Image& image(void)
+	{
+		return *m_image;
+	}
+	Image& image(void) const
 	{
 		return *m_image;
 	}
@@ -190,6 +201,11 @@ public:
 		Image::Handle(std::forward<Args>(args)...)
 	{
 	}
+
+	auto view(const ComponentMapping &components, Image::Aspect aspect, const Range &mipRange)
+	{
+		return Image2D(image().createView(Image::Type::Image2D, components, aspect, wholeRange, mipRange));
+	}
 };
 
 // layers = 1, mips >= 1, samples > 1
@@ -200,6 +216,11 @@ public:
 	Image2DMS(Args &&...args) :
 		Image::Handle(std::forward<Args>(args)...)
 	{
+	}
+
+	auto view(const ComponentMapping &components, Image::Aspect aspect, const Range &mipRange)
+	{
+		return Image2DMS(image().createView(Image::Type::Image2D, components, aspect, wholeRange, mipRange));
 	}
 };
 
@@ -212,6 +233,21 @@ public:
 		Image::Handle(std::forward<Args>(args)...)
 	{
 	}
+
+	size_t size(void) const
+	{
+		return image().getArrayLayers();
+	}
+
+	auto view(const ComponentMapping &components, Image::Aspect aspect, const Range &arrayRange, const Range &mipRange)
+	{
+		return Image2DArray(image().createView(Image::Type::Image2DArray, components, aspect, arrayRange, mipRange));
+	}
+
+	auto viewElem(size_t index, const ComponentMapping &components, Image::Aspect aspect, const Range &mipRange)
+	{
+		return Image2D(image().createView(Image::Type::Image2D, components, aspect, Range(index, 1), mipRange));
+	}
 };
 
 // layers >= 1, mips >= 1, samples > 1
@@ -222,6 +258,21 @@ public:
 	Image2DMSArray(Args &&...args) :
 		Image::Handle(std::forward<Args>(args)...)
 	{
+	}
+
+	size_t size(void) const
+	{
+		return image().getArrayLayers();
+	}
+
+	auto view(const ComponentMapping &components, Image::Aspect aspect, const Range &arrayRange, const Range &mipRange)
+	{
+		return Image2DMSArray(image().createView(Image::Type::Image2DArray, components, aspect, arrayRange, mipRange));
+	}
+
+	auto viewElem(size_t index, const ComponentMapping &components, Image::Aspect aspect, const Range &mipRange)
+	{
+		return Image2DMS(image().createView(Image::Type::Image2D, components, aspect, Range(index, 1), mipRange));
 	}
 };
 

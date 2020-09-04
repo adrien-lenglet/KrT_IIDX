@@ -25,16 +25,14 @@ private:
 
 	sb::Image2D m_fb_depth_range;
 	std::vector<sb::Image2D> m_fb_depth_range_mips;
-	/*std::vector<sb::Image2D> getFbDepthRangeMips(void)
+	std::vector<sb::Image2D> getFbDepthRangeMips(void)
 	{
 		std::vector<sb::Image2D> res;
 
-		while (true) {
-			
-		}
+		for (size_t i = 0; i < m_fb_depth_range.mipLevels(); i++)
+			res.emplace_back(m_fb_depth_range.view(sb::ComponentSwizzle::Identity, sb::Image::Aspect::Color, sb::Range(i, 1)));
 		return res;
-	}*/
-	//std::vector<> m_fb_depth_range_mips;
+	}
 
 	decltype(instance.semaphore()) m_render_done;
 	decltype(instance.fence()) m_render_done_fence;

@@ -862,6 +862,7 @@ VkImageType Vk::Image::sbImageTypeToVk(sb::Image::Type type)
 Vk::ImageView::ImageView(Device &dev, VkImage image, VkFormat imageFormat, sb::Image::Type type, const ComponentMapping &components, Aspect aspect, const Range &arrayRange, const Range &mipRange) :
 	Device::Handle<VkImageView>(dev, create(dev, image, imageFormat, type, components, aspect, arrayRange, mipRange)),
 	m_image(image),
+	m_image_format(imageFormat),
 	m_components(components),
 	m_aspect(aspect),
 	m_array_range(arrayRange),
@@ -899,9 +900,19 @@ void Vk::Device::Handle<VkImageView>::destroy(Vk::Device &device, VkImageView im
 	device.destroy(vkDestroyImageView, imageView);
 }
 
-std::unique_ptr<sb::Image> Vk::ImageView::createView(sb::Image::Type type, const ComponentMapping &components, Aspect aspect, const Range &arrayRange, const Range &mipRange)
+std::unique_ptr<sb::Image> Vk::ImageView::createView(sb::Image::Type type, const ComponentMapping &components, Aspect aspect, const Range &arrayRange, const Range &mipRange) const
 {
 	return std::make_unique<Vk::ImageView>(getDep(), m_image, m_image_format, type, deriveComponents(components), deriveAspect(aspect), deriveRange(m_array_range, arrayRange), deriveRange(m_mip_range, mipRange));
+}
+
+size_t Vk::ImageView::getArrayLayers(void) const
+{
+	return m_array_range.size;
+}
+
+size_t Vk::ImageView::getMipLevels(void) const
+{
+	return m_mip_range.size;
 }
 
 ComponentMapping Vk::ImageView::deriveComponents(const ComponentMapping &newMapping) const
