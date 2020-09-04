@@ -22,6 +22,20 @@ private:
 	decltype(m_color_pass)::Framebuffer m_color_fb;
 	std::vector<decltype(m_post_pass)::Framebuffer> m_post_fbs;
 	decltype(instance.semaphore()) m_swapchain_img_avail;
+
+	sb::Image2D m_fb_depth_range;
+	std::vector<sb::Image2D> m_fb_depth_range_mips;
+	/*std::vector<sb::Image2D> getFbDepthRangeMips(void)
+	{
+		std::vector<sb::Image2D> res;
+
+		while (true) {
+			
+		}
+		return res;
+	}*/
+	//std::vector<> m_fb_depth_range_mips;
+
 	decltype(instance.semaphore()) m_render_done;
 	decltype(instance.fence()) m_render_done_fence;
 

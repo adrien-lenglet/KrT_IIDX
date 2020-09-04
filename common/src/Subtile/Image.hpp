@@ -9,6 +9,61 @@ namespace Subtile {
 
 class Queue;
 
+enum class ComponentSwizzle {
+	Identity = 0,
+	Zero = 1,
+	One = 2,
+	R = 3,
+	G = 4,
+	B = 5,
+	A = 6
+};
+
+class ComponentMapping : public glm::vec<4, ComponentSwizzle>
+{
+public:
+	ComponentMapping(ComponentSwizzle r, ComponentSwizzle g, ComponentSwizzle b, ComponentSwizzle a) :
+		glm::vec<4, ComponentSwizzle>(r, g, b, a)
+	{
+	}
+	ComponentMapping(ComponentSwizzle vec) :
+		glm::vec<4, ComponentSwizzle>(vec, vec, vec, vec)
+	{
+	}
+};
+
+struct WholeRange {};
+static inline constexpr WholeRange wholeRange{};
+
+struct Range
+{
+public:
+	Range(size_t off, size_t size) :
+		off(off),
+		size(size),
+		isWhole(false)
+	{
+	}
+
+	Range(WholeRange) :
+		off(0),
+		size(0),
+		isWhole(true)
+	{
+	}
+
+	Range(size_t off, WholeRange) :
+		off(off),
+		size(0),
+		isWhole(true)
+	{
+	}
+
+	size_t off;
+	size_t size;
+	bool isWhole;
+};
+
 class Image
 {
 public:
@@ -70,6 +125,12 @@ public:
 		CubeArray = 6
 	};
 
+	enum class Aspect {
+		Color = 0x00000001,
+		Depth = 0x00000002,
+		Stencil = 0x00000004
+	};
+
 	struct AllMipLevels {};
 	static inline constexpr AllMipLevels allMipLevels{};
 
@@ -90,13 +151,17 @@ public:
 		size_t levels;
 	};
 
+	class Handle;
+
 	virtual ~Image(void) = default;
+
+	virtual std::unique_ptr<Image> createView(Type type, const ComponentMapping &components, Aspect aspect, const Range &arrayRange, const Range &mipRange) = 0;
 };
 
-class Image2D
+class Image::Handle
 {
 public:
-	Image2D(std::unique_ptr<Image> &&image) :
+	Handle(std::unique_ptr<Image> &&image) :
 		m_image(std::move(image))
 	{
 	}
@@ -106,31 +171,70 @@ public:
 		return *m_image;
 	}
 
-private:
-	std::unique_ptr<Image> m_image;
-};
-
-class Image2DArray
-{
-public:
-	Image2DArray(std::unique_ptr<Image> &&image) :
-		m_image(std::move(image))
-	{
-	}
-
-	operator Image&(void)
+protected:
+	Image& image(void)
 	{
 		return *m_image;
 	}
 
 private:
 	std::unique_ptr<Image> m_image;
+};
+
+// layers = 1, mips >= 1, samples = 1
+class Image2D : public Image::Handle
+{
+public:
+	template <typename ...Args>
+	Image2D(Args &&...args) :
+		Image::Handle(std::forward<Args>(args)...)
+	{
+	}
+};
+
+// layers = 1, mips >= 1, samples > 1
+class Image2DMS : public Image::Handle
+{
+public:
+	template <typename ...Args>
+	Image2DMS(Args &&...args) :
+		Image::Handle(std::forward<Args>(args)...)
+	{
+	}
+};
+
+// layers >= 1, mips >= 1, samples = 1
+class Image2DArray : public Image::Handle
+{
+public:
+	template <typename ...Args>
+	Image2DArray(Args &&...args) :
+		Image::Handle(std::forward<Args>(args)...)
+	{
+	}
+};
+
+// layers >= 1, mips >= 1, samples > 1
+class Image2DMSArray : public Image::Handle
+{
+public:
+	template <typename ...Args>
+	Image2DMSArray(Args &&...args) :
+		Image::Handle(std::forward<Args>(args)...)
+	{
+	}
 };
 
 }
 
 template <>
 struct util::enable_bitmask<sb::Image::Usage>
+{
+	static inline constexpr bool value = true;
+};
+
+template <>
+struct util::enable_bitmask<sb::Image::Aspect>
 {
 	static inline constexpr bool value = true;
 };

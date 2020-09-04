@@ -818,7 +818,7 @@ void Vk::Device::Handle<VkImage>::destroy(Vk::Device &device, VkImage image)
 	device.destroy(vkDestroyImage, image);
 }
 
-static VkImageAspectFlags sbFormatToImageAspectFlags(sb::Format format)
+static sb::Image::Aspect sbFormatToImageAspectFlags(sb::Format format)
 {
 	static const std::set<sb::Format> depthTable {
 		sb::Format::d16_unorm,
@@ -836,16 +836,36 @@ static VkImageAspectFlags sbFormatToImageAspectFlags(sb::Format format)
 	};
 
 	if (depthTable.find(format) != depthTable.end())
-		return VK_IMAGE_ASPECT_DEPTH_BIT;
+		return sb::Image::Aspect::Depth;
 	if (stencilTable.find(format) != stencilTable.end())
-		return VK_IMAGE_ASPECT_STENCIL_BIT;
+		return sb::Image::Aspect::Stencil;
 	if (depthStencilTable.find(format) != depthStencilTable.end())
-		return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-	return VK_IMAGE_ASPECT_COLOR_BIT;
+		return sb::Image::Aspect::Depth | sb::Image::Aspect::Stencil;
+	return sb::Image::Aspect::Color;
 }
 
-Vk::ImageView::ImageView(Device &dev, VkImageView view) :
-	Device::Handle<VkImageView>(dev, view)
+VkImageType Vk::Image::sbImageTypeToVk(sb::Image::Type type)
+{
+	static const std::map<sb::Image::Type, VkImageType> table {
+		{sb::Image::Type::Image1D, VK_IMAGE_TYPE_1D},
+		{sb::Image::Type::Image2D, VK_IMAGE_TYPE_2D},
+		{sb::Image::Type::Image3D, VK_IMAGE_TYPE_3D},
+		{sb::Image::Type::Cube, VK_IMAGE_TYPE_2D},
+		{sb::Image::Type::Image1DArray, VK_IMAGE_TYPE_1D},
+		{sb::Image::Type::Image2DArray, VK_IMAGE_TYPE_2D},
+		{sb::Image::Type::CubeArray, VK_IMAGE_TYPE_2D}
+	};
+
+	return table.at(type);
+}
+
+Vk::ImageView::ImageView(Device &dev, VkImage image, VkFormat imageFormat, sb::Image::Type type, const ComponentMapping &components, Aspect aspect, const Range &arrayRange, const Range &mipRange) :
+	Device::Handle<VkImageView>(dev, create(dev, image, imageFormat, type, components, aspect, arrayRange, mipRange)),
+	m_image(image),
+	m_components(components),
+	m_aspect(aspect),
+	m_array_range(arrayRange),
+	m_mip_range(mipRange)
 {
 }
 
@@ -853,10 +873,76 @@ Vk::ImageView::~ImageView(void)
 {
 }
 
+VkImageView Vk::ImageView::create(Device &dev, VkImage image, VkFormat imageFormat, sb::Image::Type type, const ComponentMapping &components, Aspect aspect, const Range &arrayRange, const Range &mipRange)
+{
+	VkImageViewCreateInfo ci {};
+	ci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	ci.image = image;
+	ci.viewType = static_cast<VkImageViewType>(util::enum_underlying(type));
+	ci.format = imageFormat;
+	ci.components.r = static_cast<VkComponentSwizzle>(util::enum_underlying(components.r));
+	ci.components.g = static_cast<VkComponentSwizzle>(util::enum_underlying(components.g));
+	ci.components.b = static_cast<VkComponentSwizzle>(util::enum_underlying(components.b));
+	ci.components.a = static_cast<VkComponentSwizzle>(util::enum_underlying(components.a));
+	ci.subresourceRange.aspectMask = util::enum_underlying(aspect);
+	ci.subresourceRange.baseArrayLayer = arrayRange.off;
+	ci.subresourceRange.layerCount = arrayRange.size;
+	ci.subresourceRange.baseMipLevel = mipRange.off;
+	ci.subresourceRange.levelCount = mipRange.size;
+
+	return dev.createVk(vkCreateImageView, ci);
+}
+
 template <>
 void Vk::Device::Handle<VkImageView>::destroy(Vk::Device &device, VkImageView imageView)
 {
 	device.destroy(vkDestroyImageView, imageView);
+}
+
+std::unique_ptr<sb::Image> Vk::ImageView::createView(sb::Image::Type type, const ComponentMapping &components, Aspect aspect, const Range &arrayRange, const Range &mipRange)
+{
+	return std::make_unique<Vk::ImageView>(getDep(), m_image, m_image_format, type, deriveComponents(components), deriveAspect(aspect), deriveRange(m_array_range, arrayRange), deriveRange(m_mip_range, mipRange));
+}
+
+ComponentMapping Vk::ImageView::deriveComponents(const ComponentMapping &newMapping) const
+{
+	return ComponentMapping(
+		deriveComponent(&ComponentMapping::x, newMapping),
+		deriveComponent(&ComponentMapping::y, newMapping),
+		deriveComponent(&ComponentMapping::z, newMapping),
+		deriveComponent(&ComponentMapping::w, newMapping)
+	);
+}
+
+ComponentSwizzle Vk::ImageView::deriveComponent(ComponentSwizzle ComponentMapping::* baseLoc, const ComponentMapping &newMapping) const
+{
+	static const std::map<ComponentSwizzle, ComponentSwizzle ComponentMapping::*> table {
+		{ComponentSwizzle::R, &ComponentMapping::x},
+		{ComponentSwizzle::G, &ComponentMapping::y},
+		{ComponentSwizzle::B, &ComponentMapping::z},
+		{ComponentSwizzle::A, &ComponentMapping::w}
+	};
+
+	auto newComp = newMapping.*baseLoc;
+	if (newComp == ComponentSwizzle::Identity)
+		return m_components.*baseLoc;
+	else if (newComp == ComponentSwizzle::Zero || newComp == ComponentSwizzle::One)
+		return newComp;
+	else
+		return m_components.*table.at(newComp);
+}
+
+sb::Image::Aspect Vk::ImageView::deriveAspect(Aspect newAspect) const
+{
+	return m_aspect | newAspect;
+}
+
+Range Vk::ImageView::deriveRange(const Range &baseRange, const Range &newRange)
+{
+	if (newRange.isWhole)
+		return Range(baseRange.off + newRange.off, baseRange.size - newRange.off);
+	else
+		return Range(baseRange.off + newRange.off, newRange.size);
 }
 
 Vk::ImageAllocView::ImageAllocView(Vk::Image &&image, ImageView &&view) :
@@ -871,21 +957,11 @@ Vk::ImageAllocView::~ImageAllocView(void)
 
 std::unique_ptr<sb::Image> Vk::createImage(sb::Image::Type type, Format format, sb::Image::Sample sample, const svec3 &extent, size_t layers, const sb::Image::MipmapLevels &mipLevels, sb::Image::Usage usage, sb::Queue &queue)
 {
-	static const std::map<sb::Image::Type, VkImageType> imageTypeTable {
-		{sb::Image::Type::Image1D, VK_IMAGE_TYPE_1D},
-		{sb::Image::Type::Image2D, VK_IMAGE_TYPE_2D},
-		{sb::Image::Type::Image3D, VK_IMAGE_TYPE_3D},
-		{sb::Image::Type::Cube, VK_IMAGE_TYPE_2D},
-		{sb::Image::Type::Image1DArray, VK_IMAGE_TYPE_1D},
-		{sb::Image::Type::Image2DArray, VK_IMAGE_TYPE_2D},
-		{sb::Image::Type::CubeArray, VK_IMAGE_TYPE_2D}
-	};
-
 	VkQueueFamilyIndex queueFamilyIndex = reinterpret_cast<Queue&>(queue).getFamilyIndex();
 
 	VkImageCreateInfo ici {};
 	ici.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	ici.imageType = imageTypeTable.at(type);
+	ici.imageType = Vk::Image::sbImageTypeToVk(type);
 	ici.format = m_device.sbFormatToVk(format);
 	ici.extent = VkExtent3D {static_cast<uint32_t>(extent.x), static_cast<uint32_t>(extent.y), static_cast<uint32_t>(extent.z)};
 	ici.mipLevels = mipLevels.isFull ? static_cast<uint32_t>(std::floor(std::log2(std::max(std::max(extent.x, extent.y), extent.z))) + 1.0) : static_cast<uint32_t>(mipLevels.levels);
@@ -906,16 +982,7 @@ std::unique_ptr<sb::Image> Vk::createImage(sb::Image::Type type, Format format, 
 	Vk::assert(vmaCreateImage(m_device.allocator(), &ici, &aci, &vk_image, &allocation, nullptr));
 
 	auto image = Vk::Image(m_device, vk_image, allocation);
-
-	VkImageViewCreateInfo ivci {};
-	ivci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	ivci.image = image;
-	ivci.viewType = static_cast<VkImageViewType>(util::enum_underlying(type));
-	ivci.format = ici.format;
-	ivci.subresourceRange.aspectMask = sbFormatToImageAspectFlags(format);
-	ivci.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
-	ivci.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-	auto view = m_device.create<ImageView>(vkCreateImageView, ivci);
+	auto view = Vk::ImageView(m_device, image, ici.format, type, ComponentSwizzle::Identity, sbFormatToImageAspectFlags(format), Range(0, ici.arrayLayers), Range(0, ici.mipLevels));
 
 	return std::make_unique<ImageAllocView>(std::move(image), std::move(view));
 }
@@ -1441,17 +1508,8 @@ std::vector<sb::Swapchain::Image2D> Vk::Swapchain::queryImages(void)
 {
 	std::vector<sb::Swapchain::Image2D> res;
 
-	for (auto &img : enumerate<VkImage>(vkGetSwapchainImagesKHR, getDep(), *this)) {
-		VkImageViewCreateInfo ci {};
-		ci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		ci.image = img;
-		ci.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		ci.format = getDep().vk().m_swapchain_format.format;
-		ci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		ci.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
-		ci.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-		res.emplace_back(*this, std::make_unique<ImageView>(getDep(), getDep().createVk(vkCreateImageView, ci)));
-	}
+	for (auto &img : enumerate<VkImage>(vkGetSwapchainImagesKHR, getDep(), *this))
+		res.emplace_back(*this, std::make_unique<ImageView>(getDep(), img, getDep().vk().m_swapchain_format.format, sb::Image::Type::Image2D, ComponentSwizzle::Identity, sb::Image::Aspect::Color, Range(0, 1), Range(0, 1)));
 
 	return res;
 }

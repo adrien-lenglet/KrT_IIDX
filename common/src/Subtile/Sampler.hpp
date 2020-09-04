@@ -51,8 +51,8 @@ public:
 	class AddressModeUVW : public glm::vec<3, AddressMode>
 	{
 	public:
-		AddressModeUVW(const glm::vec<3, AddressMode> &vec) :
-			glm::vec<3, AddressMode>(vec)
+		AddressModeUVW(AddressMode u, AddressMode v, AddressMode w) :
+			glm::vec<3, AddressMode>(u, v, w)
 		{
 		}
 		AddressModeUVW(AddressMode vec) :

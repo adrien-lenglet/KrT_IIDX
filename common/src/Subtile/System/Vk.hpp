@@ -482,19 +482,38 @@ private:
 
 	class Image : private Allocation, public Device::Handle<VkImage>
 	{
-		static VkImageAspectFlags sbFormatToImageAspectFlags(sb::Format format);
+		static sb::Image::Aspect sbFormatToImageAspectFlags(sb::Format format);
 
 	public:
 		Image(Device &dev, VkImage image, VmaAllocation allocation);
+
+		static VkImageType sbImageTypeToVk(sb::Image::Type type);
 	};
 
 	class ImageView : public sb::Image, public Device::Handle<VkImageView>
 	{
 	public:
-		ImageView(Device &dev, VkImageView view);
+		ImageView(Device &dev, VkImage image, VkFormat imageFormat, sb::Image::Type type, const ComponentMapping &components, Aspect aspect, const Range &arrayRange, const Range &mipRange);
 		~ImageView(void) override;
 
 		ImageView(ImageView&&) = default;
+
+		std::unique_ptr<sb::Image> createView(sb::Image::Type type, const ComponentMapping &components, Aspect aspect, const Range &arrayRange, const Range &mipRange) override;
+
+	private:
+		VkImage m_image;
+		VkFormat m_image_format;
+		ComponentMapping m_components;
+		Aspect m_aspect;
+		Range m_array_range;
+		Range m_mip_range;
+
+		VkImageView create(Device &dev, VkImage image, VkFormat imageFormat, sb::Image::Type type, const ComponentMapping &components, Aspect aspect, const Range &arrayRange, const Range &mipRange);
+
+		ComponentMapping deriveComponents(const ComponentMapping &newMapping) const;
+		ComponentSwizzle deriveComponent(ComponentSwizzle ComponentMapping::* baseLoc, const ComponentMapping &newMapping) const;
+		Aspect deriveAspect(Aspect newAspect) const;
+		static Range deriveRange(const Range &baseRange, const Range &newRange);
 	};
 
 	class ImageAllocView : public Vk::Image, public ImageView
