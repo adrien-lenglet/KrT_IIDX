@@ -13,6 +13,7 @@ fragment {
 	set fb {
 		sampler2D color;
 		sampler2D depth_buffer;
+		sampler2D depth_range;
 	};
 
 	const float pi = 3.141592653589793238462643383279502884;
@@ -21,8 +22,6 @@ fragment {
 	{
 		return ang * (pi / 180.0);
 	}
-
-	const vec2 depth_buffer_uv = vec2(1600.0, 900.0) / vec2(2048.0);
 
 	vec3 current_view(void)
 	{

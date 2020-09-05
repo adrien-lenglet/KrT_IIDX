@@ -67,9 +67,8 @@ private:
 
 		auto end = m_depth_range_mips.end();
 		for (auto it = m_depth_range_mips.begin() + 1; it != end; it++) {
-			auto &cur = *it;
 			auto in_fb = m_compute_depth_range.fb(instance.graphics);
-			in_fb.up.bind(m_fb_sampler, cur.img, sb::Image::Layout::General);
+			in_fb.up.bind(m_fb_sampler, (it - 1)->img, sb::Image::Layout::General);
 			res.emplace_back(std::move(in_fb));
 		}
 		return res;
