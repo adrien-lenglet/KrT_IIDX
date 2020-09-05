@@ -158,6 +158,7 @@ public:
 	virtual std::unique_ptr<Image> createView(Type type, const ComponentMapping &components, Aspect aspect, const Range &arrayRange, const Range &mipRange) const = 0;
 	virtual size_t getArrayLayers(void) const = 0;
 	virtual size_t getMipLevels(void) const = 0;
+	virtual const svec3& getExtent(void) const = 0;
 };
 
 class Image::Handle
@@ -206,6 +207,12 @@ public:
 	{
 		return Image2D(image().createView(Image::Type::Image2D, components, aspect, wholeRange, mipRange));
 	}
+
+	svec2 extent(void) const
+	{
+		auto &e = image().getExtent();
+		return svec2(e.x, e.y);
+	}
 };
 
 // layers = 1, mips >= 1, samples > 1
@@ -216,6 +223,12 @@ public:
 	Image2DMS(Args &&...args) :
 		Image::Handle(std::forward<Args>(args)...)
 	{
+	}
+
+	svec2 extent(void) const
+	{
+		auto &e = image().getExtent();
+		return svec2(e.x, e.y);
 	}
 
 	auto view(const ComponentMapping &components, Image::Aspect aspect, const Range &mipRange)
@@ -232,6 +245,12 @@ public:
 	Image2DArray(Args &&...args) :
 		Image::Handle(std::forward<Args>(args)...)
 	{
+	}
+
+	svec2 extent(void) const
+	{
+		auto &e = image().getExtent();
+		return svec2(e.x, e.y);
 	}
 
 	size_t size(void) const
@@ -258,6 +277,12 @@ public:
 	Image2DMSArray(Args &&...args) :
 		Image::Handle(std::forward<Args>(args)...)
 	{
+	}
+
+	svec2 extent(void) const
+	{
+		auto &e = image().getExtent();
+		return svec2(e.x, e.y);
 	}
 
 	size_t size(void) const

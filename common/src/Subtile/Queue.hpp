@@ -60,7 +60,8 @@ public:
 
 	virtual void copy(const Buffer::Region &src, const Buffer::Region &dst) = 0;
 
-	virtual void memoryBarrier(PipelineStage srcStageMask, PipelineStage dstStageMask, Access srcAccessMask, Access dstAccessMask, DependencyFlag flags) = 0;
+	virtual void memoryBarrier(PipelineStage srcStageMask, PipelineStage dstStageMask, DependencyFlag flags, Access srcAccessMask, Access dstAccessMask) = 0;
+	virtual void imageMemoryBarrier(PipelineStage srcStageMask, PipelineStage dstStageMask, DependencyFlag flags, Access srcAccessMask, Access dstAccessMask, Image::Layout oldLayout, Image::Layout newLayout, Image &image) = 0;
 
 	template <typename Type>
 	class CmdGetter
@@ -535,9 +536,14 @@ public:
 	template <Level L, RenderPassScope S, Queue::Flag Q>
 	using query = std::conditional_t<!!(S & RenderPassScope::Both) && !!(Q & GCT), PrimarySecondaryBothGCT, empty>;
 
-	void memoryBarrier(PipelineStage srcStageMask, PipelineStage dstStageMask, Access srcAccessMask, Access dstAccessMask, DependencyFlag flags)
+	void memoryBarrier(PipelineStage srcStageMask, PipelineStage dstStageMask, DependencyFlag flags, Access srcAccessMask, Access dstAccessMask)
 	{
-		cmd().memoryBarrier(srcStageMask, dstStageMask, srcAccessMask, dstAccessMask, flags);
+		cmd().memoryBarrier(srcStageMask, dstStageMask, flags, srcAccessMask, dstAccessMask);
+	}
+
+	void imageMemoryBarrier(PipelineStage srcStageMask, PipelineStage dstStageMask, DependencyFlag flags, Access srcAccessMask, Access dstAccessMask, Image::Layout oldLayout, Image::Layout newLayout, Image &image)
+	{
+		cmd().imageMemoryBarrier(srcStageMask, dstStageMask, flags, srcAccessMask, dstAccessMask, oldLayout, newLayout, image);
 	}
 };
 

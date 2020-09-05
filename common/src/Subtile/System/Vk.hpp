@@ -493,7 +493,7 @@ private:
 	class ImageView : public sb::Image, public Device::Handle<VkImageView>
 	{
 	public:
-		ImageView(Device &dev, VkImage image, VkFormat imageFormat, sb::Image::Type type, const ComponentMapping &components, Aspect aspect, const Range &arrayRange, const Range &mipRange);
+		ImageView(Device &dev, VkImage image, VkFormat imageFormat, sb::Image::Type type, const svec3 &extent, const ComponentMapping &components, Aspect aspect, const Range &arrayRange, const Range &mipRange);
 		~ImageView(void) override;
 
 		ImageView(ImageView&&) = default;
@@ -501,10 +501,17 @@ private:
 		std::unique_ptr<sb::Image> createView(sb::Image::Type type, const ComponentMapping &components, Aspect aspect, const Range &arrayRange, const Range &mipRange) const override;
 		size_t getArrayLayers(void) const override;
 		size_t getMipLevels(void) const override;
+		const svec3& getExtent(void) const override;
+
+		auto& getImage(void) const { return m_image; }
+		auto& getAspect(void) const { return m_aspect; }
+		auto& getArrayRange(void) const { return m_array_range; }
+		auto& getMipRange(void) const { return m_mip_range; }
 
 	private:
 		VkImage m_image;
 		VkFormat m_image_format;
+		svec3 m_extent;
 		ComponentMapping m_components;
 		Aspect m_aspect;
 		Range m_array_range;
@@ -512,6 +519,7 @@ private:
 
 		VkImageView create(Device &dev, VkImage image, VkFormat imageFormat, sb::Image::Type type, const ComponentMapping &components, Aspect aspect, const Range &arrayRange, const Range &mipRange);
 
+		svec3 deriveExtent(size_t mipmapOff) const;
 		ComponentMapping deriveComponents(const ComponentMapping &newMapping) const;
 		ComponentSwizzle deriveComponent(ComponentSwizzle ComponentMapping::* baseLoc, const ComponentMapping &newMapping) const;
 		Aspect deriveAspect(Aspect newAspect) const;
@@ -785,7 +793,8 @@ private:
 		void endRenderPass(void) override;
 
 		void copy(const sb::Buffer::Region &src, const sb::Buffer::Region &dst) override;
-		void memoryBarrier(PipelineStage srcStageMask, PipelineStage dstStageMask, Access srcAccessMask, Access dstAccessMask, DependencyFlag flags) override;
+		void memoryBarrier(PipelineStage srcStageMask, PipelineStage dstStageMask, DependencyFlag flags, Access srcAccessMask, Access dstAccessMask) override;
+		void imageMemoryBarrier(PipelineStage srcStageMask, PipelineStage dstStageMask, DependencyFlag flags, Access srcAccessMask, Access dstAccessMask, sb::Image::Layout oldLayout, sb::Image::Layout newLayout, sb::Image &image) override;
 
 	private:
 		CommandPool &m_pool;

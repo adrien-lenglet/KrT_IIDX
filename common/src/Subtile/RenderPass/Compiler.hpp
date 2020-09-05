@@ -76,10 +76,13 @@ public:
 			return got->second;
 		}
 
+	public:
 		auto pollLayout(const std::string &str)
 		{
 			std::map<std::string, Image::Layout> table {
 				{"undefined", Image::Layout::Undefined},
+				{"general", Image::Layout::General},
+
 				{"color_attachment_optimal", Image::Layout::ColorAttachmentOptimal},
 				{"depth_stencil_attachment_optimal", Image::Layout::DepthStencilAttachmentOptimal},
 				{"depth_stencil_read_only_optimal", Image::Layout::DepthStencilReadOnlyOptimal},
@@ -101,6 +104,7 @@ public:
 			return got->second;
 		}
 
+	private:
 		void poll_attrs(tstream &s)
 		{
 			s.expect("{");
@@ -289,6 +293,7 @@ public:
 		};
 		std::vector<Out> m_out;
 		std::vector<util::ref_wrapper<Attachment>> m_preserve;
+		std::set<Attachment*> m_layout_override;
 
 		void check_not_preserved(Attachment &attachment)
 		{
@@ -371,7 +376,20 @@ public:
 						throw std::runtime_error(ss.str());
 					}
 					s.expect(";");
-				}
+				} else if (qual == "layout") {
+					s.expect("=");
+					auto layout = att.pollLayout(s.poll());
+					auto &attlay = attLayout(att, AttachmentUsage::In);
+					if (m_layout_override.find(&att) != m_layout_override.end()) {
+						std::stringstream ss;
+						ss << "Layout qualifier already used for attachment '" << att.getName() << "' on subpass '" << m_name << "'";
+						throw std::runtime_error(ss.str());
+					}
+					m_layout_override.emplace(&att);
+					attlay.layout = layout;
+					s.expect(";");
+				} else
+					throw std::runtime_error(std::string("Unknown qualifier '") + qual + std::string("'"));
 			}
 			s.poll();
 		}

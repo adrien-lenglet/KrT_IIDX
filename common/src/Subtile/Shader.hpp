@@ -240,6 +240,11 @@ public:
 				}
 			};
 
+			operator DescriptorSet&(void)
+			{
+				return *m_set;
+			}
+
 		protected:
 			friend Getter;
 			std::unique_ptr<DescriptorSet> m_set;

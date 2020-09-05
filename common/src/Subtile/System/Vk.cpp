@@ -172,7 +172,9 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_messenger_cb(
 	};
 
 	if (messageSeverity != VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT &&
-	messageSeverity != VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) {
+	messageSeverity != VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
+	&& messageType != VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT
+	) {
 		auto comma = "";
 		std::cerr << "[";
 		for (auto &p : sever_table)
@@ -859,10 +861,11 @@ VkImageType Vk::Image::sbImageTypeToVk(sb::Image::Type type)
 	return table.at(type);
 }
 
-Vk::ImageView::ImageView(Device &dev, VkImage image, VkFormat imageFormat, sb::Image::Type type, const ComponentMapping &components, Aspect aspect, const Range &arrayRange, const Range &mipRange) :
+Vk::ImageView::ImageView(Device &dev, VkImage image, VkFormat imageFormat, sb::Image::Type type, const svec3 &extent, const ComponentMapping &components, Aspect aspect, const Range &arrayRange, const Range &mipRange) :
 	Device::Handle<VkImageView>(dev, create(dev, image, imageFormat, type, components, aspect, arrayRange, mipRange)),
 	m_image(image),
 	m_image_format(imageFormat),
+	m_extent(extent),
 	m_components(components),
 	m_aspect(aspect),
 	m_array_range(arrayRange),
@@ -902,7 +905,7 @@ void Vk::Device::Handle<VkImageView>::destroy(Vk::Device &device, VkImageView im
 
 std::unique_ptr<sb::Image> Vk::ImageView::createView(sb::Image::Type type, const ComponentMapping &components, Aspect aspect, const Range &arrayRange, const Range &mipRange) const
 {
-	return std::make_unique<Vk::ImageView>(getDep(), m_image, m_image_format, type, deriveComponents(components), deriveAspect(aspect), deriveRange(m_array_range, arrayRange), deriveRange(m_mip_range, mipRange));
+	return std::make_unique<Vk::ImageView>(getDep(), m_image, m_image_format, type, deriveExtent(mipRange.off), deriveComponents(components), deriveAspect(aspect), deriveRange(m_array_range, arrayRange), deriveRange(m_mip_range, mipRange));
 }
 
 size_t Vk::ImageView::getArrayLayers(void) const
@@ -913,6 +916,25 @@ size_t Vk::ImageView::getArrayLayers(void) const
 size_t Vk::ImageView::getMipLevels(void) const
 {
 	return m_mip_range.size;
+}
+
+const svec3& Vk::ImageView::getExtent(void) const
+{
+	return m_extent;
+}
+
+svec3 Vk::ImageView::deriveExtent(size_t mipmapOff) const
+{
+	auto nextDim = [](size_t curDim) {
+		return std::max(curDim / 2, 1ULL);
+	};
+	auto res = m_extent;
+	for (size_t i = 0; i < mipmapOff; i++) {
+		res.x = nextDim(res.x);
+		res.y = nextDim(res.y);
+		res.z = nextDim(res.z);
+	}
+	return res;
 }
 
 ComponentMapping Vk::ImageView::deriveComponents(const ComponentMapping &newMapping) const
@@ -993,7 +1015,7 @@ std::unique_ptr<sb::Image> Vk::createImage(sb::Image::Type type, Format format, 
 	Vk::assert(vmaCreateImage(m_device.allocator(), &ici, &aci, &vk_image, &allocation, nullptr));
 
 	auto image = Vk::Image(m_device, vk_image, allocation);
-	auto view = Vk::ImageView(m_device, image, ici.format, type, ComponentSwizzle::Identity, sbFormatToImageAspectFlags(format), Range(0, ici.arrayLayers), Range(0, ici.mipLevels));
+	auto view = Vk::ImageView(m_device, image, ici.format, type, extent, ComponentSwizzle::Identity, sbFormatToImageAspectFlags(format), Range(0, ici.arrayLayers), Range(0, ici.mipLevels));
 
 	return std::make_unique<ImageAllocView>(std::move(image), std::move(view));
 }
@@ -1520,7 +1542,7 @@ std::vector<sb::Swapchain::Image2D> Vk::Swapchain::queryImages(void)
 	std::vector<sb::Swapchain::Image2D> res;
 
 	for (auto &img : enumerate<VkImage>(vkGetSwapchainImagesKHR, getDep(), *this))
-		res.emplace_back(*this, std::make_unique<ImageView>(getDep(), img, getDep().vk().m_swapchain_format.format, sb::Image::Type::Image2D, ComponentSwizzle::Identity, sb::Image::Aspect::Color, Range(0, 1), Range(0, 1)));
+		res.emplace_back(*this, std::make_unique<ImageView>(getDep(), img, getDep().vk().m_swapchain_format.format, sb::Image::Type::Image2D, svec3(1600, 900, 1), ComponentSwizzle::Identity, sb::Image::Aspect::Color, Range(0, 1), Range(0, 1)));
 
 	return res;
 }
@@ -2065,13 +2087,35 @@ void Vk::CommandBuffer::copy(const sb::Buffer::Region &src, const sb::Buffer::Re
 	vkCmdCopyBuffer(*this, reinterpret_cast<VmaBuffer&>(src.buffer), reinterpret_cast<VmaBuffer&>(dst.buffer), 1, &bc);
 }
 
-void Vk::CommandBuffer::memoryBarrier(PipelineStage srcStageMask, PipelineStage dstStageMask, Access srcAccessMask, Access dstAccessMask, DependencyFlag flags)
+void Vk::CommandBuffer::memoryBarrier(PipelineStage srcStageMask, PipelineStage dstStageMask, DependencyFlag flags, Access srcAccessMask, Access dstAccessMask)
 {
 	VkMemoryBarrier barrier {};
 	barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
 	barrier.srcAccessMask = util::enum_underlying(srcAccessMask);
 	barrier.dstAccessMask = util::enum_underlying(dstAccessMask);
 	vkCmdPipelineBarrier(*this, util::enum_underlying(srcStageMask), util::enum_underlying(dstStageMask), util::enum_underlying(flags), 1, &barrier, 0, nullptr, 0, nullptr);
+}
+
+void Vk::CommandBuffer::imageMemoryBarrier(PipelineStage srcStageMask, PipelineStage dstStageMask, DependencyFlag flags, Access srcAccessMask, Access dstAccessMask, sb::Image::Layout oldLayout, sb::Image::Layout newLayout, sb::Image &image)
+{
+	Vk::ImageView &vk_img = reinterpret_cast<Vk::ImageView&>(image);
+
+	VkImageMemoryBarrier barrier {};
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.srcAccessMask = util::enum_underlying(srcAccessMask);
+	barrier.dstAccessMask = util::enum_underlying(dstAccessMask);
+	barrier.oldLayout = static_cast<VkImageLayout>(oldLayout);
+	barrier.newLayout = static_cast<VkImageLayout>(newLayout);
+	barrier.srcQueueFamilyIndex = 0;
+	barrier.dstQueueFamilyIndex = 0;
+	barrier.image = vk_img.getImage();
+	barrier.subresourceRange.aspectMask = util::enum_underlying(vk_img.getAspect());
+	barrier.subresourceRange.baseArrayLayer = vk_img.getArrayRange().off;
+	barrier.subresourceRange.layerCount = vk_img.getArrayRange().size;
+	barrier.subresourceRange.baseMipLevel = vk_img.getMipRange().off;
+	barrier.subresourceRange.levelCount = vk_img.getMipRange().size;
+	vkCmdPipelineBarrier(*this, util::enum_underlying(srcStageMask), util::enum_underlying(dstStageMask), util::enum_underlying(flags), 0, nullptr, 0, nullptr, 1, &barrier);
+
 }
 
 Vk::CommandPool::CommandPool(Device &dev, VkQueueFamilyIndex familyIndex, bool isReset) :
