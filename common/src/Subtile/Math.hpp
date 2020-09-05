@@ -30,9 +30,9 @@ public:
 	using vec2_type = FloatVec2Type;
 	using value_type = typename vec2_type::value_type;
 
-	frect2(const FloatVec2Type &pos, const FloatVec2Type &size) :
-		pos(pos),
-		size(size)
+	frect2(const FloatVec2Type &offset, const FloatVec2Type &extent) :
+		offset(offset),
+		extent(extent)
 	{
 	}
 	~frect2(void)
@@ -41,16 +41,16 @@ public:
 
 	auto operator*(const value_type &value) const
 	{
-		return frect2(pos * value, size * value);
+		return frect2(offset * value, extent * value);
 	}
 
 	auto operator*(const vec2_type &value) const
 	{
-		return frect2(pos * value, size * value);
+		return frect2(offset * value, extent * value);
 	}
 
-	FloatVec2Type pos;
-	FloatVec2Type size;
+	FloatVec2Type offset;
+	FloatVec2Type extent;
 };
 
 using rect2 = frect2<vec2>;

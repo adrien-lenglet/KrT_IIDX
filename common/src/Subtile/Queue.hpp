@@ -63,6 +63,9 @@ public:
 	virtual void memoryBarrier(PipelineStage srcStageMask, PipelineStage dstStageMask, DependencyFlag flags, Access srcAccessMask, Access dstAccessMask) = 0;
 	virtual void imageMemoryBarrier(PipelineStage srcStageMask, PipelineStage dstStageMask, DependencyFlag flags, Access srcAccessMask, Access dstAccessMask, Image::Layout oldLayout, Image::Layout newLayout, Image &image) = 0;
 
+	virtual void setViewport(const rect2 &area, float minDepth, float maxDepth) = 0;
+	virtual void setScissor(const srect2 &scissor) = 0;
+
 	template <typename Type>
 	class CmdGetter
 	{
@@ -419,6 +422,9 @@ class CommandBuffer::Cmds
 	template <typename Up>
 	class PrimarySecondaryInsideG;
 
+	template <typename Up>
+	class PrimarySecondaryBothG;
+
 public:
 	template <Level L, RenderPassScope S, Queue::Flag Q>
 	class For;
@@ -567,6 +573,29 @@ public:
 	}
 };
 
+template <typename Up>
+class CommandBuffer::Cmds::PrimarySecondaryBothG
+{
+	CommandBuffer& cmd(void) { return CmdGetter<Up>().get(static_cast<Up&>(*this)); }
+
+public:
+	PrimarySecondaryBothG(void) = default;
+
+	struct empty {};
+	template <Level L, RenderPassScope S, Queue::Flag Q>
+	using query = std::conditional_t<!!(Q & Queue::Flag::Graphics), PrimarySecondaryBothG, empty>;
+
+	void setViewport(const rect2 &area, float minDepth, float maxDepth)
+	{
+		cmd().setViewport(area, minDepth, maxDepth);
+	}
+
+	void setScissor(const srect2 &scissor)
+	{
+		cmd().setScissor(scissor);
+	}
+};
+
 template <CommandBuffer::Level L, CommandBuffer::RenderPassScope S, Queue::Flag Q>
 class CommandBuffer::Cmds::For :
 	public PrimaryBothGCT<For<L, S, Q>>::template query<L, S, Q>,
@@ -574,7 +603,8 @@ class CommandBuffer::Cmds::For :
 	public PrimaryOutsideG<For<L, S, Q>>::template query<L, S, Q>,
 	public PrimarySecondaryOutsideGCT<For<L, S, Q>>::template query<L, S, Q>,
 	public PrimarySecondaryBothGCT<For<L, S, Q>>::template query<L, S, Q>,
-	public PrimarySecondaryInsideG<For<L, S, Q>>::template query<L, S, Q>
+	public PrimarySecondaryInsideG<For<L, S, Q>>::template query<L, S, Q>,
+	public PrimarySecondaryBothG<For<L, S, Q>>::template query<L, S, Q>
 {
 public:
 	For(CommandBuffer &cmd) :

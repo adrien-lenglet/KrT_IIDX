@@ -1831,12 +1831,12 @@ std::optional<Vk::Pipeline> Vk::Shader::createPipeline(Vk::Device &device, rs::S
 	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
-	std::vector<VkViewport> viewports {	// x, y, w, h, minDepth, maxDepth
-		{0.0f, 0.0f, 1600.0f, 900.0f, 0.0f, 1.0f}	// NOTE: temporary, use dynamic states
-	};
-	std::vector<VkRect2D> scissors {
-		{{0, 0}, {1600, 900}}	// NOTE: temporary, use dynamic states
-	};
+	std::array<VkViewport, 1> viewports {{
+		{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f}
+	}};
+	std::array<VkRect2D, 1> scissors {{
+		{{0, 0}, {0, 0}}
+	}};
 	VkPipelineViewportStateCreateInfo viewport {};
 	viewport.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 	viewport.viewportCount = viewports.size();
@@ -1887,6 +1887,12 @@ std::optional<Vk::Pipeline> Vk::Shader::createPipeline(Vk::Device &device, rs::S
 	for (size_t i = 0; i < 4; i++)
 		colorBlend.blendConstants[i] = 1.0f;
 
+	auto dynamicStates = std::array{VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+	VkPipelineDynamicStateCreateInfo dynamicState {};
+	dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+	dynamicState.dynamicStateCount = dynamicStates.size();
+	dynamicState.pDynamicStates = dynamicStates.data();
+
 	VkGraphicsPipelineCreateInfo ci {};
 	ci.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	ci.stageCount = stages.size();
@@ -1898,6 +1904,7 @@ std::optional<Vk::Pipeline> Vk::Shader::createPipeline(Vk::Device &device, rs::S
 	ci.pMultisampleState = &multisample;
 	ci.pDepthStencilState = &depthStencil;
 	ci.pColorBlendState = &colorBlend;
+	ci.pDynamicState = &dynamicState;
 	ci.layout = m_pipeline_layout;
 	ci.renderPass = reinterpret_cast<RenderPass&>(**m_render_pass->first);
 	ci.subpass = m_render_pass->second;
@@ -2115,7 +2122,28 @@ void Vk::CommandBuffer::imageMemoryBarrier(PipelineStage srcStageMask, PipelineS
 	barrier.subresourceRange.baseMipLevel = vk_img.getMipRange().off;
 	barrier.subresourceRange.levelCount = vk_img.getMipRange().size;
 	vkCmdPipelineBarrier(*this, util::enum_underlying(srcStageMask), util::enum_underlying(dstStageMask), util::enum_underlying(flags), 0, nullptr, 0, nullptr, 1, &barrier);
+}
 
+void Vk::CommandBuffer::setViewport(const rect2 &area, float minDepth, float maxDepth)
+{
+	VkViewport viewport;
+	viewport.x = area.offset.x;
+	viewport.y = area.offset.y;
+	viewport.width = area.extent.x;
+	viewport.height = area.extent.y;
+	viewport.minDepth = minDepth;
+	viewport.maxDepth = maxDepth;
+	vkCmdSetViewport(*this, 0, 1, &viewport);
+}
+
+void Vk::CommandBuffer::setScissor(const srect2 &scissor)
+{
+	VkRect2D vk_s;
+	vk_s.offset.x = scissor.offset.x;
+	vk_s.offset.y = scissor.offset.y;
+	vk_s.extent.width = scissor.extent.x;
+	vk_s.extent.height = scissor.extent.y;
+	vkCmdSetScissor(*this, 0, 1, &vk_s);
 }
 
 Vk::CommandPool::CommandPool(Device &dev, VkQueueFamilyIndex familyIndex, bool isReset) :

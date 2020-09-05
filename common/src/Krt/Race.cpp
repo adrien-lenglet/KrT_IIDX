@@ -67,6 +67,8 @@ void Race::run(void)
 		m_cmd_prim.record([&](auto &cmd){
 			cmd.memoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::AllGraphics, {}, sb::Access::TransferWrite, sb::Access::MemoryRead);
 
+			cmd.setViewport({{0.0f, 0.0f}, {1600.0f, 900.0f}}, 0.0f, 1.0f);
+			cmd.setScissor({{0, 0}, {1600, 900}});
 			cmd.render(m_color_fb, {{0, 0}, {1600, 900}},
 				sb::Color::f32(0.5f), 1.0f,
 
@@ -82,7 +84,10 @@ void Race::run(void)
 				for (auto &mip : m_depth_range_mips) {
 					cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {}, sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
 
-					cmd.render(mip.fb, {{0, 0}, mip.img.extent()},
+					auto ex = mip.img.extent();
+					cmd.setViewport({{0.0f, 0.0f}, {ex.x, ex.y}}, 0.0f, 1.0f);
+					cmd.setScissor({{0, 0}, ex});
+					cmd.render(mip.fb, {{0, 0}, ex},
 						[&](auto &cmd){
 							if (ndx == 0) {
 								cmd.bind(m_first_depth_range);
@@ -102,6 +107,8 @@ void Race::run(void)
 
 			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {}, sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
 
+			cmd.setViewport({{0.0f, 0.0f}, {1600.0f, 900.0f}}, 0.0f, 1.0f);
+			cmd.setScissor({{0, 0}, {1600, 900}});
 			cmd.render(m_post_fbs.at(img), {{0, 0}, {1600, 900}},
 				[&](auto &cmd){
 					m_lighting_draw_list.render(cmd);

@@ -793,8 +793,12 @@ private:
 		void endRenderPass(void) override;
 
 		void copy(const sb::Buffer::Region &src, const sb::Buffer::Region &dst) override;
+
 		void memoryBarrier(PipelineStage srcStageMask, PipelineStage dstStageMask, DependencyFlag flags, Access srcAccessMask, Access dstAccessMask) override;
 		void imageMemoryBarrier(PipelineStage srcStageMask, PipelineStage dstStageMask, DependencyFlag flags, Access srcAccessMask, Access dstAccessMask, sb::Image::Layout oldLayout, sb::Image::Layout newLayout, sb::Image &image) override;
+
+		void setViewport(const rect2 &area, float minDepth, float maxDepth) override;
+		void setScissor(const srect2 &scissor) override;
 
 	private:
 		CommandPool &m_pool;
