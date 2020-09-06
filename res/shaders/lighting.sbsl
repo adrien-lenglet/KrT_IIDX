@@ -125,7 +125,7 @@ fragment {
 		float t = 0.0;
 		vec2 coord = mix(p0.xy, p1.xy, t);
 
-		float last_depth = texture(fb.depth_buffer, coord).x;;
+		float last_depth = texture(fb.depth_buffer, coord).x;
 		float last_ray_depth = mix(z0, z1, t) - 0.000001;
 
 		int level = 0;
@@ -134,38 +134,34 @@ fragment {
 			return false;
 
 		while (true) {
-			/*float t_end;
-			bool suc = false;
-			while (level < 11 && isLevelSkippable(p0, p1, t, level + 1, dir_pp_bias, t_end)) {
-				level++;
-				t = t_end;
-				suc = true;
-			}
-			if (!suc) {
-				while (level > 0) {
-					bool isSkip = isLevelSkippable(p0, p1, t, level, dir_pp_bias, t_end);
-					if (isSkip) {
-						t = t_end;
-						break;
-					}
-					level--;
-				}
-			}*/
-			coord = mix(p0.xy, p1.xy, t);
+			/*coord = mix(p0.xy, p1.xy, t);
 			if (!(coord.x >= 0 && coord.y >= 0 && coord.x <= (size.x - 1) && coord.y <= (size.y - 1) && t < 1.0))
 				break;
-			if (level == 0) {
-				t = t + cell_end(coord, dir, level) + dir_pp_bias;
-				coord = mix(p0.xy, p1.xy, t);
-				if (!(coord.x >= 0 && coord.y >= 0 && coord.x <= (size.x - 1) && coord.y <= (size.y - 1) && t < 1.0))
-					break;
-				float depth = texture(fb.depth_buffer, coord).x;
-				float ray_depth = mix(z0, z1, t);
-				if ((last_ray_depth >= last_depth && ray_depth < depth) || (last_ray_depth <= last_depth && ray_depth > depth))
-					return true;
-				last_depth = depth;
-				last_ray_depth = ray_depth;
-			}
+			float t_end;
+			if (isLevelSkippable(p0, p1, t, level + 1, dir_pp_bias, t_end)) {
+				level++;
+				t = t_end;
+			} else {
+				if (level > 0) {
+					if (isLevelSkippable(p0, p1, t, level, dir_pp_bias, t_end))
+						t = t_end;
+					else
+						level--;
+				} else {*/
+					t = t + cell_end(coord, dir, level) + dir_pp_bias;
+					coord = mix(p0.xy, p1.xy, t);
+					if (!(coord.x >= 0 && coord.y >= 0 && coord.x <= (size.x - 1) && coord.y <= (size.y - 1) && t < 1.0))
+						break;
+					float depth = texture(fb.depth_buffer, coord).x;
+					float ray_depth = mix(z0, z1, t);
+					if ((last_ray_depth >= last_depth && ray_depth < depth) || (last_ray_depth <= last_depth && ray_depth > depth)) {
+						if (abs(depth-last_depth) < 0.01 && depth < 1.0)
+							return true;
+					}
+					last_depth = depth;
+					last_ray_depth = ray_depth;
+			//	}
+			//}
 		}
 		return false;
 	}
