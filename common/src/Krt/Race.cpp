@@ -83,8 +83,6 @@ void Race::run(void)
 			{
 				size_t ndx = 0;
 				for (auto &mip : m_depth_range_mips) {
-					cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {}, sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
-
 					auto ex = mip.img.extent();
 					cmd.setViewport({{0.0f, 0.0f}, {ex.x, ex.y}}, 0.0f, 1.0f);
 					cmd.setScissor({{0, 0}, ex});
@@ -101,6 +99,8 @@ void Race::run(void)
 							}
 						}
 					);
+
+					cmd.imageMemoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {}, sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead, sb::Image::Layout::General, sb::Image::Layout::General, mip.img);
 
 					ndx++;
 				}

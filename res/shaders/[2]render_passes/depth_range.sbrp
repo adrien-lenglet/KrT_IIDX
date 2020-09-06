@@ -1,4 +1,4 @@
-rg16_sfloat range { load, store, in_layout = general, out_layout = general };
+rg16_sfloat range { store, in_layout = general, out_layout = general };
 
 compute {
 	layout range = general;
