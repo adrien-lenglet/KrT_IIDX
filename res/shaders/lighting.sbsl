@@ -79,10 +79,10 @@ fragment {
 		ss_p1 = project_point(end);
 	}
 
+	const float inf = 1.0 / 0.0;
+
 	float inter_rect(vec2 tl, vec2 br, vec2 p, vec2 d)
 	{
-		const float inf = 1.0 / 0.0;
-
 		return min(
 			d.x == 0.0 ? inf : (d.x > 0.0 ? (br.x - p.x) / d.x : (tl.x - p.x) / d.x),
 			d.y == 0.0 ? inf : (d.y > 0.0 ? (br.y - p.y) / d.y : (tl.y - p.y) / d.y)
@@ -92,9 +92,9 @@ fragment {
 	// returns t intersection
 	float cell_end(vec2 p, vec2 d, int level)
 	{
-		int size = 1 << level;
-		vec2 cell_tl = vec2(ivec2(p) / size) * vec2(size);
-		vec2 cell_br = cell_tl + vec2(size);
+		float size = float(1 << level);
+		vec2 cell_tl = floor(p / size) * size;
+		vec2 cell_br = cell_tl + size;
 
 		return inter_rect(cell_tl, cell_br, p, d);
 	}
@@ -110,14 +110,21 @@ fragment {
 		t_end = t + cell_end(p.xy, p1.xy - p0.xy, level) + t_bias;
 		vec3 p_end = mix(p0, p1, t_end);
 
-		int size = 1 << level;
-		ivec2 range_p = clamp(ivec2(ivec2(p.xy) / size), ivec2(0.0), textureSize(fb.depth_range, level - 1) - 1);
+		float size = float(1 << level);
+		ivec2 range_p = clamp(ivec2(p.xy / size), ivec2(0.0), textureSize(fb.depth_range, level - 1) - 1);
 		vec2 range = texelFetch(fb.depth_range, range_p, level - 1).xy;
-		bool in_range = is_in_range(range, p.z) || is_in_range(range, p_end.z) || (p.z < range.x && p_end.z > range.y) || (p_end.z < range.x && p.z > range.y);
+		vec2 ray_range = p.z < p_end.z ? vec2(p.z, p_end.z) : vec2(p_end.z, p.z);
+		bool in_range = ray_range.x <= range.y && ray_range.y >= range.x;
 		return !in_range;
 	}
 
-	bool isShadow()
+	float getTMax(vec2 p, vec2 dir)
+	{
+		vec2 size = textureSize(fb.color, 0);
+		return inter_rect(vec2(0.0), vec2(size), p, dir);
+	}
+
+	bool isShadow(void)
 	{
 		vec2 size = textureSize(fb.color, 0);
 		vec3 sun_dir = normalize(vec3(0.0, 0.0, -1.0)).xyz;
@@ -128,23 +135,20 @@ fragment {
 		float dir_pp = 1.0 / length(dir);
 		float dir_pp_bias = dir_pp / 64.0;
 
-		float z0 = p0.z;
-		float z1 = p1.z;
 		float t = 0.0;
 		vec2 coord = p0.xy;
 
 		float last_depth = texture(fb.depth_buffer, coord).x;
-		float last_ray_depth = z0 - 0.000001;
+		float last_ray_depth = p0.z - 0.000001;
 
 		int level = 0;
 
 		if (dir == vec2(0.0))
 			return false;
 
-		while (true) {
-			coord = mix(p0.xy, p1.xy, t);
-			if (!(coord.x >= 0 && coord.y >= 0 && coord.x <= (size.x - 1) && coord.y <= (size.y - 1) && t < 1.0))
-				break;
+		float t_max = getTMax(p0.xy, dir);
+
+		while (t < t_max) {
 			float t_end;
 			if (isLevelSkippable(p0, p1, t, level, dir_pp_bias, t_end)) {
 				level++;
@@ -152,13 +156,13 @@ fragment {
 			} else
 				level--;
 			t = t + cell_end(coord, dir, level) + dir_pp_bias;
-			coord = mix(p0.xy, p1.xy, t);
-			if (!(coord.x >= 0 && coord.y >= 0 && coord.x <= (size.x - 1) && coord.y <= (size.y - 1) && t < 1.0))
+			if (t >= t_max)
 				break;
+			coord = mix(p0.xy, p1.xy, t);
 			float depth = texture(fb.depth_buffer, coord).x;
-			float ray_depth = mix(z0, z1, t);
+			float ray_depth = mix(p0.z, p1.z, t);
 			if ((last_ray_depth >= last_depth && ray_depth < depth) || (last_ray_depth <= last_depth && ray_depth > depth)) {
-				if (abs(depth-last_depth) < 0.01 && depth < 1.0)
+				if (abs(depth - last_depth) < 0.01 && depth < 1.0)
 					return true;
 			}
 			last_depth = depth;
