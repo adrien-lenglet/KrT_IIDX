@@ -79,6 +79,16 @@ fragment {
 		ss_p1 = project_point(end);
 	}
 
+	float inter_rect(vec2 tl, vec2 br, vec2 p, vec2 d)
+	{
+		const float inf = 1.0 / 0.0;
+
+		return min(
+			d.x == 0.0 ? inf : (d.x > 0.0 ? (br.x - p.x) / d.x : (tl.x - p.x) / d.x),
+			d.y == 0.0 ? inf : (d.y > 0.0 ? (br.y - p.y) / d.y : (tl.y - p.y) / d.y)
+		);
+	}
+
 	// returns t intersection
 	float cell_end(vec2 p, vec2 d, int level)
 	{
@@ -86,11 +96,7 @@ fragment {
 		vec2 cell_tl = vec2(ivec2(p) / size) * vec2(size);
 		vec2 cell_br = cell_tl + vec2(size);
 
-		const float inf = 1.0 / 0.0;
-		return min(
-			d.x == 0.0 ? inf : (d.x > 0.0 ? (cell_br.x - p.x) / d.x : (cell_tl.x - p.x) / d.x),
-			d.y == 0.0 ? inf : (d.y > 0.0 ? (cell_br.y - p.y) / d.y : (cell_tl.y - p.y) / d.y)
-		);
+		return inter_rect(cell_tl, cell_br, p, d);
 	}
 
 	bool is_in_range(vec2 range, float value)
@@ -140,16 +146,11 @@ fragment {
 			if (!(coord.x >= 0 && coord.y >= 0 && coord.x <= (size.x - 1) && coord.y <= (size.y - 1) && t < 1.0))
 				break;
 			float t_end;
-			if (isLevelSkippable(p0, p1, t, level + 1, dir_pp_bias, t_end)) {
+			if (isLevelSkippable(p0, p1, t, level, dir_pp_bias, t_end)) {
 				level++;
 				t = t_end;
-			}
-			if (level > 0) {
-				if (isLevelSkippable(p0, p1, t, level, dir_pp_bias, t_end))
-					t = t_end;
-				else
-					level--;
-			}
+			} else
+				level--;
 			t = t + cell_end(coord, dir, level) + dir_pp_bias;
 			coord = mix(p0.xy, p1.xy, t);
 			if (!(coord.x >= 0 && coord.y >= 0 && coord.x <= (size.x - 1) && coord.y <= (size.y - 1) && t < 1.0))
