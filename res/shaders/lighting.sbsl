@@ -122,13 +122,14 @@ fragment {
 
 	bool traceRay(vec3 p0, vec3 p1, const int quality)
 	{
+		p0.z -= 0.000001;
 		vec2 dir = p1.xy - p0.xy;
 		float dir_pp_bias = (1.0 / length(dir)) / 64.0;
 
 		float t = 0.0;
 
 		float last_depth = texture(fb.depth_buffer, p0.xy).x;
-		float last_ray_depth = p0.z - 0.000001;
+		float last_ray_depth = p0.z;
 
 		int level = 0;
 
