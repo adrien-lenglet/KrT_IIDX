@@ -17,6 +17,7 @@ private:
 
 	sb::Sampler::Handle m_sampler;
 	sb::Sampler::Handle m_fb_sampler;
+	sb::Sampler::Handle m_fb_sampler_linear;
 
 	decltype(instance.load(res.shaders().render_passes().color())) m_color_pass;
 	decltype(instance.load(res.shaders().render_passes().post())) m_post_pass;
