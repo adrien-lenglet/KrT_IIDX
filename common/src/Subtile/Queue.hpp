@@ -66,6 +66,8 @@ public:
 	virtual void setViewport(const rect2 &area, float minDepth, float maxDepth) = 0;
 	virtual void setScissor(const srect2 &scissor) = 0;
 
+	virtual void blit(sb::Image &srcImage, sb::Image::Layout srcLayout, const srect3 &srcRegion, sb::Image &dstImage, sb::Image::Layout dstLayout, const srect3 &dstRegion, Filter filter) = 0;
+
 	template <typename Type>
 	class CmdGetter
 	{
@@ -425,6 +427,9 @@ class CommandBuffer::Cmds
 	template <typename Up>
 	class PrimarySecondaryBothG;
 
+	template <typename Up>
+	class PrimarySecondaryOutsideG;
+
 public:
 	template <Level L, RenderPassScope S, Queue::Flag Q>
 	class For;
@@ -596,6 +601,24 @@ public:
 	}
 };
 
+template <typename Up>
+class CommandBuffer::Cmds::PrimarySecondaryOutsideG
+{
+	CommandBuffer& cmd(void) { return CmdGetter<Up>().get(static_cast<Up&>(*this)); }
+
+public:
+	PrimarySecondaryOutsideG(void) = default;
+
+	struct empty {};
+	template <Level L, RenderPassScope S, Queue::Flag Q>
+	using query = std::conditional_t<!!(S & RenderPassScope::Outside) && !!(Q & Queue::Flag::Graphics), PrimarySecondaryOutsideG, empty>;
+
+	void blit(sb::Image &srcImage, sb::Image::Layout srcLayout, const srect3 &srcRegion, sb::Image &dstImage, sb::Image::Layout dstLayout, const srect3 &dstRegion, Filter filter)
+	{
+		return cmd().blit(srcImage, srcLayout, srcRegion, dstImage, dstLayout, dstRegion, filter);
+	}
+};
+
 template <CommandBuffer::Level L, CommandBuffer::RenderPassScope S, Queue::Flag Q>
 class CommandBuffer::Cmds::For :
 	public PrimaryBothGCT<For<L, S, Q>>::template query<L, S, Q>,
@@ -604,7 +627,8 @@ class CommandBuffer::Cmds::For :
 	public PrimarySecondaryOutsideGCT<For<L, S, Q>>::template query<L, S, Q>,
 	public PrimarySecondaryBothGCT<For<L, S, Q>>::template query<L, S, Q>,
 	public PrimarySecondaryInsideG<For<L, S, Q>>::template query<L, S, Q>,
-	public PrimarySecondaryBothG<For<L, S, Q>>::template query<L, S, Q>
+	public PrimarySecondaryBothG<For<L, S, Q>>::template query<L, S, Q>,
+	public PrimarySecondaryOutsideG<For<L, S, Q>>::template query<L, S, Q>
 {
 public:
 	For(CommandBuffer &cmd) :

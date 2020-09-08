@@ -800,6 +800,8 @@ private:
 		void setViewport(const rect2 &area, float minDepth, float maxDepth) override;
 		void setScissor(const srect2 &scissor) override;
 
+		void blit(sb::Image &srcImage, sb::Image::Layout srcLayout, const srect3 &srcRegion, sb::Image &dstImage, sb::Image::Layout dstLayout, const srect3 &dstRegion, Filter filter) override;
+
 	private:
 		CommandPool &m_pool;
 		VkCommandBuffer m_handle;

@@ -30,7 +30,7 @@ fragment {
 	vec3 current_view(void)
 	{
 		vec2 size = textureSize(fb.color, 0);
-		float depth = texture(fb.depth_buffer, gl_FragCoord.xy).x;
+		float depth = textureLod(fb.depth_buffer, gl_FragCoord.xy, 0).x;
 		float z = depth_to_z(depth);
 		vec2 uv = gl_FragCoord.xy / size;
 		vec2 ndc2 = (uv - 0.5) * 2.0;
@@ -129,7 +129,7 @@ fragment {
 
 		float t = 0.0;
 
-		float last_depth = texture(fb.depth_buffer, p0.xy).x;
+		float last_depth = textureLod(fb.depth_buffer, p0.xy, 0).x;
 		float last_ray_depth = p0.z;
 
 		int level = 0;
@@ -155,7 +155,7 @@ fragment {
 					break;
 
 				p = mix(p0, p1, t);
-				float depth = texture(fb.depth_buffer, p.xy).x;
+				float depth = textureLod(fb.depth_buffer, p.xy, 0).x;
 				if ((last_ray_depth > last_depth && p.z < depth) || (last_ray_depth < last_depth && p.z > depth)) {
 					if (abs(depth_to_z(depth) - depth_to_z(last_depth)) < 1.0 && depth < 1.0) {
 						return true;
@@ -175,7 +175,7 @@ fragment {
 		vec3 p0, p1;
 		project_ray(origin, sun_dir, p0, p1);
 
-		if (traceRay(p0, p1, 0))
+		if (traceRay(p0, p1, 4))
 			(out)wsi_screen = texture(fb.color, gl_FragCoord.xy / textureSize(fb.color, 0)).xyz / 16.0;
 		else
 			(out)wsi_screen = texture(fb.color, gl_FragCoord.xy / textureSize(fb.color, 0)).xyz;

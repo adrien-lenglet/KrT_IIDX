@@ -152,6 +152,10 @@ public:
 	};
 
 	class Handle;
+	template <typename Up>
+	class Handle2D;
+	template <typename Up, typename ImageType>
+	class Handle2DArray;
 
 	virtual ~Image(void) = default;
 
@@ -193,34 +197,71 @@ private:
 	std::unique_ptr<Image> m_image;
 };
 
+// layers = 1, mips >= 1, samples >= 1
+template <typename Up>
+class Image::Handle2D : public Image::Handle
+{
+public:
+	template <typename ...Args>
+	Handle2D(Args &&...args) :
+		Image::Handle(std::forward<Args>(args)...)
+	{
+	}
+
+	auto view(const ComponentMapping &components, Image::Aspect aspect, const Range &mipRange)
+	{
+		return Up(image().createView(Image::Type::Image2D, components, aspect, wholeRange, mipRange));
+	}
+
+	svec2 extent(void) const
+	{
+		auto &e = image().getExtent();
+		return svec2(e.x, e.y);
+	}
+
+	struct Region : public srect2
+	{
+		Region(const svec2 &off, const svec2 &ext) :
+			srect2(off, ext)
+		{
+		}
+
+		operator srect3(void) const
+		{
+			return srect3({offset.x, offset.y, 0}, {extent.x, extent.y, 1});
+		}
+	};
+};
+
 // layers = 1, mips >= 1, samples = 1
-class Image2D : public Image::Handle
+class Image2D : public Image::Handle2D<Image2D>
 {
 public:
 	template <typename ...Args>
 	Image2D(Args &&...args) :
-		Image::Handle(std::forward<Args>(args)...)
+		Image::Handle2D<Image2D>(std::forward<Args>(args)...)
 	{
-	}
-
-	auto view(const ComponentMapping &components, Image::Aspect aspect, const Range &mipRange)
-	{
-		return Image2D(image().createView(Image::Type::Image2D, components, aspect, wholeRange, mipRange));
-	}
-
-	svec2 extent(void) const
-	{
-		auto &e = image().getExtent();
-		return svec2(e.x, e.y);
 	}
 };
 
 // layers = 1, mips >= 1, samples > 1
-class Image2DMS : public Image::Handle
+class Image2DMS : public Image::Handle2D<Image2DMS>
 {
 public:
 	template <typename ...Args>
 	Image2DMS(Args &&...args) :
+		Image::Handle2D<Image2DMS>(std::forward<Args>(args)...)
+	{
+	}
+};
+
+// layers >= 1, mips >= 1, samples >= 1
+template <typename Up, typename ImageType>
+class Image::Handle2DArray : public Image::Handle
+{
+public:
+	template <typename ...Args>
+	Handle2DArray(Args &&...args) :
 		Image::Handle(std::forward<Args>(args)...)
 	{
 	}
@@ -231,73 +272,41 @@ public:
 		return svec2(e.x, e.y);
 	}
 
-	auto view(const ComponentMapping &components, Image::Aspect aspect, const Range &mipRange)
+	size_t size(void) const
 	{
-		return Image2DMS(image().createView(Image::Type::Image2D, components, aspect, wholeRange, mipRange));
+		return image().getArrayLayers();
+	}
+
+	auto view(const ComponentMapping &components, Image::Aspect aspect, const Range &arrayRange, const Range &mipRange)
+	{
+		return Up(image().createView(Image::Type::Image2DArray, components, aspect, arrayRange, mipRange));
+	}
+
+	auto viewElem(size_t index, const ComponentMapping &components, Image::Aspect aspect, const Range &mipRange)
+	{
+		return ImageType(image().createView(Image::Type::Image2D, components, aspect, Range(index, 1), mipRange));
 	}
 };
 
 // layers >= 1, mips >= 1, samples = 1
-class Image2DArray : public Image::Handle
+class Image2DArray : public Image::Handle2DArray<Image2DArray, Image2D>
 {
 public:
 	template <typename ...Args>
 	Image2DArray(Args &&...args) :
-		Image::Handle(std::forward<Args>(args)...)
+		Image::Handle2DArray<Image2DArray, Image2D>(std::forward<Args>(args)...)
 	{
-	}
-
-	svec2 extent(void) const
-	{
-		auto &e = image().getExtent();
-		return svec2(e.x, e.y);
-	}
-
-	size_t size(void) const
-	{
-		return image().getArrayLayers();
-	}
-
-	auto view(const ComponentMapping &components, Image::Aspect aspect, const Range &arrayRange, const Range &mipRange)
-	{
-		return Image2DArray(image().createView(Image::Type::Image2DArray, components, aspect, arrayRange, mipRange));
-	}
-
-	auto viewElem(size_t index, const ComponentMapping &components, Image::Aspect aspect, const Range &mipRange)
-	{
-		return Image2D(image().createView(Image::Type::Image2D, components, aspect, Range(index, 1), mipRange));
 	}
 };
 
 // layers >= 1, mips >= 1, samples > 1
-class Image2DMSArray : public Image::Handle
+class Image2DMSArray : public Image::Handle2DArray<Image2DMSArray, Image2DMS>
 {
 public:
 	template <typename ...Args>
 	Image2DMSArray(Args &&...args) :
-		Image::Handle(std::forward<Args>(args)...)
+		Image::Handle2DArray<Image2DMSArray, Image2DMS>(std::forward<Args>(args)...)
 	{
-	}
-
-	svec2 extent(void) const
-	{
-		auto &e = image().getExtent();
-		return svec2(e.x, e.y);
-	}
-
-	size_t size(void) const
-	{
-		return image().getArrayLayers();
-	}
-
-	auto view(const ComponentMapping &components, Image::Aspect aspect, const Range &arrayRange, const Range &mipRange)
-	{
-		return Image2DMSArray(image().createView(Image::Type::Image2DArray, components, aspect, arrayRange, mipRange));
-	}
-
-	auto viewElem(size_t index, const ComponentMapping &components, Image::Aspect aspect, const Range &mipRange)
-	{
-		return Image2DMS(image().createView(Image::Type::Image2D, components, aspect, Range(index, 1), mipRange));
 	}
 };
 

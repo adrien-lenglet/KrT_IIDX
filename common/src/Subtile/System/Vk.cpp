@@ -2146,6 +2146,33 @@ void Vk::CommandBuffer::setScissor(const srect2 &scissor)
 	vkCmdSetScissor(*this, 0, 1, &vk_s);
 }
 
+void Vk::CommandBuffer::blit(sb::Image &srcImage, sb::Image::Layout srcLayout, const srect3 &srcRegion, sb::Image &dstImage, sb::Image::Layout dstLayout, const srect3 &dstRegion, Filter filter)
+{
+	auto &vk_src = reinterpret_cast<Vk::ImageView&>(srcImage);
+	auto &vk_dst = reinterpret_cast<Vk::ImageView&>(dstImage);
+
+	auto st_to_i32 = [](size_t v){
+		return static_cast<int32_t>(static_cast<uint32_t>(v));
+	};
+
+	VkImageBlit region;
+	region.srcSubresource.aspectMask = static_cast<VkImageAspectFlags>(vk_src.getAspect());
+	region.srcSubresource.mipLevel = vk_src.getMipRange().off;
+	region.srcSubresource.baseArrayLayer = vk_src.getArrayRange().off;
+	region.srcSubresource.layerCount = vk_src.getArrayRange().size;
+	region.srcOffsets[0] = VkOffset3D{st_to_i32(srcRegion.offset.x), st_to_i32(srcRegion.offset.y), st_to_i32(srcRegion.offset.z)};
+	region.srcOffsets[1] = VkOffset3D{st_to_i32(srcRegion.offset.x) + st_to_i32(srcRegion.extent.x), st_to_i32(srcRegion.offset.y + srcRegion.extent.y), st_to_i32(srcRegion.offset.z + srcRegion.extent.z)};
+
+	region.dstSubresource.aspectMask = static_cast<VkImageAspectFlags>(vk_dst.getAspect());
+	region.dstSubresource.mipLevel = vk_dst.getMipRange().off;
+	region.dstSubresource.baseArrayLayer = vk_dst.getArrayRange().off;
+	region.dstSubresource.layerCount = vk_dst.getArrayRange().size;
+	region.srcOffsets[0] = VkOffset3D{st_to_i32(dstRegion.offset.x), st_to_i32(dstRegion.offset.y), st_to_i32(dstRegion.offset.z)};
+	region.srcOffsets[1] = VkOffset3D{st_to_i32(dstRegion.offset.x + dstRegion.extent.x), st_to_i32(dstRegion.offset.y + dstRegion.extent.y), st_to_i32(dstRegion.offset.z + dstRegion.extent.z)};
+
+	vkCmdBlitImage(*this, vk_src.getImage(), static_cast<VkImageLayout>(util::enum_underlying(srcLayout)), vk_dst.getImage(), static_cast<VkImageLayout>(util::enum_underlying(dstLayout)), 1, &region, static_cast<VkFilter>(util::enum_underlying(filter)));
+}
+
 Vk::CommandPool::CommandPool(Device &dev, VkQueueFamilyIndex familyIndex, bool isReset) :
 	Device::Handle<VkCommandPool>(dev, create(dev, familyIndex, isReset))
 {

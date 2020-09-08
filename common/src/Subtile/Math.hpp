@@ -76,4 +76,16 @@ struct srect2
 	svec2 extent;
 };
 
+struct srect3
+{
+	srect3(const svec3 &offset, const svec3 &extent) :
+		offset(offset),
+		extent(extent)
+	{
+	}
+
+	svec3 offset;
+	svec3 extent;
+};
+
 }

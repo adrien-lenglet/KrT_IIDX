@@ -13,8 +13,9 @@ Race::Race(Instance &instance) :
 	m_color_pass(instance.load(res.shaders().render_passes().color())),
 	m_post_pass(instance.load(res.shaders().render_passes().post())),
 	m_fb_color(instance.image2D(sb::Format::rgba32_sfloat, {1600, 900}, 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, instance.graphics)),
-	m_fb_depth_buffer(instance.image2D(sb::Format::d24un_or_32sf_spl_att_sfb, {1600, 900}, 1, sb::Image::Usage::DepthStencilAttachment | sb::Image::Usage::Sampled, instance.graphics)),
-	m_color_fb(m_color_pass.framebuffer({1600, 900}, 1, m_fb_color, m_fb_depth_buffer)),
+	m_fb_depth_buffer(instance.image2D(sb::Format::d24un_or_32sf_spl_att_sfb, {2048, 1024}, 1, sb::Image::Usage::DepthStencilAttachment | sb::Image::Usage::Sampled | sb::Image::Usage::TransferSrc | sb::Image::Usage::TransferDst, instance.graphics)),
+	m_fb_depth_buffer_mips(getDepthBufferMips()),
+	m_color_fb(m_color_pass.framebuffer({1600, 900}, 1, m_fb_color, m_fb_depth_buffer_mips.at(0))),
 	m_post_fbs(createPostFramebuffers()),
 	m_swapchain_img_avail(instance.semaphore()),
 
@@ -49,6 +50,7 @@ Race::Race(Instance &instance) :
 	auto cmd = m_cmd_pool.primary();
 	cmd.record([&](auto &cmd){
 		cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {}, sb::Access::MemoryWrite, sb::Access::MemoryRead, sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, m_fb_depth_range);
+		cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {}, sb::Access::MemoryWrite, sb::Access::MemoryRead, sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, m_fb_depth_buffer);
 	});
 	instance.graphics.submit(util::empty, cmd, util::empty);
 	instance.graphics.waitIdle();
@@ -80,6 +82,13 @@ void Race::run(void)
 			);
 
 			cmd.imageMemoryBarrier(sb::PipelineStage::ColorAttachmentOutput | sb::PipelineStage::LateFragmentTests, sb::PipelineStage::FragmentShader, {}, sb::Access::ColorAttachmentWrite | sb::Access::DepthStencilAttachmentWrite, sb::Access::ShaderRead, sb::Image::Layout::ShaderReadOnlyOptimal, sb::Image::Layout::General, m_fb_depth_range);
+
+			{
+				auto end = m_fb_depth_buffer_mips.end() - 1;
+				for (auto it = m_fb_depth_buffer_mips.begin(); it != end; it++) {
+
+				}
+			}
 
 			{
 				size_t ndx = 0;
