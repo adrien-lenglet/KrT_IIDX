@@ -11,13 +11,14 @@ Race::Race(Instance &instance) :
 	m_fb_sampler(instance.samplerUnnormalized(sb::Filter::Nearest, sb::Sampler::AddressMode::ClampToEdge, sb::BorderColor::FloatOpaqueWhite, 0.0f)),
 	m_fb_sampler_linear(instance.samplerUnnormalized(sb::Filter::Linear, sb::Sampler::AddressMode::ClampToEdge, sb::BorderColor::FloatOpaqueWhite, 0.0f)),
 
-	m_color_pass(instance.load(res.shaders().render_passes().color())),
+	m_opaque_pass(instance.load(res.shaders().render_passes().opaque())),
 	m_post_pass(instance.load(res.shaders().render_passes().post())),
-	m_fb_color(instance.image2D(sb::Format::rgba32_sfloat, {1600, 900}, 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, instance.graphics)),
+	m_fb_albedo(instance.image2D(sb::Format::rgba8_unorm, {1600, 900}, 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, instance.graphics)),
+	m_fb_normal(instance.image2D(sb::Format::rgba8_unorm, {1600, 900}, 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, instance.graphics)),
 	m_fb_depth_buffer(instance.image2D(sb::Format::d24un_or_32sf_spl_att_sfb, {1600, 900}, 1, sb::Image::Usage::DepthStencilAttachment | sb::Image::Usage::Sampled | sb::Image::Usage::TransferSrc, instance.graphics)),
 	m_fb_depth_buffer_fl(instance.image2D(sb::Format::r32_sfloat, {2048, 1024}, sb::Image::allMipLevels, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled | sb::Image::Usage::TransferSrc | sb::Image::Usage::TransferDst, instance.graphics)),
 	m_fb_depth_buffer_fl_mips(getDepthBufferFlMips()),
-	m_color_fb(m_color_pass.framebuffer({1600, 900}, 1, m_fb_color, m_fb_depth_buffer)),
+	m_opaque_fb(m_opaque_pass.framebuffer({1600, 900}, 1, m_fb_albedo, m_fb_normal, m_fb_depth_buffer)),
 	m_post_fbs(createPostFramebuffers()),
 	m_swapchain_img_avail(instance.semaphore()),
 
@@ -46,7 +47,8 @@ Race::Race(Instance &instance) :
 		m_is_done = true;
 	});
 
-	m_lighting_samplers.color.bind(m_sampler, m_fb_color, sb::Image::Layout::ShaderReadOnlyOptimal);
+	m_lighting_samplers.albedo.bind(m_fb_sampler_linear, m_fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
+	m_lighting_samplers.normal.bind(m_fb_sampler_linear, m_fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
 	m_lighting_samplers.depth_buffer.bind(m_fb_sampler_linear, m_fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
 	m_lighting_samplers.depth_buffer_fl.bind(m_sampler_clamp, m_fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
 	m_lighting_samplers.depth_range.bind(m_fb_sampler, m_fb_depth_range, sb::Image::Layout::ShaderReadOnlyOptimal);
@@ -81,8 +83,8 @@ void Race::run(void)
 
 			cmd.setViewport({{0.0f, 0.0f}, {1600.0f, 900.0f}}, 0.0f, 1.0f);
 			cmd.setScissor({{0, 0}, {1600, 900}});
-			cmd.render(m_color_fb, {{0, 0}, {1600, 900}},
-				sb::Color::f32(0.5f), 1.0f,
+			cmd.render(m_opaque_fb, {{0, 0}, {1600, 900}},
+				sb::Color::f32(0.5f), sb::Color::f32(0.0f, 0.0f, 0.0f, 0.0f), 1.0f,
 
 				[&](auto &cmd){
 					m_track->render.render(cmd);

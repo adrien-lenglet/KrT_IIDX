@@ -20,9 +20,10 @@ private:
 	sb::Sampler::Handle m_fb_sampler;
 	sb::Sampler::Handle m_fb_sampler_linear;
 
-	decltype(instance.load(res.shaders().render_passes().color())) m_color_pass;
+	decltype(instance.load(res.shaders().render_passes().opaque())) m_opaque_pass;
 	decltype(instance.load(res.shaders().render_passes().post())) m_post_pass;
-	sb::Image2D m_fb_color;
+	sb::Image2D m_fb_albedo;
+	sb::Image2D m_fb_normal;
 	sb::Image2D m_fb_depth_buffer;
 	sb::Image2D m_fb_depth_buffer_fl;
 	std::vector<sb::Image2D> m_fb_depth_buffer_fl_mips;
@@ -35,7 +36,7 @@ private:
 		return res;
 	}
 
-	decltype(m_color_pass)::Framebuffer m_color_fb;
+	decltype(m_opaque_pass)::Framebuffer m_opaque_fb;
 	std::vector<decltype(m_post_pass)::Framebuffer> m_post_fbs;
 	decltype(m_post_fbs) createPostFramebuffers(void)
 	{

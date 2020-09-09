@@ -1,4 +1,4 @@
-render_pass render_passes::color : albedo;
+render_pass render_passes::opaque : compute;
 
 require vertex::pnu;
 require modules::camera;
@@ -25,8 +25,8 @@ vertex {
 	{
 		vec4 in_pos_h = vec4((in)pos, 1.0);
 		gl_Position = camera.vp * object.model_world * in_pos_h;
-		(out)pos = (object.model_world * in_pos_h).xyz;
-		(out)normal = (object.model_world * vec4((in)normal, 1.0)).xyz;
+		(out)pos = (camera.view * object.model_world * in_pos_h).xyz;
+		(out)normal = (in)normal;
 		(out)uv = (in)uv;
 	}
 }
@@ -55,16 +55,12 @@ vertex {
 }*/
 
 fragment {
-	out vec3 color;
+	out vec3 albedo;
+	out vec3 normal;
 
 	void main(void)
 	{
-		vec3 lightp = vec3(-2.0, 1.0, -3.0);
-		float dist = length(lightp - (in)pos);
-		//(out)view = (camera.view * vec4((in)pos, 1.0)).xyz;
-
-		vec3 color = normalize((in)normal);// + vec3(material.counter / 256.0);
-		//vec3 color = vec3(1.0);
-		(out)color = vec3(5.0 / (dist * dist)) * color;
+		(out)albedo = normalize((in)normal);
+		(out)normal = normalize(cross(dFdx((in)pos), dFdy((in)pos))) * 0.5 + 0.5;
 	}
 }
