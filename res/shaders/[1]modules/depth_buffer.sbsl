@@ -1,0 +1,5 @@
+//fragment {
+	set depth_buffer {
+		sampler2D tex;
+	};
+//}

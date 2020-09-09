@@ -2,6 +2,8 @@
 render_pass render_passes::depth_range : compute;
 
 require vertex::p2;
+require modules::depth_buffer;
+
 vertex {
 	void main(void)
 	{
@@ -11,10 +13,6 @@ vertex {
 
 fragment {
 	out vec2 range;
-
-	set fb {
-		sampler2D depth_buffer;
-	};
 
 	const ivec2[4] off = ivec2[](
 		ivec2(0, 0),
@@ -28,7 +26,7 @@ fragment {
 		float[4] values;
 
 		for (int i = 0; i < 4; i++)
-			values[i] = textureLod(fb.depth_buffer, ivec2(gl_FragCoord.xy) * 2 + off[i], 0).x;
+			values[i] = textureLod(depth_buffer.tex, ivec2(gl_FragCoord.xy) * 2 + off[i], 0).x;
 		(out)range = vec2(
 			min(min(min(values[0], values[1]), values[2]), values[3]),
 			max(max(max(values[0], values[1]), values[2]), values[3])

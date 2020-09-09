@@ -1,0 +1,5 @@
+r32_sfloat depth_fl { store, out_layout = shader_read_only_optimal };
+
+compute {
+	out depth_fl;
+}

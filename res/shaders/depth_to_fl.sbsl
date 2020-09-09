@@ -1,0 +1,21 @@
+
+render_pass render_passes::depth_to_fl : compute;
+
+require vertex::p2;
+require modules::depth_buffer;
+
+vertex {
+	void main(void)
+	{
+		gl_Position = vec4((in)pos, 0, 1.0);
+	}
+}
+
+fragment {
+	out float depth_fl;
+
+	void main(void)
+	{
+		(out)depth_fl = texture(depth_buffer.tex, gl_FragCoord.xy, 0).x;
+	}
+}

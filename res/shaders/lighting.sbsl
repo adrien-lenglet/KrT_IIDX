@@ -13,6 +13,7 @@ fragment {
 	set fb {
 		sampler2D color;
 		sampler2D depth_buffer;
+		sampler2D depth_buffer_fl;
 		sampler2D depth_range;
 	};
 
@@ -155,7 +156,8 @@ fragment {
 					break;
 
 				p = mix(p0, p1, t);
-				float depth = textureLod(fb.depth_buffer, p.xy, 0).x;
+				//float depth = texelFetch(fb.depth_buffer_fl, ivec2(p.xy) / (1 << quality), quality).x;
+				float depth = texelFetch(fb.depth_buffer_fl, ivec2(p.xy) / (1 << quality), quality).x;
 				if ((last_ray_depth > last_depth && p.z < depth) || (last_ray_depth < last_depth && p.z > depth)) {
 					if (abs(depth_to_z(depth) - depth_to_z(last_depth)) < 1.0 && depth < 1.0) {
 						return true;

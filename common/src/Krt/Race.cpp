@@ -14,7 +14,7 @@ Race::Race(Instance &instance) :
 	m_post_pass(instance.load(res.shaders().render_passes().post())),
 	m_fb_color(instance.image2D(sb::Format::rgba32_sfloat, {1600, 900}, 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, instance.graphics)),
 	m_fb_depth_buffer(instance.image2D(sb::Format::d24un_or_32sf_spl_att_sfb, {1600, 900}, 1, sb::Image::Usage::DepthStencilAttachment | sb::Image::Usage::Sampled | sb::Image::Usage::TransferSrc, instance.graphics)),
-	m_fb_depth_buffer_fl(instance.image2D(sb::Format::r32_sfloat, {2048, 1024}, 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled | sb::Image::Usage::TransferSrc | sb::Image::Usage::TransferDst, instance.graphics)),
+	m_fb_depth_buffer_fl(instance.image2D(sb::Format::r32_sfloat, {2048, 1024}, sb::Image::allMipLevels, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled | sb::Image::Usage::TransferSrc | sb::Image::Usage::TransferDst, instance.graphics)),
 	m_fb_depth_buffer_fl_mips(getDepthBufferFlMips()),
 	m_color_fb(m_color_pass.framebuffer({1600, 900}, 1, m_fb_color, m_fb_depth_buffer)),
 	m_post_fbs(createPostFramebuffers()),
@@ -23,9 +23,13 @@ Race::Race(Instance &instance) :
 	m_depth_range_pass(instance.load(res.shaders().render_passes().depth_range())),
 	m_first_depth_range(instance.load(res.shaders().first_depth_range())),
 	m_compute_depth_range(instance.load(res.shaders().compute_depth_range())),
-	m_fb_depth_range(instance.image2D(sb::Format::rg16_sfloat, {1024, 512}, sb::Image::allMipLevels, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, instance.graphics)),
+	m_fb_depth_range(instance.image2D(sb::Format::rg32_sfloat, {1024, 512}, sb::Image::allMipLevels, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, instance.graphics)),
 	m_depth_range_mips(getDepthRangeMips()),
-	m_first_depth_range_in_fb(m_first_depth_range.fb(instance.graphics)),
+	m_depth_buffer_module(instance.load(res.shaders().modules().depth_buffer())),
+	m_depth_buffer_set(m_depth_buffer_module.depth_buffer(instance.graphics)),
+	m_depth_to_fl_pass(instance.load(res.shaders().render_passes().depth_to_fl())),
+	m_depth_to_fl_fb(m_depth_to_fl_pass.framebuffer(m_fb_depth_buffer_fl.extent(), 1, m_fb_depth_buffer_fl_mips.at(0))),
+	m_depth_to_fl_shader(instance.load(res.shaders().depth_to_fl())),
 	m_compute_depth_range_in_fb(getComputeDepthRangeInFb()),
 
 	m_render_done(instance.semaphore()),
@@ -43,15 +47,17 @@ Race::Race(Instance &instance) :
 
 	m_lighting_samplers.color.bind(m_sampler, m_fb_color, sb::Image::Layout::ShaderReadOnlyOptimal);
 	m_lighting_samplers.depth_buffer.bind(m_fb_sampler_linear, m_fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
+	m_lighting_samplers.depth_buffer_fl.bind(m_fb_sampler_linear, m_fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
 	m_lighting_samplers.depth_range.bind(m_fb_sampler, m_fb_depth_range, sb::Image::Layout::ShaderReadOnlyOptimal);
 	m_lighting_draw_list.insert(m_lighting_shader.render(instance.screen_quad, m_lighting_samplers, m_track->render.camera));
 
-	m_first_depth_range_in_fb.depth_buffer.bind(m_fb_sampler, m_fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
+	m_depth_buffer_set.tex.bind(m_fb_sampler, m_fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
 
 	auto cmd = m_cmd_pool.primary();
 	cmd.record([&](auto &cmd){
 		cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {}, sb::Access::MemoryWrite, sb::Access::MemoryRead, sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, m_fb_depth_range);
 		cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {}, sb::Access::MemoryWrite, sb::Access::MemoryRead, sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, m_fb_depth_buffer);
+		cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {}, sb::Access::MemoryWrite, sb::Access::MemoryRead, sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, m_fb_depth_buffer_fl);
 	});
 	instance.graphics.submit(util::empty, cmd, util::empty);
 	instance.graphics.waitIdle();
@@ -85,27 +91,28 @@ void Race::run(void)
 			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput | sb::PipelineStage::LateFragmentTests, sb::PipelineStage::FragmentShader, {},
 				sb::Access::ColorAttachmentWrite | sb::Access::DepthStencilAttachmentWrite, sb::Access::ShaderRead);
 
-			/*cmd.blit(m_fb_depth_buffer, sb::Image::Layout::General, m_fb_depth_buffer.blitRegion(sb::svec2(1600, 900) - sb::svec2(1), sb::svec2(1)),
-			m_fb_depth_buffer, sb::Image::Layout::General, m_fb_depth_buffer.blitRegionAbs({1600, 900}, m_fb_depth_buffer.extent()), sb::Filter::Nearest);
-			cmd.blit(m_fb_depth_buffer, sb::Image::Layout::General, m_fb_depth_buffer.blitRegion(sb::svec2(0, 900) - sb::svec2(0, 1), sb::svec2(1600, 1)),
-			m_fb_depth_buffer, sb::Image::Layout::General, m_fb_depth_buffer.blitRegionAbs({0, 900}, {1600, 1024}), sb::Filter::Nearest);
-			cmd.blit(m_fb_depth_buffer, sb::Image::Layout::General, m_fb_depth_buffer.blitRegion(sb::svec2(1600, 0) - sb::svec2(1, 0), sb::svec2(1, 900)),
-			m_fb_depth_buffer, sb::Image::Layout::General, m_fb_depth_buffer.blitRegionAbs({1600, 0}, {2048, 900}), sb::Filter::Nearest);*/
+			cmd.setViewport({{0.0f, 0.0f}, {2048.0f, 1024.0f}}, 0.0f, 1.0f);
+			cmd.setScissor({{0, 0}, {2048, 1024}});
+			cmd.render(m_depth_to_fl_fb, {{0, 0}, {2048, 1024}}, [&](auto &cmd){
+				cmd.bind(m_depth_to_fl_shader);
+				cmd.bind(m_depth_to_fl_shader, m_depth_buffer_set, 0);
+				cmd.draw(instance.screen_quad);
+			});
 
-			/*cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
-				sb::Access::TransferWrite, sb::Access::TransferRead,
-				sb::Image::Layout::General, sb::Image::Layout::TransferSrcOptimal, m_fb_depth_buffer_mips.at(0));
+			cmd.imageMemoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::Transfer, {},
+				sb::Access::ColorAttachmentWrite, sb::Access::TransferRead,
+				sb::Image::Layout::ShaderReadOnlyOptimal, sb::Image::Layout::TransferSrcOptimal, m_fb_depth_buffer_fl_mips.at(0));
 
 			{
-				auto end = m_fb_depth_buffer_mips.end();
-				for (auto it = m_fb_depth_buffer_mips.begin() + 1; it != end; it++) {
+				auto end = m_fb_depth_buffer_fl_mips.end();
+				for (auto it = m_fb_depth_buffer_fl_mips.begin() + 1; it != end; it++) {
 
 					auto &prev_mip = *(it - 1);
 					auto &cur_mip = *it;
 
 					cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
 						sb::Access::TransferWrite, sb::Access::TransferRead,
-						sb::Image::Layout::General, sb::Image::Layout::TransferDstOptimal, cur_mip);
+						sb::Image::Layout::ShaderReadOnlyOptimal, sb::Image::Layout::TransferDstOptimal, cur_mip);
 
 					cmd.blit(prev_mip, sb::Image::Layout::TransferSrcOptimal, prev_mip.blitRegion({0, 0}, prev_mip.extent()),
 					cur_mip, sb::Image::Layout::TransferDstOptimal, cur_mip.blitRegion({0, 0}, cur_mip.extent()), sb::Filter::Linear);
@@ -114,11 +121,11 @@ void Race::run(void)
 						sb::Access::TransferWrite, sb::Access::TransferRead,
 						sb::Image::Layout::TransferDstOptimal, sb::Image::Layout::TransferSrcOptimal, cur_mip);
 				}
-			}*/
+			}
 
-			/*cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::FragmentShader, {},
+			cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::FragmentShader, {},
 				sb::Access::TransferWrite, sb::Access::ShaderRead,
-				sb::Image::Layout::ShaderReadOnlyOptimal, sb::Image::Layout::General, m_fb_depth_range);*/
+				sb::Image::Layout::TransferSrcOptimal, sb::Image::Layout::ShaderReadOnlyOptimal, m_fb_depth_buffer_fl);
 
 			{
 				size_t ndx = 0;
@@ -130,7 +137,7 @@ void Race::run(void)
 						[&](auto &cmd){
 							if (ndx == 0) {
 								cmd.bind(m_first_depth_range);
-								cmd.bind(m_first_depth_range, m_first_depth_range_in_fb, 0);
+								cmd.bind(m_first_depth_range, m_depth_buffer_set, 0);
 								cmd.draw(instance.screen_quad);
 							} else {
 								cmd.bind(m_compute_depth_range);

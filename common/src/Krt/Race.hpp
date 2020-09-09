@@ -71,7 +71,11 @@ private:
 		return res;
 	}
 
-	decltype(m_first_depth_range.fb(instance.graphics)) m_first_depth_range_in_fb;
+	decltype(instance.load(res.shaders().modules().depth_buffer())) m_depth_buffer_module;
+	decltype(m_depth_buffer_module.depth_buffer(instance.graphics)) m_depth_buffer_set;
+	decltype(instance.load(res.shaders().render_passes().depth_to_fl())) m_depth_to_fl_pass;
+	decltype(m_depth_to_fl_pass)::Framebuffer m_depth_to_fl_fb;
+	decltype(instance.load(res.shaders().depth_to_fl())) m_depth_to_fl_shader;
 	std::vector<decltype(m_compute_depth_range.fb(instance.graphics))> m_compute_depth_range_in_fb;
 	decltype(m_compute_depth_range_in_fb) getComputeDepthRangeInFb(void)
 	{
