@@ -231,6 +231,16 @@ public:
 			return srect3({offset.x, offset.y, 0}, {extent.x, extent.y, 1});
 		}
 	};
+
+	auto blitRegion(const svec2 &offset, const svec2 &extent)
+	{
+		return Region(offset, extent);
+	}
+
+	auto blitRegionAbs(const svec2 &p0, const svec2 &p1)
+	{
+		return Region(p0, p1 - p0);
+	}
 };
 
 // layers = 1, mips >= 1, samples = 1

@@ -2167,8 +2167,8 @@ void Vk::CommandBuffer::blit(sb::Image &srcImage, sb::Image::Layout srcLayout, c
 	region.dstSubresource.mipLevel = vk_dst.getMipRange().off;
 	region.dstSubresource.baseArrayLayer = vk_dst.getArrayRange().off;
 	region.dstSubresource.layerCount = vk_dst.getArrayRange().size;
-	region.srcOffsets[0] = VkOffset3D{st_to_i32(dstRegion.offset.x), st_to_i32(dstRegion.offset.y), st_to_i32(dstRegion.offset.z)};
-	region.srcOffsets[1] = VkOffset3D{st_to_i32(dstRegion.offset.x + dstRegion.extent.x), st_to_i32(dstRegion.offset.y + dstRegion.extent.y), st_to_i32(dstRegion.offset.z + dstRegion.extent.z)};
+	region.dstOffsets[0] = VkOffset3D{st_to_i32(dstRegion.offset.x), st_to_i32(dstRegion.offset.y), st_to_i32(dstRegion.offset.z)};
+	region.dstOffsets[1] = VkOffset3D{st_to_i32(dstRegion.offset.x + dstRegion.extent.x), st_to_i32(dstRegion.offset.y + dstRegion.extent.y), st_to_i32(dstRegion.offset.z + dstRegion.extent.z)};
 
 	vkCmdBlitImage(*this, vk_src.getImage(), static_cast<VkImageLayout>(util::enum_underlying(srcLayout)), vk_dst.getImage(), static_cast<VkImageLayout>(util::enum_underlying(dstLayout)), 1, &region, static_cast<VkFilter>(util::enum_underlying(filter)));
 }
