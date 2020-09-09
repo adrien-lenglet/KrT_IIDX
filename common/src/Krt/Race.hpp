@@ -16,6 +16,7 @@ private:
 	Instance &instance;
 
 	sb::Sampler::Handle m_sampler;
+	sb::Sampler::Handle m_sampler_clamp;
 	sb::Sampler::Handle m_fb_sampler;
 	sb::Sampler::Handle m_fb_sampler_linear;
 

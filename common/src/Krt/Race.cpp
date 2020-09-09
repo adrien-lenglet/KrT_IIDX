@@ -7,6 +7,7 @@ Race::Race(Instance &instance) :
 	instance(instance),
 
 	m_sampler(instance.sampler(sb::Filter::Linear, sb::Filter::Nearest, sb::Sampler::AddressMode::MirroredRepeat, sb::BorderColor::FloatOpaqueWhite, std::nullopt, sb::Sampler::MipmapMode::Linear, 0.0f, 64.0f, 0.0f, std::nullopt)),
+	m_sampler_clamp(instance.sampler(sb::Filter::Linear, sb::Filter::Linear, sb::Sampler::AddressMode::ClampToEdge, sb::BorderColor::FloatOpaqueWhite, std::nullopt, sb::Sampler::MipmapMode::Nearest, 0.0f, 64.0f, 0.0f, std::nullopt)),
 	m_fb_sampler(instance.samplerUnnormalized(sb::Filter::Nearest, sb::Sampler::AddressMode::ClampToEdge, sb::BorderColor::FloatOpaqueWhite, 0.0f)),
 	m_fb_sampler_linear(instance.samplerUnnormalized(sb::Filter::Linear, sb::Sampler::AddressMode::ClampToEdge, sb::BorderColor::FloatOpaqueWhite, 0.0f)),
 
@@ -47,7 +48,7 @@ Race::Race(Instance &instance) :
 
 	m_lighting_samplers.color.bind(m_sampler, m_fb_color, sb::Image::Layout::ShaderReadOnlyOptimal);
 	m_lighting_samplers.depth_buffer.bind(m_fb_sampler_linear, m_fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
-	m_lighting_samplers.depth_buffer_fl.bind(m_fb_sampler_linear, m_fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
+	m_lighting_samplers.depth_buffer_fl.bind(m_sampler_clamp, m_fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
 	m_lighting_samplers.depth_range.bind(m_fb_sampler, m_fb_depth_range, sb::Image::Layout::ShaderReadOnlyOptimal);
 	m_lighting_draw_list.insert(m_lighting_shader.render(instance.screen_quad, m_lighting_samplers, m_track->render.camera));
 
