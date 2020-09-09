@@ -1,6 +1,5 @@
-rg16_sfloat range { store, in_layout = general, out_layout = general };
+rg16_sfloat range { store, in_layout = shader_read_only_optimal, out_layout = shader_read_only_optimal };
 
 compute {
-	layout range = general;
 	out range;
 }

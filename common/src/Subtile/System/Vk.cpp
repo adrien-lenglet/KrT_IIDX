@@ -172,9 +172,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_messenger_cb(
 	};
 
 	if (messageSeverity != VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT &&
-	messageSeverity != VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
-	&& messageType != VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT
-	) {
+	messageSeverity != VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) {
 		auto comma = "";
 		std::cerr << "[";
 		for (auto &p : sever_table)

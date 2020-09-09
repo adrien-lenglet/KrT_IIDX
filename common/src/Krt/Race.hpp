@@ -23,13 +23,14 @@ private:
 	decltype(instance.load(res.shaders().render_passes().post())) m_post_pass;
 	sb::Image2D m_fb_color;
 	sb::Image2D m_fb_depth_buffer;
-	std::vector<sb::Image2D> m_fb_depth_buffer_mips;
-	decltype(m_fb_depth_buffer_mips) getDepthBufferMips(void)
+	sb::Image2D m_fb_depth_buffer_fl;
+	std::vector<sb::Image2D> m_fb_depth_buffer_fl_mips;
+	decltype(m_fb_depth_buffer_fl_mips) getDepthBufferFlMips(void)
 	{
-		decltype(m_fb_depth_buffer_mips) res;
+		decltype(m_fb_depth_buffer_fl_mips) res;
 
-		for (size_t i = 0; i < m_fb_depth_buffer.mipLevels(); i++)
-			res.emplace_back(m_fb_depth_buffer.view(sb::ComponentSwizzle::Identity, sb::Image::Aspect::Depth, sb::Range(i, 1)));
+		for (size_t i = 0; i < m_fb_depth_buffer_fl.mipLevels(); i++)
+			res.emplace_back(m_fb_depth_buffer_fl.view(sb::ComponentSwizzle::Identity, sb::Image::Aspect::Color, sb::Range(i, 1)));
 		return res;
 	}
 
@@ -79,7 +80,7 @@ private:
 		auto end = m_depth_range_mips.end();
 		for (auto it = m_depth_range_mips.begin() + 1; it != end; it++) {
 			auto in_fb = m_compute_depth_range.fb(instance.graphics);
-			in_fb.up.bind(m_fb_sampler, (it - 1)->img, sb::Image::Layout::General);
+			in_fb.up.bind(m_fb_sampler, (it - 1)->img, sb::Image::Layout::ShaderReadOnlyOptimal);
 			res.emplace_back(std::move(in_fb));
 		}
 		return res;
