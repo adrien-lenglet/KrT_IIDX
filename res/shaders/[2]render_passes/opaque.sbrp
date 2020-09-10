@@ -1,4 +1,5 @@
 rgba8_unorm albedo { load = clear, store, out_layout = shader_read_only_optimal };
+rgba8_unorm emissive { load = clear, store, out_layout = shader_read_only_optimal };
 rgba8_unorm normal { load = clear, store, out_layout = shader_read_only_optimal };
 d24un_or_32sf_spl_att_sfb depth_buffer { load = clear, store, out_layout = shader_read_only_optimal};
 
@@ -6,6 +7,7 @@ compute {
 	depth_stencil depth_buffer;
 
 	out albedo;
+	out emissive;
 	out normal;
 }
 

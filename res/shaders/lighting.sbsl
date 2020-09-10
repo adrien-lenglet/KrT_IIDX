@@ -12,6 +12,7 @@ vertex {
 fragment {
 	set fb {
 		sampler2D albedo;
+		sampler2D emissive;
 		sampler2D normal;
 
 		sampler2D depth_buffer;
@@ -186,6 +187,8 @@ fragment {
 				illum = 0.03;
 		} else
 			illum = 0.03;
-		(out)wsi_screen = texture(fb.albedo, gl_FragCoord.xy).xyz * illum;
+		vec4 emissive = texture(fb.emissive, gl_FragCoord.xy);
+		vec3 emissive_exp = emissive.xyz * pow(2, emissive.w);
+		(out)wsi_screen = texture(fb.albedo, gl_FragCoord.xy).xyz * illum + emissive_exp;
 	}
 }

@@ -23,6 +23,7 @@ private:
 	decltype(instance.load(res.shaders().render_passes().opaque())) m_opaque_pass;
 	decltype(instance.load(res.shaders().render_passes().post())) m_post_pass;
 	sb::Image2D m_fb_albedo;
+	sb::Image2D m_fb_emissive;
 	sb::Image2D m_fb_normal;
 	sb::Image2D m_fb_depth_buffer;
 	sb::Image2D m_fb_depth_buffer_fl;
