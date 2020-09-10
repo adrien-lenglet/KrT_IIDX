@@ -26,7 +26,7 @@ vertex {
 		vec4 in_pos_h = vec4((in)pos, 1.0);
 		gl_Position = camera.vp * object.model_world * in_pos_h;
 		(out)pos = (camera.view * object.model_world * in_pos_h).xyz;
-		(out)normal = (in)normal;
+		(out)normal = (camera.view_normal * vec4((in)normal, 1.0)).xyz;
 		(out)uv = (in)uv;
 	}
 }
@@ -61,8 +61,8 @@ fragment {
 
 	void main(void)
 	{
-		(out)albedo = vec4(normalize((in)normal), 0.1);
+		(out)albedo = vec4(normalize((in)normal), 0.3);
 		(out)emissive = vec3(0.0);
-		(out)normal = normalize(cross(dFdx((in)pos), dFdy((in)pos))) * 0.5 + 0.5;
+		(out)normal = normalize((in)normal) * 0.5 + 0.5;
 	}
 }

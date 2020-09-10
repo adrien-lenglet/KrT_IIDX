@@ -1,6 +1,7 @@
 set camera {
 	mat4 vp;
 	mat4 view;
+	mat4 view_normal;
 	mat4 proj;
 	mat4 inv_proj;
 	//push_constant mat4 vp;

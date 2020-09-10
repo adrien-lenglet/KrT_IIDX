@@ -49,14 +49,15 @@ decltype(EntityTest::m_model_buffer) EntityTest::createModelBuffer(void)
 
 	for (size_t i = 0; i < 1000; i++) {
 		decltype(m_model_buffer)::value_type tri[3];
+		glm::vec3 points[3];
 		for (size_t i = 0; i < 3; i++)
-			for (size_t j = 0; j < 3; j++)
-				tri[i].pos[j] = world.srandf() * 5.0;
-		for (size_t i = 0; i < 3; i++) {
-			for (size_t j = 0; j < 3; j++)
-				tri[i].normal[j] = world.srandf();
-			tri[i].normal = sb::math::normalize(tri[i].normal);
-		}
+			for (size_t j = 0; j < 3; j++) {
+				points[i][j] = world.srandf() * 5.0;
+				tri[i].pos[j] = points[i][j];
+			}
+		glm::vec3 normal = glm::normalize(glm::cross(points[1] - points[0], points[2] - points[0]));
+		for (size_t i = 0; i < 3; i++)
+			tri[i].normal = normal;
 		for (size_t i = 0; i < 3; i++)
 			for (size_t j = 0; j < 2; j++)
 				tri[i].uv[j] = world.urandf();

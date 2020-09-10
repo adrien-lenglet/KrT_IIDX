@@ -37,6 +37,9 @@ void Track::Render::render(sb::CommandBuffer::Record::RenderPass &cmd)
 	auto view = glm::lookAtLH(glm::vec3(0.0, 0.0, -7.0), glm::vec3(0.0), glm::vec3(0.0, 1.0, 0.0));
 	camera.vp = proj * view;
 	camera.view = view;
+	camera.view_normal = view;
+	for (size_t i = 0; i < 3; i++)
+		camera.view_normal[3][i] = 0.0f;
 	camera.proj = proj;
 	camera.inv_proj = glm::inverse(proj);
 	m_instance.uploadDescSet(camera);
