@@ -55,13 +55,13 @@ vertex {
 }*/
 
 fragment {
-	out vec3 albedo;
+	out vec4 albedo;
 	out vec3 emissive;
 	out vec3 normal;
 
 	void main(void)
 	{
-		(out)albedo = normalize((in)normal);
+		(out)albedo = vec4(normalize((in)normal), 0.1);
 		(out)emissive = vec3(0.0);
 		(out)normal = normalize(cross(dFdx((in)pos), dFdy((in)pos))) * 0.5 + 0.5;
 	}
