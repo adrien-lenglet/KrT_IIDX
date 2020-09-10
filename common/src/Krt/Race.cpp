@@ -48,7 +48,7 @@ Race::Race(Instance &instance) :
 	});
 
 	m_lighting_samplers.albedo.bind(m_fb_sampler_linear, m_fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
-	m_lighting_samplers.normal.bind(m_fb_sampler_linear, m_fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
+	m_lighting_samplers.normal.bind(m_fb_sampler_linear, m_fb_normal, sb::Image::Layout::ShaderReadOnlyOptimal);
 	m_lighting_samplers.depth_buffer.bind(m_fb_sampler_linear, m_fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
 	m_lighting_samplers.depth_buffer_fl.bind(m_sampler_clamp, m_fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
 	m_lighting_samplers.depth_range.bind(m_fb_sampler, m_fb_depth_range, sb::Image::Layout::ShaderReadOnlyOptimal);

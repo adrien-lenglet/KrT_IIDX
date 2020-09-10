@@ -174,13 +174,18 @@ fragment {
 
 	void main(void)
 	{
-		vec3 sun_dir = normalize(vec3(1.0, 1.0, -1.0)).xyz;
+		vec3 sun_dir = normalize(vec3(-1.0, 1.0, -1.0)).xyz;
 		vec3 origin = current_view();
 		vec3 p0, p1;
 		project_ray(origin, sun_dir, p0, p1);
 
-		bool isShadow = traceRay(p0, p1, 0);
 		vec3 normal = normalize((texture(fb.normal, gl_FragCoord.xy).xyz - 0.5) * 2.0);
-		(out)wsi_screen = texture(fb.albedo, gl_FragCoord.xy).xyz * ((isShadow ? 0.0 : max(dot(normal, sun_dir), 0)) + 0.03);
+		float illum = max(dot(normal, sun_dir), 0.0);
+		if (illum > 0.0) {
+			if (traceRay(p0, p1, 1))
+				illum = 0.03;
+		} else
+			illum = 0.03;
+		(out)wsi_screen = texture(fb.albedo, gl_FragCoord.xy).xyz * illum;
 	}
 }
