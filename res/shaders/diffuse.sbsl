@@ -15,6 +15,7 @@ vertex {
 	set object {
 		float time;
 		mat4 model_world;
+		mat4 model_world_normal;
 	};
 
 	out vec3 pos;
@@ -26,7 +27,7 @@ vertex {
 		vec4 in_pos_h = vec4((in)pos, 1.0);
 		gl_Position = camera.vp * object.model_world * in_pos_h;
 		(out)pos = (camera.view * object.model_world * in_pos_h).xyz;
-		(out)normal = (camera.view_normal * vec4((in)normal, 1.0)).xyz;
+		(out)normal = (camera.view_normal * object.model_world_normal * vec4((in)normal, 1.0)).xyz;
 		(out)uv = (in)uv;
 	}
 }
@@ -61,8 +62,8 @@ fragment {
 
 	void main(void)
 	{
-		(out)albedo = vec4(normalize((in)normal), 0.3);
+		(out)albedo = vec4(normalize((in)normal), 1.0);
 		(out)emissive = vec3(0.0);
-		(out)normal = normalize((in)normal) * 0.5 + 0.5;
+		(out)normal = normalize((in)normal);
 	}
 }

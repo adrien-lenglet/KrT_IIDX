@@ -15,7 +15,7 @@ Race::Race(Instance &instance) :
 	m_post_pass(instance.load(res.shaders().render_passes().post())),
 	m_fb_albedo(instance.image2D(sb::Format::rgba8_unorm, {1600, 900}, 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, instance.graphics)),
 	m_fb_emissive(instance.image2D(sb::Format::rgba8_unorm, {1600, 900}, 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, instance.graphics)),
-	m_fb_normal(instance.image2D(sb::Format::rgba8_unorm, {1600, 900}, 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, instance.graphics)),
+	m_fb_normal(instance.image2D(sb::Format::rgba16_sfloat, {1600, 900}, 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, instance.graphics)),
 	m_fb_depth_buffer(instance.image2D(sb::Format::d24un_or_32sf_spl_att_sfb, {1600, 900}, 1, sb::Image::Usage::DepthStencilAttachment | sb::Image::Usage::Sampled | sb::Image::Usage::TransferSrc, instance.graphics)),
 	m_fb_depth_buffer_fl(instance.image2D(sb::Format::r32_sfloat, {2048, 1024}, sb::Image::allMipLevels, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled | sb::Image::Usage::TransferSrc | sb::Image::Usage::TransferDst, instance.graphics)),
 	m_fb_depth_buffer_fl_mips(getDepthBufferFlMips()),

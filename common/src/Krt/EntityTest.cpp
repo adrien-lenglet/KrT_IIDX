@@ -35,6 +35,9 @@ EntityTest::EntityTest(void) :
 		m_angle += time / 16.0;
 		auto mat = glm::rotate((float)m_angle, glm::normalize(glm::vec3(1.0, 1.0, 1.0)));
 		m_object.model_world = mat;
+		m_object.model_world_normal = mat;
+		for (size_t i = 0; i < 3; i++)
+			m_object.model_world_normal[3][i] = 0.0f;
 		world.instance.uploadDescSet(m_object);
 	});
 }
