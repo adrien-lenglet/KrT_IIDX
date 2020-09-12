@@ -92,6 +92,7 @@ private:
 
 	struct DiffuseBounce {
 		sb::Image2D img;
+		sb::Image2D last_frame;
 		decltype(m_diffuse_bounce_pass)::Framebuffer fb;
 		decltype(m_diffuse_bounce_shader.fb(instance.graphics)) set;
 	};
@@ -101,7 +102,8 @@ private:
 		std::vector<DiffuseBounce> res;
 
 		for (size_t i = 0; i < count; i++) {
-			auto img = instance.image2D(sb::Format::rgba32_sfloat, {1600, 900}, 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, instance.graphics);
+			auto img = instance.image2D(sb::Format::rgba32_sfloat, {1600, 900}, 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled | sb::Image::Usage::TransferSrc, instance.graphics);
+			auto last_frame = instance.image2D(sb::Format::rgba32_sfloat, {1600, 900}, 1, sb::Image::Usage::Sampled | sb::Image::Usage::TransferDst, instance.graphics);
 			auto fb = m_diffuse_bounce_pass.framebuffer({1600, 900}, 1, img);
 			auto set = m_diffuse_bounce_shader.fb(instance.graphics);
 			set.albedo.bind(m_fb_sampler, m_fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
@@ -110,10 +112,11 @@ private:
 				set.last_diffuse.bind(m_fb_sampler, m_lighting_img, sb::Image::Layout::ShaderReadOnlyOptimal);
 			else
 				set.last_diffuse.bind(m_fb_sampler, res.at(i - 1).img, sb::Image::Layout::ShaderReadOnlyOptimal);
+			set.last_frame.bind(m_fb_sampler, last_frame, sb::Image::Layout::ShaderReadOnlyOptimal);
 			set.depth_buffer.bind(m_fb_sampler_linear, m_fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
 			set.depth_buffer_fl.bind(m_sampler_clamp, m_fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
 			set.depth_range.bind(m_fb_sampler, m_fb_depth_range, sb::Image::Layout::ShaderReadOnlyOptimal);
-			res.emplace_back(DiffuseBounce{std::move(img), std::move(fb), std::move(set)});
+			res.emplace_back(DiffuseBounce{std::move(img), std::move(last_frame), std::move(fb), std::move(set)});
 		}
 		return res;
 	}

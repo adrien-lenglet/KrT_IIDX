@@ -85,6 +85,10 @@ Race::Race(Instance &instance) :
 		cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {}, sb::Access::MemoryWrite, sb::Access::MemoryRead, sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, m_fb_depth_range);
 		cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {}, sb::Access::MemoryWrite, sb::Access::MemoryRead, sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, m_fb_depth_buffer);
 		cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {}, sb::Access::MemoryWrite, sb::Access::MemoryRead, sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, m_fb_depth_buffer_fl);
+		for (auto &b : m_diffuse_bounces)
+			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
+			sb::Access::MemoryWrite, sb::Access::MemoryRead,
+			sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, b.last_frame);
 	});
 	instance.graphics.submit(util::empty, cmd, util::empty);
 	instance.graphics.waitIdle();
@@ -222,6 +226,9 @@ void Race::run(void)
 						cmd.draw(instance.screen_quad);
 					}
 				);
+
+				cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
+					sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
 			}
 
 			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
@@ -234,6 +241,27 @@ void Race::run(void)
 					cmd.draw(instance.screen_quad);
 				}
 			);
+
+			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::Transfer, {}, sb::Access::ColorAttachmentWrite, sb::Access::MemoryRead);
+
+			for (auto &b : m_diffuse_bounces) {
+				cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
+					sb::Access::TransferWrite, sb::Access::TransferRead,
+					sb::Image::Layout::ShaderReadOnlyOptimal, sb::Image::Layout::TransferSrcOptimal, b.img);
+				cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
+					sb::Access::TransferWrite, sb::Access::TransferRead,
+					sb::Image::Layout::Undefined, sb::Image::Layout::TransferDstOptimal, b.last_frame);
+
+				cmd.blit(b.img, sb::Image::Layout::TransferSrcOptimal, b.img.blitRegion({0, 0}, b.img.extent()),
+					b.last_frame, sb::Image::Layout::TransferDstOptimal, b.last_frame.blitRegion({0, 0}, b.last_frame.extent()), sb::Filter::Nearest);
+
+				cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
+					sb::Access::TransferWrite, sb::Access::TransferRead,
+					sb::Image::Layout::TransferSrcOptimal, sb::Image::Layout::ShaderReadOnlyOptimal, b.img);
+				cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
+					sb::Access::TransferWrite, sb::Access::TransferRead,
+					sb::Image::Layout::TransferDstOptimal, sb::Image::Layout::ShaderReadOnlyOptimal, b.last_frame);
+			}
 		});
 
 		instance.transfer_unsafe.end();
