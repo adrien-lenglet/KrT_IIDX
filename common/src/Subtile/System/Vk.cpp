@@ -1161,7 +1161,7 @@ sb::Buffer::Region Vk::DescriptorSet::storageBufferRegion(void)
 	return sb::Buffer::Region(m_buffer, m_layout.getStorageOff(), m_layout.getStorageSize());
 }
 
-void Vk::DescriptorSet::bindSampler(size_t binding, sb::Sampler &sampler)
+void Vk::DescriptorSet::bindSampler(size_t binding, size_t index, sb::Sampler &sampler)
 {
 	VkDescriptorImageInfo ii {};
 	ii.sampler = reinterpret_cast<Sampler&>(sampler);
@@ -1170,7 +1170,7 @@ void Vk::DescriptorSet::bindSampler(size_t binding, sb::Sampler &sampler)
 	w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	w.dstSet = m_descriptor_set;
 	w.dstBinding = binding;
-	w.dstArrayElement = 0;
+	w.dstArrayElement = index;
 	w.descriptorCount = 1;
 	w.descriptorType = static_cast<VkDescriptorType>(util::enum_underlying(m_layout.getDescription().at(binding).descriptorType));
 	w.pImageInfo = &ii;
@@ -1178,7 +1178,7 @@ void Vk::DescriptorSet::bindSampler(size_t binding, sb::Sampler &sampler)
 	vkUpdateDescriptorSets(m_descriptor_pool.getDep(), 1, &w, 0, nullptr);
 }
 
-void Vk::DescriptorSet::bindImage(size_t binding, sb::Image &image, sb::Image::Layout layout)
+void Vk::DescriptorSet::bindImage(size_t binding, size_t index, sb::Image &image, sb::Image::Layout layout)
 {
 	VkDescriptorImageInfo ii {};
 	ii.imageView = reinterpret_cast<ImageView&>(image);
@@ -1188,7 +1188,7 @@ void Vk::DescriptorSet::bindImage(size_t binding, sb::Image &image, sb::Image::L
 	w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	w.dstSet = m_descriptor_set;
 	w.dstBinding = binding;
-	w.dstArrayElement = 0;
+	w.dstArrayElement = index;
 	w.descriptorCount = 1;
 	w.descriptorType = static_cast<VkDescriptorType>(util::enum_underlying(m_layout.getDescription().at(binding).descriptorType));
 	w.pImageInfo = &ii;
@@ -1196,7 +1196,7 @@ void Vk::DescriptorSet::bindImage(size_t binding, sb::Image &image, sb::Image::L
 	vkUpdateDescriptorSets(m_descriptor_pool.getDep(), 1, &w, 0, nullptr);
 }
 
-void Vk::DescriptorSet::bindCombinedImageSampler(size_t binding, sb::Sampler &sampler, sb::Image &image, sb::Image::Layout layout)
+void Vk::DescriptorSet::bindCombinedImageSampler(size_t binding, size_t index, sb::Sampler &sampler, sb::Image &image, sb::Image::Layout layout)
 {
 	VkDescriptorImageInfo ii {};
 	ii.sampler = reinterpret_cast<Sampler&>(sampler);
@@ -1207,7 +1207,7 @@ void Vk::DescriptorSet::bindCombinedImageSampler(size_t binding, sb::Sampler &sa
 	w.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	w.dstSet = m_descriptor_set;
 	w.dstBinding = binding;
-	w.dstArrayElement = 0;
+	w.dstArrayElement = index;
 	w.descriptorCount = 1;
 	w.descriptorType = static_cast<VkDescriptorType>(util::enum_underlying(m_layout.getDescription().at(binding).descriptorType));
 	w.pImageInfo = &ii;

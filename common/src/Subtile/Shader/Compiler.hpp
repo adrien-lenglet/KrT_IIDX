@@ -1614,7 +1614,8 @@ public:
 		void write_vulkan(token_output &o, size_t set_ndx) const
 		{
 			o << "layout" << "(" << "set" << "=" << set_ndx << "," << "binding" << "=" << m_binding << ")" << "uniform";
-			o << m_variable.getType().getName() << m_name << ";";
+			m_variable.getType().write(o);
+			o << m_name << ";";
 		}
 
 		std::string getName(const std::string &set_name)

@@ -1,0 +1,170 @@
+
+render_pass render_passes::diffuse_bounce : compute;
+
+require vertex::p2;
+vertex {
+	void main(void)
+	{
+		gl_Position = vec4((in)pos, 0, 1.0);
+	}
+}
+
+fragment {
+	set fb {
+		sampler2D albedo;
+		sampler2D normal;
+		sampler2D last_diffuse;
+
+		sampler2D depth_buffer;
+		sampler2D depth_buffer_fl;
+		sampler2D depth_range;
+	};
+
+	const float pi = 3.141592653589793238462643383279502884;
+
+	const float tanHalfFovy = tan(120.0 * (pi / 180.0) / 2.0);
+
+	float depth_to_z(float depth)
+	{
+		const float near = 0.1, far = 1000.0;
+		const float a = far / (far - near), b = -(far * near) / (far - near);
+		return b / (depth - a);
+	}
+
+	vec3 pos_view(vec2 pos)
+	{
+		vec2 size = textureSize(fb.depth_buffer, 0);
+		float depth = textureLod(fb.depth_buffer, pos, 0).x;
+		float z = depth_to_z(depth);
+		vec2 uv = pos / size;
+		vec2 ndc2 = (uv - 0.5) * 2.0;
+		ndc2.x *= (16.0 / 9.0) * tanHalfFovy;
+		ndc2.y *= -1.0 * tanHalfFovy;
+		ndc2 *= z;
+		return vec3(ndc2, z);
+	}
+
+	vec3 current_view(void)
+	{
+		return pos_view(gl_FragCoord.xy);
+	}
+
+	require modules::camera;
+
+	const float near_plane = 0.1;
+	const float far_plane = 1000.0;
+
+	vec2 ndc_to_ss(vec2 p)
+	{
+		vec2 size = textureSize(fb.depth_buffer, 0);
+		return ((p / 2.0) + 0.5) * size;
+	}
+
+	vec3 project_point(vec3 point)
+	{
+		vec4 ph = camera.proj * vec4(point, 1.0);
+		vec3 res = ph.xyz / ph.w;
+		return vec3(ndc_to_ss(res.xy), res.z);
+	}
+
+	// origin is start of the ray, camera space
+	// dir is the direction of the ray, camera space
+	void project_ray(vec3 origin, vec3 dir, out vec3 ss_p0, out vec3 ss_p1)
+	{
+		if (dir.z == 0.0) {
+			ss_p0 = project_point(origin);
+			ss_p1 = project_point(origin + dir * 16000.0);	// max screen size is 16k because of that 'trick'
+			return;
+		}
+		float len;
+		if (dir.z > 0.0) {
+			len = (far_plane - origin.z) / dir.z;
+		} else {
+			len = (near_plane - origin.z) / dir.z;
+		}
+		vec3 end = origin + dir * len;
+		ss_p0 = project_point(origin);
+		ss_p1 = project_point(end);
+	}
+
+	const float inf = 1.0 / 0.0;
+
+	float inter_rect(vec2 tl, vec2 br, vec2 p, vec2 d)
+	{
+		return min(
+			d.x == 0.0 ? inf : (d.x > 0.0 ? (br.x - p.x) / d.x : (tl.x - p.x) / d.x),
+			d.y == 0.0 ? inf : (d.y > 0.0 ? (br.y - p.y) / d.y : (tl.y - p.y) / d.y)
+		);
+	}
+	// returns t intersection
+	float cell_end(vec2 p, vec2 d, int level)
+	{
+		float size = float(1 << level);
+		vec2 cell_tl = floor(p / size) * size;
+		vec2 cell_br = cell_tl + size;
+
+		return inter_rect(cell_tl, cell_br, p, d);
+	}
+	bool traceRay(vec3 origin, vec3 dir, const int quality, out vec2 pos)
+	{
+		vec3 p0, p1;
+		project_ray(origin, dir, p0, p1);
+
+		p0.z -= 0.000001;
+		vec2 dir2 = p1.xy - p0.xy;
+		float dir_pp_bias = (1.0 / length(dir2)) / 64.0;
+
+		float t = 0.0;
+
+		float last_depth = textureLod(fb.depth_buffer, p0.xy, 0).x;
+		float last_ray_depth = p0.z;
+
+		int level = 0;
+
+		if (dir2 == vec2(0.0))
+			return false;
+
+		vec2 size = vec2(textureSize(fb.depth_buffer_fl, 0));
+		float t_max = inter_rect(vec2(0.0), vec2(size - 1), p0.xy, dir2);
+		vec3 p = p0;
+
+		while (true) {
+			int skip_level = max(level, 1);
+			float t_end = t + cell_end(p.xy, dir2, skip_level + quality) + dir_pp_bias;
+			float p_end = mix(p0, p1, t_end).z;
+
+			vec2 range = texelFetch(fb.depth_range, ivec2(p.xy / float(1 << (skip_level + quality))), skip_level - 1 + quality).xy;
+			vec2 ray_range = p.z < p_end ? vec2(p.z, p_end) : vec2(p_end, p.z);
+			bool isSkippable = !(ray_range.x <= range.y && ray_range.y >= range.x);
+			if (isSkippable) {
+				level++;
+				t = t_end;
+				if (t >= t_max)
+					break;
+			} else
+				level = max(level - 1, 0);
+			t = t + cell_end(mix(p0.xy, p1.xy, t), dir2, quality) + dir_pp_bias;
+			if (t >= t_max)
+				break;
+
+			p = mix(p0, p1, t);
+			float depth = textureLod(fb.depth_buffer_fl, p.xy / size, quality).x;
+			if ((last_ray_depth > last_depth && p.z < depth) || (last_ray_depth < last_depth && p.z > depth)) {
+				if (depth < 1.0) {
+					pos = p.xy;
+					return true;
+				}
+			}
+			last_depth = depth;
+			last_ray_depth = p.z;
+		}
+		return false;
+	}
+
+	out vec3 diffuse;
+
+	void main(void)
+	{
+		(out)diffuse = vec3(0.0);
+	}
+}

@@ -325,8 +325,18 @@ class FolderPrinter
 				auto &v = nopq.getVariable();
 				auto p = v.getType().parse("irrelevant");
 
-				auto mem = set_runtime += Type(p.name).T(Type(Value(nopq.getBinding()).getValue())) | Id(v.getName());
-				ctor /= mem("set"_v);
+				if (v.getType().getArray().size() == 0) {
+					auto mem = set_runtime += Type(p.name).T(Type(Value(nopq.getBinding()).getValue())) | Id(v.getName());
+					ctor /= mem("set, 0"_v);
+				} else {
+					if (v.getType().getArray().size() != 1) {
+						std::stringstream ss;
+						ss << "Variable '" << v.getName() << "' is opaque and has more than one array dimension";
+						throw std::runtime_error(ss.str());
+					}
+					auto mem = set_runtime += "sb::Shader::Type::OpaqueArray"_t.T(Type(p.name).T(Type(Value(nopq.getBinding()).getValue())), Type(Value(v.getType().getArray().at(0)).getValue())) | Id(v.getName());
+					ctor /= mem("set"_v);
+				}
 			}
 
 			ndx++;

@@ -577,9 +577,9 @@ private:
 
 		sb::Buffer::Region uniformBufferRegion(void) override;
 		sb::Buffer::Region storageBufferRegion(void) override;
-		void bindSampler(size_t binding, sb::Sampler &sampler) override;
-		void bindImage(size_t binding, sb::Image &image, sb::Image::Layout layout) override;
-		void bindCombinedImageSampler(size_t binding, sb::Sampler &sampler, sb::Image &image, sb::Image::Layout layout) override;
+		void bindSampler(size_t binding, size_t index, sb::Sampler &sampler) override;
+		void bindImage(size_t binding, size_t index, sb::Image &image, sb::Image::Layout layout) override;
+		void bindCombinedImageSampler(size_t binding, size_t index, sb::Sampler &sampler, sb::Image &image, sb::Image::Layout layout) override;
 
 		operator VkDescriptorSet(void) const;
 

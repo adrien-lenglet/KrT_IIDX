@@ -35,6 +35,9 @@ Race::Race(Instance &instance) :
 	m_depth_to_fl_fb(m_depth_to_fl_pass.framebuffer(m_fb_depth_buffer_fl.extent(), 1, m_fb_depth_buffer_fl_mips.at(0))),
 	m_depth_to_fl_shader(instance.load(res.shaders().depth_to_fl())),
 	m_compute_depth_range_in_fb(getComputeDepthRangeInFb()),
+	m_diffuse_bounce_pass(instance.load(res.shaders().render_passes().diffuse_bounce())),
+	m_diffuse_bounce_shader(instance.load(res.shaders().diffuse_bounce())),
+	m_diffuse_bounces(getDiffuseBounces(2)),
 	m_gather_bounces_pass(instance.load(res.shaders().render_passes().gather_bounces())),
 	m_gather_bounces_shader(instance.load(res.shaders().gather_bounces())),
 	m_gather_bounces_set(m_gather_bounces_shader.light(instance.graphics)),
@@ -53,15 +56,25 @@ Race::Race(Instance &instance) :
 		m_is_done = true;
 	});
 
-	m_lighting_samplers.albedo.bind(m_fb_sampler_linear, m_fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
-	m_lighting_samplers.emissive.bind(m_fb_sampler_linear, m_fb_emissive, sb::Image::Layout::ShaderReadOnlyOptimal);
-	m_lighting_samplers.normal.bind(m_fb_sampler_linear, m_fb_normal, sb::Image::Layout::ShaderReadOnlyOptimal);
+	m_lighting_samplers.albedo.bind(m_fb_sampler, m_fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
+	m_lighting_samplers.emissive.bind(m_fb_sampler, m_fb_emissive, sb::Image::Layout::ShaderReadOnlyOptimal);
+	m_lighting_samplers.normal.bind(m_fb_sampler, m_fb_normal, sb::Image::Layout::ShaderReadOnlyOptimal);
 	m_lighting_samplers.depth_buffer.bind(m_fb_sampler_linear, m_fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
 	m_lighting_samplers.depth_buffer_fl.bind(m_sampler_clamp, m_fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
 	m_lighting_samplers.depth_range.bind(m_fb_sampler, m_fb_depth_range, sb::Image::Layout::ShaderReadOnlyOptimal);
 	m_lighting_draw_list.insert(m_lighting_shader.render(instance.screen_quad, m_lighting_samplers, m_track->render.camera));
 
 	m_depth_buffer_set.tex.bind(m_fb_sampler, m_fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
+
+	for (auto &b : m_gather_bounces_set.bounces)
+		b.bind(m_fb_sampler, m_lighting_img, sb::Image::Layout::ShaderReadOnlyOptimal);
+	{
+		size_t ndx = 0;
+		for (auto &b : m_diffuse_bounces)
+			m_gather_bounces_set.bounces.at(ndx++).bind(m_fb_sampler, b.img, sb::Image::Layout::ShaderReadOnlyOptimal);
+	}
+	m_gather_bounces_set.bounce_count = m_diffuse_bounces.size();
+	instance.uploadDescSet(m_gather_bounces_set);
 
 	m_gather_bounces_set.primary.bind(m_fb_sampler, m_lighting_img, sb::Image::Layout::ShaderReadOnlyOptimal);
 
@@ -179,6 +192,20 @@ void Race::run(void)
 					m_lighting_draw_list.render(cmd);
 				}
 			);
+
+			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
+				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
+
+			for (auto &b : m_diffuse_bounces) {
+				cmd.render(b.fb, {{0, 0}, {1600, 900}},
+					[&](auto &cmd){
+						cmd.bind(m_diffuse_bounce_shader);
+						cmd.bind(m_diffuse_bounce_shader, b.set, 0);
+						cmd.bind(m_diffuse_bounce_shader, m_track->render.camera, 1);
+						cmd.draw(instance.screen_quad);
+					}
+				);
+			}
 
 			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
 				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);

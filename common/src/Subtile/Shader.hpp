@@ -185,9 +185,9 @@ public:
 
 		virtual sb::Buffer::Region uniformBufferRegion(void) = 0;
 		virtual sb::Buffer::Region storageBufferRegion(void) = 0;
-		virtual void bindSampler(size_t binding, Sampler &sampler) = 0;
-		virtual void bindImage(size_t binding, Image &image, Image::Layout layout) = 0;
-		virtual void bindCombinedImageSampler(size_t binding, Sampler &sampler, Image &image, Image::Layout layout) = 0;
+		virtual void bindSampler(size_t binding, size_t index, Sampler &sampler) = 0;
+		virtual void bindImage(size_t binding, size_t index, Image &image, Image::Layout layout) = 0;
+		virtual void bindCombinedImageSampler(size_t binding, size_t index, Sampler &sampler, Image &image, Image::Layout layout) = 0;
 
 		class Layout
 		{
@@ -858,40 +858,55 @@ public:
 			using ealign = util::align_t<get_align_t<ealign_getter, Members...>{}, 16>;
 		};
 
+		template <typename Opaque, size_t Size>
+		class OpaqueArray : public std::vector<Opaque>
+		{
+		public:
+			OpaqueArray(DescriptorSet &set)
+			{
+				for (size_t i = 0; i < Size; i++)
+					static_cast<std::vector<Opaque>&>(*this).emplace_back(Opaque(set, i));
+			}
+		};
+
 		template <size_t Binding>
 		class Sampler2D
 		{
 		public:
-			Sampler2D(DescriptorSet &set) :
-				m_set(set)
+			Sampler2D(DescriptorSet &set, size_t index) :
+				m_set(set),
+				m_index(index)
 			{
 			}
 
 			void bind(Sampler &sampler, Image2D &image, Image::Layout layout)
 			{
-				m_set.bindCombinedImageSampler(Binding, sampler, image, layout);
+				m_set.bindCombinedImageSampler(Binding, m_index, sampler, image, layout);
 			}
 
 		private:
 			DescriptorSet &m_set;
+			size_t m_index;
 		};
 
 		template <size_t Binding>
 		class Texture2D
 		{
 		public:
-			Texture2D(DescriptorSet &set) :
-				m_set(set)
+			Texture2D(DescriptorSet &set, size_t index) :
+				m_set(set),
+				m_index(index)
 			{
 			}
 
 			void bind(Image2D &image, Image::Layout layout)
 			{
-				m_set.bindImage(Binding, image, layout);
+				m_set.bindImage(Binding, m_index, image, layout);
 			}
 
 		private:
 			DescriptorSet &m_set;
+			size_t m_index;
 		};
 	};
 };
