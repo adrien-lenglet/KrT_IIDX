@@ -11,7 +11,7 @@ vertex {
 
 fragment {
 	set random {
-		vec3 normals[256];
+		vec3 normals[2048];
 	};
 
 	set fb {

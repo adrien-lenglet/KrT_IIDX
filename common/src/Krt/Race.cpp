@@ -1,3 +1,4 @@
+#include <chrono>
 #include "Race.hpp"
 #include "res.resdecl.hpp"
 
@@ -99,7 +100,9 @@ void Race::run(void)
 		instance.scanInputs();
 		m_track->events.updateEvents();
 
+		//auto before = std::chrono::high_resolution_clock::now();
 		auto img = instance.swapchain.acquireNextImage(m_swapchain_img_avail);
+		//std::cout << std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - before).count() << std::endl;
 
 		m_cmd_prim.record([&](auto &cmd){
 			cmd.memoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::AllGraphics, {}, sb::Access::TransferWrite, sb::Access::MemoryRead);
