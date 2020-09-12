@@ -10,6 +10,10 @@ vertex {
 }
 
 fragment {
+	set random {
+		vec3 normals[256];
+	};
+
 	set fb {
 		sampler2D albedo;
 		sampler2D normal;
@@ -163,8 +167,41 @@ fragment {
 
 	out vec3 diffuse;
 
+	uint hash(uint x) {
+		x += ( x << 10u );
+		x ^= ( x >>  6u );
+		x += ( x <<  3u );
+		x ^= ( x >> 11u );
+		x += ( x << 15u );
+		return x;
+	}
+
 	void main(void)
 	{
-		(out)diffuse = vec3(0.0);
+		vec3 view = current_view();
+		vec3 view_norm = normalize(view);
+		vec3 normal = texture(fb.normal, gl_FragCoord.xy).xyz;
+		vec3 albedo = texture(fb.albedo, gl_FragCoord.xy).xyz;
+
+		vec3 nx = vec3(-normal.z, normal.y, normal.x);
+		vec3 ny = vec3(normal.y, -normal.z, normal.x);
+		vec3 nz = normal;
+
+		vec3 illum = vec3(0.0);
+		uint samples = 4;
+		uint rand = hash(uint(gl_FragCoord.x)) + hash(uint(gl_FragCoord.y));
+		for (uint i = 0; i < samples; i++) {
+			vec3 rvec = random.normals[hash(i + rand) % 256];
+			vec3 tangent_rvec = nx * rvec.x + ny * rvec.y + nz * rvec.z;
+			const float unorm = 1.0 / 255.0;
+			vec3 ray_illum = vec3(2.0 * unorm, 145.0 * unorm, 223.0 * unorm);
+			vec2 trace_pos;
+			if (traceRay(view, tangent_rvec, 0, trace_pos))
+				ray_illum = texture(fb.last_diffuse, trace_pos).xyz;
+			illum += ray_illum;
+		}
+		illum /= samples;
+
+		(out)diffuse = albedo * illum;
 	}
 }

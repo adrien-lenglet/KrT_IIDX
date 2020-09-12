@@ -37,6 +37,7 @@ Race::Race(Instance &instance) :
 	m_compute_depth_range_in_fb(getComputeDepthRangeInFb()),
 	m_diffuse_bounce_pass(instance.load(res.shaders().render_passes().diffuse_bounce())),
 	m_diffuse_bounce_shader(instance.load(res.shaders().diffuse_bounce())),
+	m_diffuse_bounce_random(m_diffuse_bounce_shader.random(instance.graphics)),
 	m_diffuse_bounces(getDiffuseBounces(2)),
 	m_gather_bounces_pass(instance.load(res.shaders().render_passes().gather_bounces())),
 	m_gather_bounces_shader(instance.load(res.shaders().gather_bounces())),
@@ -196,12 +197,25 @@ void Race::run(void)
 			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
 				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
 
+			for (auto &normal : m_diffuse_bounce_random.normals) {
+				double n = 1.0;
+				auto a0 = std::acos(std::pow(m_track->urandf(), 1.0 / (n + 1.0)));
+				auto a1 = 2.0 * sb::pi * m_track->urandf();
+				auto sa0 = std::sin(a0);
+				auto ca0 = std::cos(a0);
+				auto sa1 = std::sin(a1);
+				auto ca1 = std::cos(a1);
+				normal = glm::vec3(sa0 * ca1, sa0 * sa1, ca0);
+			}
+			instance.uploadDescSet(m_diffuse_bounce_random);
+
 			for (auto &b : m_diffuse_bounces) {
 				cmd.render(b.fb, {{0, 0}, {1600, 900}},
 					[&](auto &cmd){
 						cmd.bind(m_diffuse_bounce_shader);
-						cmd.bind(m_diffuse_bounce_shader, b.set, 0);
-						cmd.bind(m_diffuse_bounce_shader, m_track->render.camera, 1);
+						cmd.bind(m_diffuse_bounce_shader, m_diffuse_bounce_random, 0);
+						cmd.bind(m_diffuse_bounce_shader, b.set, 1);
+						cmd.bind(m_diffuse_bounce_shader, m_track->render.camera, 2);
 						cmd.draw(instance.screen_quad);
 					}
 				);

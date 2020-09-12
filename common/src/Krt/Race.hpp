@@ -88,6 +88,7 @@ private:
 
 	decltype(instance.load(res.shaders().render_passes().diffuse_bounce())) m_diffuse_bounce_pass;
 	decltype(instance.load(res.shaders().diffuse_bounce())) m_diffuse_bounce_shader;
+	decltype(m_diffuse_bounce_shader.random(instance.graphics)) m_diffuse_bounce_random;
 
 	struct DiffuseBounce {
 		sb::Image2D img;
