@@ -197,11 +197,9 @@ fragment {
 		vec3 normal = texture(fb.normal, gl_FragCoord.xy).xyz;
 		float illum = max(dot(normal, sun_dir), 0.0);
 		vec2 trace_pos;
-		if (illum > 0.0) {
+		if (illum > 0.0)
 			if (traceRay(view, sun_dir, 0, trace_pos))
-				illum = 0.03;
-		} else
-			illum = 0.03;
+				illum = 0.0;
 		vec4 emissive = texture(fb.emissive, gl_FragCoord.xy);
 		vec3 emissive_exp = emissive.xyz * pow(2, emissive.w);
 		vec4 albedo = texture(fb.albedo, gl_FragCoord.xy);

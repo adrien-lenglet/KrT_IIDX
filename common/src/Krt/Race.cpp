@@ -145,10 +145,6 @@ void Race::run(void)
 				sb::Access::TransferWrite, sb::Access::ShaderRead,
 				sb::Image::Layout::TransferSrcOptimal, sb::Image::Layout::ShaderReadOnlyOptimal, m_fb_depth_buffer_fl);
 
-			cmd.imageMemoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
-				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead,
-				sb::Image::Layout::ShaderReadOnlyOptimal, sb::Image::Layout::General, m_fb_depth_range);
-
 			{
 				size_t ndx = 0;
 				for (auto &mip : m_depth_range_mips) {
@@ -175,10 +171,6 @@ void Race::run(void)
 					ndx++;
 				}
 			}
-
-			cmd.imageMemoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
-				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead,
-				sb::Image::Layout::General, sb::Image::Layout::ShaderReadOnlyOptimal, m_fb_depth_range);
 
 			cmd.setViewport({{0.0f, 0.0f}, {1600.0f, 900.0f}}, 0.0f, 1.0f);
 			cmd.setScissor({{0, 0}, {1600, 900}});
