@@ -13,6 +13,8 @@ EntityTest::EntityTest(void) :
 	m_model_buffer(createModelBuffer()),
 	m_model(world.instance.model(m_model_buffer))
 {
+	m_material.counter = 0;
+
 	bind(world.events.system.input.button.pressed("quit"), [this](){
 		//std::cout << "quit pressed" << std::endl;
 		trigger(just_died, 14.2);

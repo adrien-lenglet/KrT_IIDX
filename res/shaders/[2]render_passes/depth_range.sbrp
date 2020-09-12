@@ -1,5 +1,6 @@
-rg32_sfloat range { store, out_layout = shader_read_only_optimal };
+rg32_sfloat range { load, store, in_layout = general, out_layout = general };
 
 compute {
+	layout range = general;
 	out range;
 }

@@ -172,7 +172,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_messenger_cb(
 	};
 
 	if (messageSeverity != VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT &&
-	messageSeverity != VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) {
+	messageSeverity != VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT &&
+	messageType != VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT) {
 		auto comma = "";
 		std::cerr << "[";
 		for (auto &p : sever_table)
@@ -924,7 +925,7 @@ const svec3& Vk::ImageView::getExtent(void) const
 svec3 Vk::ImageView::deriveExtent(size_t mipmapOff) const
 {
 	auto nextDim = [](size_t curDim) {
-		return std::max(curDim / 2, 1ULL);
+		return std::max(curDim / static_cast<size_t>(2), static_cast<size_t>(1));
 	};
 	auto res = m_extent;
 	for (size_t i = 0; i < mipmapOff; i++) {
