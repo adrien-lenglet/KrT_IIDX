@@ -1695,15 +1695,24 @@ public:
 		auto& getOpaque(void) const { return m_opaque_vars; }
 		auto getLayout(void) const
 		{
-			sb::Shader::DescriptorSet::Layout::Description res;
+			std::map<size_t, sb::Shader::DescriptorSet::Layout::DescriptionBinding> res;
+			sb::Shader::DescriptorSet::Layout::Description vres;
 
-			if (m_uniform_block)
-				res.emplace_back(m_uniform_block->getLayoutBinding());
-			if (m_storage_block)
-				res.emplace_back(m_storage_block->getLayoutBinding());
-			for (auto &o : m_opaque_vars)
-				res.emplace_back(o.getLayoutBinding());
-			return res;
+			if (m_uniform_block) {
+				auto b = m_uniform_block->getLayoutBinding();
+				res.emplace(b.binding, b);
+			}
+			if (m_storage_block) {
+				auto b = m_storage_block->getLayoutBinding();
+				res.emplace(b.binding, b);
+			}
+			for (auto &o : m_opaque_vars) {
+				auto b = o.getLayoutBinding();
+				res.emplace(b.binding, b);
+			}
+			for (auto &p : res)
+				vres.emplace_back(p.second);
+			return vres;
 		}
 
 		auto& getCompiler(void) { return m_compiler; }

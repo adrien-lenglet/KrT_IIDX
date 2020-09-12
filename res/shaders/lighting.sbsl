@@ -1,5 +1,5 @@
 
-render_pass render_passes::post : lighting;
+render_pass render_passes::lighting : compute;
 
 require vertex::p2;
 vertex {
@@ -51,7 +51,7 @@ fragment {
 
 	require modules::camera;
 
-	out vec3 wsi_screen;
+	out vec3 primary;
 
 	const float near_plane = 0.1;
 	const float far_plane = 1000.0;
@@ -208,7 +208,7 @@ fragment {
 		float albedo_factor = albedo.w;
 		vec3 base_color = albedo.xyz * illum + emissive_exp;
 
-		const float unorm = 1.0 / 255.0;
+		/*const float unorm = 1.0 / 255.0;
 		vec3 refl_color = vec3(2.0 * unorm, 145.0 * unorm, 223.0 * unorm);
 		if (traceRay(view, reflect(view_norm, normal), 0, trace_pos)) {
 			vec3 normal = normalize((texture(fb.normal, trace_pos).xyz - 0.5) * 2.0);
@@ -224,8 +224,9 @@ fragment {
 			vec3 emissive_exp = emissive.xyz * pow(2, emissive.w);
 			vec4 albedo = texture(fb.albedo, trace_pos);
 			refl_color = albedo.xyz * illum + emissive_exp;
-		}
-		(out)wsi_screen = mix(base_color, refl_color, albedo_factor * schlick_fresnel(1.0, 1.33, max(dot(-view_norm, normal), 0)));
+		}*/
+		//(out)primary = mix(base_color, refl_color, albedo_factor * schlick_fresnel(1.0, 1.33, max(dot(-view_norm, normal), 0)));
+		(out)primary = base_color;
 		//(out)wsi_screen = vec3(illum);
 	}
 }

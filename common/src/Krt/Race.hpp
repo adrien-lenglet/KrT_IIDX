@@ -21,7 +21,7 @@ private:
 	sb::Sampler::Handle m_fb_sampler_linear;
 
 	decltype(instance.load(res.shaders().render_passes().opaque())) m_opaque_pass;
-	decltype(instance.load(res.shaders().render_passes().post())) m_post_pass;
+	decltype(instance.load(res.shaders().render_passes().lighting())) m_lighting_pass;
 	sb::Image2D m_fb_albedo;
 	sb::Image2D m_fb_emissive;
 	sb::Image2D m_fb_normal;
@@ -38,15 +38,8 @@ private:
 	}
 
 	decltype(m_opaque_pass)::Framebuffer m_opaque_fb;
-	std::vector<decltype(m_post_pass)::Framebuffer> m_post_fbs;
-	decltype(m_post_fbs) createPostFramebuffers(void)
-	{
-		decltype(m_post_fbs) res;
-
-		for (auto &img : instance.swapchain.images())
-			res.emplace_back(m_post_pass.framebuffer({1600, 900}, 1, img));
-		return res;
-	}
+	sb::Image2D m_lighting_img;
+	decltype(m_lighting_pass)::Framebuffer m_lighting_fb;
 
 	decltype(instance.semaphore()) m_swapchain_img_avail;
 
@@ -90,6 +83,24 @@ private:
 			in_fb.up.bind(m_fb_sampler, (it - 1)->img, sb::Image::Layout::General);
 			res.emplace_back(std::move(in_fb));
 		}
+		return res;
+	}
+
+	/*struct DiffuseBounce {
+		sb::Image2D img;
+	};*/
+
+	decltype(instance.load(res.shaders().render_passes().gather_bounces())) m_gather_bounces_pass;
+	decltype(instance.load(res.shaders().gather_bounces())) m_gather_bounces_shader;
+	decltype(m_gather_bounces_shader.light(instance.graphics)) m_gather_bounces_set;
+
+	std::vector<decltype(m_gather_bounces_pass)::Framebuffer> m_gather_bounces_fbs;
+	decltype(m_gather_bounces_fbs) getGatherBouncesFbs(void)
+	{
+		decltype(m_gather_bounces_fbs) res;
+
+		for (auto &img : instance.swapchain.images())
+			res.emplace_back(m_gather_bounces_pass.framebuffer({1600, 900}, 1, img));
 		return res;
 	}
 

@@ -12,7 +12,7 @@ Race::Race(Instance &instance) :
 	m_fb_sampler_linear(instance.samplerUnnormalized(sb::Filter::Linear, sb::Sampler::AddressMode::ClampToEdge, sb::BorderColor::FloatOpaqueWhite, 0.0f)),
 
 	m_opaque_pass(instance.load(res.shaders().render_passes().opaque())),
-	m_post_pass(instance.load(res.shaders().render_passes().post())),
+	m_lighting_pass(instance.load(res.shaders().render_passes().lighting())),
 	m_fb_albedo(instance.image2D(sb::Format::rgba8_unorm, {1600, 900}, 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, instance.graphics)),
 	m_fb_emissive(instance.image2D(sb::Format::rgba8_unorm, {1600, 900}, 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, instance.graphics)),
 	m_fb_normal(instance.image2D(sb::Format::rgba16_sfloat, {1600, 900}, 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, instance.graphics)),
@@ -20,7 +20,8 @@ Race::Race(Instance &instance) :
 	m_fb_depth_buffer_fl(instance.image2D(sb::Format::r32_sfloat, {2048, 1024}, sb::Image::allMipLevels, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled | sb::Image::Usage::TransferSrc | sb::Image::Usage::TransferDst, instance.graphics)),
 	m_fb_depth_buffer_fl_mips(getDepthBufferFlMips()),
 	m_opaque_fb(m_opaque_pass.framebuffer({1600, 900}, 1, m_fb_albedo, m_fb_emissive, m_fb_normal, m_fb_depth_buffer)),
-	m_post_fbs(createPostFramebuffers()),
+	m_lighting_img(instance.image2D(sb::Format::rgba32_sfloat, {1600, 900}, 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, instance.graphics)),
+	m_lighting_fb(m_lighting_pass.framebuffer({1600, 900}, 1, m_lighting_img)),
 	m_swapchain_img_avail(instance.semaphore()),
 
 	m_depth_range_pass(instance.load(res.shaders().render_passes().depth_range())),
@@ -34,6 +35,10 @@ Race::Race(Instance &instance) :
 	m_depth_to_fl_fb(m_depth_to_fl_pass.framebuffer(m_fb_depth_buffer_fl.extent(), 1, m_fb_depth_buffer_fl_mips.at(0))),
 	m_depth_to_fl_shader(instance.load(res.shaders().depth_to_fl())),
 	m_compute_depth_range_in_fb(getComputeDepthRangeInFb()),
+	m_gather_bounces_pass(instance.load(res.shaders().render_passes().gather_bounces())),
+	m_gather_bounces_shader(instance.load(res.shaders().gather_bounces())),
+	m_gather_bounces_set(m_gather_bounces_shader.light(instance.graphics)),
+	m_gather_bounces_fbs(getGatherBouncesFbs()),
 
 	m_render_done(instance.semaphore()),
 	m_render_done_fence(instance.fence(false)),
@@ -57,6 +62,8 @@ Race::Race(Instance &instance) :
 	m_lighting_draw_list.insert(m_lighting_shader.render(instance.screen_quad, m_lighting_samplers, m_track->render.camera));
 
 	m_depth_buffer_set.tex.bind(m_fb_sampler, m_fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
+
+	m_gather_bounces_set.primary.bind(m_fb_sampler, m_lighting_img, sb::Image::Layout::ShaderReadOnlyOptimal);
 
 	auto cmd = m_cmd_pool.primary();
 	cmd.record([&](auto &cmd){
@@ -175,9 +182,20 @@ void Race::run(void)
 
 			cmd.setViewport({{0.0f, 0.0f}, {1600.0f, 900.0f}}, 0.0f, 1.0f);
 			cmd.setScissor({{0, 0}, {1600, 900}});
-			cmd.render(m_post_fbs.at(img), {{0, 0}, {1600, 900}},
+			cmd.render(m_lighting_fb, {{0, 0}, {1600, 900}},
 				[&](auto &cmd){
 					m_lighting_draw_list.render(cmd);
+				}
+			);
+
+			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
+				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
+
+			cmd.render(m_gather_bounces_fbs.at(img), {{0, 0}, {1600, 900}},
+				[&](auto &cmd){
+					cmd.bind(m_gather_bounces_shader);
+					cmd.bind(m_gather_bounces_shader, m_gather_bounces_set, 0);
+					cmd.draw(instance.screen_quad);
 				}
 			);
 		});

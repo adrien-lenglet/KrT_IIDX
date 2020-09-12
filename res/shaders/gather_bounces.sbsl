@@ -1,0 +1,28 @@
+
+render_pass render_passes::gather_bounces : compute;
+
+require vertex::p2;
+vertex {
+	void main(void)
+	{
+		gl_Position = vec4((in)pos, 0, 1.0);
+	}
+}
+
+fragment {
+	set light {
+		sampler2D primary;
+		uint bounce_count;
+		sampler2D bounces[16];
+	};
+
+	out vec3 wsi_screen;
+
+	void main(void)
+	{
+		vec3 res = vec3(0.0);
+
+		res += texture(light.primary, gl_FragCoord.xy).xyz;
+		(out)wsi_screen = res;
+	}
+}

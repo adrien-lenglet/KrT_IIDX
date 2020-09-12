@@ -1,6 +1,0 @@
-bgra8_srgb wsi_screen { store, out_layout = present_src };
-//rgba32_sfloat color { in_layout = shader_read_only_optimal, load };
-
-lighting {
-	out wsi_screen;
-}
