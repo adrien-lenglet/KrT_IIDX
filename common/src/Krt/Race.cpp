@@ -41,6 +41,7 @@ Race::~Race(void)
 
 void Race::run(void)
 {
+	Image *last_frame = nullptr;
 	while (!m_is_done) {
 		auto t_start = std::chrono::high_resolution_clock::now();
 
@@ -174,12 +175,9 @@ void Race::run(void)
 					}
 				);
 
-				cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
+				cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader | sb::PipelineStage::ColorAttachmentOutput, {},
 					sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
 			}
-
-			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
-				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
 
 			cmd.render(img.gather_bounces_fbs.at(swapchain_img), {{0, 0}, {1600, 900}},
 				[&](auto &cmd){
@@ -189,36 +187,32 @@ void Race::run(void)
 				}
 			);
 
-			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::Transfer, {}, sb::Access::ColorAttachmentWrite, sb::Access::MemoryRead);
-
-			for (auto &b : img.diffuse_bounces) {
-				cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
-					sb::Access::TransferWrite, sb::Access::TransferRead,
-					sb::Image::Layout::ShaderReadOnlyOptimal, sb::Image::Layout::TransferSrcOptimal, b.img);
-				cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
-					sb::Access::TransferWrite, sb::Access::TransferRead,
-					sb::Image::Layout::Undefined, sb::Image::Layout::TransferDstOptimal, b.last_frame);
-
-				cmd.blit(b.img, sb::Image::Layout::TransferSrcOptimal, b.img.blitRegion({0, 0}, b.img.extent()),
-					b.last_frame, sb::Image::Layout::TransferDstOptimal, b.last_frame.blitRegion({0, 0}, b.last_frame.extent()), sb::Filter::Nearest);
-
-				cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
-					sb::Access::TransferWrite, sb::Access::TransferRead,
-					sb::Image::Layout::TransferSrcOptimal, sb::Image::Layout::ShaderReadOnlyOptimal, b.img);
-				cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
-					sb::Access::TransferWrite, sb::Access::TransferRead,
-					sb::Image::Layout::TransferDstOptimal, sb::Image::Layout::ShaderReadOnlyOptimal, b.last_frame);
-			}
+			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::BottomOfPipe, {},
+				sb::Access::ColorAttachmentWrite, sb::Access::MemoryRead);
 		});
 
 		instance.cur_img_res->transfer_unsafe.end();
 
 		auto t_before_submit = std::chrono::high_resolution_clock::now();
-		instance.graphics.submit(img.render_done_fence, std::pair {&img.swapchain_img_avail, sb::PipelineStage::ColorAttachmentOutput}, std::array{&instance.cur_img_res->transfer_cmd_buf, &img.cmd_prim}, img.render_done);
+
+		if (last_frame) {
+			auto img_wait = std::pair {&img.swapchain_img_avail, sb::PipelineStage::ColorAttachmentOutput};
+			auto last_render_wait = std::pair {&last_frame->render_done, sb::PipelineStage::TopOfPipe};
+			instance.graphics.submit(img.render_done_fence,
+				std::array{&img_wait, &last_render_wait},
+				std::array{&instance.cur_img_res->transfer_cmd_buf, &img.cmd_prim},
+				img.render_done);
+		} else
+			instance.graphics.submit(img.render_done_fence,
+				std::pair {&img.swapchain_img_avail, sb::PipelineStage::ColorAttachmentOutput},
+				std::array{&instance.cur_img_res->transfer_cmd_buf, &img.cmd_prim},
+				img.render_done);
+
 		auto t_before_present = std::chrono::high_resolution_clock::now();
 		instance.graphics.present(img.render_done, instance.swapchain.images().at(swapchain_img));
 
 		auto t_next_frame = std::chrono::high_resolution_clock::now();
+		last_frame = &img;
 		instance.nextFrame();
 		auto &next_img = images.at(instance.cur_img);
 		next_img.render_done_fence.wait();

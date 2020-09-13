@@ -18,7 +18,6 @@ fragment {
 		sampler2D albedo;
 		sampler2D normal;
 		sampler2D last_diffuse;
-		sampler2D last_frame;
 
 		sampler2D depth_buffer;
 		sampler2D depth_buffer_fl;
@@ -204,9 +203,10 @@ fragment {
 		illum /= samples;
 
 		vec3 cur = albedo * illum;
-		vec3 last = texture(fb.last_frame, gl_FragCoord.xy).xyz;
-		vec3 dif3 = abs(cur - last);
-		float dif = (dif3.x + dif3.y + dif3.z) / 3.0;
-		(out)diffuse = mix(cur, last, clamp(pow(dif, 0.25), 0.0, 1.0));
+		//vec3 last = texture(fb.last_frame, gl_FragCoord.xy).xyz;
+		//vec3 dif3 = abs(cur - last);
+		//float dif = (dif3.x + dif3.y + dif3.z) / 3.0;
+		//(out)diffuse += mix(cur, last, clamp(pow(dif, 0.25), 0.0, 1.0));
+		(out)diffuse = cur;
 	}
 }
