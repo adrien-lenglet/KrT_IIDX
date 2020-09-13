@@ -23,6 +23,8 @@ Race::Race(Instance &instance) :
 	m_diffuse_bounce_shader(instance.load(res.shaders().diffuse_bounce())),
 	m_gather_bounces_pass(instance.load(res.shaders().render_passes().gather_bounces())),
 	m_gather_bounces_shader(instance.load(res.shaders().gather_bounces())),
+	m_buffer_to_wsi_screen(instance.load(res.shaders().render_passes().buffer_to_wsi_screen())),
+	m_diffuse_to_wsi_screen(instance.load(res.shaders().diffuse_to_wsi_screen())),
 	m_lighting_shader(instance.load(res.shaders().lighting())),
 	m_cmd_pool(instance.graphics.pool<true>()),
 	images(getImages()),
@@ -175,14 +177,25 @@ void Race::run(void)
 					}
 				);
 
-				cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader | sb::PipelineStage::ColorAttachmentOutput, {},
+				cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
 					sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
 			}
 
-			cmd.render(img.gather_bounces_fbs.at(swapchain_img), {{0, 0}, {1600, 900}},
+			cmd.render(img.gather_bounces_fb, {{0, 0}, {1600, 900}},
 				[&](auto &cmd){
 					cmd.bind(m_gather_bounces_shader);
 					cmd.bind(m_gather_bounces_shader, img.gather_bounces_set, 0);
+					cmd.draw(instance.screen_quad);
+				}
+			);
+
+			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
+				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
+
+			cmd.render(img.buffer_to_wsi_screen_fbs.at(swapchain_img), {{0, 0}, {1600, 900}},
+				[&](auto &cmd){
+					cmd.bind(m_diffuse_to_wsi_screen);
+					cmd.bind(m_diffuse_to_wsi_screen, img.diffuse_to_wsi_screen_set, 0);
 					cmd.draw(instance.screen_quad);
 				}
 			);

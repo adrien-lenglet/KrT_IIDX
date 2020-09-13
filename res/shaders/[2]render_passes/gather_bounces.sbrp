@@ -1,5 +1,5 @@
-bgra8_srgb wsi_screen { store, out_layout = present_src };
+rgba32_sfloat diffuse { store, out_layout = shader_read_only_optimal };
 
 compute {
-	out wsi_screen;
+	out diffuse;
 }

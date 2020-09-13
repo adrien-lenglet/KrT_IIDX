@@ -1,0 +1,5 @@
+bgra8_srgb wsi_screen { store, out_layout = present_src };
+
+compute {
+	out wsi_screen;
+}

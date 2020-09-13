@@ -16,7 +16,7 @@ fragment {
 		sampler2D bounces[16];
 	};
 
-	out vec3 wsi_screen;
+	out vec3 diffuse;
 
 	void main(void)
 	{
@@ -25,6 +25,6 @@ fragment {
 		res += texture(light.primary, gl_FragCoord.xy).xyz;
 		for (uint i = 0; i < light.bounce_count; i++)
 			res += texture(light.bounces[i], gl_FragCoord.xy).xyz;
-		(out)wsi_screen = res * 0.8;
+		(out)diffuse = res;
 	}
 }

@@ -1,0 +1,23 @@
+
+render_pass render_passes::buffer_to_wsi_screen : compute;
+
+require vertex::p2;
+vertex {
+	void main(void)
+	{
+		gl_Position = vec4((in)pos, 0, 1.0);
+	}
+}
+
+fragment {
+	set light {
+		sampler2D diffuse;
+	};
+
+	out vec3 wsi_screen;
+
+	void main(void)
+	{
+		(out)wsi_screen = texture(light.diffuse, gl_FragCoord.xy).xyz * 0.8;
+	}
+}

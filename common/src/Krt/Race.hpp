@@ -36,6 +36,9 @@ public:
 	decltype(instance.load(res.shaders().render_passes().gather_bounces())) m_gather_bounces_pass;
 	decltype(instance.load(res.shaders().gather_bounces())) m_gather_bounces_shader;
 
+	decltype(instance.load(res.shaders().render_passes().buffer_to_wsi_screen())) m_buffer_to_wsi_screen;
+	decltype(instance.load(res.shaders().diffuse_to_wsi_screen())) m_diffuse_to_wsi_screen;
+
 	decltype(res.shaders().lighting().loaded()) m_lighting_shader;
 	decltype(instance.graphics.pool<true>()) m_cmd_pool;
 	struct Image;
@@ -76,7 +79,9 @@ struct Race::Image {
 		diffuse_bounce_random(race.m_diffuse_bounce_shader.random(race.instance.graphics)),
 		diffuse_bounces(getDiffuseBounces(2)),
 		gather_bounces_set(race.m_gather_bounces_shader.light(race.instance.graphics)),
-		gather_bounces_fbs(getGatherBouncesFbs()),
+		gather_bounces_fb(race.m_gather_bounces_pass.framebuffer({1600, 900}, 1, diffuse)),
+		buffer_to_wsi_screen_fbs(getBufferToWsiScreenFbs()),
+		diffuse_to_wsi_screen_set(race.m_diffuse_to_wsi_screen.light(race.instance.graphics)),
 		render_done(race.instance.semaphore()),
 		render_done_fence(race.instance.fence(ndx > 0)),
 		lighting_samplers(race.m_lighting_shader.fb(race.instance.graphics)),
@@ -101,6 +106,8 @@ struct Race::Image {
 		}
 		gather_bounces_set.bounce_count = diffuse_bounces.size();
 		race.instance.cur_img_res->uploadDescSet(gather_bounces_set);
+
+		diffuse_to_wsi_screen_set.diffuse.bind(race.m_fb_sampler, diffuse, sb::Image::Layout::ShaderReadOnlyOptimal);
 
 		auto cmd = race.m_cmd_pool.primary();
 		cmd.record([&](auto &cmd){
@@ -204,14 +211,16 @@ struct Race::Image {
 	}
 
 	decltype(race.m_gather_bounces_shader.light(instance.graphics)) gather_bounces_set;
+	decltype(race.m_gather_bounces_pass)::Framebuffer gather_bounces_fb;
 
-	std::vector<decltype(race.m_gather_bounces_pass)::Framebuffer> gather_bounces_fbs;
-	decltype(gather_bounces_fbs) getGatherBouncesFbs(void)
+	std::vector<decltype(race.m_buffer_to_wsi_screen)::Framebuffer> buffer_to_wsi_screen_fbs;
+	decltype(race.m_diffuse_to_wsi_screen.light(race.instance.graphics)) diffuse_to_wsi_screen_set;
+	decltype(buffer_to_wsi_screen_fbs) getBufferToWsiScreenFbs(void)
 	{
-		decltype(gather_bounces_fbs) res;
+		decltype(buffer_to_wsi_screen_fbs) res;
 
 		for (auto &img : race.instance.swapchain.images())
-			res.emplace_back(race.m_gather_bounces_pass.framebuffer({1600, 900}, 1, img));
+			res.emplace_back(race.m_buffer_to_wsi_screen.framebuffer({1600, 900}, 1, img));
 		return res;
 	}
 
