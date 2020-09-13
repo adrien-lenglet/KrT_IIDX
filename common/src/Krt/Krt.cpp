@@ -32,12 +32,13 @@ decltype(Instance::m_screen_quad_buffer) Instance::createScreenQuadBuffer(void)
 }
 
 Instance::Instance(bool isDebug, const std::vector<std::string> &args) :
-	sb::Instance<Instance>("SUNREN®", isDebug, Config(args).isProfile, {
+	sb::Instance<Instance>(isDebug, Config(args).isProfile, {
 		{m_graphics_family, {1.0f}}
 	}),
 	graphics(queue<m_graphics_family>(0)),
 	m_transfer_pool(graphics.pool<true>()),
-	swapchain(static_cast<sb::InstanceBase&>(*this).swapchain({1600, 900}, 2, sb::Image::Usage::ColorAttachment, graphics)),
+	surface(static_cast<sb::InstanceBase&>(*this).surface({1600, 900}, "SUNREN®")),
+	swapchain(surface.swapchain({1600, 900}, 2, sb::Image::Usage::ColorAttachment, graphics)),
 	img_count(std::max(swapchain.images().size(), static_cast<size_t>(2))),
 	images(createImages()),
 	cur_img(0),

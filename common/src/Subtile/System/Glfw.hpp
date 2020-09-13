@@ -15,16 +15,6 @@ public:
 	class Window;
 
 private:
-	Glfw(Ctx &&ctx, std::unique_ptr<Window> &&window);
-
-	struct construct_window_t {};
-
-	template <typename ...Args>
-	Glfw(construct_window_t, Ctx &&ctx, Args &&...args) :
-		Glfw(std::move(ctx), std::make_unique<Window>(std::forward<Args>(args)...))
-	{
-	}
-
 	class AButton : public System::Input::Button
 	{
 	public:
@@ -75,7 +65,7 @@ private:
 
 		static const std::map<std::string, int> m_keys;
 
-		Inputs(Window &window);
+		Inputs(void);
 
 		const input_map_type& getMap(void) const;
 
@@ -83,16 +73,12 @@ private:
 		std::vector<std::unique_ptr<System::Input>> m_inputs;
 		input_map_type m_inputs_map;
 
-		std::vector<std::unique_ptr<System::Input>> create(Window &window);
+		std::vector<std::unique_ptr<System::Input>> create(void);
 		input_map_type createMap(void);
 	};
 
 public:
-	template <typename ...Args>
-	Glfw(uint32_t api, Args &&...args) :
-		Glfw(construct_window_t(), Ctx(api), std::forward<Args>(args)...)
-	{
-	}
+	Glfw(uint32_t api);
 
 	void scanInputs(void);
 	const Inputs::input_map_type& getInputs(void);
@@ -103,7 +89,7 @@ public:
 	class Window
 	{
 	public:
-		Window(const std::string &title = "SUBTILE® Application", size_t w = 1600, size_t h = 900);
+		Window(const svec2 &size, const std::string &title = "SUBTILE® Application");
 		Window(Window &&other);
 		~Window(void);
 
@@ -135,7 +121,6 @@ private:
 	};
 
 	Ctx m_ctx;
-	std::unique_ptr<Window> m_window;
 	Inputs m_inputs;
 
 	static std::string getError(void);

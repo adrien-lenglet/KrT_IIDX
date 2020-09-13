@@ -8,16 +8,14 @@
 
 namespace Subtile {
 
-Vk::Vk(sb::InstanceBase &instance, const std::string &name, bool isDebug, bool isProfile, const sb::Queue::Set &queues) :
+Vk::Vk(sb::InstanceBase &instance, bool isDebug, bool isProfile, const sb::Queue::Set &queues) :
 	m_sb_instance(instance),
-	m_glfw(GLFW_NO_API, name),
+	m_glfw(GLFW_NO_API),
 	m_is_debug(isDebug),
 	m_is_profile(isProfile),
 	m_instance(createInstance()),
 	m_debug_messenger(createDebugMessenger()),
-	m_surface(createSurface()),
-	m_device(createDevice(queues)),
-	m_swapchain_format(m_device.physical().surface().chooseFormat())
+	m_device(createDevice(queues))
 {
 }
 
@@ -100,9 +98,9 @@ void Vk::Handle<VkInstance>::destroy(VkInstance handle)
 	vkDestroyInstance(handle, static_cast<Instance&>(*this).m_vk.getAllocator());
 }
 
-Vk::PhysicalDevices Vk::Instance::enumerateDevices(Vk::Surface &surface)
+Vk::PhysicalDevices Vk::Instance::enumerateDevices(void)
 {
-	return PhysicalDevices(*this, surface);
+	return PhysicalDevices(*this);
 }
 
 Vk::Instance Vk::createInstance(void)
@@ -209,29 +207,58 @@ std::optional<Vk::DebugMessenger> Vk::createDebugMessenger(void)
 	return m_instance.create<DebugMessenger>(m_instance.getProcAddr<PFN_vkCreateDebugUtilsMessengerEXT>("vkCreateDebugUtilsMessengerEXT"), ci);
 }
 
-Vk::Surface::Surface(Instance &instance, VkSurfaceKHR surface) :
-	Instance::Handle<VkSurfaceKHR>(instance, surface)
-{
-}
-
 template <>
 void Vk::Instance::Handle<VkSurfaceKHR>::destroy(Vk::Instance &instance, VkSurfaceKHR surface)
 {
 	instance.destroy(vkDestroySurfaceKHR, surface);
 }
 
-Vk::Surface Vk::createSurface(void)
+Vk::Surface::Surface(Vk &vk, const svec2 &extent, const std::string &title) :
+	m_vk(vk),
+	m_window(extent, title),
+	m_surface(vk.m_instance.createVk(glfwCreateWindowSurface, m_window))
 {
-	return m_instance.create<Surface>(glfwCreateWindowSurface, m_glfw.getWindow());
 }
 
-Vk::PhysicalDevice::PhysicalDevice(VkPhysicalDevice device, Vk::Surface &surface) :
+std::unique_ptr<sb::Swapchain> Vk::Surface::createSwapchain(const svec2 &extent, size_t desiredImageCount, sb::Image::Usage usage, sb::Queue &queue)
+{
+	auto &phys = m_vk.m_device.physical();
+	auto surface = Vk::PhysicalDevice::Surface(phys, *this);
+	auto &surf_cap = surface.capabilities();
+	VkQueueFamilyIndex queueFamilyIndex = reinterpret_cast<Queue&>(queue).getFamilyIndex();
+	auto format = surface.chooseFormat();
+
+	VkSwapchainCreateInfoKHR ci {};
+	ci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	ci.surface = surface;
+	ci.minImageCount = std::clamp(static_cast<uint32_t>(desiredImageCount), surf_cap.minImageCount, surf_cap.maxImageCount);
+	ci.imageFormat = format.format;
+	ci.imageColorSpace = format.colorSpace;
+	ci.imageExtent = VkExtent2D{static_cast<uint32_t>(extent.x), static_cast<uint32_t>(extent.y)};
+	ci.imageArrayLayers = 1;
+	ci.imageUsage = util::enum_underlying(usage);
+	ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	ci.queueFamilyIndexCount = 1;
+	ci.pQueueFamilyIndices = &queueFamilyIndex;
+	ci.preTransform = surface.capabilities().currentTransform;
+	ci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	ci.presentMode = surface.choosePresentMode();
+	ci.clipped = VK_TRUE;
+	ci.oldSwapchain = VK_NULL_HANDLE;
+
+	return std::make_unique<Swapchain>(m_vk.m_device, m_vk.m_device.createVk(vkCreateSwapchainKHR, ci), format, extent);
+}
+
+std::unique_ptr<sb::Surface> Vk::createSurface(const svec2 &extent, const std::string &title)
+{
+	return std::make_unique<Surface>(*this, extent, title);
+}
+
+Vk::PhysicalDevice::PhysicalDevice(VkPhysicalDevice device) :
 	m_device(device),
-	m_surface(surface),
 	m_props(get<VkPhysicalDeviceProperties>(vkGetPhysicalDeviceProperties, m_device)),
 	m_features(get<VkPhysicalDeviceFeatures>(vkGetPhysicalDeviceFeatures, m_device)),
-	m_queue_families(*this),
-	m_phys_surface(*this, surface)
+	m_queue_families(*this)
 {
 }
 
@@ -265,15 +292,10 @@ const VkPhysicalDeviceFeatures& Vk::PhysicalDevice::features(void) const
 	return m_features;
 }
 
-const Vk::PhysicalDevice::Surface& Vk::PhysicalDevice::surface(void) const
-{
-	return m_phys_surface;
-}
-
-bool Vk::PhysicalDevice::getSurfaceSupport(uint32_t queueFamilyIndex) const
+/*bool Vk::PhysicalDevice::getSurfaceSupport(uint32_t queueFamilyIndex) const
 {
 	return create<VkBool32>(vkGetPhysicalDeviceSurfaceSupportKHR, m_device, queueFamilyIndex, m_surface);
-}
+}*/
 
 const VkPhysicalDeviceFeatures& Vk::PhysicalDevice::requiredFeatures(void)
 {
@@ -297,10 +319,10 @@ bool Vk::PhysicalDevice::isCompetent(const sb::Queue::Set &requiredQueues) const
 	for (auto &qp : requiredQueues)
 		if (!m_queue_families.indexOf(qp.first, qp.second.size()))
 			return false;
-	if (surface().formats().size() == 0)
+	/*if (surface().formats().size() == 0)
 		return false;
 	if (surface().presentModes().size() == 0)
-		return false;
+		return false;*/
 	if (!areExtensionsSupported())
 		return false;
 	return true;
@@ -337,7 +359,6 @@ const Vk::PhysicalDevice::QueueFamilies& Vk::PhysicalDevice::queues(void) const
 }
 
 Vk::PhysicalDevice::QueueFamilies::QueueFamilies(Vk::PhysicalDevice &device) :
-	m_physical_device(device),
 	m_queues(getCollection<VkQueueFamilyProperties>(vkGetPhysicalDeviceQueueFamilyProperties, device))
 {
 }
@@ -374,7 +395,8 @@ std::optional<uint32_t> Vk::PhysicalDevice::QueueFamilies::indexOf(sb::Queue::Fl
 
 	for (auto &q : m_queues) {
 		auto ndx = n++;
-		auto present_support = m_physical_device.getSurfaceSupport(ndx);
+		//auto present_support = m_physical_device.getSurfaceSupport(ndx);
+		auto present_support = true; // TO FIX
 		if (q.queueCount > 0 && q.queueFlags & vkFlags && (isPresent && present_support)) {
 			BestAttr attr {ndx, q.queueCount, 0};
 			for (size_t i = 0; i < 32; i++)
@@ -396,7 +418,7 @@ std::optional<uint32_t> Vk::PhysicalDevice::QueueFamilies::indexOf(sb::Queue::Fl
 		return std::nullopt;
 }
 
-Vk::PhysicalDevice::Surface::Surface(PhysicalDevice &device, Vk::Surface &surface) :
+Vk::PhysicalDevice::Surface::Surface(const PhysicalDevice &device, Vk::Surface &surface) :
 	m_capabilities(create<VkSurfaceCapabilitiesKHR>(vkGetPhysicalDeviceSurfaceCapabilitiesKHR, device, surface)),
 	m_formats(enumerate<VkSurfaceFormatKHR>(vkGetPhysicalDeviceSurfaceFormatsKHR, device, surface)),
 	m_present_modes(enumerate<VkPresentModeKHR>(vkGetPhysicalDeviceSurfacePresentModesKHR, device, surface)),
@@ -454,8 +476,8 @@ Vk::PhysicalDevice::Surface::operator VkSurfaceKHR(void) const
 	return m_vk_surface;
 }
 
-Vk::PhysicalDevices::PhysicalDevices(Vk::Instance &instance, Vk::Surface &surface) :
-	m_devices(enumerate(instance, surface))
+Vk::PhysicalDevices::PhysicalDevices(Vk::Instance &instance) :
+	m_devices(enumerate(instance))
 {
 }
 
@@ -471,7 +493,7 @@ const Vk::PhysicalDevice& Vk::PhysicalDevices::getBest(const sb::Queue::Set &req
 	return cands.rbegin()->second.get();
 }
 
-std::vector<Vk::PhysicalDevice> Vk::PhysicalDevices::enumerate(Instance &instance, Vk::Surface &surface)
+std::vector<Vk::PhysicalDevice> Vk::PhysicalDevices::enumerate(Instance &instance)
 {
 	auto devices = Vk::enumerate<VkPhysicalDevice>(vkEnumeratePhysicalDevices, instance);
 
@@ -479,7 +501,7 @@ std::vector<Vk::PhysicalDevice> Vk::PhysicalDevices::enumerate(Instance &instanc
 	res.reserve(devices.size());
 
 	for (auto &d : devices)
-		res.emplace_back(d, surface);
+		res.emplace_back(d);
 	return res;
 }
 
@@ -681,7 +703,7 @@ std::pair<Vk::VkQueueFamilyIndex, VkQueue> Vk::Device::getQueue(sb::Queue::Flag 
 
 Vk::Device Vk::createDevice(const sb::Queue::Set &requiredQueues)
 {
-	auto devs = m_instance.enumerateDevices(m_surface);
+	auto devs = m_instance.enumerateDevices();
 	auto &phys = devs.getBest(requiredQueues);
 
 	sbQueueFamilyMapping queueFamilyMapping;
@@ -1529,8 +1551,10 @@ std::unique_ptr<sb::RenderPass> Vk::createRenderPass(sb::rs::RenderPass &renderp
 	return std::make_unique<RenderPass>(m_device, renderpass);
 }
 
-Vk::Swapchain::Swapchain(Vk::Device &device, VkSwapchainKHR swapchain) :
+Vk::Swapchain::Swapchain(Vk::Device &device, VkSwapchainKHR swapchain, VkSurfaceFormatKHR surfaceFormat, const svec2 &extent) :
 	Device::Handle<VkSwapchainKHR>(device, swapchain),
+	m_surface_format(surfaceFormat),
+	m_extent(extent),
 	m_images(queryImages())
 {
 }
@@ -1540,7 +1564,7 @@ std::vector<sb::Swapchain::Image2D> Vk::Swapchain::queryImages(void)
 	std::vector<sb::Swapchain::Image2D> res;
 
 	for (auto &img : enumerate<VkImage>(vkGetSwapchainImagesKHR, getDep(), *this))
-		res.emplace_back(*this, std::make_unique<ImageView>(getDep(), img, getDep().vk().m_swapchain_format.format, sb::Image::Type::Image2D, svec3(1600, 900, 1), ComponentSwizzle::Identity, sb::Image::Aspect::Color, Range(0, 1), Range(0, 1)));
+		res.emplace_back(*this, std::make_unique<ImageView>(getDep(), img, m_surface_format.format, sb::Image::Type::Image2D, svec3(m_extent.x, m_extent.y, 1), ComponentSwizzle::Identity, sb::Image::Aspect::Color, Range(0, 1), Range(0, 1)));
 
 	return res;
 }
@@ -1567,34 +1591,6 @@ size_t Vk::Swapchain::acquireNextImage(sb::Semaphore &semaphore)
 
 	Vk::assert(vkAcquireNextImageKHR(getDep(), *this, ~0ULL, vk_sem, VK_NULL_HANDLE, &res));
 	return res;
-}
-
-std::unique_ptr<sb::Swapchain> Vk::createSwapchain(const svec2 &extent, size_t desiredImageCount, sb::Image::Usage usage, sb::Queue &queue)
-{
-	auto &phys = m_device.physical();
-	auto &surface = phys.surface();
-	auto &surf_cap = surface.capabilities();
-	VkQueueFamilyIndex queueFamilyIndex = reinterpret_cast<Queue&>(queue).getFamilyIndex();
-
-	VkSwapchainCreateInfoKHR ci {};
-	ci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-	ci.surface = surface;
-	ci.minImageCount = std::clamp(static_cast<uint32_t>(desiredImageCount), surf_cap.minImageCount, surf_cap.maxImageCount);
-	ci.imageFormat = m_swapchain_format.format;
-	ci.imageColorSpace = m_swapchain_format.colorSpace;
-	ci.imageExtent = VkExtent2D{static_cast<uint32_t>(extent.x), static_cast<uint32_t>(extent.y)};
-	ci.imageArrayLayers = 1;
-	ci.imageUsage = util::enum_underlying(usage);
-	ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	ci.queueFamilyIndexCount = 1;
-	ci.pQueueFamilyIndices = &queueFamilyIndex;
-	ci.preTransform = surface.capabilities().currentTransform;
-	ci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	ci.presentMode = surface.choosePresentMode();
-	ci.clipped = VK_TRUE;
-	ci.oldSwapchain = VK_NULL_HANDLE;
-
-	return std::make_unique<Swapchain>(m_device, m_device.createVk(vkCreateSwapchainKHR, ci));
 }
 
 template <>

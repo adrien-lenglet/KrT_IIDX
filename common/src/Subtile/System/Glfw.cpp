@@ -219,18 +219,18 @@ std::string Glfw::getError(void)
 		return desc;
 }
 
-std::vector<std::unique_ptr<System::Input>> Glfw::Inputs::create(Glfw::Window &window)
+std::vector<std::unique_ptr<System::Input>> Glfw::Inputs::create(/*Glfw::Window &window*/)
 {
 	std::vector<std::unique_ptr<System::Input>> res;
 
-	res.emplace_back(new AButton("close_window", [&window](){
+	/*res.emplace_back(new AButton("close_window", [&window](){
 		return window.shouldClose();
 	}));
 	for (const auto &k : m_keys)
 		res.emplace_back(new AButton(k.first, [k, &window](){
 			return glfwGetKey(window, k.second) == GLFW_PRESS;
 		}));
-	res.emplace_back(new Keyboard(window));
+	res.emplace_back(new Keyboard(window));*/
 	return res;
 }
 
@@ -243,8 +243,8 @@ std::map<std::string, System::Input&> Glfw::Inputs::createMap(void)
 	return res;
 }
 
-Glfw::Inputs::Inputs(Glfw::Window &window) :
-	m_inputs(create(window)),
+Glfw::Inputs::Inputs(/*Glfw::Window &window*/) :
+	m_inputs(create()),
 	m_inputs_map(createMap())
 {
 }
@@ -254,10 +254,8 @@ const Glfw::Inputs::input_map_type& Glfw::Inputs::getMap(void) const
 	return m_inputs_map;
 }
 
-Glfw::Glfw(Glfw::Ctx &&ctx, std::unique_ptr<Glfw::Window> &&window) :
-	m_ctx(std::move(ctx)),
-	m_window(std::move(window)),
-	m_inputs(*m_window)
+Glfw::Glfw(uint32_t api) :
+	m_ctx(api)
 {
 }
 
@@ -279,11 +277,6 @@ util::svec Glfw::getRequiredVkInstanceExts(void) const
 	for (size_t i = 0; i < size; i++)
 		res.emplace_back(cstrs[i]);
 	return res;
-}
-
-Glfw::Window& Glfw::getWindow(void) const
-{
-	return *m_window;
 }
 
 svec2 Glfw::Window::getSize(void) const
@@ -323,8 +316,8 @@ Glfw::Ctx::~Ctx(void)
 		glfwTerminate();
 }
 
-Glfw::Window::Window(const std::string &title, size_t w, size_t h) :
-	m_window(glfwCreateWindow(w, h, title.c_str(), nullptr, nullptr))
+Glfw::Window::Window(const svec2 &size, const std::string &title) :
+	m_window(glfwCreateWindow(size.x, size.y, title.c_str(), nullptr, nullptr))
 {
 	if (m_window == nullptr)
 		throw Glfw::Error("Can't create GLFWwindow");

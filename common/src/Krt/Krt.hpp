@@ -28,6 +28,7 @@ public:
 
 	sb::Queue::Handle<m_graphics_family> graphics;
 	decltype(graphics.pool<true>()) m_transfer_pool;
+	sb::Surface::Handle surface;
 	sb::Swapchain::Handle swapchain;
 
 public:

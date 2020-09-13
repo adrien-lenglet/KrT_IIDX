@@ -25,7 +25,7 @@ class InstanceBase
 	RenderPass::Cache m_render_passes;
 
 public:
-	InstanceBase(const std::string &name, bool isDebug, bool isProfile, const sb::Queue::Set &queues);
+	InstanceBase(bool isDebug, bool isProfile, const sb::Queue::Set &queues);
 	~InstanceBase(void);
 
 	void setInputs(const std::function<void (const Event::System::Observer::Input::Setter &setter)> &binder);
@@ -128,11 +128,6 @@ public:
 		return Image2DMSArray(system().createImage(Image::Type::Image2DArray, format, sampleCount, svec3(extent.x, extent.y, 1), layers, mipLevels, usage, queue));
 	}
 
-	auto swapchain(const svec2 &extent, size_t desiredImageCount, Image::Usage usage, sb::Queue &queue)
-	{
-		return Swapchain::Handle(system().createSwapchain(extent, desiredImageCount, usage, queue));
-	}
-
 	auto semaphore(void)
 	{
 		return Semaphore::Handle(system().createSemaphore());
@@ -200,6 +195,10 @@ public:
 		return Sampler::Handle(system().createSampler(filter, filter, false, addressMode, borderColor, std::nullopt, Sampler::MipmapMode::Nearest, 0.0f, 0.0f, mipLodBias, std::nullopt));
 	}
 
+	auto surface(const svec2 &extent, const std::string &title)
+	{
+		return Surface::Handle(system().createSurface(extent, title));
+	}
 
 	void scanInputs(void)
 	{
@@ -242,8 +241,8 @@ template <typename InstanceType>
 class Instance : public InstanceBase
 {
 public:
-	Instance(const std::string &name, bool isDebug, bool isProfile, const sb::Queue::Set &queues) :
-		InstanceBase(name, isDebug, isProfile, queues)
+	Instance(bool isDebug, bool isProfile, const sb::Queue::Set &queues) :
+		InstanceBase(isDebug, isProfile, queues)
 	{
 	}
 

@@ -17,7 +17,7 @@ class InstanceBase;
 class Vk : public System
 {
 public:
-	Vk(InstanceBase &instance, const std::string &name, bool isDebug, bool isProfile, const sb::Queue::Set &queues);
+	Vk(InstanceBase &instance, bool isDebug, bool isProfile, const sb::Queue::Set &queues);
 	~Vk(void) override;
 
 	void scanInputs(void) override;
@@ -203,7 +203,7 @@ private:
 		template <typename VkHandle>
 		using Handle = HandleDep<Instance, VkHandle>;
 
-		PhysicalDevices enumerateDevices(Vk::Surface &surface);
+		PhysicalDevices enumerateDevices(void);
 
 		template <typename T, typename C>
 		auto createVk(VkResult (*fun)(VkInstance, const C *createInfo, const VkAllocationCallbacks *pAllocator, T *res), const C &createInfo)
@@ -252,24 +252,46 @@ private:
 	std::optional<DebugMessenger> m_debug_messenger;
 	std::optional<DebugMessenger> createDebugMessenger(void);
 
-	class Surface : public Instance::Handle<VkSurfaceKHR>
+	/*class Surface : public Instance::Handle<VkSurfaceKHR>
 	{
 	public:
 		Surface(Instance &instance, VkSurfaceKHR surface);
 	};
 
 	Surface m_surface;
-	Surface createSurface(void);
+	Surface createSurface(void);*/
+
+	class Swapchain;
+
+	class Surface : public sb::Surface
+	{
+	public:
+		Surface(Vk &vk, const svec2 &extent, const std::string &title);
+
+		std::unique_ptr<sb::Swapchain> createSwapchain(const svec2 &extent, size_t desiredImageCount, sb::Image::Usage usage, sb::Queue &queue) override;
+
+		operator VkSurfaceKHR(void) const
+		{
+			return m_surface;
+		}
+
+	private:
+		Vk &m_vk;
+		Glfw::Window m_window;
+		VkSurfaceKHR m_surface;
+	};
+
+	std::unique_ptr<sb::Surface> createSurface(const svec2 &extent, const std::string &title) override;
 
 	class PhysicalDevice
 	{
 	public:
-		PhysicalDevice(VkPhysicalDevice device, Vk::Surface &surface);
+		PhysicalDevice(VkPhysicalDevice device);
 
 		class Surface
 		{
 		public:
-			Surface(PhysicalDevice &device, Vk::Surface &surface);
+			Surface(const PhysicalDevice &device, Vk::Surface &surface);
 
 			const VkSurfaceCapabilitiesKHR& capabilities(void) const;
 			const std::vector<VkSurfaceFormatKHR>& formats(void) const;
@@ -301,9 +323,8 @@ private:
 
 		const Properties& properties(void) const;
 		const VkPhysicalDeviceFeatures& features(void) const;
-		const Surface& surface(void) const;
 
-		bool getSurfaceSupport(uint32_t queueFamilyIndex) const;
+		//bool getSurfaceSupport(uint32_t queueFamilyIndex) const;
 		bool isCompetent(const sb::Queue::Set &requiredQueues) const;
 		size_t getScore(void) const;
 
@@ -318,7 +339,6 @@ private:
 			std::optional<uint32_t> indexOf(sb::Queue::Flag flags, size_t count = 1) const;
 
 		private:
-			PhysicalDevice &m_physical_device;
 			std::vector<VkQueueFamilyProperties> m_queues;
 		};
 
@@ -326,11 +346,9 @@ private:
 
 	private:
 		VkPhysicalDevice m_device;
-		Vk::Surface &m_surface;
 		const Properties m_props;
 		const VkPhysicalDeviceFeatures m_features;
 		const QueueFamilies m_queue_families;
-		Surface m_phys_surface;
 
 		bool areExtensionsSupported(void) const;
 	};
@@ -338,14 +356,14 @@ private:
 	class PhysicalDevices
 	{
 	public:
-		PhysicalDevices(Vk::Instance &instance, Vk::Surface &surface);
+		PhysicalDevices(Vk::Instance &instance);
 
 		const PhysicalDevice& getBest(const sb::Queue::Set &requiredQueues) const;
 
 	private:
 		std::vector<PhysicalDevice> m_devices;
 
-		std::vector<Vk::PhysicalDevice> enumerate(Vk::Instance &instance, Vk::Surface &surface);
+		std::vector<Vk::PhysicalDevice> enumerate(Vk::Instance &instance);
 	};
 
 	class VmaBuffer;
@@ -686,21 +704,19 @@ private:
 	class Swapchain : public sb::Swapchain, public Device::Handle<VkSwapchainKHR>
 	{
 	public:
-		Swapchain(Vk::Device &device, VkSwapchainKHR swapchain);
+		Swapchain(Vk::Device &device, VkSwapchainKHR swapchain, VkSurfaceFormatKHR surfaceFormat, const svec2 &extent);
 		~Swapchain(void) override;
 
 		std::vector<sb::Swapchain::Image2D>& getImages(void) override;
 		size_t acquireNextImage(sb::Semaphore &semaphore) override;
 
 	private:
+		VkSurfaceFormatKHR m_surface_format;
+		svec2 m_extent;
 		std::vector<sb::Swapchain::Image2D> m_images;
 
 		std::vector<sb::Swapchain::Image2D> queryImages(void);
 	};
-
-	std::unique_ptr<sb::Swapchain> createSwapchain(const svec2 &extent, size_t desiredImageCount, sb::Image::Usage usage, sb::Queue &queue) override;
-
-	const VkSurfaceFormatKHR &m_swapchain_format;
 
 	class Semaphore : public sb::Semaphore, public Device::Handle<VkSemaphore>
 	{
