@@ -39,6 +39,7 @@ public:
 
 	virtual std::vector<Image2D>& getImages(void) = 0;
 	virtual size_t acquireNextImage(Semaphore &semaphore) = 0;
+	virtual svec2 getExtent(void) const = 0;
 
 	class Handle
 	{
@@ -56,6 +57,11 @@ public:
 		size_t acquireNextImage(Semaphore &semaphore)
 		{
 			return m_swapchain->acquireNextImage(semaphore);
+		}
+
+		svec2 extent(void) const
+		{
+			return m_swapchain->getExtent();
 		}
 
 	private:

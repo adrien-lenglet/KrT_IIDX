@@ -260,6 +260,8 @@ private:
 		Surface(Instance &instance, const svec2 &extent, const std::string &title);
 		~Surface(void) override;
 
+		svec2 getExtent(void) const override;
+
 		operator VkSurfaceKHR(void) const
 		{
 			return m_surface;
@@ -268,6 +270,7 @@ private:
 	private:
 		Glfw::Window m_window;
 		VkSurfaceKHR m_surface;
+		svec2 m_extent;
 	};
 
 	std::unique_ptr<sb::Surface> createSurface(const svec2 &extent, const std::string &title) override;
@@ -706,6 +709,7 @@ private:
 
 		std::vector<sb::Swapchain::Image2D>& getImages(void) override;
 		size_t acquireNextImage(sb::Semaphore &semaphore) override;
+		svec2 getExtent(void) const override;
 
 	private:
 		VkSurfaceFormatKHR m_surface_format;

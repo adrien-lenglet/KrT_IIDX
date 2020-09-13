@@ -64,9 +64,11 @@ void Race::run(void)
 				return std::pow(val * unorm, 2.2);
 			};
 
-			cmd.setViewport({{0.0f, 0.0f}, {1600.0f, 900.0f}}, 0.0f, 1.0f);
-			cmd.setScissor({{0, 0}, {1600, 900}});
-			cmd.render(img.opaque_fb, {{0, 0}, {1600, 900}},
+			auto viewport = sb::rect2({0.0f, 0.0f}, {instance.swapchain.extent().x, instance.swapchain.extent().y});
+
+			cmd.setViewport(viewport, 0.0f, 1.0f);
+			cmd.setScissor({{0, 0}, instance.swapchain.extent()});
+			cmd.render(img.opaque_fb, {{0, 0}, instance.swapchain.extent()},
 				sb::Color::f32(0.0f), sb::Color::f32(srgb_lin(2.0), srgb_lin(145.0), srgb_lin(223.0), 0.0f), sb::Color::f32(0.0f), 1.0f,
 
 				[&](auto &cmd){
@@ -77,9 +79,9 @@ void Race::run(void)
 			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput | sb::PipelineStage::LateFragmentTests, sb::PipelineStage::FragmentShader, {},
 				sb::Access::ColorAttachmentWrite | sb::Access::DepthStencilAttachmentWrite, sb::Access::ShaderRead);
 
-			cmd.setViewport({{0.0f, 0.0f}, {2048.0f, 1024.0f}}, 0.0f, 1.0f);
-			cmd.setScissor({{0, 0}, {2048, 1024}});
-			cmd.render(img.depth_to_fl_fb, {{0, 0}, {2048, 1024}}, [&](auto &cmd){
+			cmd.setViewport({{0.0f, 0.0f}, {img.fb_depth_buffer_fl.extent().x, img.fb_depth_buffer_fl.extent().y}}, 0.0f, 1.0f);
+			cmd.setScissor({{0, 0}, img.fb_depth_buffer_fl.extent()});
+			cmd.render(img.depth_to_fl_fb, {{0, 0}, img.fb_depth_buffer_fl.extent()}, [&](auto &cmd){
 				cmd.bind(m_depth_to_fl_shader);
 				cmd.bind(m_depth_to_fl_shader, img.depth_buffer_set, 0);
 				cmd.draw(instance.screen_quad);
@@ -140,9 +142,9 @@ void Race::run(void)
 				}
 			}
 
-			cmd.setViewport({{0.0f, 0.0f}, {1600.0f, 900.0f}}, 0.0f, 1.0f);
-			cmd.setScissor({{0, 0}, {1600, 900}});
-			cmd.render(img.lighting_fb, {{0, 0}, {1600, 900}},
+			cmd.setViewport(viewport, 0.0f, 1.0f);
+			cmd.setScissor({{0, 0}, instance.swapchain.extent()});
+			cmd.render(img.lighting_fb, {{0, 0}, instance.swapchain.extent()},
 				[&](auto &cmd){
 					cmd.bind(m_lighting_shader);
 					cmd.bind(m_lighting_shader, img.lighting_samplers, 0);
@@ -167,7 +169,7 @@ void Race::run(void)
 			instance.cur_img_res->uploadDescSet(img.diffuse_bounce_random);
 
 			for (auto &b : img.diffuse_bounces) {
-				cmd.render(b.fb, {{0, 0}, {1600, 900}},
+				cmd.render(b.fb, {{0, 0}, instance.swapchain.extent()},
 					[&](auto &cmd){
 						cmd.bind(m_diffuse_bounce_shader);
 						cmd.bind(m_diffuse_bounce_shader, img.diffuse_bounce_random, 0);
@@ -181,7 +183,7 @@ void Race::run(void)
 					sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
 			}
 
-			cmd.render(img.gather_bounces_fb, {{0, 0}, {1600, 900}},
+			cmd.render(img.gather_bounces_fb, {{0, 0}, instance.swapchain.extent()},
 				[&](auto &cmd){
 					cmd.bind(m_gather_bounces_shader);
 					cmd.bind(m_gather_bounces_shader, img.gather_bounces_set, 0);
@@ -192,7 +194,7 @@ void Race::run(void)
 			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
 				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
 
-			cmd.render(img.buffer_to_wsi_screen_fbs.at(swapchain_img), {{0, 0}, {1600, 900}},
+			cmd.render(img.buffer_to_wsi_screen_fbs.at(swapchain_img), {{0, 0}, instance.swapchain.extent()},
 				[&](auto &cmd){
 					cmd.bind(m_diffuse_to_wsi_screen);
 					cmd.bind(m_diffuse_to_wsi_screen, img.diffuse_to_wsi_screen_set, 0);

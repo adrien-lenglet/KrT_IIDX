@@ -31,7 +31,10 @@ Track::~Track(void)
 
 void Track::Render::render(sb::CommandBuffer::Record::RenderPass &cmd)
 {
-	auto proj = glm::perspectiveLH_ZO<float>(120.0 * (sb::pi / 180.0), 16.0 / 9.0, 0.1, 1000.0);
+	const double near = 0.1, far = 1000.0,
+	ratio = static_cast<double>(m_instance.swapchain.extent().x) / static_cast<double>(m_instance.swapchain.extent().y),
+	fov = 120.0 * (sb::pi / 180.0);
+	auto proj = glm::perspectiveLH_ZO<float>(fov, ratio, near, far);
 	proj[1][1] *= -1.0;
 
 	auto view = glm::lookAtLH(glm::vec3(0.0, 0.0, -7.0), glm::vec3(0.0), glm::vec3(0.0, 1.0, 0.0));
@@ -42,6 +45,11 @@ void Track::Render::render(sb::CommandBuffer::Record::RenderPass &cmd)
 		camera.view_normal[3][i] = 0.0f;
 	camera.proj = proj;
 	camera.inv_proj = glm::inverse(proj);
+	camera.near = near;
+	camera.far = far;
+	camera.a = far / (far - near);
+	camera.b = -(far * near) / (far - near);
+	camera.ratio = glm::vec2(ratio, -1.0) * glm::vec2(std::tan(fov / 2.0));
 	m_instance.cur_img_res->uploadDescSet(camera);
 	static_cast<sb::Render::Pass&>(*this).render(cmd);
 }

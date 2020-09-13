@@ -214,12 +214,18 @@ void Vk::Instance::Handle<VkSurfaceKHR>::destroy(Vk::Instance &instance, VkSurfa
 
 Vk::Surface::Surface(Instance &instance, const svec2 &extent, const std::string &title) :
 	m_window(extent, title),
-	m_surface(instance.createVk(glfwCreateWindowSurface, m_window))
+	m_surface(instance.createVk(glfwCreateWindowSurface, m_window)),
+	m_extent(extent)
 {
 }
 
 Vk::Surface::~Surface(void)
 {
+}
+
+svec2 Vk::Surface::getExtent(void) const
+{
+	return m_extent;
 }
 
 std::unique_ptr<sb::Surface> Vk::createSurface(const svec2 &extent, const std::string &title)
@@ -698,7 +704,8 @@ std::unique_ptr<sb::Swapchain> Vk::Device::createSwapchain(sb::Surface &surface,
 	ci.minImageCount = std::clamp(static_cast<uint32_t>(desiredImageCount), surf_cap.minImageCount, surf_cap.maxImageCount);
 	ci.imageFormat = format.format;
 	ci.imageColorSpace = format.colorSpace;
-	ci.imageExtent = VkExtent2D{static_cast<uint32_t>(extent.x), static_cast<uint32_t>(extent.y)};
+	ci.imageExtent = VkExtent2D{std::clamp(static_cast<uint32_t>(extent.x), surf_cap.minImageExtent.width, surf_cap.minImageExtent.width),
+		std::clamp(static_cast<uint32_t>(extent.y), surf_cap.maxImageExtent.height, surf_cap.maxImageExtent.height)};
 	ci.imageArrayLayers = 1;
 	ci.imageUsage = util::enum_underlying(usage);
 	ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -710,7 +717,7 @@ std::unique_ptr<sb::Swapchain> Vk::Device::createSwapchain(sb::Surface &surface,
 	ci.clipped = VK_TRUE;
 	ci.oldSwapchain = VK_NULL_HANDLE;
 
-	return std::make_unique<Swapchain>(*this, createVk(vkCreateSwapchainKHR, ci), format, extent);
+	return std::make_unique<Swapchain>(*this, createVk(vkCreateSwapchainKHR, ci), format, svec2(ci.imageExtent.width, ci.imageExtent.height));
 }
 
 std::unique_ptr<sb::Image> Vk::Device::createImage(sb::Image::Type type, Format format, sb::Image::Sample sample, const svec3 &extent, size_t layers, const sb::Image::MipmapLevels &mipLevels, sb::Image::Usage usage, sb::Queue &queue)
@@ -1659,6 +1666,11 @@ size_t Vk::Swapchain::acquireNextImage(sb::Semaphore &semaphore)
 
 	Vk::assert(vkAcquireNextImageKHR(getDep(), *this, ~0ULL, vk_sem, VK_NULL_HANDLE, &res));
 	return res;
+}
+
+svec2 Vk::Swapchain::getExtent(void) const
+{
+	return m_extent;
 }
 
 template <>

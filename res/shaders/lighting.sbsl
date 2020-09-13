@@ -20,15 +20,11 @@ fragment {
 		sampler2D depth_range;
 	};
 
-	const float pi = 3.141592653589793238462643383279502884;
-
-	const float tanHalfFovy = tan(120.0 * (pi / 180.0) / 2.0);
+	require modules::camera;
 
 	float depth_to_z(float depth)
 	{
-		const float near = 0.1, far = 1000.0;
-		const float a = far / (far - near), b = -(far * near) / (far - near);
-		return b / (depth - a);
+		return camera.b / (depth - camera.a);
 	}
 
 	vec3 pos_view(vec2 pos)
@@ -38,8 +34,7 @@ fragment {
 		float z = depth_to_z(depth);
 		vec2 uv = pos / size;
 		vec2 ndc2 = (uv - 0.5) * 2.0;
-		ndc2.x *= (16.0 / 9.0) * tanHalfFovy;
-		ndc2.y *= -1.0 * tanHalfFovy;
+		ndc2 *= camera.ratio;
 		ndc2 *= z;
 		return vec3(ndc2, z);
 	}
@@ -48,13 +43,6 @@ fragment {
 	{
 		return pos_view(gl_FragCoord.xy);
 	}
-
-	require modules::camera;
-
-	out vec3 primary;
-
-	const float near_plane = 0.1;
-	const float far_plane = 1000.0;
 
 	vec2 ndc_to_ss(vec2 p)
 	{
@@ -80,9 +68,9 @@ fragment {
 		}
 		float len;
 		if (dir.z > 0.0) {
-			len = (far_plane - origin.z) / dir.z;
+			len = (camera.far - origin.z) / dir.z;
 		} else {
-			len = (near_plane - origin.z) / dir.z;
+			len = (camera.near - origin.z) / dir.z;
 		}
 		vec3 end = origin + dir * len;
 		ss_p0 = project_point(origin);
@@ -162,6 +150,8 @@ fragment {
 		}
 		return false;
 	}
+
+	out vec3 primary;
 
 	float schlick_fresnel(const float n1, const float n2, float cos_angle)
 	{
