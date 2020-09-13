@@ -42,13 +42,15 @@ Race::~Race(void)
 void Race::run(void)
 {
 	while (!m_is_done) {
+		auto t_start = std::chrono::high_resolution_clock::now();
+
 		auto &img = images.at(instance.cur_img);
 		instance.scanInputs();
 		m_track->events.updateEvents();
 
-		//auto before = std::chrono::high_resolution_clock::now();
+		auto t_before_ac = std::chrono::high_resolution_clock::now();
 		auto swapchain_img = instance.swapchain.acquireNextImage(img.swapchain_img_avail);
-		//std::cout << std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - before).count() << std::endl;
+		auto t_begin_record = std::chrono::high_resolution_clock::now();
 
 		img.cmd_prim.record([&](auto &cmd){
 			cmd.memoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::AllGraphics, {}, sb::Access::TransferWrite, sb::Access::MemoryRead);
@@ -211,15 +213,34 @@ void Race::run(void)
 
 		instance.cur_img_res->transfer_unsafe.end();
 
+		auto t_before_submit = std::chrono::high_resolution_clock::now();
 		instance.graphics.submit(img.render_done_fence, std::pair {&img.swapchain_img_avail, sb::PipelineStage::ColorAttachmentOutput}, std::array{&instance.cur_img_res->transfer_cmd_buf, &img.cmd_prim}, img.render_done);
+		auto t_before_present = std::chrono::high_resolution_clock::now();
 		instance.graphics.present(img.render_done, instance.swapchain.images().at(swapchain_img));
 
+		auto t_next_frame = std::chrono::high_resolution_clock::now();
 		instance.nextFrame();
 		auto &next_img = images.at(instance.cur_img);
 		next_img.render_done_fence.wait();
 		next_img.render_done_fence.reset();
 		instance.cur_img_res->resetStagingOff();
 		instance.cur_img_res->transfer_unsafe.begin(sb::CommandBuffer::Usage::OneTimeSubmit);
+
+		auto t_end = std::chrono::high_resolution_clock::now();
+
+		static_cast<void>(t_start);
+		static_cast<void>(t_before_ac);
+		static_cast<void>(t_begin_record);
+		static_cast<void>(t_before_submit);
+		static_cast<void>(t_before_present);
+		static_cast<void>(t_next_frame);
+		static_cast<void>(t_end);
+		/*std::cout << "before_ac: " << std::chrono::duration_cast<std::chrono::duration<double>>(t_before_ac - t_start).count() <<
+		", rec: " << std::chrono::duration_cast<std::chrono::duration<double>>(t_before_submit - t_begin_record).count() <<
+		", submit: " << std::chrono::duration_cast<std::chrono::duration<double>>(t_before_present - t_before_submit).count() <<
+		", present: " << std::chrono::duration_cast<std::chrono::duration<double>>(t_next_frame - t_before_present).count() <<
+		", next_frame: " << std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_next_frame).count() <<
+		", FRAME_LEN: " << std::chrono::duration_cast<std::chrono::duration<double>>(t_end - t_start).count() << std::endl;*/
 	}
 }
 
