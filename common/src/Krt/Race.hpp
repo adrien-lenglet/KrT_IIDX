@@ -43,14 +43,7 @@ public:
 	decltype(instance.graphics.pool<true>()) m_cmd_pool;
 	struct Image;
 	std::vector<Image> images;
-	decltype(images) getImages(void)
-	{
-		decltype(images) res;
-
-		for (size_t i = 0; i < instance.img_count; i++)
-			res.emplace_back(*this, i);
-		return res;
-	}
+	decltype(images) getImages(void);
 
 	bool m_is_done = false;
 	std::unique_ptr<Track> m_track;
@@ -120,6 +113,9 @@ struct Race::Image {
 			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
 				sb::Access::MemoryWrite, sb::Access::MemoryRead,
 				sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, fb_depth_buffer_fl);
+			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
+				sb::Access::MemoryWrite, sb::Access::MemoryRead,
+				sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, diffuse);
 		});
 		race.instance.graphics.submit(util::empty, cmd, util::empty);
 		race.instance.graphics.waitIdle();
@@ -229,5 +225,21 @@ struct Race::Image {
 	decltype(race.m_lighting_shader.fb(race.instance.graphics)) lighting_samplers;
 	decltype(m_cmd_pool.primary()) cmd_prim;
 };
+
+inline decltype(Race::images) Race::getImages(void)
+{
+	decltype(images) res;
+
+	for (size_t i = 0; i < instance.img_count; i++)
+		res.emplace_back(*this, i);
+	{
+		size_t ndx = 0;
+		for (auto &i : res) {
+			res.at((ndx + 1) % res.size()).gather_bounces_set.last_diffuse.bind(m_fb_sampler, i.diffuse, sb::Image::Layout::ShaderReadOnlyOptimal);
+			ndx++;
+		}
+	}
+	return res;
+}
 
 }
