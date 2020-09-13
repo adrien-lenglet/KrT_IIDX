@@ -36,15 +36,16 @@ Race::Race(Instance &instance) :
 
 Race::~Race(void)
 {
+	instance.graphics.waitIdle();
 }
 
 void Race::run(void)
 {
 	while (!m_is_done) {
+		auto &img = images.at(instance.cur_img);
 		instance.scanInputs();
 		m_track->events.updateEvents();
 
-		auto &img = images.at(instance.cur_img);
 		//auto before = std::chrono::high_resolution_clock::now();
 		auto swapchain_img = instance.swapchain.acquireNextImage(img.swapchain_img_avail);
 		//std::cout << std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - before).count() << std::endl;
@@ -213,10 +214,11 @@ void Race::run(void)
 		instance.graphics.submit(img.render_done_fence, std::pair {&img.swapchain_img_avail, sb::PipelineStage::ColorAttachmentOutput}, std::array{&instance.cur_img_res->transfer_cmd_buf, &img.cmd_prim}, img.render_done);
 		instance.graphics.present(img.render_done, instance.swapchain.images().at(swapchain_img));
 
-		img.render_done_fence.wait();
-		img.render_done_fence.reset();
-		instance.cur_img_res->resetStagingOff();
 		instance.nextFrame();
+		auto &next_img = images.at(instance.cur_img);
+		next_img.render_done_fence.wait();
+		next_img.render_done_fence.reset();
+		instance.cur_img_res->resetStagingOff();
 		instance.cur_img_res->transfer_unsafe.begin(sb::CommandBuffer::Usage::OneTimeSubmit);
 	}
 }

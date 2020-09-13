@@ -45,7 +45,7 @@ public:
 		decltype(images) res;
 
 		for (size_t i = 0; i < instance.img_count; i++)
-			res.emplace_back(*this);
+			res.emplace_back(*this, i);
 		return res;
 	}
 
@@ -55,7 +55,7 @@ public:
 
 struct Race::Image {
 
-	Image(Race &race) :
+	Image(Race &race, size_t ndx) :
 		race(race),
 		fb_albedo(race.instance.image2D(sb::Format::rgba8_unorm, {1600, 900}, 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
 		fb_emissive(race.instance.image2D(sb::Format::rgba8_unorm, {1600, 900}, 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
@@ -77,7 +77,7 @@ struct Race::Image {
 		gather_bounces_set(race.m_gather_bounces_shader.light(race.instance.graphics)),
 		gather_bounces_fbs(getGatherBouncesFbs()),
 		render_done(race.instance.semaphore()),
-		render_done_fence(race.instance.fence(false)),
+		render_done_fence(race.instance.fence(ndx > 0)),
 		lighting_samplers(race.m_lighting_shader.fb(race.instance.graphics)),
 		cmd_prim(race.m_cmd_pool.primary())
 	{
