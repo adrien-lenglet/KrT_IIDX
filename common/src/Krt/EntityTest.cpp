@@ -32,7 +32,7 @@ EntityTest::EntityTest(void) :
 		if (m_material.counter > 256) {
 			m_material.counter = 0;
 		}
-		world.instance.uploadDescSet(m_material);
+		world.instance.cur_img_res->uploadDescSet(m_material);
 
 		m_angle += time / 16.0;
 		auto mat = glm::rotate((float)m_angle, glm::normalize(glm::vec3(1.0, 1.0, 1.0)));
@@ -40,7 +40,7 @@ EntityTest::EntityTest(void) :
 		m_object.model_world_normal = mat;
 		for (size_t i = 0; i < 3; i++)
 			m_object.model_world_normal[3][i] = 0.0f;
-		world.instance.uploadDescSet(m_object);
+		world.instance.cur_img_res->uploadDescSet(m_object);
 	});
 }
 
@@ -70,7 +70,7 @@ decltype(EntityTest::m_model_buffer) EntityTest::createModelBuffer(void)
 			values.emplace_back(tri[i]);
 	}
 	auto res = world.instance.vertexBuffer<decltype(m_model_buffer)::value_type>(values.size(), world.instance.graphics);
-	world.instance.copyBuffer(values, res);
+	world.instance.cur_img_res->copyBuffer(values, res);
 	return res;
 }
 

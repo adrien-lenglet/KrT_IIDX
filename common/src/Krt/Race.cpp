@@ -76,7 +76,7 @@ Race::Race(Instance &instance) :
 			m_gather_bounces_set.bounces.at(ndx++).bind(m_fb_sampler, b.img, sb::Image::Layout::ShaderReadOnlyOptimal);
 	}
 	m_gather_bounces_set.bounce_count = m_diffuse_bounces.size();
-	instance.uploadDescSet(m_gather_bounces_set);
+	instance.cur_img_res->uploadDescSet(m_gather_bounces_set);
 
 	m_gather_bounces_set.primary.bind(m_fb_sampler, m_lighting_img, sb::Image::Layout::ShaderReadOnlyOptimal);
 
@@ -214,7 +214,7 @@ void Race::run(void)
 				auto ca1 = std::cos(a1);
 				normal = glm::vec3(sa0 * ca1, sa0 * sa1, ca0);
 			}
-			instance.uploadDescSet(m_diffuse_bounce_random);
+			instance.cur_img_res->uploadDescSet(m_diffuse_bounce_random);
 
 			for (auto &b : m_diffuse_bounces) {
 				cmd.render(b.fb, {{0, 0}, {1600, 900}},
@@ -264,15 +264,16 @@ void Race::run(void)
 			}
 		});
 
-		instance.transfer_unsafe.end();
+		instance.cur_img_res->transfer_unsafe.end();
 
-		instance.graphics.submit(m_render_done_fence, std::pair {&m_swapchain_img_avail, sb::PipelineStage::ColorAttachmentOutput}, std::array{&instance.m_transfer_cmd_buf, &m_cmd_prim}, m_render_done);
+		instance.graphics.submit(m_render_done_fence, std::pair {&m_swapchain_img_avail, sb::PipelineStage::ColorAttachmentOutput}, std::array{&instance.cur_img_res->transfer_cmd_buf, &m_cmd_prim}, m_render_done);
 		instance.graphics.present(m_render_done, instance.swapchain.images().at(img));
 
 		m_render_done_fence.wait();
 		m_render_done_fence.reset();
-		instance.resetStagingOff();
-		instance.transfer_unsafe.begin(sb::CommandBuffer::Usage::OneTimeSubmit);
+		instance.cur_img_res->resetStagingOff();
+		instance.nextFrame();
+		instance.cur_img_res->transfer_unsafe.begin(sb::CommandBuffer::Usage::OneTimeSubmit);
 	}
 }
 

@@ -698,7 +698,7 @@ private:
 		std::vector<sb::Swapchain::Image2D> queryImages(void);
 	};
 
-	std::unique_ptr<sb::Swapchain> createSwapchain(const svec2 &extent, sb::Image::Usage usage, sb::Queue &queue) override;
+	std::unique_ptr<sb::Swapchain> createSwapchain(const svec2 &extent, size_t desiredImageCount, sb::Image::Usage usage, sb::Queue &queue) override;
 
 	const VkSurfaceFormatKHR &m_swapchain_format;
 

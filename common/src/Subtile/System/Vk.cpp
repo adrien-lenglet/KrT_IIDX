@@ -1569,7 +1569,7 @@ size_t Vk::Swapchain::acquireNextImage(sb::Semaphore &semaphore)
 	return res;
 }
 
-std::unique_ptr<sb::Swapchain> Vk::createSwapchain(const svec2 &extent, sb::Image::Usage usage, sb::Queue &queue)
+std::unique_ptr<sb::Swapchain> Vk::createSwapchain(const svec2 &extent, size_t desiredImageCount, sb::Image::Usage usage, sb::Queue &queue)
 {
 	auto &phys = m_device.physical();
 	auto &surface = phys.surface();
@@ -1579,7 +1579,7 @@ std::unique_ptr<sb::Swapchain> Vk::createSwapchain(const svec2 &extent, sb::Imag
 	VkSwapchainCreateInfoKHR ci {};
 	ci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	ci.surface = surface;
-	ci.minImageCount = std::clamp(3U, surf_cap.minImageCount, surf_cap.maxImageCount);
+	ci.minImageCount = std::clamp(static_cast<uint32_t>(desiredImageCount), surf_cap.minImageCount, surf_cap.maxImageCount);
 	ci.imageFormat = m_swapchain_format.format;
 	ci.imageColorSpace = m_swapchain_format.colorSpace;
 	ci.imageExtent = VkExtent2D{static_cast<uint32_t>(extent.x), static_cast<uint32_t>(extent.y)};

@@ -128,9 +128,9 @@ public:
 		return Image2DMSArray(system().createImage(Image::Type::Image2DArray, format, sampleCount, svec3(extent.x, extent.y, 1), layers, mipLevels, usage, queue));
 	}
 
-	auto swapchain(const svec2 &extent, Image::Usage usage, sb::Queue &queue)
+	auto swapchain(const svec2 &extent, size_t desiredImageCount, Image::Usage usage, sb::Queue &queue)
 	{
-		return Swapchain::Handle(system().createSwapchain(extent, usage, queue));
+		return Swapchain::Handle(system().createSwapchain(extent, desiredImageCount, usage, queue));
 	}
 
 	auto semaphore(void)

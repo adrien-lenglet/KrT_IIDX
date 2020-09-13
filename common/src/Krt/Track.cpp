@@ -42,7 +42,7 @@ void Track::Render::render(sb::CommandBuffer::Record::RenderPass &cmd)
 		camera.view_normal[3][i] = 0.0f;
 	camera.proj = proj;
 	camera.inv_proj = glm::inverse(proj);
-	m_instance.uploadDescSet(camera);
+	m_instance.cur_img_res->uploadDescSet(camera);
 	static_cast<sb::Render::Pass&>(*this).render(cmd);
 }
 

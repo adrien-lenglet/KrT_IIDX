@@ -27,7 +27,7 @@ decltype(Instance::m_screen_quad_buffer) Instance::createScreenQuadBuffer(void)
 	}
 
 	auto res = vertexBuffer<decltype(m_screen_quad_buffer)::value_type>(values.size(), graphics);
-	copyBuffer(values, res);
+	cur_img_res->copyBuffer(values, res);
 	return res;
 }
 
@@ -36,13 +36,13 @@ Instance::Instance(bool isDebug, const std::vector<std::string> &args) :
 		{m_graphics_family, {1.0f}}
 	}),
 	graphics(queue<m_graphics_family>(0)),
-	swapchain(static_cast<sb::InstanceBase&>(*this).swapchain({1600, 900}, sb::Image::Usage::ColorAttachment, graphics)),
 	m_transfer_pool(graphics.pool<true>()),
-	m_transfer_cmd_buf(m_transfer_pool.primary()),
-	transfer_unsafe(m_transfer_cmd_buf),
-	transfer(m_transfer_cmd_buf),
-	m_staging_buffer(mappableBuffer(256000000, sb::Buffer::Usage::TransferSrc | sb::Buffer::Usage::TransferDst, graphics)),
-	m_screen_quad_buffer((transfer_unsafe.begin(sb::CommandBuffer::Usage::OneTimeSubmit), createScreenQuadBuffer())),
+	swapchain(static_cast<sb::InstanceBase&>(*this).swapchain({1600, 900}, 2, sb::Image::Usage::ColorAttachment, graphics)),
+	img_count(std::max(swapchain.images().size(), static_cast<size_t>(2))),
+	images(createImages()),
+	cur_img(0),
+	cur_img_res(&images.at(cur_img)),
+	m_screen_quad_buffer((cur_img_res->transfer_unsafe.begin(sb::CommandBuffer::Usage::OneTimeSubmit), createScreenQuadBuffer())),
 	screen_quad(model(m_screen_quad_buffer))
 {
 }
