@@ -524,6 +524,10 @@ Vk::Device::Device(Instance &instance, const PhysicalDevice &physicalDevice, con
 {
 }
 
+Vk::Device::~Device(void)
+{
+}
+
 VkFormat Vk::Device::sbFormatToVk(sb::Format format) const
 {
 	static const std::map<sb::Format, VkFormat> table {
@@ -1778,7 +1782,7 @@ Vk::Shader::Shader(Vk::Device &device, rs::Shader &shader) :
 	m_descriptor_set_offset(m_render_pass ?
 		(reinterpret_cast<RenderPass&>(**m_render_pass->first).getSubpassesDescriptorSetLayouts().at(m_render_pass->second).getHandle() != VK_NULL_HANDLE ? 1 : 0)
 	: 0),
-	m_layouts(shader.loadDescriptorSetLayouts(device.vk().m_sb_instance)),
+	m_layouts(shader.loadDescriptorSetLayouts(device)),
 	m_pipeline_layout(shader.isModule() ? PipelineLayout(device, VK_NULL_HANDLE) : createPipelineLayout()),
 	m_shader_modules(shader.isModule() ? ShaderModulesType{} : createShaderModules(device, shader)),
 	m_pipeline(shader.isModule() ? Pipeline(device, VK_NULL_HANDLE) : createPipeline(device, shader))
@@ -1827,7 +1831,7 @@ std::optional<std::pair<sb::RenderPass::Cache::Ref, size_t>> Vk::Shader::loadRen
 		return std::nullopt;
 
 	auto rp = shader.getRenderPass();
-	return std::pair<sb::RenderPass::Cache::Ref, size_t>(sb::InstanceBase::Getter(m_device.vk().m_sb_instance).loadRenderPassRef(rp.first), rp.second);
+	return std::pair<sb::RenderPass::Cache::Ref, size_t>(m_device.loadRenderPassRef(rp.first), rp.second);
 }
 
 std::optional<Vk::Pipeline> Vk::Shader::createPipeline(Vk::Device &device, rs::Shader &shader)

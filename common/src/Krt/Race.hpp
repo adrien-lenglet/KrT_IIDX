@@ -19,25 +19,25 @@ public:
 	sb::Sampler::Handle m_fb_sampler;
 	sb::Sampler::Handle m_fb_sampler_linear;
 
-	decltype(instance.load(res.shaders().render_passes().opaque())) m_opaque_pass;
-	decltype(instance.load(res.shaders().render_passes().lighting())) m_lighting_pass;
+	decltype(instance.device.load(res.shaders().render_passes().opaque())) m_opaque_pass;
+	decltype(instance.device.load(res.shaders().render_passes().lighting())) m_lighting_pass;
 
-	decltype(instance.load(res.shaders().render_passes().depth_range())) m_depth_range_pass;
-	decltype(instance.load(res.shaders().first_depth_range())) m_first_depth_range;
-	decltype(instance.load(res.shaders().compute_depth_range())) m_compute_depth_range;
+	decltype(instance.device.load(res.shaders().render_passes().depth_range())) m_depth_range_pass;
+	decltype(instance.device.load(res.shaders().first_depth_range())) m_first_depth_range;
+	decltype(instance.device.load(res.shaders().compute_depth_range())) m_compute_depth_range;
 
-	decltype(instance.load(res.shaders().modules().depth_buffer())) m_depth_buffer_module;
-	decltype(instance.load(res.shaders().render_passes().depth_to_fl())) m_depth_to_fl_pass;
-	decltype(instance.load(res.shaders().depth_to_fl())) m_depth_to_fl_shader;
+	decltype(instance.device.load(res.shaders().modules().depth_buffer())) m_depth_buffer_module;
+	decltype(instance.device.load(res.shaders().render_passes().depth_to_fl())) m_depth_to_fl_pass;
+	decltype(instance.device.load(res.shaders().depth_to_fl())) m_depth_to_fl_shader;
 
-	decltype(instance.load(res.shaders().render_passes().diffuse_bounce())) m_diffuse_bounce_pass;
-	decltype(instance.load(res.shaders().diffuse_bounce())) m_diffuse_bounce_shader;
+	decltype(instance.device.load(res.shaders().render_passes().diffuse_bounce())) m_diffuse_bounce_pass;
+	decltype(instance.device.load(res.shaders().diffuse_bounce())) m_diffuse_bounce_shader;
 
-	decltype(instance.load(res.shaders().render_passes().gather_bounces())) m_gather_bounces_pass;
-	decltype(instance.load(res.shaders().gather_bounces())) m_gather_bounces_shader;
+	decltype(instance.device.load(res.shaders().render_passes().gather_bounces())) m_gather_bounces_pass;
+	decltype(instance.device.load(res.shaders().gather_bounces())) m_gather_bounces_shader;
 
-	decltype(instance.load(res.shaders().render_passes().buffer_to_wsi_screen())) m_buffer_to_wsi_screen;
-	decltype(instance.load(res.shaders().diffuse_to_wsi_screen())) m_diffuse_to_wsi_screen;
+	decltype(instance.device.load(res.shaders().render_passes().buffer_to_wsi_screen())) m_buffer_to_wsi_screen;
+	decltype(instance.device.load(res.shaders().diffuse_to_wsi_screen())) m_diffuse_to_wsi_screen;
 
 	decltype(res.shaders().lighting().loaded()) m_lighting_shader;
 	decltype(instance.graphics.pool<true>()) m_cmd_pool;

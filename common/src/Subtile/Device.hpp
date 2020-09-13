@@ -17,7 +17,11 @@ namespace Subtile {
 
 class Device
 {
+	Shader::Cache m_shaders;
+	RenderPass::Cache m_render_passes;
+
 public:
+	Device(void) = default;
 	virtual ~Device(void) = default;
 
 	virtual std::unique_ptr<Queue> getQueue(Queue::Flag flags, size_t index) = 0;
@@ -33,6 +37,48 @@ public:
 	virtual std::unique_ptr<RenderPass> createRenderPass(rs::RenderPass &renderpass) = 0;
 	virtual std::unique_ptr<Shader> createShader(rs::Shader &shader) = 0;
 	virtual std::unique_ptr<Shader::DescriptorSet::Layout> createDescriptorSetLayout(const Shader::DescriptorSet::Layout::Description &desc) = 0;
+
+	Shader::Cache::Ref loadShaderRef(rs::Shader &shaderres)
+	{
+		auto got = m_shaders.find(shaderres);
+		if (got == m_shaders.end())
+			return m_shaders.emplace(shaderres, createShader(shaderres));
+		else
+			return got->second.new_ref();
+	}
+
+	RenderPass::Cache::Ref loadRenderPassRef(rs::RenderPass &renderpassres)
+	{
+		auto got = m_render_passes.find(renderpassres);
+		if (got == m_render_passes.end())
+			return m_render_passes.emplace(renderpassres, createRenderPass(renderpassres));
+		else
+			return got->second.new_ref();
+	}
+
+	template <typename S>
+	decltype(auto) loadShader(S &&shaderres)
+	{
+		return Shader::Loaded<std::remove_cv_t<std::remove_reference_t<S>>>(loadShaderRef(std::forward<S>(shaderres)));
+	}
+	template <typename R>
+	decltype(auto) loadRenderPass(R &&renderpassres)
+	{
+		return RenderPass::Loaded<std::remove_cv_t<std::remove_reference_t<R>>>(loadRenderPassRef(std::forward<R>(renderpassres)));
+	}
+
+	template <typename ResType>
+	decltype(auto) load(ResType &&res)
+	{
+		static_cast<void>(res);
+
+		if constexpr (std::is_base_of_v<rs::Shader, std::remove_reference_t<ResType>>) {
+			return loadShader(std::forward<ResType>(res));
+		} else if constexpr (std::is_base_of_v<rs::RenderPass, std::remove_reference_t<ResType>>) {
+			return loadRenderPass(std::forward<ResType>(res));
+		} else
+			static_assert(!std::is_same_v<ResType, ResType>, "Unsupported resource type");
+	}
 
 	class Handle
 	{
@@ -140,9 +186,38 @@ public:
 			return Sampler::Handle(m_device->createSampler(filter, filter, false, addressMode, borderColor, std::nullopt, Sampler::MipmapMode::Nearest, 0.0f, 0.0f, mipLodBias, std::nullopt));
 		}
 
+		template <typename ResType>
+		decltype(auto) load(ResType &&res)
+		{
+			return m_device->load(std::forward<ResType>(res));
+		}
+
 	private:
 		std::unique_ptr<Device> m_device;
 	};
+};
+
+template <typename ShaderRes>
+class Shader::DescriptorSet::Layout::Resolver::Foreign : public Shader::DescriptorSet::Layout::Resolver
+{
+public:
+	Foreign(Device &device, ShaderRes &shaderres, size_t set_ndx) :
+		m_loaded(device.loadShader(shaderres)),
+		m_layout((**RefGetter<CacheRefHolder>(m_loaded).get()).setLayout(set_ndx))
+	{
+	}
+	~Foreign(void) override
+	{
+	}
+
+	const Layout& resolve(void) const override
+	{
+		return m_layout;
+	}
+
+private:
+	Shader::Loaded<ShaderRes> m_loaded;
+	const Layout &m_layout;
 };
 
 }

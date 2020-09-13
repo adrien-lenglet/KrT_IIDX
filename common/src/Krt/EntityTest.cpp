@@ -7,7 +7,7 @@ namespace Krt {
 EntityTest::EntityTest(void) :
 	entity1(add<EntityTest2>()),
 	entity2(add<EntityTest2>()),
-	m_shader(world.instance.load(res.shaders().diffuse())),
+	m_shader(world.instance.device.load(res.shaders().diffuse())),
 	m_material(m_shader.material(world.instance.graphics)),
 	m_object(m_shader.object(world.instance.graphics)),
 	m_model_buffer(createModelBuffer()),
@@ -15,7 +15,7 @@ EntityTest::EntityTest(void) :
 {
 	m_material.counter = 0;
 
-	bind(world.events.system.input.button.pressed("quit"), [this](){
+	/*bind(world.events.system.input.button.pressed("quit"), [this](){
 		//std::cout << "quit pressed" << std::endl;
 		trigger(just_died, 14.2);
 	});
@@ -23,7 +23,7 @@ EntityTest::EntityTest(void) :
 	bind(world.events.system.input.button.released("quit"), [this](){
 		//std::cout << "quit released" << std::endl;
 		trigger(got_score, 7.92);
-	});
+	});*/
 
 	bind(world.render, m_shader.render(m_model, world.render.camera, m_material, m_object));
 

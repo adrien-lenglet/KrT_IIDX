@@ -19,7 +19,7 @@ public:
 private:
 	EntityTest2 &entity1;
 	EntityTest2 &entity2;
-	decltype(world.instance.load(res.shaders().diffuse())) m_shader;
+	decltype(world.instance.device.load(res.shaders().diffuse())) m_shader;
 	decltype(m_shader.material(world.instance.graphics)) m_material;
 	decltype(m_shader.object(world.instance.graphics)) m_object;
 	sb::Buffer::Vertex<decltype(m_shader)::Vertex> m_model_buffer;

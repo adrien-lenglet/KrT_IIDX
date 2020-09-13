@@ -145,7 +145,7 @@ protected:
 	template <typename R>
 	decltype(auto) load(R &&res)
 	{
-		return world.instance.load(std::forward<R>(res));
+		return world.instance.device.load(std::forward<R>(res));
 	}
 };
 

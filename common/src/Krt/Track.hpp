@@ -25,7 +25,7 @@ public:
 	public:
 		Render(Instance &instance) :
 			m_instance(instance),
-			m_camera_shader(instance.load(res.shaders().modules().camera())),
+			m_camera_shader(instance.device.load(res.shaders().modules().camera())),
 			camera(m_camera_shader.camera(instance.graphics))
 		{
 		}

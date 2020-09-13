@@ -45,7 +45,7 @@ Instance::Instance(bool isDebug, const std::vector<std::string> &args) :
 	cur_img(0),
 	cur_img_res(&images.at(cur_img)),
 	m_screen_quad_buffer((cur_img_res->transfer_unsafe.begin(sb::CommandBuffer::Usage::OneTimeSubmit), createScreenQuadBuffer())),
-	screen_quad(model(m_screen_quad_buffer))
+	screen_quad(device.model(m_screen_quad_buffer))
 {
 }
 
@@ -55,9 +55,9 @@ Instance::~Instance(void)
 
 void Instance::run(void)
 {
-	setInputs([](const auto &s){
+	/*setInputs([](const auto &s){
 		s.addButton("quit");
-	});
+	});*/
 
 	auto race = Race(*this);
 	race.run();

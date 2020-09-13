@@ -370,18 +370,18 @@ class FolderPrinter
 			}
 
 		auto vec_resolver = "sb::rs::Shader::DescriptorSetLayouts"_t;
-		auto desc_layout_fwd = sh += vec_resolver | Id("loadDescriptorSetLayouts")("sb::InstanceBase"_t | &N | Id("ins")) | Const | Override;
-		auto &desc_layout = m_impl_out += vec_resolver | desc_layout_fwd("sb::InstanceBase"_t | &N | Id("ins")) | Const | S
+		auto desc_layout_fwd = sh += vec_resolver | Id("loadDescriptorSetLayouts")("sb::Device"_t | &N | Id("dev")) | Const | Override;
+		auto &desc_layout = m_impl_out += vec_resolver | desc_layout_fwd("sb::Device"_t | &N | Id("dev")) | Const | S
 		{
-			StaticCast(Void, "ins"_v)
+			StaticCast(Void, "dev"_v)
 		};
 		auto desc_layout_res = desc_layout += vec_resolver | Id("_res");
 
 		for (auto &rp : sets) {
 			if (rp.second.inlineValue)
-				desc_layout += desc_layout_res.M("emplace_back"_v("new sb::Shader::DescriptorSet::Layout::Resolver::Inline"_t("ins"_v, Vd(rp.second.inlineValue->getValue())())));
+				desc_layout += desc_layout_res.M("emplace_back"_v("new sb::Shader::DescriptorSet::Layout::Resolver::Inline"_t("dev"_v, Vd(rp.second.inlineValue->getValue())())));
 			else
-				desc_layout += desc_layout_res.M("emplace_back"_v("new sb::Shader::DescriptorSet::Layout::Resolver::Foreign"_t.T(rp.second.type)("ins"_v, rp.second.value, rp.second.foreignNdx)));
+				desc_layout += desc_layout_res.M("emplace_back"_v("new sb::Shader::DescriptorSet::Layout::Resolver::Foreign"_t.T(rp.second.type)("dev"_v, rp.second.value, rp.second.foreignNdx)));
 		}
 
 		desc_layout += Return | desc_layout_res;
@@ -869,7 +869,7 @@ public:
 
 		header | S {
 			Pp::Pragma | "once",
-			Pp::Include | "Subtile/Instance.hpp",
+			Pp::Include | "Subtile/Device.hpp",
 			Pp::Include | "Subtile/Resource/Folder.hpp",
 			Pp::Include | "Subtile/Resource/Model.hpp",
 			Pp::Include | "Subtile/Resource/Image.hpp",

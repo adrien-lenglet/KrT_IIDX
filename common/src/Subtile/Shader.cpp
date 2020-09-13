@@ -1,5 +1,5 @@
 #include "Shader.hpp"
-#include "Instance.hpp"
+#include "Device.hpp"
 
 namespace Subtile {
 
@@ -114,8 +114,8 @@ Shader::DescriptorSet::BaseHandle::BaseHandle(std::unique_ptr<DescriptorSet> &&d
 {
 }
 
-Shader::DescriptorSet::Layout::Resolver::Inline::Inline(InstanceBase &ins, const Layout::Description &desc) :
-	m_layout(InstanceBase::Getter(ins).system().createDescriptorSetLayout(desc))
+Shader::DescriptorSet::Layout::Resolver::Inline::Inline(Device &dev, const Layout::Description &desc) :
+	m_layout(dev.createDescriptorSetLayout(desc))
 {
 }
 
@@ -139,15 +139,6 @@ Shader::DescriptorSet::Layout::Resolver::ForeignBase::~ForeignBase(void)
 const Shader::DescriptorSet::Layout& Shader::DescriptorSet::Layout::Resolver::ForeignBase::resolve(void) const
 {
 	return m_layout;
-}
-
-Shader::Cache::Ref InstanceBase::loadShaderRef(rs::Shader &shaderres)
-{
-	auto got = m_shaders.find(shaderres);
-	if (got == m_shaders.end())
-		return m_shaders.emplace(shaderres, m_system->createShader(shaderres));
-	else
-		return got->second.new_ref();
 }
 
 }

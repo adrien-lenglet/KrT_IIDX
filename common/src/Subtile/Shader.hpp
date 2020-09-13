@@ -27,7 +27,7 @@ class System;
 namespace Resource {
 class Shader;
 }
-class InstanceBase;
+class Device;
 class Queue;
 
 class Shader
@@ -927,7 +927,7 @@ public:
 
 	virtual sb::Shader::VertexInput vertexInput(void) const = 0;
 	using DescriptorSetLayouts = std::vector<std::unique_ptr<sb::Shader::DescriptorSet::Layout::Resolver>>;
-	virtual DescriptorSetLayouts loadDescriptorSetLayouts(InstanceBase &ins) const = 0;
+	virtual DescriptorSetLayouts loadDescriptorSetLayouts(Device &dev) const = 0;
 	virtual std::pair<rs::RenderPass&, size_t> getRenderPass(void) const = 0;
 	virtual bool isModule(void) const = 0;
 
@@ -1003,7 +1003,7 @@ namespace Subtile
 class Shader::DescriptorSet::Layout::Resolver::Inline : public Shader::DescriptorSet::Layout::Resolver
 {
 public:
-	Inline(InstanceBase &ins, const Layout::Description &desc);
+	Inline(Device &dev, const Layout::Description &desc);
 	~Inline(void) override;
 
 	const Layout& resolve(void) const override;

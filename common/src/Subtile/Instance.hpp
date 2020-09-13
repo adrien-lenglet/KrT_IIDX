@@ -21,9 +21,6 @@ class Pass;
 
 class InstanceBase
 {
-	Shader::Cache m_shaders;
-	RenderPass::Cache m_render_passes;
-
 public:
 	InstanceBase(bool isDebug, bool isProfile);
 	~InstanceBase(void);
@@ -47,18 +44,6 @@ public:
 			return *m_ins.m_system;
 		}
 
-		template <typename ...Args>
-		decltype(auto) loadShader(Args &&...args)
-		{
-			return m_ins.loadShader(std::forward<Args>(args)...);
-		}
-
-		template <typename ...Args>
-		decltype(auto) loadRenderPassRef(Args &&...args)
-		{
-			return m_ins.loadRenderPassRef(std::forward<Args>(args)...);
-		}
-
 	private:
 		InstanceBase &m_ins;
 	};
@@ -74,34 +59,7 @@ private:
 
 	System& system(void);
 
-	Shader::Cache::Ref loadShaderRef(rs::Shader &shaderres);
-	RenderPass::Cache::Ref loadRenderPassRef(rs::RenderPass &renderpassres);
-
-	template <typename S>
-	decltype(auto) loadShader(S &&shaderres)
-	{
-		return Shader::Loaded<std::remove_cv_t<std::remove_reference_t<S>>>(loadShaderRef(std::forward<S>(shaderres)));
-	}
-	template <typename R>
-	decltype(auto) loadRenderPass(R &&renderpassres)
-	{
-		return RenderPass::Loaded<std::remove_cv_t<std::remove_reference_t<R>>>(loadRenderPassRef(std::forward<R>(renderpassres)));
-	}
-
 public:
-	template <typename ResType>
-	decltype(auto) load(ResType &&res)
-	{
-		static_cast<void>(res);
-
-		if constexpr (std::is_base_of_v<rs::Shader, std::remove_reference_t<ResType>>) {
-			return loadShader(std::forward<ResType>(res));
-		} else if constexpr (std::is_base_of_v<rs::RenderPass, std::remove_reference_t<ResType>>) {
-			return loadRenderPass(std::forward<ResType>(res));
-		} else
-			static_assert(!std::is_same_v<ResType, ResType>, "Unsupported resource type");
-	}
-
 	auto surface(const svec2 &extent, const std::string &title)
 	{
 		return Surface::Handle(system().createSurface(extent, title));
@@ -117,29 +75,6 @@ public:
 		system().scanInputs();
 		m_events.updateEvents();
 	}
-};
-
-template <typename ShaderRes>
-class Shader::DescriptorSet::Layout::Resolver::Foreign : public Shader::DescriptorSet::Layout::Resolver
-{
-public:
-	Foreign(InstanceBase &instance, ShaderRes &shaderres, size_t set_ndx) :
-		m_loaded(InstanceBase::Getter(instance).loadShader(shaderres)),
-		m_layout((**RefGetter<CacheRefHolder>(m_loaded).get()).setLayout(set_ndx))
-	{
-	}
-	~Foreign(void) override
-	{
-	}
-
-	const Layout& resolve(void) const override
-	{
-		return m_layout;
-	}
-
-private:
-	Shader::Loaded<ShaderRes> m_loaded;
-	const Layout &m_layout;
 };
 
 }
