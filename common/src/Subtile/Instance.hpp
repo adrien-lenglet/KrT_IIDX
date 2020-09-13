@@ -25,7 +25,7 @@ class InstanceBase
 	RenderPass::Cache m_render_passes;
 
 public:
-	InstanceBase(bool isDebug, bool isProfile, const sb::Queue::Set &queues);
+	InstanceBase(bool isDebug, bool isProfile);
 	~InstanceBase(void);
 
 	void setInputs(const std::function<void (const Event::System::Observer::Input::Setter &setter)> &binder);
@@ -102,102 +102,14 @@ public:
 			static_assert(!std::is_same_v<ResType, ResType>, "Unsupported resource type");
 	}
 
-	template <sb::Queue::Flag Flags>
-	auto queue(size_t index)
-	{
-		return Queue::Handle<Flags>(system().getQueue(Flags, index));
-	}
-
-	auto image2D(Format format, const svec2 &extent, const sb::Image::MipmapLevels &mipLevels, Image::Usage usage, sb::Queue &queue)
-	{
-		return Image2D(system().createImage(Image::Type::Image2D, format, Image::Sample::Count1, svec3(extent.x, extent.y, 1), 1, mipLevels, usage, queue));
-	}
-
-	auto image2DMS(Format format, Image::Sample sampleCount, const svec2 &extent, const sb::Image::MipmapLevels &mipLevels, Image::Usage usage, sb::Queue &queue)
-	{
-		return Image2DMS(system().createImage(Image::Type::Image2D, format, sampleCount, svec3(extent.x, extent.y, 1), 1, mipLevels, usage, queue));
-	}
-
-	auto image2DArray(Format format, const svec2 &extent, size_t layers, const sb::Image::MipmapLevels &mipLevels, Image::Usage usage, sb::Queue &queue)
-	{
-		return Image2DArray(system().createImage(Image::Type::Image2DArray, format, Image::Sample::Count1, svec3(extent.x, extent.y, 1), layers, mipLevels, usage, queue));
-	}
-
-	auto image2DMSArray(Format format, Image::Sample sampleCount, const svec2 &extent, size_t layers, const sb::Image::MipmapLevels &mipLevels, Image::Usage usage, sb::Queue &queue)
-	{
-		return Image2DMSArray(system().createImage(Image::Type::Image2DArray, format, sampleCount, svec3(extent.x, extent.y, 1), layers, mipLevels, usage, queue));
-	}
-
-	auto semaphore(void)
-	{
-		return Semaphore::Handle(system().createSemaphore());
-	}
-
-	auto fence(bool isSignaled = false)
-	{
-		return Fence::Handle(system().createFence(isSignaled));
-	}
-
-	template <typename VertexType>
-	auto vertexBuffer(size_t size, sb::Queue &queue)
-	{
-		auto s = size * sizeof(VertexType);
-		return Buffer::Vertex<VertexType>(system().createBuffer(s, Buffer::Location::Device, Buffer::Usage::TransferDst | Buffer::Usage::VertexBuffer, queue), s);
-	}
-
-	auto index16Buffer(size_t size, sb::Queue &queue)
-	{
-		auto s = size * sizeof(uint16_t);
-		return Buffer::Index16(system().createBuffer(s, Buffer::Location::Device, Buffer::Usage::TransferDst | Buffer::Usage::IndexBuffer, queue), s);
-	}
-
-	auto index32Buffer(size_t size, sb::Queue &queue)
-	{
-		auto s = size * sizeof(uint32_t);
-		return Buffer::Index32(system().createBuffer(s, Buffer::Location::Device, Buffer::Usage::TransferDst | Buffer::Usage::IndexBuffer, queue), s);
-	}
-
-	auto buffer(size_t size, Buffer::Usage usage, sb::Queue &queue)
-	{
-		return Buffer::Handle(system().createBuffer(size, Buffer::Location::Device, usage, queue), size);
-	}
-
-	auto mappableBuffer(size_t size, Buffer::Usage usage, sb::Queue &queue)
-	{
-		return Buffer::Mappable(system().createBuffer(size, Buffer::Location::Host, usage, queue), size);
-	}
-
-	template <typename VertexType>
-	auto model(Buffer::Vertex<VertexType> &vertex)
-	{
-		return Model::Typed<VertexType>(system().createModel(vertex, vertex.size()));
-	}
-
-	template <typename VertexType>
-	auto model(Buffer::Vertex<VertexType> &vertex, Buffer::Index16 &index_buffer)
-	{
-		return Model::Typed<VertexType>::Indexed16(system().createModelIndexed(vertex, vertex.size(), index_buffer, Model::IndexType::Uint16));
-	}
-
-	template <typename VertexType>
-	auto model(Buffer::Vertex<VertexType> &vertex, Buffer::Index32 &index_buffer)
-	{
-		return Model::Typed<VertexType>::Indexed32(system().createModelIndexed(vertex, index_buffer, Model::IndexType::Uint32, index_buffer.size()));
-	}
-
-	auto sampler(Filter magFilter, Filter minFilter, const Sampler::AddressModeUVW &addressMode, BorderColor borderColor, const std::optional<CompareOp> &compare, Sampler::MipmapMode mipmapMode, float minLod, float maxLod, float mipLodBias, const std::optional<float> &anisotropy)
-	{
-		return Sampler::Handle(system().createSampler(magFilter, minFilter, true, addressMode, borderColor, compare, mipmapMode, minLod, maxLod, mipLodBias, anisotropy));
-	}
-
-	auto samplerUnnormalized(Filter filter, const Sampler::AddressModeUVW &addressMode, BorderColor borderColor, float mipLodBias)
-	{
-		return Sampler::Handle(system().createSampler(filter, filter, false, addressMode, borderColor, std::nullopt, Sampler::MipmapMode::Nearest, 0.0f, 0.0f, mipLodBias, std::nullopt));
-	}
-
 	auto surface(const svec2 &extent, const std::string &title)
 	{
 		return Surface::Handle(system().createSurface(extent, title));
+	}
+
+	auto device(Surface &surface, const Queue::Set &queues)
+	{
+		return Device::Handle(system().createDevice(surface, queues));
 	}
 
 	void scanInputs(void)
@@ -241,8 +153,8 @@ template <typename InstanceType>
 class Instance : public InstanceBase
 {
 public:
-	Instance(bool isDebug, bool isProfile, const sb::Queue::Set &queues) :
-		InstanceBase(isDebug, isProfile, queues)
+	Instance(bool isDebug, bool isProfile) :
+		InstanceBase(isDebug, isProfile)
 	{
 	}
 

@@ -26,10 +26,11 @@ public:
 
 	void run(void);
 
-	sb::Queue::Handle<m_graphics_family> graphics;
-	decltype(graphics.pool<true>()) m_transfer_pool;
 	sb::Surface::Handle surface;
+	sb::Device::Handle device;
+	sb::Queue::Handle<m_graphics_family> graphics;
 	sb::Swapchain::Handle swapchain;
+	decltype(graphics.pool<true>()) m_transfer_pool;
 
 public:
 	size_t img_count;
@@ -44,7 +45,7 @@ public:
 			transfer_cmd_buf(instance.m_transfer_pool.primary()),
 			transfer_unsafe(transfer_cmd_buf),
 			transfer(transfer_cmd_buf),
-			staging_buffer(instance.mappableBuffer(64000000, sb::Buffer::Usage::TransferSrc | sb::Buffer::Usage::TransferDst, instance.graphics)),
+			staging_buffer(instance.device.mappableBuffer(64000000, sb::Buffer::Usage::TransferSrc | sb::Buffer::Usage::TransferDst, instance.graphics)),
 			staging_off(0)
 		{
 		}

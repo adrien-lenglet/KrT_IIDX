@@ -26,19 +26,20 @@ decltype(Instance::m_screen_quad_buffer) Instance::createScreenQuadBuffer(void)
 		values.emplace_back(cur);
 	}
 
-	auto res = vertexBuffer<decltype(m_screen_quad_buffer)::value_type>(values.size(), graphics);
+	auto res = device.vertexBuffer<decltype(m_screen_quad_buffer)::value_type>(values.size(), graphics);
 	cur_img_res->copyBuffer(values, res);
 	return res;
 }
 
 Instance::Instance(bool isDebug, const std::vector<std::string> &args) :
-	sb::Instance<Instance>(isDebug, Config(args).isProfile, {
-		{m_graphics_family, {1.0f}}
-	}),
-	graphics(queue<m_graphics_family>(0)),
-	m_transfer_pool(graphics.pool<true>()),
+	sb::Instance<Instance>(isDebug, Config(args).isProfile),
 	surface(static_cast<sb::InstanceBase&>(*this).surface({1600, 900}, "SUNREN®")),
-	swapchain(surface.swapchain({1600, 900}, 2, sb::Image::Usage::ColorAttachment, graphics)),
+	device(static_cast<sb::InstanceBase&>(*this).device(surface, {
+		{m_graphics_family, {1.0f}}
+	})),
+	graphics(device.queue<m_graphics_family>(0)),
+	swapchain(device.swapchain(surface, {1600, 900}, 2, sb::Image::Usage::ColorAttachment, graphics)),
+	m_transfer_pool(graphics.pool<true>()),
 	img_count(std::max(swapchain.images().size(), static_cast<size_t>(2))),
 	images(createImages()),
 	cur_img(0),

@@ -17,7 +17,7 @@ class InstanceBase;
 class Vk : public System
 {
 public:
-	Vk(InstanceBase &instance, bool isDebug, bool isProfile, const sb::Queue::Set &queues);
+	Vk(InstanceBase &instance, bool isDebug, bool isProfile);
 	~Vk(void) override;
 
 	void scanInputs(void) override;
@@ -203,7 +203,7 @@ private:
 		template <typename VkHandle>
 		using Handle = HandleDep<Instance, VkHandle>;
 
-		PhysicalDevices enumerateDevices(void);
+		PhysicalDevices enumerateDevices(Surface &surface);
 
 		template <typename T, typename C>
 		auto createVk(VkResult (*fun)(VkInstance, const C *createInfo, const VkAllocationCallbacks *pAllocator, T *res), const C &createInfo)
@@ -252,23 +252,13 @@ private:
 	std::optional<DebugMessenger> m_debug_messenger;
 	std::optional<DebugMessenger> createDebugMessenger(void);
 
-	/*class Surface : public Instance::Handle<VkSurfaceKHR>
-	{
-	public:
-		Surface(Instance &instance, VkSurfaceKHR surface);
-	};
-
-	Surface m_surface;
-	Surface createSurface(void);*/
-
 	class Swapchain;
 
 	class Surface : public sb::Surface
 	{
 	public:
-		Surface(Vk &vk, const svec2 &extent, const std::string &title);
-
-		std::unique_ptr<sb::Swapchain> createSwapchain(const svec2 &extent, size_t desiredImageCount, sb::Image::Usage usage, sb::Queue &queue) override;
+		Surface(Instance &instance, const svec2 &extent, const std::string &title);
+		~Surface(void) override;
 
 		operator VkSurfaceKHR(void) const
 		{
@@ -276,7 +266,6 @@ private:
 		}
 
 	private:
-		Vk &m_vk;
 		Glfw::Window m_window;
 		VkSurfaceKHR m_surface;
 	};
@@ -286,7 +275,7 @@ private:
 	class PhysicalDevice
 	{
 	public:
-		PhysicalDevice(VkPhysicalDevice device);
+		PhysicalDevice(VkPhysicalDevice device, Vk::Surface &surface);
 
 		class Surface
 		{
@@ -323,8 +312,12 @@ private:
 
 		const Properties& properties(void) const;
 		const VkPhysicalDeviceFeatures& features(void) const;
+		auto& surface(void) const
+		{
+			return m_surface;
+		}
 
-		//bool getSurfaceSupport(uint32_t queueFamilyIndex) const;
+		bool getSurfaceSupport(uint32_t queueFamilyIndex) const;
 		bool isCompetent(const sb::Queue::Set &requiredQueues) const;
 		size_t getScore(void) const;
 
@@ -340,15 +333,18 @@ private:
 
 		private:
 			std::vector<VkQueueFamilyProperties> m_queues;
+			PhysicalDevice &m_physical_device;
 		};
 
 		const QueueFamilies& queues(void) const;
 
 	private:
 		VkPhysicalDevice m_device;
+		Vk::Surface &m_vk_surface;
 		const Properties m_props;
 		const VkPhysicalDeviceFeatures m_features;
 		const QueueFamilies m_queue_families;
+		Surface m_surface;
 
 		bool areExtensionsSupported(void) const;
 	};
@@ -356,14 +352,14 @@ private:
 	class PhysicalDevices
 	{
 	public:
-		PhysicalDevices(Vk::Instance &instance);
+		PhysicalDevices(Vk::Instance &instance, Surface &surface);
 
 		const PhysicalDevice& getBest(const sb::Queue::Set &requiredQueues) const;
 
 	private:
 		std::vector<PhysicalDevice> m_devices;
 
-		std::vector<Vk::PhysicalDevice> enumerate(Vk::Instance &instance);
+		std::vector<Vk::PhysicalDevice> enumerate(Vk::Instance &instance, Surface &surface);
 	};
 
 	class VmaBuffer;
@@ -390,12 +386,11 @@ private:
 	using VkQueueIndex = uint32_t;
 	using sbQueueMapping = std::map<std::pair<sb::Queue::Flag, sbQueueIndex>, std::pair<VkQueueFamilyIndex, VkQueueIndex>>;
 
-	class Device : public Handle<VkDevice>
+	class Device : public sb::Device, public Handle<VkDevice>
 	{
-		friend Handle<VkDevice>;
-
 	public:
 		Device(Instance &instance, const PhysicalDevice &physicalDevice, const sbQueueFamilyMapping& queueFamilyMapping, const sbQueueMapping &queueMapping, VkDevice device);
+		~Device(void) override;
 
 		Vk& vk(void)
 		{
@@ -404,7 +399,6 @@ private:
 
 		const PhysicalDevice& physical(void) const;
 		Allocator& allocator(void);
-		std::pair<VkQueueFamilyIndex, VkQueue> getQueue(sb::Queue::Flag flags, size_t ndx);
 		VkFormat sbFormatToVk(sb::Format format) const;
 
 		template <typename VkHandle>
@@ -455,7 +449,20 @@ private:
 			fun(*this, obj, m_instance.m_vk.getAllocator());
 		}
 
-	private:
+		std::unique_ptr<sb::Queue> getQueue(Queue::Flag flags, size_t index) override;
+		std::unique_ptr<sb::Swapchain> createSwapchain(sb::Surface &surface, const svec2 &extent, size_t desiredImageCount, sb::Image::Usage usage, sb::Queue &queue) override;
+		std::unique_ptr<sb::Image> createImage(sb::Image::Type type, Format format, sb::Image::Sample sample, const svec3 &extent, size_t layers, const sb::Image::MipmapLevels &mipLevels, sb::Image::Usage usage, sb::Queue &queue) override;
+		std::unique_ptr<sb::Semaphore> createSemaphore(void) override;
+		std::unique_ptr<sb::Fence> createFence(bool isSignaled) override;
+		std::unique_ptr<sb::Buffer> createBuffer(size_t size, sb::Buffer::Location location, sb::Buffer::Usage usage, sb::Queue &queue) override;
+		std::unique_ptr<sb::Model> createModel(sb::Buffer &vertexBuffer, size_t vertexCount) override;
+		std::unique_ptr<sb::Model> createModelIndexed(sb::Buffer &vertexBuffer, sb::Buffer &indexBuffer, sb::Model::IndexType indexType, size_t indexCount) override;
+		std::unique_ptr<sb::Sampler> createSampler(Filter magFilter, Filter minFilter, bool normalizedCoordinates, const sb::Sampler::AddressModeUVW &addressMode, BorderColor borderColor, const std::optional<CompareOp> &compare, sb::Sampler::MipmapMode mipmapMode, float minLod, float maxLod, float mipLodBias, const std::optional<float> &anisotropy) override;
+
+		std::unique_ptr<sb::RenderPass> createRenderPass(sb::rs::RenderPass &renderpass) override;
+		std::unique_ptr<sb::Shader> createShader(rs::Shader &shader) override;
+		std::unique_ptr<sb::Shader::DescriptorSet::Layout> createDescriptorSetLayout(const sb::Shader::DescriptorSet::Layout::Description &desc) override;
+
 		Instance &m_instance;
 		PhysicalDevice m_physical;
 		sbQueueFamilyMapping m_queue_family_mapping;
@@ -493,18 +500,14 @@ private:
 		void write(size_t off, size_t size, const void *data) override;
 	};
 
-	std::unique_ptr<sb::Buffer> createBuffer(size_t size, sb::Buffer::Location location, sb::Buffer::Usage usage, sb::Queue &queue) override;
-
-	Device m_device;
-	Device createDevice(const sb::Queue::Set &queues);
+	std::unique_ptr<sb::Device> createDevice(sb::Surface &surface, const sb::Queue::Set &queues) override;
 
 	class Image : private Allocation, public Device::Handle<VkImage>
 	{
-		static sb::Image::Aspect sbFormatToImageAspectFlags(sb::Format format);
-
 	public:
 		Image(Device &dev, VkImage image, VmaAllocation allocation);
 
+		static sb::Image::Aspect sbFormatToImageAspectFlags(sb::Format format);
 		static VkImageType sbImageTypeToVk(sb::Image::Type type);
 	};
 
@@ -551,8 +554,6 @@ private:
 		~ImageAllocView(void) override;
 	};
 
-	std::unique_ptr<sb::Image> createImage(sb::Image::Type type, Format format, sb::Image::Sample sample, const svec3 &extent, size_t layers, const sb::Image::MipmapLevels &mipLevels, sb::Image::Usage usage, sb::Queue &queue) override;
-
 	static inline VkImageLayout sbImageLayoutToVk(sb::Image::Layout layout)
 	{
 		return static_cast<VkImageLayout>(static_cast<std::underlying_type_t<sb::Image::Layout>>(layout));
@@ -585,8 +586,6 @@ private:
 		VkDescriptorSetLayout create(Device &device, const sb::Shader::DescriptorSet::Layout::Description &layout);
 		VkDescriptorSetLayoutBinding bindingtoVk(const sb::Shader::DescriptorSet::Layout::DescriptionBinding &binding);
 	};
-
-	std::unique_ptr<sb::Shader::DescriptorSet::Layout> createDescriptorSetLayout(const sb::Shader::DescriptorSet::Layout::Description &desc) override;
 
 	class DescriptorSet : public sb::Shader::DescriptorSet
 	{
@@ -699,8 +698,6 @@ private:
 		std::vector<PipelineLayout> createSubpassesPipelineLayouts(void);
 	};
 
-	std::unique_ptr<sb::RenderPass> createRenderPass(sb::rs::RenderPass &renderpass) override;
-
 	class Swapchain : public sb::Swapchain, public Device::Handle<VkSwapchainKHR>
 	{
 	public:
@@ -725,8 +722,6 @@ private:
 		~Semaphore(void) override;
 	};
 
-	std::unique_ptr<sb::Semaphore> createSemaphore(void) override;
-
 	class Fence : public sb::Fence, public Device::Handle<VkFence>
 	{
 	public:
@@ -736,8 +731,6 @@ private:
 		void wait(void) override;
 		void reset(void) override;
 	};
-
-	std::unique_ptr<sb::Fence> createFence(bool isSignaled) override;
 
 	using ShaderModule = Device::Handle<VkShaderModule>;
 	using Pipeline = Device::Handle<VkPipeline>;
@@ -778,8 +771,6 @@ private:
 		std::optional<Pipeline> m_pipeline;
 		std::optional<Pipeline> createPipeline(Vk::Device &device, rs::Shader &shader);
 	};
-
-	std::unique_ptr<sb::Shader> createShader(rs::Shader &shader) override;
 
 	class CommandPool;
 
@@ -866,8 +857,6 @@ private:
 		VkQueue m_handle;
 	};
 
-	std::unique_ptr<sb::Queue> getQueue(sb::Queue::Flag flags, size_t index) override;
-
 	class Model : public sb::Model
 	{
 	public:
@@ -880,8 +869,6 @@ private:
 		VmaBuffer &m_buffer;
 		size_t m_vertex_count;
 	};
-
-	std::unique_ptr<sb::Model> createModel(sb::Buffer &vertexBuffer, size_t vertexCount) override;
 
 	class ModelIndexed : public sb::Model
 	{
@@ -898,16 +885,12 @@ private:
 		size_t m_index_count;
 	};
 
-	std::unique_ptr<sb::Model> createModelIndexed(sb::Buffer &vertexBuffer, sb::Buffer &indexBuffer, sb::Model::IndexType indexType, size_t indexCount) override;
-
 	class Sampler : public sb::Sampler, public Device::Handle<VkSampler>
 	{
 	public:
 		Sampler(Device &dev, VkSampler sampler);
 		~Sampler(void) override;
 	};
-
-	std::unique_ptr<sb::Sampler> createSampler(Filter magFilter, Filter minFilter, bool normalizedCoordinates, const sb::Sampler::AddressModeUVW &addressMode, BorderColor borderColor, const std::optional<CompareOp> &compare, sb::Sampler::MipmapMode mipmapMode, float minLod, float maxLod, float mipLodBias, const std::optional<float> &anisotropy) override;
 };
 
 }

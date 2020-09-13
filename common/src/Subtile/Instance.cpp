@@ -3,8 +3,8 @@
 
 namespace Subtile {
 
-InstanceBase::InstanceBase(bool isDebug, bool isProfile, const sb::Queue::Set &queues) :
-	m_system(new Vk(*this, isDebug, isProfile, queues)),
+InstanceBase::InstanceBase(bool isDebug, bool isProfile) :
+	m_system(new Vk(*this, isDebug, isProfile)),
 	m_events(*m_system)
 {
 }

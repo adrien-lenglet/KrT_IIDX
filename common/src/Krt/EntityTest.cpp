@@ -11,7 +11,7 @@ EntityTest::EntityTest(void) :
 	m_material(m_shader.material(world.instance.graphics)),
 	m_object(m_shader.object(world.instance.graphics)),
 	m_model_buffer(createModelBuffer()),
-	m_model(world.instance.model(m_model_buffer))
+	m_model(world.instance.device.model(m_model_buffer))
 {
 	m_material.counter = 0;
 
@@ -69,7 +69,7 @@ decltype(EntityTest::m_model_buffer) EntityTest::createModelBuffer(void)
 		for (size_t i = 0; i < 3; i++)
 			values.emplace_back(tri[i]);
 	}
-	auto res = world.instance.vertexBuffer<decltype(m_model_buffer)::value_type>(values.size(), world.instance.graphics);
+	auto res = world.instance.device.vertexBuffer<decltype(m_model_buffer)::value_type>(values.size(), world.instance.graphics);
 	world.instance.cur_img_res->copyBuffer(values, res);
 	return res;
 }

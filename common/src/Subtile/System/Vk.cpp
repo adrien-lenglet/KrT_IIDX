@@ -8,14 +8,13 @@
 
 namespace Subtile {
 
-Vk::Vk(sb::InstanceBase &instance, bool isDebug, bool isProfile, const sb::Queue::Set &queues) :
+Vk::Vk(sb::InstanceBase &instance, bool isDebug, bool isProfile) :
 	m_sb_instance(instance),
 	m_glfw(GLFW_NO_API),
 	m_is_debug(isDebug),
 	m_is_profile(isProfile),
 	m_instance(createInstance()),
-	m_debug_messenger(createDebugMessenger()),
-	m_device(createDevice(queues))
+	m_debug_messenger(createDebugMessenger())
 {
 }
 
@@ -98,9 +97,9 @@ void Vk::Handle<VkInstance>::destroy(VkInstance handle)
 	vkDestroyInstance(handle, static_cast<Instance&>(*this).m_vk.getAllocator());
 }
 
-Vk::PhysicalDevices Vk::Instance::enumerateDevices(void)
+Vk::PhysicalDevices Vk::Instance::enumerateDevices(Surface &surface)
 {
-	return PhysicalDevices(*this);
+	return PhysicalDevices(*this, surface);
 }
 
 Vk::Instance Vk::createInstance(void)
@@ -213,53 +212,30 @@ void Vk::Instance::Handle<VkSurfaceKHR>::destroy(Vk::Instance &instance, VkSurfa
 	instance.destroy(vkDestroySurfaceKHR, surface);
 }
 
-Vk::Surface::Surface(Vk &vk, const svec2 &extent, const std::string &title) :
-	m_vk(vk),
+Vk::Surface::Surface(Instance &instance, const svec2 &extent, const std::string &title) :
 	m_window(extent, title),
-	m_surface(vk.m_instance.createVk(glfwCreateWindowSurface, m_window))
+	m_surface(instance.createVk(glfwCreateWindowSurface, m_window))
 {
 }
 
-std::unique_ptr<sb::Swapchain> Vk::Surface::createSwapchain(const svec2 &extent, size_t desiredImageCount, sb::Image::Usage usage, sb::Queue &queue)
+Vk::Surface::~Surface(void)
 {
-	auto &phys = m_vk.m_device.physical();
-	auto surface = Vk::PhysicalDevice::Surface(phys, *this);
-	auto &surf_cap = surface.capabilities();
-	VkQueueFamilyIndex queueFamilyIndex = reinterpret_cast<Queue&>(queue).getFamilyIndex();
-	auto format = surface.chooseFormat();
-
-	VkSwapchainCreateInfoKHR ci {};
-	ci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-	ci.surface = surface;
-	ci.minImageCount = std::clamp(static_cast<uint32_t>(desiredImageCount), surf_cap.minImageCount, surf_cap.maxImageCount);
-	ci.imageFormat = format.format;
-	ci.imageColorSpace = format.colorSpace;
-	ci.imageExtent = VkExtent2D{static_cast<uint32_t>(extent.x), static_cast<uint32_t>(extent.y)};
-	ci.imageArrayLayers = 1;
-	ci.imageUsage = util::enum_underlying(usage);
-	ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	ci.queueFamilyIndexCount = 1;
-	ci.pQueueFamilyIndices = &queueFamilyIndex;
-	ci.preTransform = surface.capabilities().currentTransform;
-	ci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	ci.presentMode = surface.choosePresentMode();
-	ci.clipped = VK_TRUE;
-	ci.oldSwapchain = VK_NULL_HANDLE;
-
-	return std::make_unique<Swapchain>(m_vk.m_device, m_vk.m_device.createVk(vkCreateSwapchainKHR, ci), format, extent);
 }
 
 std::unique_ptr<sb::Surface> Vk::createSurface(const svec2 &extent, const std::string &title)
 {
-	return std::make_unique<Surface>(*this, extent, title);
+	return std::make_unique<Surface>(m_instance, extent, title);
 }
 
-Vk::PhysicalDevice::PhysicalDevice(VkPhysicalDevice device) :
+Vk::PhysicalDevice::PhysicalDevice(VkPhysicalDevice device, Vk::Surface &surface) :
 	m_device(device),
+	m_vk_surface(surface),
 	m_props(get<VkPhysicalDeviceProperties>(vkGetPhysicalDeviceProperties, m_device)),
 	m_features(get<VkPhysicalDeviceFeatures>(vkGetPhysicalDeviceFeatures, m_device)),
-	m_queue_families(*this)
+	m_queue_families(*this),
+	m_surface(*this, surface)
 {
+	static_cast<void>(m_vk_surface);
 }
 
 Vk::PhysicalDevice::operator VkPhysicalDevice(void) const
@@ -292,10 +268,10 @@ const VkPhysicalDeviceFeatures& Vk::PhysicalDevice::features(void) const
 	return m_features;
 }
 
-/*bool Vk::PhysicalDevice::getSurfaceSupport(uint32_t queueFamilyIndex) const
+bool Vk::PhysicalDevice::getSurfaceSupport(uint32_t queueFamilyIndex) const
 {
 	return create<VkBool32>(vkGetPhysicalDeviceSurfaceSupportKHR, m_device, queueFamilyIndex, m_surface);
-}*/
+}
 
 const VkPhysicalDeviceFeatures& Vk::PhysicalDevice::requiredFeatures(void)
 {
@@ -359,7 +335,8 @@ const Vk::PhysicalDevice::QueueFamilies& Vk::PhysicalDevice::queues(void) const
 }
 
 Vk::PhysicalDevice::QueueFamilies::QueueFamilies(Vk::PhysicalDevice &device) :
-	m_queues(getCollection<VkQueueFamilyProperties>(vkGetPhysicalDeviceQueueFamilyProperties, device))
+	m_queues(getCollection<VkQueueFamilyProperties>(vkGetPhysicalDeviceQueueFamilyProperties, device)),
+	m_physical_device(device)
 {
 }
 
@@ -395,8 +372,7 @@ std::optional<uint32_t> Vk::PhysicalDevice::QueueFamilies::indexOf(sb::Queue::Fl
 
 	for (auto &q : m_queues) {
 		auto ndx = n++;
-		//auto present_support = m_physical_device.getSurfaceSupport(ndx);
-		auto present_support = true; // TO FIX
+		auto present_support = m_physical_device.getSurfaceSupport(ndx);
 		if (q.queueCount > 0 && q.queueFlags & vkFlags && (isPresent && present_support)) {
 			BestAttr attr {ndx, q.queueCount, 0};
 			for (size_t i = 0; i < 32; i++)
@@ -424,6 +400,7 @@ Vk::PhysicalDevice::Surface::Surface(const PhysicalDevice &device, Vk::Surface &
 	m_present_modes(enumerate<VkPresentModeKHR>(vkGetPhysicalDeviceSurfacePresentModesKHR, device, surface)),
 	m_vk_surface(surface)
 {
+	static_cast<void>(m_vk_surface);
 }
 
 const VkSurfaceCapabilitiesKHR& Vk::PhysicalDevice::Surface::capabilities(void) const
@@ -476,8 +453,8 @@ Vk::PhysicalDevice::Surface::operator VkSurfaceKHR(void) const
 	return m_vk_surface;
 }
 
-Vk::PhysicalDevices::PhysicalDevices(Vk::Instance &instance) :
-	m_devices(enumerate(instance))
+Vk::PhysicalDevices::PhysicalDevices(Vk::Instance &instance, Surface &surface) :
+	m_devices(enumerate(instance, surface))
 {
 }
 
@@ -493,7 +470,7 @@ const Vk::PhysicalDevice& Vk::PhysicalDevices::getBest(const sb::Queue::Set &req
 	return cands.rbegin()->second.get();
 }
 
-std::vector<Vk::PhysicalDevice> Vk::PhysicalDevices::enumerate(Instance &instance)
+std::vector<Vk::PhysicalDevice> Vk::PhysicalDevices::enumerate(Instance &instance, Surface &surface)
 {
 	auto devices = Vk::enumerate<VkPhysicalDevice>(vkEnumeratePhysicalDevices, instance);
 
@@ -501,7 +478,7 @@ std::vector<Vk::PhysicalDevice> Vk::PhysicalDevices::enumerate(Instance &instanc
 	res.reserve(devices.size());
 
 	for (auto &d : devices)
-		res.emplace_back(d);
+		res.emplace_back(d, surface);
 	return res;
 }
 
@@ -693,17 +670,165 @@ Vk::Allocator& Vk::Device::allocator(void)
 	return m_allocator;
 }
 
-std::pair<Vk::VkQueueFamilyIndex, VkQueue> Vk::Device::getQueue(sb::Queue::Flag flags, size_t ndx)
+std::unique_ptr<sb::Queue> Vk::Device::getQueue(Queue::Flag flags, size_t index)
 {
-	auto queue = m_queue_mapping.at(std::make_pair(flags, ndx));
+	auto queue = m_queue_mapping.at(std::make_pair(flags, index));
 	VkQueue res;
 	vkGetDeviceQueue(*this, queue.first, queue.second, &res);
-	return std::make_pair(queue.first, res);
+	auto got = std::make_pair(queue.first, res);
+
+	return std::make_unique<Queue>(*this, got.first, got.second);
 }
 
-Vk::Device Vk::createDevice(const sb::Queue::Set &requiredQueues)
+std::unique_ptr<sb::Swapchain> Vk::Device::createSwapchain(sb::Surface &surface, const svec2 &extent, size_t desiredImageCount, sb::Image::Usage usage, sb::Queue &queue)
 {
-	auto devs = m_instance.enumerateDevices();
+	auto &phys = physical();
+	auto phys_surface = Vk::PhysicalDevice::Surface(phys, reinterpret_cast<Vk::Surface&>(surface));
+	auto &surf_cap = phys_surface.capabilities();
+	VkQueueFamilyIndex queueFamilyIndex = reinterpret_cast<Queue&>(queue).getFamilyIndex();
+	auto format = phys_surface.chooseFormat();
+
+	VkSwapchainCreateInfoKHR ci {};
+	ci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	ci.surface = phys_surface;
+	ci.minImageCount = std::clamp(static_cast<uint32_t>(desiredImageCount), surf_cap.minImageCount, surf_cap.maxImageCount);
+	ci.imageFormat = format.format;
+	ci.imageColorSpace = format.colorSpace;
+	ci.imageExtent = VkExtent2D{static_cast<uint32_t>(extent.x), static_cast<uint32_t>(extent.y)};
+	ci.imageArrayLayers = 1;
+	ci.imageUsage = util::enum_underlying(usage);
+	ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	ci.queueFamilyIndexCount = 1;
+	ci.pQueueFamilyIndices = &queueFamilyIndex;
+	ci.preTransform = phys_surface.capabilities().currentTransform;
+	ci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	ci.presentMode = phys_surface.choosePresentMode();
+	ci.clipped = VK_TRUE;
+	ci.oldSwapchain = VK_NULL_HANDLE;
+
+	return std::make_unique<Swapchain>(*this, createVk(vkCreateSwapchainKHR, ci), format, extent);
+}
+
+std::unique_ptr<sb::Image> Vk::Device::createImage(sb::Image::Type type, Format format, sb::Image::Sample sample, const svec3 &extent, size_t layers, const sb::Image::MipmapLevels &mipLevels, sb::Image::Usage usage, sb::Queue &queue)
+{
+	VkQueueFamilyIndex queueFamilyIndex = reinterpret_cast<Queue&>(queue).getFamilyIndex();
+
+	VkImageCreateInfo ici {};
+	ici.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	ici.imageType = Vk::Image::sbImageTypeToVk(type);
+	ici.format = sbFormatToVk(format);
+	ici.extent = VkExtent3D {static_cast<uint32_t>(extent.x), static_cast<uint32_t>(extent.y), static_cast<uint32_t>(extent.z)};
+	ici.mipLevels = mipLevels.isFull ? static_cast<uint32_t>(std::floor(std::log2(std::max(std::max(extent.x, extent.y), extent.z))) + 1.0) : static_cast<uint32_t>(mipLevels.levels);
+	ici.arrayLayers = layers;
+	ici.samples = static_cast<VkSampleCountFlagBits>(util::enum_underlying(sample));
+	ici.tiling = VK_IMAGE_TILING_OPTIMAL;
+	ici.usage = util::enum_underlying(usage);
+	ici.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	ici.queueFamilyIndexCount = 1;
+	ici.pQueueFamilyIndices = &queueFamilyIndex;
+	ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+	VmaAllocationCreateInfo aci {};
+	aci.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+	VkImage vk_image;
+	VmaAllocation allocation;
+	Vk::assert(vmaCreateImage(allocator(), &ici, &aci, &vk_image, &allocation, nullptr));
+
+	auto image = Vk::Image(*this, vk_image, allocation);
+	auto view = Vk::ImageView(*this, image, ici.format, type, extent, ComponentSwizzle::Identity, Image::sbFormatToImageAspectFlags(format), Range(0, ici.arrayLayers), Range(0, ici.mipLevels));
+
+	return std::make_unique<ImageAllocView>(std::move(image), std::move(view));
+}
+
+std::unique_ptr<sb::Semaphore> Vk::Device::createSemaphore(void)
+{
+	VkSemaphoreCreateInfo ci {};
+	ci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+	return std::make_unique<Semaphore>(*this, createVk(vkCreateSemaphore, ci));
+}
+
+
+std::unique_ptr<sb::Fence> Vk::Device::createFence(bool isSignaled)
+{
+	VkFenceCreateInfo ci {};
+	ci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	ci.flags = isSignaled ? VK_FENCE_CREATE_SIGNALED_BIT : 0;
+
+	return std::make_unique<Fence>(*this, createVk(vkCreateFence, ci));
+}
+
+std::unique_ptr<sb::Buffer> Vk::Device::createBuffer(size_t size, sb::Buffer::Location location, sb::Buffer::Usage usage, sb::Queue &queue)
+{
+	VkQueueFamilyIndex familyIndex = reinterpret_cast<Queue&>(queue).getFamilyIndex();
+
+	VkBufferCreateInfo bci {};
+	bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bci.size = size;
+	bci.usage = util::enum_underlying(usage);
+	bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	bci.queueFamilyIndexCount = 1;
+	bci.pQueueFamilyIndices = &familyIndex;
+
+	VmaAllocationCreateInfo aci {};
+	aci.usage = location == sb::Buffer::Location::Device ? VMA_MEMORY_USAGE_GPU_ONLY : VMA_MEMORY_USAGE_CPU_TO_GPU;
+	aci.requiredFlags = location == sb::Buffer::Location::Device ? 0 : (VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+	return std::make_unique<VmaBuffer>(allocator().createBuffer(bci, aci));
+}
+
+std::unique_ptr<sb::Model> Vk::Device::createModel(sb::Buffer &vertexBuffer, size_t vertexCount)
+{
+	return std::make_unique<Model>(reinterpret_cast<VmaBuffer&>(vertexBuffer), vertexCount);
+}
+
+std::unique_ptr<sb::Model> Vk::Device::createModelIndexed(sb::Buffer &vertexBuffer, sb::Buffer &indexBuffer, sb::Model::IndexType indexType, size_t indexCount)
+{
+	return std::make_unique<ModelIndexed>(reinterpret_cast<VmaBuffer&>(vertexBuffer), reinterpret_cast<VmaBuffer&>(indexBuffer), indexType == sb::Model::IndexType::Uint16 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32, indexCount);
+}
+
+std::unique_ptr<sb::Sampler> Vk::Device::createSampler(Filter magFilter, Filter minFilter, bool normalizedCoordinates, const sb::Sampler::AddressModeUVW &addressMode, BorderColor borderColor, const std::optional<CompareOp> &compare, sb::Sampler::MipmapMode mipmapMode, float minLod, float maxLod, float mipLodBias, const std::optional<float> &anisotropy)
+{
+	VkSamplerCreateInfo ci {};
+	ci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	ci.magFilter = static_cast<VkFilter>(util::enum_underlying(magFilter));
+	ci.minFilter = static_cast<VkFilter>(util::enum_underlying(minFilter));
+	ci.mipmapMode = static_cast<VkSamplerMipmapMode>(util::enum_underlying(mipmapMode));
+	ci.addressModeU = static_cast<VkSamplerAddressMode>(util::enum_underlying(addressMode.x));
+	ci.addressModeV = static_cast<VkSamplerAddressMode>(util::enum_underlying(addressMode.y));
+	ci.addressModeW = static_cast<VkSamplerAddressMode>(util::enum_underlying(addressMode.z));
+	ci.mipLodBias = mipLodBias;
+	ci.anisotropyEnable = anisotropy.has_value();
+	ci.maxAnisotropy = *anisotropy;
+	ci.compareEnable = compare.has_value();
+	ci.compareOp = static_cast<VkCompareOp>(util::enum_underlying(*compare));
+	ci.minLod = minLod;
+	ci.maxLod = maxLod;
+	ci.borderColor = static_cast<VkBorderColor>(util::enum_underlying(borderColor));
+	ci.unnormalizedCoordinates = !normalizedCoordinates;
+
+	return std::make_unique<Sampler>(*this, createVk(vkCreateSampler, ci));
+}
+
+std::unique_ptr<sb::RenderPass> Vk::Device::createRenderPass(sb::rs::RenderPass &renderpass)
+{
+	return std::make_unique<RenderPass>(*this, renderpass);
+}
+
+std::unique_ptr<sb::Shader> Vk::Device::createShader(rs::Shader &shader)
+{
+	return std::make_unique<Shader>(*this, shader);
+}
+
+std::unique_ptr<sb::Shader::DescriptorSet::Layout> Vk::Device::createDescriptorSetLayout(const sb::Shader::DescriptorSet::Layout::Description &desc)
+{
+	return std::make_unique<DescriptorSetLayout>(*this, desc);
+}
+
+std::unique_ptr<sb::Device> Vk::createDevice(sb::Surface &surface, const sb::Queue::Set &requiredQueues)
+{
+	auto devs = m_instance.enumerateDevices(reinterpret_cast<Surface&>(surface));
 	auto &phys = devs.getBest(requiredQueues);
 
 	sbQueueFamilyMapping queueFamilyMapping;
@@ -754,7 +879,7 @@ Vk::Device Vk::createDevice(const sb::Queue::Set &requiredQueues)
 	createInfo.enabledExtensionCount = cexts.size();
 	createInfo.ppEnabledExtensionNames = cexts.data();
 
-	return Device(m_instance, phys, queueFamilyMapping, queueMapping, Vk::create<VkDevice>(vkCreateDevice, phys, &createInfo, getAllocator()));
+	return std::make_unique<Device>(m_instance, phys, queueFamilyMapping, queueMapping, Vk::create<VkDevice>(vkCreateDevice, phys, &createInfo, getAllocator()));
 }
 
 Vk::Allocation::Allocation(Allocator &allocator, VmaAllocation alloc) :
@@ -809,25 +934,6 @@ void Vk::VmaBuffer::write(size_t off, size_t size, const void *data)
 	unmap();
 }
 
-std::unique_ptr<sb::Buffer> Vk::createBuffer(size_t size, sb::Buffer::Location location, sb::Buffer::Usage usage, sb::Queue &queue)
-{
-	VkQueueFamilyIndex familyIndex = reinterpret_cast<Queue&>(queue).getFamilyIndex();
-
-	VkBufferCreateInfo bci {};
-	bci.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bci.size = size;
-	bci.usage = util::enum_underlying(usage);
-	bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	bci.queueFamilyIndexCount = 1;
-	bci.pQueueFamilyIndices = &familyIndex;
-
-	VmaAllocationCreateInfo aci {};
-	aci.usage = location == sb::Buffer::Location::Device ? VMA_MEMORY_USAGE_GPU_ONLY : VMA_MEMORY_USAGE_CPU_TO_GPU;
-	aci.requiredFlags = location == sb::Buffer::Location::Device ? 0 : (VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-
-	return std::make_unique<VmaBuffer>(m_device.allocator().createBuffer(bci, aci));
-}
-
 Vk::Image::Image(Device &dev, VkImage image, VmaAllocation allocation) :
 	Allocation(dev.allocator(), allocation),
 	Device::Handle<VkImage>(dev, image)
@@ -840,7 +946,7 @@ void Vk::Device::Handle<VkImage>::destroy(Vk::Device &device, VkImage image)
 	device.destroy(vkDestroyImage, image);
 }
 
-static sb::Image::Aspect sbFormatToImageAspectFlags(sb::Format format)
+sb::Image::Aspect Vk::Image::sbFormatToImageAspectFlags(sb::Format format)
 {
 	static const std::set<sb::Format> depthTable {
 		sb::Format::d16_unorm,
@@ -1008,38 +1114,6 @@ Vk::ImageAllocView::~ImageAllocView(void)
 {
 }
 
-std::unique_ptr<sb::Image> Vk::createImage(sb::Image::Type type, Format format, sb::Image::Sample sample, const svec3 &extent, size_t layers, const sb::Image::MipmapLevels &mipLevels, sb::Image::Usage usage, sb::Queue &queue)
-{
-	VkQueueFamilyIndex queueFamilyIndex = reinterpret_cast<Queue&>(queue).getFamilyIndex();
-
-	VkImageCreateInfo ici {};
-	ici.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	ici.imageType = Vk::Image::sbImageTypeToVk(type);
-	ici.format = m_device.sbFormatToVk(format);
-	ici.extent = VkExtent3D {static_cast<uint32_t>(extent.x), static_cast<uint32_t>(extent.y), static_cast<uint32_t>(extent.z)};
-	ici.mipLevels = mipLevels.isFull ? static_cast<uint32_t>(std::floor(std::log2(std::max(std::max(extent.x, extent.y), extent.z))) + 1.0) : static_cast<uint32_t>(mipLevels.levels);
-	ici.arrayLayers = layers;
-	ici.samples = static_cast<VkSampleCountFlagBits>(util::enum_underlying(sample));
-	ici.tiling = VK_IMAGE_TILING_OPTIMAL;
-	ici.usage = util::enum_underlying(usage);
-	ici.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	ici.queueFamilyIndexCount = 1;
-	ici.pQueueFamilyIndices = &queueFamilyIndex;
-	ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-	VmaAllocationCreateInfo aci {};
-	aci.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-
-	VkImage vk_image;
-	VmaAllocation allocation;
-	Vk::assert(vmaCreateImage(m_device.allocator(), &ici, &aci, &vk_image, &allocation, nullptr));
-
-	auto image = Vk::Image(m_device, vk_image, allocation);
-	auto view = Vk::ImageView(m_device, image, ici.format, type, extent, ComponentSwizzle::Identity, sbFormatToImageAspectFlags(format), Range(0, ici.arrayLayers), Range(0, ici.mipLevels));
-
-	return std::make_unique<ImageAllocView>(std::move(image), std::move(view));
-}
-
 Vk::Framebuffer::Framebuffer(Device &dev, VkFramebuffer framebuffer, RenderPass &render_pass, std::vector<DescriptorSet> &&input_attachments) :
 	Device::Handle<VkFramebuffer>(dev, framebuffer),
 	m_render_pass(render_pass),
@@ -1119,11 +1193,6 @@ template <>
 void Vk::Device::Handle<VkDescriptorSetLayout>::destroy(Vk::Device &device, VkDescriptorSetLayout layout)
 {
 	device.destroy(vkDestroyDescriptorSetLayout, layout);
-}
-
-std::unique_ptr<sb::Shader::DescriptorSet::Layout> Vk::createDescriptorSetLayout(const sb::Shader::DescriptorSet::Layout::Description &desc)
-{
-	return std::make_unique<DescriptorSetLayout>(m_device, desc);
 }
 
 Vk::DescriptorSet::DescriptorSet(Vk::Device &dev, const Vk::DescriptorSetLayout &layout, sb::Queue *queue) :
@@ -1546,11 +1615,6 @@ std::unique_ptr<sb::Framebuffer> Vk::RenderPass::createFramebuffer(const svec2 &
 	return std::make_unique<Framebuffer>(m_handle.getDep(), m_handle.getDep().createVk(vkCreateFramebuffer, ci), *this, std::move(input_attachments));
 }
 
-std::unique_ptr<sb::RenderPass> Vk::createRenderPass(sb::rs::RenderPass &renderpass)
-{
-	return std::make_unique<RenderPass>(m_device, renderpass);
-}
-
 Vk::Swapchain::Swapchain(Vk::Device &device, VkSwapchainKHR swapchain, VkSurfaceFormatKHR surfaceFormat, const svec2 &extent) :
 	Device::Handle<VkSwapchainKHR>(device, swapchain),
 	m_surface_format(surfaceFormat),
@@ -1614,14 +1678,6 @@ void Vk::Device::Handle<VkSemaphore>::destroy(Vk::Device &device, VkSemaphore se
 	device.destroy(vkDestroySemaphore, semaphore);
 }
 
-std::unique_ptr<sb::Semaphore> Vk::createSemaphore(void)
-{
-	VkSemaphoreCreateInfo ci {};
-	ci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-	return std::make_unique<Semaphore>(m_device, m_device.createVk(vkCreateSemaphore, ci));
-}
-
 Vk::Fence::Fence(Device &dev, VkFence fence) :
 	Device::Handle<VkFence>(dev, fence)
 {
@@ -1649,15 +1705,6 @@ void Vk::Fence::reset(void)
 	VkFence fence = *this;
 
 	Vk::assert(vkResetFences(getDep(), 1, &fence));
-}
-
-std::unique_ptr<sb::Fence> Vk::createFence(bool isSignaled)
-{
-	VkFenceCreateInfo ci {};
-	ci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	ci.flags = isSignaled ? VK_FENCE_CREATE_SIGNALED_BIT : 0;
-
-	return std::make_unique<Fence>(m_device, m_device.createVk(vkCreateFence, ci));
 }
 
 template <>
@@ -1924,11 +1971,6 @@ Vk::PipelineLayout& Vk::Shader::getPipelineLayout(void)
 Vk::Pipeline& Vk::Shader::getPipeline(void)
 {
 	return *m_pipeline;
-}
-
-std::unique_ptr<sb::Shader> Vk::createShader(rs::Shader &shader)
-{
-	return std::make_unique<Shader>(m_device, shader);
 }
 
 Vk::CommandBuffer::CommandBuffer(CommandPool &pool, sb::CommandBuffer::Level level) :
@@ -2298,12 +2340,6 @@ void Vk::Queue::waitIdle(void)
 	vkQueueWaitIdle(*this);
 }
 
-std::unique_ptr<sb::Queue> Vk::getQueue(sb::Queue::Flag flags, size_t index)
-{
-	auto got = m_device.getQueue(flags, index);
-	return std::make_unique<Queue>(m_device, got.first, got.second);
-}
-
 Vk::Model::Model(VmaBuffer &buffer, size_t vertexCount) :
 	m_buffer(buffer),
 	m_vertex_count(vertexCount)
@@ -2321,11 +2357,6 @@ void Vk::Model::draw(sb::CommandBuffer &cmd)
 	VkDeviceSize offset = 0;
 	vkCmdBindVertexBuffers(vk_cmd, 0, 1, &buffer, &offset);
 	vkCmdDraw(vk_cmd, m_vertex_count, 1, 0, 0);
-}
-
-std::unique_ptr<sb::Model> Vk::createModel(sb::Buffer &vertexBuffer, size_t vertexCount)
-{
-	return std::make_unique<Model>(reinterpret_cast<VmaBuffer&>(vertexBuffer), vertexCount);
 }
 
 Vk::ModelIndexed::ModelIndexed(VmaBuffer &buffer, VmaBuffer &indexBuffer, VkIndexType indexType, size_t indexCount) :
@@ -2350,11 +2381,6 @@ void Vk::ModelIndexed::draw(sb::CommandBuffer &cmd)
 	vkCmdDrawIndexed(vk_cmd, m_index_count, 1, 0, 0, 0);
 }
 
-std::unique_ptr<sb::Model> Vk::createModelIndexed(sb::Buffer &vertexBuffer, sb::Buffer &indexBuffer, sb::Model::IndexType indexType, size_t indexCount)
-{
-	return std::make_unique<ModelIndexed>(reinterpret_cast<VmaBuffer&>(vertexBuffer), reinterpret_cast<VmaBuffer&>(indexBuffer), indexType == sb::Model::IndexType::Uint16 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32, indexCount);
-}
-
 Vk::Sampler::Sampler(Device &dev, VkSampler sampler) :
 	Device::Handle<VkSampler>(dev, sampler)
 {
@@ -2368,29 +2394,6 @@ template <>
 void Vk::Device::Handle<VkSampler>::destroy(Vk::Device &device, VkSampler sampler)
 {
 	device.destroy(vkDestroySampler, sampler);
-}
-
-std::unique_ptr<sb::Sampler> Vk::createSampler(Filter magFilter, Filter minFilter, bool normalizedCoordinates, const sb::Sampler::AddressModeUVW &addressMode, BorderColor borderColor, const std::optional<CompareOp> &compare, sb::Sampler::MipmapMode mipmapMode, float minLod, float maxLod, float mipLodBias, const std::optional<float> &anisotropy)
-{
-	VkSamplerCreateInfo ci {};
-	ci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	ci.magFilter = static_cast<VkFilter>(util::enum_underlying(magFilter));
-	ci.minFilter = static_cast<VkFilter>(util::enum_underlying(minFilter));
-	ci.mipmapMode = static_cast<VkSamplerMipmapMode>(util::enum_underlying(mipmapMode));
-	ci.addressModeU = static_cast<VkSamplerAddressMode>(util::enum_underlying(addressMode.x));
-	ci.addressModeV = static_cast<VkSamplerAddressMode>(util::enum_underlying(addressMode.y));
-	ci.addressModeW = static_cast<VkSamplerAddressMode>(util::enum_underlying(addressMode.z));
-	ci.mipLodBias = mipLodBias;
-	ci.anisotropyEnable = anisotropy.has_value();
-	ci.maxAnisotropy = *anisotropy;
-	ci.compareEnable = compare.has_value();
-	ci.compareOp = static_cast<VkCompareOp>(util::enum_underlying(*compare));
-	ci.minLod = minLod;
-	ci.maxLod = maxLod;
-	ci.borderColor = static_cast<VkBorderColor>(util::enum_underlying(borderColor));
-	ci.unnormalizedCoordinates = !normalizedCoordinates;
-
-	return std::make_unique<Sampler>(m_device, m_device.createVk(vkCreateSampler, ci));
 }
 
 }

@@ -23,7 +23,7 @@ private:
 	decltype(m_shader.material(world.instance.graphics)) m_material;
 	decltype(m_shader.object(world.instance.graphics)) m_object;
 	sb::Buffer::Vertex<decltype(m_shader)::Vertex> m_model_buffer;
-	decltype(world.instance.model(m_model_buffer)) m_model;
+	decltype(world.instance.device.model(m_model_buffer)) m_model;
 
 	decltype(m_model_buffer) createModelBuffer(void);
 
