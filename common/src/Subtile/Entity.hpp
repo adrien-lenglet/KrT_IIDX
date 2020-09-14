@@ -11,7 +11,6 @@
 
 namespace Subtile {
 
-class SessionBase;
 class WorldBase;
 namespace Resource {
 class Shader;
@@ -24,7 +23,6 @@ class World;
 
 class EntityBase : protected Event::World::Socket
 {
-	friend SessionBase;
 	template <typename WorldType>
 	friend class Entity;
 

@@ -4,7 +4,7 @@
 namespace Subtile {
 
 InstanceBase::InstanceBase(bool isDebug, bool isProfile) :
-	m_system(new Vk(*this, isDebug, isProfile))
+	m_system(new Vk(isDebug, isProfile))
 {
 }
 

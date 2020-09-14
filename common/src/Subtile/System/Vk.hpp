@@ -12,20 +12,16 @@
 
 namespace Subtile {
 
-class InstanceBase;
-
 class Vk : public System
 {
 public:
-	Vk(InstanceBase &instance, bool isDebug, bool isProfile);
+	Vk(bool isDebug, bool isProfile);
 	~Vk(void) override;
 
 	void scanInputs(void) override;
 	const std::map<std::string, System::Input&>& getInputs(void) override;
 
 	const VkAllocationCallbacks* getAllocator(void) const;
-
-	InstanceBase &m_sb_instance;
 
 private:
 	Glfw m_glfw;

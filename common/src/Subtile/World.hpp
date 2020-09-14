@@ -6,7 +6,6 @@
 
 namespace Subtile {
 
-class SessionBase;
 class InstanceBase;
 namespace Render {
 class Pass;
@@ -24,7 +23,6 @@ public:
 	double srandf(void);
 
 private:
-	friend SessionBase;
 	template <typename>
 	friend class Entity;
 	template <typename, typename>

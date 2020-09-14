@@ -13,7 +13,6 @@
 namespace Subtile {
 
 class WorldBase;
-class SessionBase;
 namespace Render {
 class Pass;
 }
@@ -47,7 +46,6 @@ public:
 
 private:
 	friend WorldBase;
-	friend SessionBase;
 	friend Render::Pass;
 	friend Getter;
 
@@ -74,7 +72,6 @@ public:
 
 }
 
-#include "Session.hpp"
 #include "World.hpp"
 
 namespace Subtile {
@@ -90,32 +87,17 @@ public:
 
 	template <typename WorldType>
 	using World = sb::World<InstanceType, WorldType>;
-	using Session = sb::Session<InstanceType>;
 
 	template <typename Type, typename ...Args>
 	decltype(auto) create(Args &&...args)
 	{
-		if constexpr (std::is_base_of_v<SessionBase, Type>)
-			return createSession<Type>(std::forward<Args>(args)...);
-		else if constexpr (std::is_base_of_v<WorldBase, Type>)
+		if constexpr (std::is_base_of_v<WorldBase, Type>)
 			return createWorld<Type>(std::forward<Args>(args)...);
 		else
 			static_assert(!std::is_same_v<Type, Type>, "Unknown primitive type to create");
 	}
 
 private:
-	template <typename SessionType, typename ...ArgsTypes>
-	std::unique_ptr<SessionType> createSession(ArgsTypes &&...args)
-	{
-		static_assert(std::is_base_of_v<typename SessionType::instance_type, InstanceType>, "Incompatible session");
-
-		auto res = SessionBase::getCtx().emplace_frame(std::function([&](){
-			return std::make_unique<SessionType>(std::forward<ArgsTypes>(args)...);
-		}), *this);
-		SessionBase::getSessionStack().pop();
-		return res;
-	}
-
 	template <typename WorldType, typename ...ArgsTypes>
 	std::unique_ptr<WorldType> createWorld(ArgsTypes &&...args)
 	{

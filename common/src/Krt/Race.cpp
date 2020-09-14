@@ -56,7 +56,8 @@ void Race::run(void)
 		auto t_begin_record = std::chrono::high_resolution_clock::now();
 
 		img.cmd_prim.record([&](auto &cmd){
-			cmd.memoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::AllGraphics, {}, sb::Access::TransferWrite, sb::Access::MemoryRead);
+			cmd.memoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::AllGraphics, {},
+				sb::Access::TransferWrite, sb::Access::MemoryRead);
 
 			auto srgb_lin = [](double val){
 				constexpr float unorm = 1.0 / 255.0;

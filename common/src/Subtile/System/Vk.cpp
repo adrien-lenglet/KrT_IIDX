@@ -4,12 +4,10 @@
 #include <sstream>
 #include "util/enum_class_bitmask.hpp"
 #include "Vk.hpp"
-#include "Subtile/Instance.hpp"
 
 namespace Subtile {
 
-Vk::Vk(sb::InstanceBase &instance, bool isDebug, bool isProfile) :
-	m_sb_instance(instance),
+Vk::Vk(bool isDebug, bool isProfile) :
 	m_glfw(GLFW_NO_API),
 	m_is_debug(isDebug),
 	m_is_profile(isProfile),

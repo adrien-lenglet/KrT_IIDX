@@ -100,9 +100,6 @@ private:
 
 }
 
-/*template <typename SubpassType>
-class Render*/
-
 }
 
 namespace Subtile {
