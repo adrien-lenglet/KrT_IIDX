@@ -6,9 +6,7 @@
 
 namespace Subtile {
 
-namespace Render {
-class Pass;
-}
+class RenderList;
 
 namespace Event {
 
@@ -43,7 +41,7 @@ public:
 	}
 
 	template <typename RenderType>
-	void bind(Render::Pass &pass, RenderType &&render);
+	void bind(RenderList &renderList, RenderType &&render);
 
 private:
 	Binding::Dependency::Socket m_dependencies;

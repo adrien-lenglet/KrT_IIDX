@@ -7,9 +7,6 @@
 namespace Subtile {
 
 class InstanceBase;
-namespace Render {
-class Pass;
-}
 
 class WorldBase : public EntityBase
 {
@@ -29,7 +26,6 @@ private:
 	friend class World;
 	template <typename>
 	friend class Instance;
-	friend Render::Pass;
 	static util::stack<std::reference_wrapper<InstanceBase>>& getInstanceStack(void);
 
 	std::mt19937_64 m_rand_gen;

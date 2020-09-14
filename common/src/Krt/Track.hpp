@@ -17,7 +17,7 @@ public:
 	Event<> done;
 	int track_data = 96;
 
-	class Render : public sb::Render::Pass
+	class Render : public sb::RenderList
 	{
 		Instance &m_instance;
 		decltype(res.shaders().modules().camera().loaded()) m_camera_shader;

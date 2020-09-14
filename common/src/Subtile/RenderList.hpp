@@ -11,9 +11,7 @@ namespace Event {
 class Socket;
 }
 
-namespace Render {
-
-class Pass
+class RenderList
 {
 	class SubShader;
 
@@ -42,7 +40,7 @@ class Pass
 	class ShaderPass : public ShaderBase
 	{
 	public:
-		ShaderPass(Pass &parent, Shader &shader);
+		ShaderPass(RenderList &parent, Shader &shader);
 
 		void render(sb::CommandBuffer::Record::RenderPass &cmd);
 
@@ -50,15 +48,15 @@ class Pass
 		void destroy(void) override;
 
 	private:
-		Pass &m_parent;
+		RenderList &m_parent;
 		Shader &m_shader;
 	};
 
 public:
-	Pass(void);
-	~Pass(void);
+	RenderList(void);
+	~RenderList(void);
 
-	void render(sb::CommandBuffer::Record::RenderPass &cmd);
+	void draw(sb::CommandBuffer::Record::RenderPass &cmd);
 
 	template <typename RenderShaderType, size_t SetCount>
 	void insert(const Shader::Render<RenderShaderType, SetCount> &render)
@@ -83,7 +81,7 @@ private:
 	}
 };
 
-class Pass::SubShader : public Pass::ShaderBase
+class RenderList::SubShader : public RenderList::ShaderBase
 {
 public:
 	SubShader(ShaderBase &parent, Shader::DescriptorSet &set);
@@ -100,15 +98,13 @@ private:
 
 }
 
-}
-
 namespace Subtile {
 namespace Event {
 
 template <typename RenderType>
-void Socket::bind(Render::Pass &pass, RenderType &&render)
+void Socket::bind(RenderList &renderList, RenderType &&render)
 {
-	pass.bind(m_dependencies, render);
+	renderList.bind(m_dependencies, render);
 }
 
 }

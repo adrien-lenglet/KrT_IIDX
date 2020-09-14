@@ -51,7 +51,7 @@ void Track::Render::render(sb::CommandBuffer::Record::RenderPass &cmd)
 	camera.b = -(far * near) / (far - near);
 	camera.ratio = glm::vec2(ratio, -1.0) * glm::vec2(std::tan(fov / 2.0));
 	m_instance.cur_img_res->uploadDescSet(camera);
-	static_cast<sb::Render::Pass&>(*this).render(cmd);
+	static_cast<sb::RenderList&>(*this).draw(cmd);
 }
 
 }

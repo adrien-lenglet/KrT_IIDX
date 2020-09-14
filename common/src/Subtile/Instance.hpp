@@ -13,9 +13,6 @@
 namespace Subtile {
 
 class WorldBase;
-namespace Render {
-class Pass;
-}
 
 class InstanceBase
 {
@@ -46,7 +43,6 @@ public:
 
 private:
 	friend WorldBase;
-	friend Render::Pass;
 	friend Getter;
 
 	std::unique_ptr<System> m_system;

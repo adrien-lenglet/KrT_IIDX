@@ -3,9 +3,8 @@
 #include "Instance.hpp"
 
 namespace Subtile {
-namespace Render {
 
-Pass::ShaderBase::ShaderBase(void) :
+RenderList::ShaderBase::ShaderBase(void) :
 	m_to_render([this](){
 		if (m_subpasses.size() == 0)
 			destroy();
@@ -13,7 +12,7 @@ Pass::ShaderBase::ShaderBase(void) :
 {
 }
 
-Pass::ShaderBase& Pass::ShaderBase::resolve_direct(Shader::DescriptorSet &set)
+RenderList::ShaderBase& RenderList::ShaderBase::resolve_direct(Shader::DescriptorSet &set)
 {
 	auto got = m_subpasses.find(set);
 	if (got == m_subpasses.end()) {
@@ -25,7 +24,7 @@ Pass::ShaderBase& Pass::ShaderBase::resolve_direct(Shader::DescriptorSet &set)
 	return got->second;
 }
 
-Pass::ShaderBase& Pass::ShaderBase::resolve(const util::ref_wrapper<Shader::DescriptorSet::BaseHandle> *sets, size_t set_count)
+RenderList::ShaderBase& RenderList::ShaderBase::resolve(const util::ref_wrapper<Shader::DescriptorSet::BaseHandle> *sets, size_t set_count)
 {
 	if (set_count == 0)
 		return *this;
@@ -33,18 +32,18 @@ Pass::ShaderBase& Pass::ShaderBase::resolve(const util::ref_wrapper<Shader::Desc
 	return resolve_direct(Shader::DescriptorSet::BaseHandle::Getter().getSet(*sets)).resolve(&sets[1], set_count - 1);
 }
 
-void Pass::ShaderBase::bind(Binding::Dependency::Socket &socket, Model &model)
+void RenderList::ShaderBase::bind(Binding::Dependency::Socket &socket, Model &model)
 {
 	m_to_render.bind(socket, model);
 }
 
-void Pass::ShaderBase::render_models(sb::CommandBuffer::Record::RenderPass &cmd)
+void RenderList::ShaderBase::render_models(sb::CommandBuffer::Record::RenderPass &cmd)
 {
 	for (auto &m : m_to_render)
 		m.get().draw(CommandBuffer::CmdGetter<sb::CommandBuffer::Record::RenderPass>().get(cmd));
 }
 
-void Pass::ShaderBase::remove_subpass(Shader::DescriptorSet &set)
+void RenderList::ShaderBase::remove_subpass(Shader::DescriptorSet &set)
 {
 	auto got = m_subpasses.find(set);
 	if (got == m_subpasses.end())
@@ -55,13 +54,13 @@ void Pass::ShaderBase::remove_subpass(Shader::DescriptorSet &set)
 		destroy();
 }
 
-Pass::ShaderPass::ShaderPass(Pass &parent, Shader &shader) :
+RenderList::ShaderPass::ShaderPass(RenderList &parent, Shader &shader) :
 	m_parent(parent),
 	m_shader(shader)
 {
 }
 
-void Pass::ShaderPass::render(sb::CommandBuffer::Record::RenderPass &cmd)
+void RenderList::ShaderPass::render(sb::CommandBuffer::Record::RenderPass &cmd)
 {
 	cmd.bind(m_shader);
 	render_models(cmd);
@@ -69,31 +68,31 @@ void Pass::ShaderPass::render(sb::CommandBuffer::Record::RenderPass &cmd)
 		sp.second.render(cmd, m_shader, sp.first, 0);
 }
 
-void Pass::ShaderPass::destroy(void)
+void RenderList::ShaderPass::destroy(void)
 {
 	m_parent.remove_shaderpass(m_shader);
 }
 
-Pass::Pass(void)
+RenderList::RenderList(void)
 {
 }
 
-void Pass::render(sb::CommandBuffer::Record::RenderPass &cmd)
+void RenderList::draw(sb::CommandBuffer::Record::RenderPass &cmd)
 {
 	for (auto &sp : m_shaderpasses)
 		sp.second.render(cmd);
 }
 
-Pass::~Pass(void)
+RenderList::~RenderList(void)
 {
 	m_inserted_models.clear();
 	if (m_shaderpasses.size() > 0)
 		util::fatal_throw([](){
-			throw std::runtime_error("Shader passes still in pass");
+			throw std::runtime_error("Shader passes still in render list");
 		});
 }
 
-void Pass::remove_shaderpass(Shader &shader)
+void RenderList::remove_shaderpass(Shader &shader)
 {
 	auto got = m_shaderpasses.find(shader);
 	if (got == m_shaderpasses.end())
@@ -101,7 +100,7 @@ void Pass::remove_shaderpass(Shader &shader)
 	m_shaderpasses.erase(got);
 }
 
-Pass::ShaderPass& Pass::resolve(Shader &shader)
+RenderList::ShaderPass& RenderList::resolve(Shader &shader)
 {
 	auto got = m_shaderpasses.find(shader);
 	if (got == m_shaderpasses.end()) {
@@ -113,13 +112,13 @@ Pass::ShaderPass& Pass::resolve(Shader &shader)
 	return got->second;
 }
 
-Pass::SubShader::SubShader(Pass::ShaderBase &parent, Shader::DescriptorSet &set) :
+RenderList::SubShader::SubShader(RenderList::ShaderBase &parent, Shader::DescriptorSet &set) :
 	m_parent(parent),
 	m_set(set)
 {
 }
 
-void Pass::SubShader::render(sb::CommandBuffer::Record::RenderPass &cmd, Shader &shader, Shader::DescriptorSet &set, size_t depth)
+void RenderList::SubShader::render(sb::CommandBuffer::Record::RenderPass &cmd, Shader &shader, Shader::DescriptorSet &set, size_t depth)
 {
 	cmd.bind(shader, set, depth);
 	render_models(cmd);
@@ -127,10 +126,9 @@ void Pass::SubShader::render(sb::CommandBuffer::Record::RenderPass &cmd, Shader 
 		sp.second.render(cmd, shader, sp.first, depth + 1);
 }
 
-void Pass::SubShader::destroy(void)
+void RenderList::SubShader::destroy(void)
 {
 	m_parent.remove_subpass(m_set);
 }
 
-}
 }
