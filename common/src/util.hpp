@@ -509,8 +509,6 @@ auto end(reversion_wrapper<T> w) { return std::rend(w.iterable); }
 template <typename T>
 reversion_wrapper<T> reverse(T&& iterable) { return { iterable }; }
 
-size_t rounduppwr2(size_t value);
-
 template <typename T>
 class vector
 {
@@ -559,7 +557,7 @@ public:
 		size_t cur = m_size++;
 
 		if (m_size > m_allocated)
-			reserve(m_allocated == 0 ? 1 : rounduppwr2(m_allocated));
+			reserve(m_allocated == 0 ? 1 : m_allocated * 2);
 		return *new (&m_data[cur]) T(std::forward<Args>(args)...);
 	}
 

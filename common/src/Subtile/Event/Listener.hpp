@@ -6,7 +6,7 @@ namespace Event {
 class Listener
 {
 public:
-	virtual ~Listener(void) = 0;
+	virtual ~Listener(void) = default;
 };
 
 }

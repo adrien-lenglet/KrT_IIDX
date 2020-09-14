@@ -9,8 +9,8 @@ namespace World {
 class Socket : public Event::Socket
 {
 public:
-	Socket(void);
-	~Socket(void);
+	Socket(void) = default;
+	~Socket(void) = default;
 };
 
 }

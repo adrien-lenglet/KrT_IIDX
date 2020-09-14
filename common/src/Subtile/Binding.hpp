@@ -8,7 +8,7 @@ namespace Subtile {
 class Binding
 {
 public:
-	virtual ~Binding(void) = 0;
+	virtual ~Binding(void) = default;
 
 	class Dependency;
 
