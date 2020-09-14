@@ -32,7 +32,7 @@ Track::~Track(void)
 void Track::Render::render(sb::CommandBuffer::Record::RenderPass &cmd)
 {
 	const double near = 0.1, far = 1000.0,
-	ratio = static_cast<double>(m_instance.swapchain.extent().x) / static_cast<double>(m_instance.swapchain.extent().y),
+	ratio = static_cast<double>(m_instance.swapchain->extent().x) / static_cast<double>(m_instance.swapchain->extent().y),
 	fov = 120.0 * (sb::pi / 180.0);
 	auto proj = glm::perspectiveLH_ZO<float>(fov, ratio, near, far);
 	proj[1][1] *= -1.0;

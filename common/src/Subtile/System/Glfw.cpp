@@ -302,7 +302,7 @@ Glfw::Ctx::Ctx(uint32_t api)
 		throw Error("Can't initialize GLFW");
 
 	glfwWindowHint(GLFW_CLIENT_API, api);
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 }
 
 Glfw::Ctx::Ctx(Ctx &&other)

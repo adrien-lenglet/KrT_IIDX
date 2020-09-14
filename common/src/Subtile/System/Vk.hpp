@@ -174,7 +174,10 @@ private:
 	};
 
 	class PhysicalDevices;
+public:
 	class Surface;
+
+private:
 	class Device;
 
 	class Instance : public Handle<VkInstance>
@@ -199,7 +202,7 @@ private:
 		template <typename VkHandle>
 		using Handle = HandleDep<Instance, VkHandle>;
 
-		PhysicalDevices enumerateDevices(Surface &surface);
+		PhysicalDevices enumerateDevices(void);
 
 		template <typename T, typename C>
 		auto createVk(VkResult (*fun)(VkInstance, const C *createInfo, const VkAllocationCallbacks *pAllocator, T *res), const C &createInfo)
@@ -250,6 +253,7 @@ private:
 
 	class Swapchain;
 
+public:
 	class Surface : public sb::Surface
 	{
 	public:
@@ -257,24 +261,36 @@ private:
 		~Surface(void) override;
 
 		svec2 getExtent(void) const override;
+		std::optional<svec2> isResized(void) const override;
 
 		operator VkSurfaceKHR(void) const
 		{
 			return m_surface;
 		}
 
+		void resized(const svec2 &size)
+		{
+			m_is_resized = size;
+		}
+		void resetResized(void)
+		{
+			m_is_resized.reset();
+		}
+
 	private:
 		Glfw::Window m_window;
 		VkSurfaceKHR m_surface;
 		svec2 m_extent;
+		std::optional<svec2> m_is_resized;
 	};
 
 	std::unique_ptr<sb::Surface> createSurface(const svec2 &extent, const std::string &title) override;
 
+private:
 	class PhysicalDevice
 	{
 	public:
-		PhysicalDevice(VkPhysicalDevice device, Vk::Surface &surface);
+		PhysicalDevice(VkPhysicalDevice device);
 
 		class Surface
 		{
@@ -289,12 +305,15 @@ private:
 			VkPresentModeKHR choosePresentMode(void) const;
 			VkExtent2D chooseExtent(VkExtent2D baseExtent) const;
 
+			bool getSurfaceSupport(uint32_t queueFamilyIndex) const;
+
 			operator VkSurfaceKHR(void) const;
 
 		private:
 			const VkSurfaceCapabilitiesKHR m_capabilities;
 			const std::vector<VkSurfaceFormatKHR> m_formats;
 			const std::vector<VkPresentModeKHR> m_present_modes;
+			const PhysicalDevice &m_device;
 			Vk::Surface &m_vk_surface;
 		};
 
@@ -311,13 +330,8 @@ private:
 
 		const Properties& properties(void) const;
 		const VkPhysicalDeviceFeatures& features(void) const;
-		auto& surface(void) const
-		{
-			return m_surface;
-		}
 
-		bool getSurfaceSupport(uint32_t queueFamilyIndex) const;
-		bool isCompetent(const sb::Queue::Set &requiredQueues) const;
+		bool isCompetent(const sb::Queue::Set &requiredQueues, Vk::Surface &surface) const;
 		size_t getScore(void) const;
 
 		static const util::svec required_extensions;
@@ -328,22 +342,19 @@ private:
 			QueueFamilies(PhysicalDevice &device);
 
 			const std::vector<VkQueueFamilyProperties>& properties(void) const;
-			std::optional<uint32_t> indexOf(sb::Queue::Flag flags, size_t count = 1) const;
+			std::optional<uint32_t> indexOf(Vk::PhysicalDevice::Surface &surface, sb::Queue::Flag flags, size_t count = 1) const;
 
 		private:
 			std::vector<VkQueueFamilyProperties> m_queues;
-			PhysicalDevice &m_physical_device;
 		};
 
 		const QueueFamilies& queues(void) const;
 
 	private:
 		VkPhysicalDevice m_device;
-		Vk::Surface &m_vk_surface;
 		const Properties m_props;
 		const VkPhysicalDeviceFeatures m_features;
 		const QueueFamilies m_queue_families;
-		Surface m_surface;
 
 		bool areExtensionsSupported(void) const;
 	};
@@ -351,14 +362,14 @@ private:
 	class PhysicalDevices
 	{
 	public:
-		PhysicalDevices(Vk::Instance &instance, Surface &surface);
+		PhysicalDevices(Vk::Instance &instance);
 
-		const PhysicalDevice& getBest(const sb::Queue::Set &requiredQueues) const;
+		const PhysicalDevice& getBest(const sb::Queue::Set &requiredQueues, Vk::Surface &surface) const;
 
 	private:
 		std::vector<PhysicalDevice> m_devices;
 
-		std::vector<Vk::PhysicalDevice> enumerate(Vk::Instance &instance, Surface &surface);
+		std::vector<Vk::PhysicalDevice> enumerate(Vk::Instance &instance);
 	};
 
 	class VmaBuffer;
@@ -447,6 +458,8 @@ private:
 		{
 			fun(*this, obj, m_instance.m_vk.getAllocator());
 		}
+
+		void newSurface(sb::Surface &surface) override;
 
 		std::unique_ptr<sb::Queue> getQueue(Queue::Flag flags, size_t index) override;
 		std::unique_ptr<sb::Swapchain> createSwapchain(sb::Surface &surface, const svec2 &extent, size_t desiredImageCount, sb::Image::Usage usage, sb::Queue &queue) override;

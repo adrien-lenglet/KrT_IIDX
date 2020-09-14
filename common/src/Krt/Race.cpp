@@ -1,4 +1,5 @@
 #include <chrono>
+#include <thread>
 #include "Race.hpp"
 #include "res.resdecl.hpp"
 
@@ -47,12 +48,29 @@ void Race::run(void)
 	while (!m_is_done) {
 		auto t_start = std::chrono::high_resolution_clock::now();
 
-		auto &img = images.at(instance.cur_img);
 		instance.scanInputs();
+		auto resized = instance.surface->resized();
+		if (resized) {
+			instance.graphics.waitIdle();
+			images.clear();
+			instance.swapchain.reset();
+			/*instance.surface.reset();
+			instance.surface = static_cast<sb::InstanceBase&>(instance).surface(*resized, "SUNREN®");
+			instance.device.newSurface(*instance.surface);*/
+			while (resized->x * resized->y == 0) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(1));
+				instance.scanInputs();
+				resized = instance.surface->resized();
+			}
+			instance.swapchain = instance.device.swapchain(*instance.surface, instance.surface->extent(), 2, sb::Image::Usage::ColorAttachment, instance.graphics);
+			images = getImages();
+			last_frame = nullptr;
+		}
+		auto &img = images.at(instance.cur_img);
 		m_track->events.updateEvents();
 
 		auto t_before_ac = std::chrono::high_resolution_clock::now();
-		auto swapchain_img = instance.swapchain.acquireNextImage(img.swapchain_img_avail);
+		auto swapchain_img = instance.swapchain->acquireNextImage(img.swapchain_img_avail);
 		auto t_begin_record = std::chrono::high_resolution_clock::now();
 
 		img.cmd_prim.record([&](auto &cmd){
@@ -65,11 +83,11 @@ void Race::run(void)
 				return std::pow(val * unorm, 2.2);
 			};
 
-			auto viewport = sb::rect2({0.0f, 0.0f}, {instance.swapchain.extent().x, instance.swapchain.extent().y});
+			auto viewport = sb::rect2({0.0f, 0.0f}, {instance.swapchain->extent().x, instance.swapchain->extent().y});
 
 			cmd.setViewport(viewport, 0.0f, 1.0f);
-			cmd.setScissor({{0, 0}, instance.swapchain.extent()});
-			cmd.render(img.opaque_fb, {{0, 0}, instance.swapchain.extent()},
+			cmd.setScissor({{0, 0}, instance.swapchain->extent()});
+			cmd.render(img.opaque_fb, {{0, 0}, instance.swapchain->extent()},
 				sb::Color::f32(0.0f), sb::Color::f32(srgb_lin(2.0), srgb_lin(145.0), srgb_lin(223.0), 0.0f), sb::Color::f32(0.0f), 1.0f,
 
 				[&](auto &cmd){
@@ -144,8 +162,8 @@ void Race::run(void)
 			}
 
 			cmd.setViewport(viewport, 0.0f, 1.0f);
-			cmd.setScissor({{0, 0}, instance.swapchain.extent()});
-			cmd.render(img.lighting_fb, {{0, 0}, instance.swapchain.extent()},
+			cmd.setScissor({{0, 0}, instance.swapchain->extent()});
+			cmd.render(img.lighting_fb, {{0, 0}, instance.swapchain->extent()},
 				[&](auto &cmd){
 					cmd.bind(m_lighting_shader);
 					cmd.bind(m_lighting_shader, img.lighting_samplers, 0);
@@ -170,7 +188,7 @@ void Race::run(void)
 			instance.cur_img_res->uploadDescSet(img.diffuse_bounce_random);
 
 			for (auto &b : img.diffuse_bounces) {
-				cmd.render(b.fb, {{0, 0}, instance.swapchain.extent()},
+				cmd.render(b.fb, {{0, 0}, instance.swapchain->extent()},
 					[&](auto &cmd){
 						cmd.bind(m_diffuse_bounce_shader);
 						cmd.bind(m_diffuse_bounce_shader, img.diffuse_bounce_random, 0);
@@ -184,7 +202,7 @@ void Race::run(void)
 					sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
 			}
 
-			cmd.render(img.gather_bounces_fb, {{0, 0}, instance.swapchain.extent()},
+			cmd.render(img.gather_bounces_fb, {{0, 0}, instance.swapchain->extent()},
 				[&](auto &cmd){
 					cmd.bind(m_gather_bounces_shader);
 					cmd.bind(m_gather_bounces_shader, img.gather_bounces_set, 0);
@@ -195,7 +213,7 @@ void Race::run(void)
 			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
 				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
 
-			cmd.render(img.buffer_to_wsi_screen_fbs.at(swapchain_img), {{0, 0}, instance.swapchain.extent()},
+			cmd.render(img.buffer_to_wsi_screen_fbs.at(swapchain_img), {{0, 0}, instance.swapchain->extent()},
 				[&](auto &cmd){
 					cmd.bind(m_diffuse_to_wsi_screen);
 					cmd.bind(m_diffuse_to_wsi_screen, img.diffuse_to_wsi_screen_set, 0);
@@ -225,14 +243,17 @@ void Race::run(void)
 				img.render_done);
 
 		auto t_before_present = std::chrono::high_resolution_clock::now();
-		instance.graphics.present(img.render_done, instance.swapchain.images().at(swapchain_img));
+		instance.graphics.present(img.render_done, instance.swapchain->images().at(swapchain_img));
+		img.ever_rendered = true;
 
 		auto t_next_frame = std::chrono::high_resolution_clock::now();
 		last_frame = &img;
 		instance.nextFrame();
 		auto &next_img = images.at(instance.cur_img);
-		next_img.render_done_fence.wait();
-		next_img.render_done_fence.reset();
+		if (next_img.ever_rendered) {
+			next_img.render_done_fence.wait();
+			next_img.render_done_fence.reset();
+		}
 		instance.cur_img_res->resetStagingOff();
 		instance.cur_img_res->transfer_unsafe.begin(sb::CommandBuffer::Usage::OneTimeSubmit);
 

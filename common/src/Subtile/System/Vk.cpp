@@ -7,6 +7,13 @@
 
 namespace Subtile {
 
+static std::map<GLFWwindow*, Vk::Surface*> windowToSurface;
+
+void windowResizeCallback(GLFWwindow *window, int width, int height)
+{
+	windowToSurface.at(window)->resized({width, height});
+}
+
 Vk::Vk(bool isDebug, bool isProfile) :
 	m_glfw(GLFW_NO_API),
 	m_is_debug(isDebug),
@@ -22,7 +29,9 @@ Vk::~Vk(void)
 
 void Vk::scanInputs(void)
 {
-	return m_glfw.scanInputs();
+	for (auto &wp : windowToSurface)
+		wp.second->resetResized();
+	m_glfw.scanInputs();
 }
 
 const std::map<std::string, System::Input&>& Vk::getInputs(void)
@@ -95,9 +104,9 @@ void Vk::Handle<VkInstance>::destroy(VkInstance handle)
 	vkDestroyInstance(handle, static_cast<Instance&>(*this).m_vk.getAllocator());
 }
 
-Vk::PhysicalDevices Vk::Instance::enumerateDevices(Surface &surface)
+Vk::PhysicalDevices Vk::Instance::enumerateDevices(void)
 {
-	return PhysicalDevices(*this, surface);
+	return PhysicalDevices(*this);
 }
 
 Vk::Instance Vk::createInstance(void)
@@ -215,10 +224,20 @@ Vk::Surface::Surface(Instance &instance, const svec2 &extent, const std::string 
 	m_surface(instance.createVk(glfwCreateWindowSurface, m_window)),
 	m_extent(extent)
 {
+	auto [it, suc] = windowToSurface.emplace(static_cast<GLFWwindow*>(m_window), this);
+	if (!suc)
+		throw std::runtime_error("Can't emplace window surface in table");
+	glfwSetWindowSizeCallback(m_window, windowResizeCallback);
 }
 
 Vk::Surface::~Surface(void)
 {
+	auto got = windowToSurface.find(static_cast<GLFWwindow*>(m_window));
+	if (got == windowToSurface.end())
+		util::fatal_throw([](){
+			throw std::runtime_error("Can't remove window surface in table");
+		});
+	windowToSurface.erase(got);
 }
 
 svec2 Vk::Surface::getExtent(void) const
@@ -226,20 +245,22 @@ svec2 Vk::Surface::getExtent(void) const
 	return m_extent;
 }
 
+std::optional<svec2> Vk::Surface::isResized(void) const
+{
+	return m_is_resized;
+}
+
 std::unique_ptr<sb::Surface> Vk::createSurface(const svec2 &extent, const std::string &title)
 {
 	return std::make_unique<Surface>(m_instance, extent, title);
 }
 
-Vk::PhysicalDevice::PhysicalDevice(VkPhysicalDevice device, Vk::Surface &surface) :
+Vk::PhysicalDevice::PhysicalDevice(VkPhysicalDevice device) :
 	m_device(device),
-	m_vk_surface(surface),
 	m_props(get<VkPhysicalDeviceProperties>(vkGetPhysicalDeviceProperties, m_device)),
 	m_features(get<VkPhysicalDeviceFeatures>(vkGetPhysicalDeviceFeatures, m_device)),
-	m_queue_families(*this),
-	m_surface(*this, surface)
+	m_queue_families(*this)
 {
-	static_cast<void>(m_vk_surface);
 }
 
 Vk::PhysicalDevice::operator VkPhysicalDevice(void) const
@@ -272,11 +293,6 @@ const VkPhysicalDeviceFeatures& Vk::PhysicalDevice::features(void) const
 	return m_features;
 }
 
-bool Vk::PhysicalDevice::getSurfaceSupport(uint32_t queueFamilyIndex) const
-{
-	return create<VkBool32>(vkGetPhysicalDeviceSurfaceSupportKHR, m_device, queueFamilyIndex, m_surface);
-}
-
 const VkPhysicalDeviceFeatures& Vk::PhysicalDevice::requiredFeatures(void)
 {
 	static const VkPhysicalDeviceFeatures res {
@@ -288,7 +304,7 @@ const VkPhysicalDeviceFeatures& Vk::PhysicalDevice::requiredFeatures(void)
 	return res;
 }
 
-bool Vk::PhysicalDevice::isCompetent(const sb::Queue::Set &requiredQueues) const
+bool Vk::PhysicalDevice::isCompetent(const sb::Queue::Set &requiredQueues, Vk::Surface &surface) const
 {
 	auto &req = requiredFeatures();
 	auto req_arr_size = sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32);
@@ -296,13 +312,14 @@ bool Vk::PhysicalDevice::isCompetent(const sb::Queue::Set &requiredQueues) const
 		if (reinterpret_cast<const VkBool32*>(&req)[i] && !reinterpret_cast<const VkBool32*>(&m_features)[i])
 			return false;
 
+	Vk::PhysicalDevice::Surface surf(*this, surface);
 	for (auto &qp : requiredQueues)
-		if (!m_queue_families.indexOf(qp.first, qp.second.size()))
+		if (!m_queue_families.indexOf(surf, qp.first, qp.second.size()))
 			return false;
-	/*if (surface().formats().size() == 0)
+	if (surf.formats().size() == 0)
 		return false;
-	if (surface().presentModes().size() == 0)
-		return false;*/
+	if (surf.presentModes().size() == 0)
+		return false;
 	if (!areExtensionsSupported())
 		return false;
 	return true;
@@ -339,8 +356,7 @@ const Vk::PhysicalDevice::QueueFamilies& Vk::PhysicalDevice::queues(void) const
 }
 
 Vk::PhysicalDevice::QueueFamilies::QueueFamilies(Vk::PhysicalDevice &device) :
-	m_queues(getCollection<VkQueueFamilyProperties>(vkGetPhysicalDeviceQueueFamilyProperties, device)),
-	m_physical_device(device)
+	m_queues(getCollection<VkQueueFamilyProperties>(vkGetPhysicalDeviceQueueFamilyProperties, device))
 {
 }
 
@@ -349,7 +365,7 @@ const std::vector<VkQueueFamilyProperties>& Vk::PhysicalDevice::QueueFamilies::p
 	return m_queues;
 }
 
-std::optional<uint32_t> Vk::PhysicalDevice::QueueFamilies::indexOf(sb::Queue::Flag flags, size_t count) const
+std::optional<uint32_t> Vk::PhysicalDevice::QueueFamilies::indexOf(Vk::PhysicalDevice::Surface &surface, sb::Queue::Flag flags, size_t count) const
 {
 	VkQueueFlags vkFlags = static_cast<std::underlying_type_t<decltype(flags)>>(flags & ~sb::Queue::Flag::Present);
 	bool isPresent = !!(flags & sb::Queue::Flag::Present);
@@ -376,7 +392,7 @@ std::optional<uint32_t> Vk::PhysicalDevice::QueueFamilies::indexOf(sb::Queue::Fl
 
 	for (auto &q : m_queues) {
 		auto ndx = n++;
-		auto present_support = m_physical_device.getSurfaceSupport(ndx);
+		auto present_support = surface.getSurfaceSupport(ndx);
 		if (q.queueCount > 0 && q.queueFlags & vkFlags && (isPresent && present_support)) {
 			BestAttr attr {ndx, q.queueCount, 0};
 			for (size_t i = 0; i < 32; i++)
@@ -402,9 +418,9 @@ Vk::PhysicalDevice::Surface::Surface(const PhysicalDevice &device, Vk::Surface &
 	m_capabilities(create<VkSurfaceCapabilitiesKHR>(vkGetPhysicalDeviceSurfaceCapabilitiesKHR, device, surface)),
 	m_formats(enumerate<VkSurfaceFormatKHR>(vkGetPhysicalDeviceSurfaceFormatsKHR, device, surface)),
 	m_present_modes(enumerate<VkPresentModeKHR>(vkGetPhysicalDeviceSurfacePresentModesKHR, device, surface)),
+	m_device(device),
 	m_vk_surface(surface)
 {
-	static_cast<void>(m_vk_surface);
 }
 
 const VkSurfaceCapabilitiesKHR& Vk::PhysicalDevice::Surface::capabilities(void) const
@@ -452,29 +468,34 @@ VkExtent2D Vk::PhysicalDevice::Surface::chooseExtent(VkExtent2D baseExtent) cons
 	}
 }
 
+bool Vk::PhysicalDevice::Surface::getSurfaceSupport(uint32_t queueFamilyIndex) const
+{
+	return create<VkBool32>(vkGetPhysicalDeviceSurfaceSupportKHR, m_device, queueFamilyIndex, m_vk_surface);
+}
+
 Vk::PhysicalDevice::Surface::operator VkSurfaceKHR(void) const
 {
 	return m_vk_surface;
 }
 
-Vk::PhysicalDevices::PhysicalDevices(Vk::Instance &instance, Surface &surface) :
-	m_devices(enumerate(instance, surface))
+Vk::PhysicalDevices::PhysicalDevices(Vk::Instance &instance) :
+	m_devices(enumerate(instance))
 {
 }
 
-const Vk::PhysicalDevice& Vk::PhysicalDevices::getBest(const sb::Queue::Set &requiredQueues) const
+const Vk::PhysicalDevice& Vk::PhysicalDevices::getBest(const sb::Queue::Set &requiredQueues, Vk::Surface &surface) const
 {
 	std::map<size_t, std::reference_wrapper<const PhysicalDevice>> cands;
 
 	for (auto &p : m_devices)
-		if (p.isCompetent(requiredQueues))
+		if (p.isCompetent(requiredQueues, surface))
 			cands.emplace(p.getScore(), p);
 	if (cands.size() == 0)
 		throw std::runtime_error("No compatible GPU found");
 	return cands.rbegin()->second.get();
 }
 
-std::vector<Vk::PhysicalDevice> Vk::PhysicalDevices::enumerate(Instance &instance, Surface &surface)
+std::vector<Vk::PhysicalDevice> Vk::PhysicalDevices::enumerate(Instance &instance)
 {
 	auto devices = Vk::enumerate<VkPhysicalDevice>(vkEnumeratePhysicalDevices, instance);
 
@@ -482,7 +503,7 @@ std::vector<Vk::PhysicalDevice> Vk::PhysicalDevices::enumerate(Instance &instanc
 	res.reserve(devices.size());
 
 	for (auto &d : devices)
-		res.emplace_back(d, surface);
+		res.emplace_back(d);
 	return res;
 }
 
@@ -678,6 +699,16 @@ Vk::Allocator& Vk::Device::allocator(void)
 	return m_allocator;
 }
 
+void Vk::Device::newSurface(sb::Surface &surface)
+{
+	auto size = m_physical.queues().properties().size();
+	auto surf = Vk::PhysicalDevice::Surface(m_physical, reinterpret_cast<Vk::Surface&>(surface));
+	for (size_t i = 0; i < size; i++)
+		if (surf.getSurfaceSupport(i))
+			return;
+	throw std::runtime_error("Device is not compatible with new surface");
+}
+
 std::unique_ptr<sb::Queue> Vk::Device::getQueue(Queue::Flag flags, size_t index)
 {
 	auto queue = m_queue_mapping.at(std::make_pair(flags, index));
@@ -702,8 +733,8 @@ std::unique_ptr<sb::Swapchain> Vk::Device::createSwapchain(sb::Surface &surface,
 	ci.minImageCount = std::clamp(static_cast<uint32_t>(desiredImageCount), surf_cap.minImageCount, surf_cap.maxImageCount);
 	ci.imageFormat = format.format;
 	ci.imageColorSpace = format.colorSpace;
-	ci.imageExtent = VkExtent2D{std::clamp(static_cast<uint32_t>(extent.x), surf_cap.minImageExtent.width, surf_cap.minImageExtent.width),
-		std::clamp(static_cast<uint32_t>(extent.y), surf_cap.maxImageExtent.height, surf_cap.maxImageExtent.height)};
+	ci.imageExtent = VkExtent2D{std::clamp(static_cast<uint32_t>(extent.x), std::max(surf_cap.minImageExtent.width, static_cast<uint32_t>(1)), surf_cap.maxImageExtent.width),
+		std::clamp(static_cast<uint32_t>(extent.y), std::max(surf_cap.minImageExtent.height, static_cast<uint32_t>(1)), surf_cap.maxImageExtent.height)};
 	ci.imageArrayLayers = 1;
 	ci.imageUsage = util::enum_underlying(usage);
 	ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -837,8 +868,10 @@ std::unique_ptr<sb::Shader::DescriptorSet::Layout> Vk::Device::createDescriptorS
 
 std::unique_ptr<sb::Device> Vk::createDevice(sb::Surface &surface, const sb::Queue::Set &requiredQueues)
 {
-	auto devs = m_instance.enumerateDevices(reinterpret_cast<Surface&>(surface));
-	auto &phys = devs.getBest(requiredQueues);
+	auto &vk_surf = reinterpret_cast<Surface&>(surface);
+	auto devs = m_instance.enumerateDevices();
+	auto &phys = devs.getBest(requiredQueues, vk_surf);
+	auto surf_prop = Vk::PhysicalDevice::Surface(phys, vk_surf);
 
 	sbQueueFamilyMapping queueFamilyMapping;
 	sbQueueMapping queueMapping;
@@ -850,7 +883,7 @@ std::unique_ptr<sb::Device> Vk::createDevice(sb::Surface &surface, const sb::Que
 	std::map<VkQueueFamilyIndex, QueueAlloc> allocated;
 
 	for (auto &qp : requiredQueues) {
-		auto family_ndx = *phys.queues().indexOf(qp.first, qp.second.size());
+		auto family_ndx = *phys.queues().indexOf(surf_prop, qp.first, qp.second.size());
 		auto &alloc = allocated[family_ndx];
 		auto &qf_prop = phys.queues().properties().at(family_ndx);
 		queueFamilyMapping.emplace(std::piecewise_construct, std::forward_as_tuple(qp.first), std::forward_as_tuple(family_ndx));

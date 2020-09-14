@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include "Queue.hpp"
 
 namespace Subtile {
@@ -11,6 +12,7 @@ public:
 	virtual ~Surface(void) = default;
 
 	virtual svec2 getExtent(void) const = 0;
+	virtual std::optional<svec2> isResized(void) const = 0;
 
 	class Handle
 	{
@@ -20,9 +22,14 @@ public:
 		{
 		}
 
-		svec2 extent(void) const
+		auto extent(void) const
 		{
 			return m_surface->getExtent();
+		}
+
+		auto resized(void) const
+		{
+			return m_surface->isResized();
 		}
 
 		operator Surface&(void)

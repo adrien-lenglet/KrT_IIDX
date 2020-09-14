@@ -24,6 +24,8 @@ public:
 	Device(void) = default;
 	virtual ~Device(void) = default;
 
+	virtual void newSurface(Surface &surface) = 0;
+
 	virtual std::unique_ptr<Queue> getQueue(Queue::Flag flags, size_t index) = 0;
 	virtual std::unique_ptr<sb::Swapchain> createSwapchain(Surface &surface, const svec2 &extent, size_t desiredImageCount, sb::Image::Usage usage, sb::Queue &queue) = 0;
 	virtual std::unique_ptr<Image> createImage(Image::Type type, Format format, Image::Sample sample, const svec3 &extent, size_t layers, const sb::Image::MipmapLevels &mipLevels, Image::Usage usage, Queue &queue) = 0;
@@ -86,6 +88,11 @@ public:
 		Handle(std::unique_ptr<Device> &&device) :
 			m_device(std::move(device))
 		{
+		}
+
+		void newSurface(Surface &surface)
+		{
+			m_device->newSurface(surface);
 		}
 
 		template <sb::Queue::Flag Flags>

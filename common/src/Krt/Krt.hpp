@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <vector>
 #include <string>
 
@@ -26,10 +27,10 @@ public:
 
 	void run(void);
 
-	sb::Surface::Handle surface;
+	std::optional<sb::Surface::Handle> surface;
 	sb::Device::Handle device;
 	sb::Queue::Handle<m_graphics_family> graphics;
-	sb::Swapchain::Handle swapchain;
+	std::optional<sb::Swapchain::Handle> swapchain;
 	decltype(graphics.pool<true>()) m_transfer_pool;
 
 public:
