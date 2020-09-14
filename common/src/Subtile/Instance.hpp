@@ -3,7 +3,6 @@
 #include <memory>
 #include "../Subtile.hpp"
 #include "System.hpp"
-#include "Event/System/Observer.hpp"
 #include "Shader.hpp"
 #include "Image.hpp"
 #include "Swapchain.hpp"
@@ -24,8 +23,6 @@ class InstanceBase
 public:
 	InstanceBase(bool isDebug, bool isProfile);
 	~InstanceBase(void);
-
-	void setInputs(const std::function<void (const Event::System::Observer::Input::Setter &setter)> &binder);
 
 	class Getter
 	{
@@ -55,7 +52,6 @@ private:
 	friend Getter;
 
 	std::unique_ptr<System> m_system;
-	Event::System::Observer m_events;
 
 	System& system(void);
 
@@ -73,7 +69,6 @@ public:
 	void scanInputs(void)
 	{
 		system().scanInputs();
-		m_events.updateEvents();
 	}
 };
 

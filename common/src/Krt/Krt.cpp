@@ -55,10 +55,6 @@ Instance::~Instance(void)
 
 void Instance::run(void)
 {
-	/*setInputs([](const auto &s){
-		s.addButton("quit");
-	});*/
-
 	auto race = Race(*this);
 	race.run();
 }

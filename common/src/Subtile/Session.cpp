@@ -16,7 +16,7 @@ void SessionBase::run(void)
 {
 	while (!m_done) {
 		m_instance.m_system->scanInputs();
-		m_instance.m_events.updateEvents();
+		//m_instance.m_events.updateEvents();
 		for (auto &w : updated_worlds())
 			w.get().events.updateEvents();
 		render();

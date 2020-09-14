@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Event/System/Observer.hpp"
 #include "Event/Socket.hpp"
 #include "Math.hpp"
 #include "util.hpp"

@@ -7,7 +7,6 @@ namespace Subtile {
 
 WorldBase::WorldBase(void) :
 	EntityBase(getCtx().top().getParent()),
-	events(getInstanceStack().top().get().m_events),
 	m_rand_gen(std::time(nullptr))
 {
 }

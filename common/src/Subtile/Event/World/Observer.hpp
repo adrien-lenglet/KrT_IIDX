@@ -1,6 +1,7 @@
 #pragma once
 
-#include "../System/Observer.hpp"
+#include <chrono>
+#include "Subtile/Event/Observer.hpp"
 
 namespace Subtile {
 
@@ -12,10 +13,8 @@ class Socket;
 class Observer : public Event::Observer::Cluster
 {
 public:
-	Observer(Subtile::Event::System::Observer &system);
+	Observer(void);
 	~Observer(void) override;
-
-	Subtile::Event::System::Observer &system;
 
 	class Update : public Cluster, public DescGen<Update>, public Group<Update, std::tuple<>, std::tuple<double>>
 	{
@@ -28,9 +27,6 @@ public:
 	} update;
 
 	void updateEvents(void);
-
-private:
-	friend SessionBase;
 };
 
 }

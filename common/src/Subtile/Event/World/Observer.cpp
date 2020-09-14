@@ -5,8 +5,7 @@ namespace Subtile {
 namespace Event {
 namespace World {
 
-Observer::Observer(Subtile::Event::System::Observer &system) :
-	system(system)
+Observer::Observer(void)
 {
 	add(static_cast<Observer::Cluster&>(update));
 }
