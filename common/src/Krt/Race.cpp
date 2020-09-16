@@ -49,6 +49,8 @@ void Race::run(void)
 		auto t_start = std::chrono::high_resolution_clock::now();
 
 		instance.scanInputs();
+		if (instance.surface->shouldClose())
+			break;
 		auto resized = instance.surface->resized();
 		if (resized) {
 			instance.graphics.waitIdle();

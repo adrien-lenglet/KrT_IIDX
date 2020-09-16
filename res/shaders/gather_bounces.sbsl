@@ -28,6 +28,7 @@ fragment {
 			cur += texture(light.bounces[i], gl_FragCoord.xy).xyz;
 
 		vec3 last = texture(light.last_diffuse, gl_FragCoord.xy).xyz;
+		//float last_sum = abs(last.x) + abs(last.y) + abs(last.z);
 		vec3 dif3 = abs(cur - last);
 		float dif = min((dif3.x + dif3.y + dif3.z) / 3.0, 1.0);
 		(out)diffuse = mix(last, cur, clamp(pow(dif, .5), 0.0, 1.0));

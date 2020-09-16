@@ -221,7 +221,7 @@ void Vk::Instance::Handle<VkSurfaceKHR>::destroy(Vk::Instance &instance, VkSurfa
 
 Vk::Surface::Surface(Instance &instance, const svec2 &extent, const std::string &title) :
 	m_window(extent, title),
-	m_surface(instance.createVk(glfwCreateWindowSurface, m_window)),
+	m_surface(instance, instance.createVk(glfwCreateWindowSurface, m_window)),
 	m_extent(extent)
 {
 	auto [it, suc] = windowToSurface.emplace(static_cast<GLFWwindow*>(m_window), this);
@@ -248,6 +248,11 @@ svec2 Vk::Surface::getExtent(void) const
 std::optional<svec2> Vk::Surface::isResized(void) const
 {
 	return m_is_resized;
+}
+
+bool Vk::Surface::shouldClose(void) const
+{
+	return glfwWindowShouldClose(m_window);
 }
 
 std::unique_ptr<sb::Surface> Vk::createSurface(const svec2 &extent, const std::string &title)

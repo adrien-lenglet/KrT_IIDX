@@ -262,6 +262,7 @@ public:
 
 		svec2 getExtent(void) const override;
 		std::optional<svec2> isResized(void) const override;
+		bool shouldClose(void) const override;
 
 		operator VkSurfaceKHR(void) const
 		{
@@ -279,7 +280,7 @@ public:
 
 	private:
 		Glfw::Window m_window;
-		VkSurfaceKHR m_surface;
+		Instance::Handle<VkSurfaceKHR> m_surface;
 		svec2 m_extent;
 		std::optional<svec2> m_is_resized;
 	};

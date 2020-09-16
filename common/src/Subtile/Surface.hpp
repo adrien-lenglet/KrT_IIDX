@@ -13,6 +13,7 @@ public:
 
 	virtual svec2 getExtent(void) const = 0;
 	virtual std::optional<svec2> isResized(void) const = 0;
+	virtual bool shouldClose(void) const = 0;
 
 	class Handle
 	{
@@ -30,6 +31,11 @@ public:
 		auto resized(void) const
 		{
 			return m_surface->isResized();
+		}
+
+		bool shouldClose(void) const
+		{
+			return m_surface->shouldClose();
 		}
 
 		operator Surface&(void)
