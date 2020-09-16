@@ -162,7 +162,8 @@ fragment {
 
 	void main(void)
 	{
-		vec3 sun_dir = normalize(vec3(0.0, 1.0, -.2)).xyz;
+		const vec3 sun_dir_w = normalize(vec3(0.0, 1.0, -.2)).xyz;
+		vec3 sun_dir = (camera.view_normal * vec4(sun_dir_w, 1.0)).xyz;
 		vec3 view = current_view();
 		vec3 view_norm = normalize(view);
 		vec3 normal = texture(fb.normal, gl_FragCoord.xy).xyz;

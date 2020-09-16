@@ -45,12 +45,20 @@ Race::~Race(void)
 void Race::run(void)
 {
 	Image *last_frame = nullptr;
+	auto &esc = *instance.surface->buttonsId().at("KB_ESCAPE");
+	bool cursor_mode = false;
 	while (!m_is_done) {
 		auto t_start = std::chrono::high_resolution_clock::now();
 
 		instance.scanInputs();
+		esc.update();
+		if (esc.released()) {
+			cursor_mode = !cursor_mode;
+			instance.surface->cursorMode(cursor_mode);
+		}
 		if (instance.surface->shouldClose())
 			break;
+
 		auto resized = instance.surface->resized();
 		if (resized) {
 			instance.graphics.waitIdle();

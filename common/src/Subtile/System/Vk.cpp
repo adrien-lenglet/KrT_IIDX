@@ -9,7 +9,7 @@ namespace Subtile {
 
 static std::map<GLFWwindow*, Vk::Surface*> windowToSurface;
 
-void windowResizeCallback(GLFWwindow *window, int width, int height)
+void framebufferResizeCallback(GLFWwindow *window, int width, int height)
 {
 	windowToSurface.at(window)->resized({width, height});
 }
@@ -32,11 +32,6 @@ void Vk::scanInputs(void)
 	for (auto &wp : windowToSurface)
 		wp.second->resetResized();
 	m_glfw.scanInputs();
-}
-
-const std::map<std::string, System::Input&>& Vk::getInputs(void)
-{
-	return m_glfw.getInputs();
 }
 
 const VkAllocationCallbacks* Vk::getAllocator(void) const
@@ -213,21 +208,197 @@ std::optional<Vk::DebugMessenger> Vk::createDebugMessenger(void)
 	return m_instance.create<DebugMessenger>(m_instance.getProcAddr<PFN_vkCreateDebugUtilsMessengerEXT>("vkCreateDebugUtilsMessengerEXT"), ci);
 }
 
-template <>
-void Vk::Instance::Handle<VkSurfaceKHR>::destroy(Vk::Instance &instance, VkSurfaceKHR surface)
+static const std::map<std::string, int> glfw_keys = {
+	{"KB_SPACE", GLFW_KEY_SPACE},
+	{"KB_APOSTROPHE", GLFW_KEY_APOSTROPHE},
+	{"KB_COMMA", GLFW_KEY_COMMA},
+	{"KB_MINUS", GLFW_KEY_MINUS},
+	{"KB_PERIOD", GLFW_KEY_PERIOD},
+	{"KB_SLASH", GLFW_KEY_SLASH},
+	{"KB_0", GLFW_KEY_0},
+	{"KB_1", GLFW_KEY_1},
+	{"KB_2", GLFW_KEY_2},
+	{"KB_3", GLFW_KEY_3},
+	{"KB_4", GLFW_KEY_4},
+	{"KB_5", GLFW_KEY_5},
+	{"KB_6", GLFW_KEY_6},
+	{"KB_7", GLFW_KEY_7},
+	{"KB_8", GLFW_KEY_8},
+	{"KB_9", GLFW_KEY_9},
+	{"KB_SEMICOLON", GLFW_KEY_SEMICOLON},
+	{"KB_EQUAL", GLFW_KEY_EQUAL},
+	{"KB_A", GLFW_KEY_A},
+	{"KB_B", GLFW_KEY_B},
+	{"KB_C", GLFW_KEY_C},
+	{"KB_D", GLFW_KEY_D},
+	{"KB_E", GLFW_KEY_E},
+	{"KB_F", GLFW_KEY_F},
+	{"KB_G", GLFW_KEY_G},
+	{"KB_H", GLFW_KEY_H},
+	{"KB_I", GLFW_KEY_I},
+	{"KB_J", GLFW_KEY_J},
+	{"KB_K", GLFW_KEY_K},
+	{"KB_L", GLFW_KEY_L},
+	{"KB_M", GLFW_KEY_M},
+	{"KB_N", GLFW_KEY_N},
+	{"KB_O", GLFW_KEY_O},
+	{"KB_P", GLFW_KEY_P},
+	{"KB_Q", GLFW_KEY_Q},
+	{"KB_R", GLFW_KEY_R},
+	{"KB_S", GLFW_KEY_S},
+	{"KB_T", GLFW_KEY_T},
+	{"KB_U", GLFW_KEY_U},
+	{"KB_V", GLFW_KEY_V},
+	{"KB_W", GLFW_KEY_W},
+	{"KB_X", GLFW_KEY_X},
+	{"KB_Y", GLFW_KEY_Y},
+	{"KB_Z", GLFW_KEY_Z},
+	{"KB_LEFT_BRACKET", GLFW_KEY_LEFT_BRACKET},
+	{"KB_BACKSLASH", GLFW_KEY_BACKSLASH},
+	{"KB_RIGHT_BRACKET", GLFW_KEY_RIGHT_BRACKET},
+	{"KB_GRAVE_ACCENT", GLFW_KEY_GRAVE_ACCENT},
+	{"KB_WORLD_1", GLFW_KEY_WORLD_1},
+	{"KB_WORLD_2", GLFW_KEY_WORLD_2},
+	{"KB_ESCAPE", GLFW_KEY_ESCAPE},
+	{"KB_ENTER", GLFW_KEY_ENTER},
+	{"KB_TAB", GLFW_KEY_TAB},
+	{"KB_BACKSPACE", GLFW_KEY_BACKSPACE},
+	{"KB_INSERT", GLFW_KEY_INSERT},
+	{"KB_DELETE", GLFW_KEY_DELETE},
+	{"KB_RIGHT", GLFW_KEY_RIGHT},
+	{"KB_LEFT", GLFW_KEY_LEFT},
+	{"KB_DOWN", GLFW_KEY_DOWN},
+	{"KB_UP", GLFW_KEY_UP},
+	{"KB_PAGE_UP", GLFW_KEY_PAGE_UP},
+	{"KB_PAGE_DOWN", GLFW_KEY_PAGE_DOWN},
+	{"KB_HOME", GLFW_KEY_HOME},
+	{"KB_END", GLFW_KEY_END},
+	{"KB_CAPS_LOCK", GLFW_KEY_CAPS_LOCK},
+	{"KB_SCROLL_LOCK", GLFW_KEY_SCROLL_LOCK},
+	{"KB_NUM_LOCK", GLFW_KEY_NUM_LOCK},
+	{"KB_PRINT_SCREEN", GLFW_KEY_PRINT_SCREEN},
+	{"KB_PAUSE", GLFW_KEY_PAUSE},
+	{"KB_F1", GLFW_KEY_F1},
+	{"KB_F2", GLFW_KEY_F2},
+	{"KB_F3", GLFW_KEY_F3},
+	{"KB_F4", GLFW_KEY_F4},
+	{"KB_F5", GLFW_KEY_F5},
+	{"KB_F6", GLFW_KEY_F6},
+	{"KB_F7", GLFW_KEY_F7},
+	{"KB_F8", GLFW_KEY_F8},
+	{"KB_F9", GLFW_KEY_F9},
+	{"KB_F10", GLFW_KEY_F10},
+	{"KB_F11", GLFW_KEY_F11},
+	{"KB_F12", GLFW_KEY_F12},
+	{"KB_F13", GLFW_KEY_F13},
+	{"KB_F14", GLFW_KEY_F14},
+	{"KB_F15", GLFW_KEY_F15},
+	{"KB_F16", GLFW_KEY_F16},
+	{"KB_F17", GLFW_KEY_F17},
+	{"KB_F18", GLFW_KEY_F18},
+	{"KB_F19", GLFW_KEY_F19},
+	{"KB_F20", GLFW_KEY_F20},
+	{"KB_F21", GLFW_KEY_F21},
+	{"KB_F22", GLFW_KEY_F22},
+	{"KB_F23", GLFW_KEY_F23},
+	{"KB_F24", GLFW_KEY_F24},
+	{"KB_F25", GLFW_KEY_F25},
+	{"KB_KP_0", GLFW_KEY_KP_0},
+	{"KB_KP_1", GLFW_KEY_KP_1},
+	{"KB_KP_2", GLFW_KEY_KP_2},
+	{"KB_KP_3", GLFW_KEY_KP_3},
+	{"KB_KP_4", GLFW_KEY_KP_4},
+	{"KB_KP_5", GLFW_KEY_KP_5},
+	{"KB_KP_6", GLFW_KEY_KP_6},
+	{"KB_KP_7", GLFW_KEY_KP_7},
+	{"KB_KP_8", GLFW_KEY_KP_8},
+	{"KB_KP_9", GLFW_KEY_KP_9},
+	{"KB_KP_DECIMAL", GLFW_KEY_KP_DECIMAL},
+	{"KB_KP_DIVIDE", GLFW_KEY_KP_DIVIDE},
+	{"KB_KP_MULTIPLY", GLFW_KEY_KP_MULTIPLY},
+	{"KB_KP_SUBTRACT", GLFW_KEY_KP_SUBTRACT},
+	{"KB_KP_ADD", GLFW_KEY_KP_ADD},
+	{"KB_KP_ENTER", GLFW_KEY_KP_ENTER},
+	{"KB_KP_EQUAL", GLFW_KEY_KP_EQUAL},
+	{"KB_LEFT_SHIFT", GLFW_KEY_LEFT_SHIFT},
+	{"KB_LEFT_CONTROL", GLFW_KEY_LEFT_CONTROL},
+	{"KB_LEFT_ALT", GLFW_KEY_LEFT_ALT},
+	{"KB_LEFT_SUPER", GLFW_KEY_LEFT_SUPER},
+	{"KB_RIGHT_SHIFT", GLFW_KEY_RIGHT_SHIFT},
+	{"KB_RIGHT_CONTROL", GLFW_KEY_RIGHT_CONTROL},
+	{"KB_RIGHT_ALT", GLFW_KEY_RIGHT_ALT},
+	{"KB_RIGHT_SUPER", GLFW_KEY_RIGHT_SUPER},
+	{"KB_MENU", GLFW_KEY_MENU}
+};
+
+std::vector<std::unique_ptr<Button>> Vk::Surface::createUniqueButtons(void)
 {
-	instance.destroy(vkDestroySurfaceKHR, surface);
+	std::vector<std::unique_ptr<Button>> res;
+
+	for (const auto &k : glfw_keys)
+		res.emplace_back(new GlfwButton(k.first, m_window, k.second));
+	return res;
+}
+
+Vk::Surface::GlfwButton::GlfwButton(const std::string &id, GLFWwindow *window, int key_id) :
+	m_id(id),
+	m_window(window),
+	m_key_id(key_id)
+{
+}
+
+Vk::Surface::GlfwButton::~GlfwButton(void)
+{
+}
+
+void Vk::Surface::GlfwButton::update(void)
+{
+	m_last_state = m_state;
+	m_state = glfwGetKey(m_window, m_key_id) == GLFW_PRESS ? true : false;
+}
+
+const std::string& Vk::Surface::GlfwButton::id(void) const
+{
+	return m_id;
+}
+
+bool Vk::Surface::GlfwButton::active(void) const
+{
+	return m_last_state != m_state;
+}
+
+bool Vk::Surface::GlfwButton::state(void) const
+{
+	return m_state;
+}
+
+bool Vk::Surface::GlfwButton::pressed(void) const
+{
+	return !m_last_state && m_state;
+}
+
+bool Vk::Surface::GlfwButton::released(void) const
+{
+	return m_last_state && !m_state;
 }
 
 Vk::Surface::Surface(Instance &instance, const svec2 &extent, const std::string &title) :
 	m_window(extent, title),
 	m_surface(instance, instance.createVk(glfwCreateWindowSurface, m_window)),
-	m_extent(extent)
+	m_extent(m_window.getSize()),
+	m_unique_buttons(createUniqueButtons()),
+	m_buttons(getButtons()),
+	m_buttons_id(getButtonsId()),
+	m_inputs(getInputs()),
+	m_inputs_id(getInputsId())
 {
 	auto [it, suc] = windowToSurface.emplace(static_cast<GLFWwindow*>(m_window), this);
 	if (!suc)
 		throw std::runtime_error("Can't emplace window surface in table");
-	glfwSetWindowSizeCallback(m_window, windowResizeCallback);
+	glfwSetFramebufferSizeCallback(m_window, framebufferResizeCallback);
+	glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	if (glfwRawMouseMotionSupported())
+		glfwSetInputMode(m_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
 }
 
 Vk::Surface::~Surface(void)
@@ -238,6 +409,12 @@ Vk::Surface::~Surface(void)
 			throw std::runtime_error("Can't remove window surface in table");
 		});
 	windowToSurface.erase(got);
+}
+
+template <>
+void Vk::Instance::Handle<VkSurfaceKHR>::destroy(Vk::Instance &instance, VkSurfaceKHR surface)
+{
+	instance.destroy(vkDestroySurfaceKHR, surface);
 }
 
 svec2 Vk::Surface::getExtent(void) const
@@ -253,6 +430,49 @@ std::optional<svec2> Vk::Surface::isResized(void) const
 bool Vk::Surface::shouldClose(void) const
 {
 	return glfwWindowShouldClose(m_window);
+}
+
+const std::vector<Input*>& Vk::Surface::getInputs(void) const
+{
+	return m_inputs;
+}
+
+const std::map<std::string, Input*>&Vk::Surface:: getInputsId(void) const
+{
+	return m_inputs_id;
+}
+
+const std::vector<Button*>& Vk::Surface::getButtons(void) const
+{
+	return m_buttons;
+}
+
+const std::map<std::string, Button*>& Vk::Surface::getButtonsId(void) const
+{
+	return m_buttons_id;
+}
+
+const std::vector<Analog*>& Vk::Surface::getAnalogs(void) const
+{
+	return m_analogs;
+}
+
+const std::map<std::string, Analog*>& Vk::Surface::getAnalogsId(void) const
+{
+	return m_analogs_id;
+}
+
+glm::dvec2 Vk::Surface::cursor(void) const
+{
+	double x, y;
+
+	glfwGetCursorPos(m_window, &x, &y);
+	return {x, y};
+}
+
+void Vk::Surface::cursorMode(bool show)
+{
+	glfwSetInputMode(m_window, GLFW_CURSOR, show ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
 }
 
 std::unique_ptr<sb::Surface> Vk::createSurface(const svec2 &extent, const std::string &title)

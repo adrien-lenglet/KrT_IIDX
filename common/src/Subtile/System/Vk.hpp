@@ -19,7 +19,6 @@ public:
 	~Vk(void) override;
 
 	void scanInputs(void) override;
-	const std::map<std::string, System::Input&>& getInputs(void) override;
 
 	const VkAllocationCallbacks* getAllocator(void) const;
 
@@ -264,6 +263,16 @@ public:
 		std::optional<svec2> isResized(void) const override;
 		bool shouldClose(void) const override;
 
+		const std::vector<Input*>& getInputs(void) const override;
+		const std::map<std::string, Input*>& getInputsId(void) const override;
+		const std::vector<Button*>& getButtons(void) const override;
+		const std::map<std::string, Button*>& getButtonsId(void) const override;
+		const std::vector<Analog*>& getAnalogs(void) const override;
+		const std::map<std::string, Analog*>& getAnalogsId(void) const override;
+
+		glm::dvec2 cursor(void) const override;
+		void cursorMode(bool show) override;
+
 		operator VkSurfaceKHR(void) const
 		{
 			return m_surface;
@@ -283,6 +292,74 @@ public:
 		Instance::Handle<VkSurfaceKHR> m_surface;
 		svec2 m_extent;
 		std::optional<svec2> m_is_resized;
+
+		std::vector<std::unique_ptr<Button>> m_unique_buttons;
+		std::vector<std::unique_ptr<Button>> createUniqueButtons(void);
+		class GlfwButton : public Button
+		{
+		public:
+			GlfwButton(const std::string &id, GLFWwindow *window, int key_id);
+			~GlfwButton(void) override;
+
+			void update(void) override;
+			const std::string& id(void) const override;
+			bool active(void) const override;
+			bool state(void) const override;
+			bool pressed(void) const override;
+			bool released(void) const override;
+
+		private:
+			std::string m_id;
+			GLFWwindow *m_window;
+			int m_key_id;
+			bool m_last_state = false;
+			bool m_state = false;
+		};
+
+		std::vector<Button*> m_buttons;
+		decltype(m_buttons) getButtons(void)
+		{
+			decltype(m_buttons) res;
+
+			for (auto &b : m_unique_buttons)
+				res.emplace_back(&*b);
+			return res;
+		}
+		std::map<std::string, Button*> m_buttons_id;
+		decltype(m_buttons_id) getButtonsId(void)
+		{
+			decltype(m_buttons_id) res;
+
+			for (auto &b : m_unique_buttons)
+				res.emplace(b->id(), &*b);
+			return res;
+		}
+
+		std::vector<Analog*> m_analogs;
+		std::map<std::string, Analog*> m_analogs_id;
+
+		std::vector<Input*> m_inputs;
+		decltype(m_inputs) getInputs(void)
+		{
+			decltype(m_inputs) res;
+
+			for (auto &b : m_buttons)
+				res.emplace_back(b);
+			for (auto &a : m_analogs)
+				res.emplace_back(a);
+			return res;
+		}
+		std::map<std::string, Input*> m_inputs_id;
+		decltype(m_inputs_id) getInputsId(void)
+		{
+			decltype(m_inputs_id) res;
+
+			for (auto &bp : m_buttons_id)
+				res.emplace(bp.first, bp.second);
+			for (auto &ap : m_analogs_id)
+				res.emplace(ap.first, ap.second);
+			return res;
+		}
 	};
 
 	std::unique_ptr<sb::Surface> createSurface(const svec2 &extent, const std::string &title) override;
