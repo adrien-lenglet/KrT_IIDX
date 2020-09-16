@@ -34,7 +34,13 @@ EntityTest::EntityTest(void) :
 		}
 		world.instance.cur_img_res->uploadDescSet(m_material);
 
-		m_angle += time / 16.0;
+		auto &sp = *world.instance.surface->buttonsId().at("KB_SPACE");
+		sp.update();
+		if (sp.released())
+			do_rot = !do_rot;
+
+		if (do_rot)
+			m_angle += time / 16.0;
 		auto mat = glm::rotate((float)m_angle, glm::normalize(glm::vec3(1.0, 1.0, 1.0)));
 		m_object.model_world = mat;
 		m_object.model_world_normal = mat;

@@ -28,6 +28,7 @@ private:
 	decltype(m_model_buffer) createModelBuffer(void);
 
 	double m_angle = 0.0;
+	bool do_rot = true;
 };
 
 }

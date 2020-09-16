@@ -51,10 +51,12 @@ void Race::run(void)
 		auto t_start = std::chrono::high_resolution_clock::now();
 
 		instance.scanInputs();
+		m_track->events.updateEvents();
 		esc.update();
 		if (esc.released()) {
 			cursor_mode = !cursor_mode;
 			instance.surface->cursorMode(cursor_mode);
+			m_track->render.base_cursor = instance.surface->cursor();
 		}
 		if (instance.surface->shouldClose())
 			break;
@@ -77,7 +79,6 @@ void Race::run(void)
 			last_frame = nullptr;
 		}
 		auto &img = images.at(instance.cur_img);
-		m_track->events.updateEvents();
 
 		auto t_before_ac = std::chrono::high_resolution_clock::now();
 		auto swapchain_img = instance.swapchain->acquireNextImage(img.swapchain_img_avail);

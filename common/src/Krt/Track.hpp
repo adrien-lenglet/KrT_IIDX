@@ -26,6 +26,8 @@ public:
 		Render(Instance &instance) :
 			m_instance(instance),
 			m_camera_shader(instance.device.load(res.shaders().modules().camera())),
+			base_cursor(instance.surface->cursor()),
+			camera_pos(0.0, 0.0, -7.0),
 			camera(m_camera_shader.camera(instance.graphics))
 		{
 		}
@@ -33,6 +35,9 @@ public:
 		{
 			m_instance.graphics.waitIdle();
 		}
+
+		glm::dvec2 base_cursor;
+		glm::vec3 camera_pos;
 
 		void render(sb::CommandBuffer::Record::RenderPass &cmd);
 
