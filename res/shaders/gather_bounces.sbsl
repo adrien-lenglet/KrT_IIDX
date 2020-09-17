@@ -17,15 +17,11 @@ fragment {
 		sampler2D last_diffuse;
 
 		sampler2D depth_buffer;
-		sampler2D last_depth_buffer;
-		sampler2D last_depth_range;
 		mat4 cur_cam_to_last;
-		mat4 cur_cam_to_last_normal;
 
-		vec3 cur_cam_pos;
+		vec3 cur_cam_delta;
 		float cur_cam_a, cur_cam_b;
 		vec2 cur_cam_ratio;
-		float last_cam_near, last_cam_far;
 		mat4 last_cam_proj;
 	};
 
@@ -81,7 +77,7 @@ fragment {
 			vec3 last = texture(light.last_diffuse, trace_pos).xyz;
 			vec3 dif3 = abs(cur - last);
 			float dif = min((dif3.x + dif3.y + dif3.z) / 3.0, 1.0);
-			(out)diffuse = mix(last, cur, 0.15);
+			(out)diffuse = mix(last, cur, clamp(0.07 + length(light.cur_cam_delta) * 10.0, 0.0, 1.0));
 		} else
 			(out)diffuse = cur;
 

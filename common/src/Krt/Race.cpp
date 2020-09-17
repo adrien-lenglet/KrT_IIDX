@@ -106,10 +106,9 @@ void Race::run(void)
 				[&](auto &cmd){
 					auto &cam = m_track->render.camera;
 					auto &s = img.gather_bounces_set;
-					s.last_cam_near = cam.near;
-					s.last_cam_far = cam.far;
 					s.last_cam_proj = cam.proj;
 					glm::mat4 last_view = cam.view;
+					glm::vec3 last_pos = m_track->render.camera_pos;
 					m_track->render.render(cmd, cursor_mode);
 					glm::mat4 view = cam.view;
 
@@ -117,9 +116,8 @@ void Race::run(void)
 					auto view_to_last_normal = view_to_last;
 					for (size_t i = 0; i < 3; i++)
 						view_to_last_normal[3][i] = 0.0f;
-					s.cur_cam_pos = m_track->render.camera_pos;
+					s.cur_cam_delta = m_track->render.camera_pos - last_pos;
 					s.cur_cam_to_last = view_to_last;
-					s.cur_cam_to_last_normal = view_to_last_normal;
 					s.cur_cam_a = cam.a;
 					s.cur_cam_b = cam.b;
 					s.cur_cam_ratio = cam.ratio;

@@ -64,7 +64,7 @@ fragment {
 
 	void main(void)
 	{
-		//(out)albedo = vec3(0.5);
+		(out)albedo = vec3(0.5);
 		(out)albedo = clamp(normalize((in)model_normal) + 0.35, 0, 1);
 		(out)emissive = vec3(0.0);
 		(out)normal = normalize((in)normal);

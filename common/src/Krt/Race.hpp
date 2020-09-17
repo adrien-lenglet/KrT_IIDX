@@ -241,8 +241,6 @@ inline decltype(Race::images) Race::getImages(void)
 		size_t ndx = 0;
 		for (auto &i : res) {
 			res.at((ndx + 1) % res.size()).gather_bounces_set.last_diffuse.bind(m_fb_sampler_linear, i.diffuse, sb::Image::Layout::ShaderReadOnlyOptimal);
-			res.at((ndx + 1) % res.size()).gather_bounces_set.last_depth_buffer.bind(m_sampler_clamp, i.fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
-			res.at((ndx + 1) % res.size()).gather_bounces_set.last_depth_range.bind(m_fb_sampler, i.fb_depth_range, sb::Image::Layout::ShaderReadOnlyOptimal);
 			ndx++;
 		}
 	}
