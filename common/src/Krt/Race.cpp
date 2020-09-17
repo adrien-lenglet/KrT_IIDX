@@ -102,7 +102,17 @@ void Race::run(void)
 				sb::Color::f32(0.0f), sb::Color::f32(srgb_lin(2.0), srgb_lin(145.0), srgb_lin(223.0), 0.0f), sb::Color::f32(0.0f), 1.0f,
 
 				[&](auto &cmd){
+					glm::mat4 last_view = m_track->render.camera.view;
 					m_track->render.render(cmd);
+					glm::mat4 view = m_track->render.camera.view;
+
+					auto view_to_last = last_view * glm::inverse(view);
+					auto view_to_last_normal = view_to_last;
+					for (size_t i = 0; i < 3; i++)
+						view_to_last_normal[3][i] = 0.0f;
+					img.gather_bounces_set.cur_cam_to_last = view_to_last;
+					img.gather_bounces_set.cur_cam_to_last_normal = view_to_last_normal;
+					instance.cur_img_res->uploadDescSet(img.gather_bounces_set);
 				}
 			);
 

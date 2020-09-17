@@ -29,8 +29,8 @@ fragment {
 
 	vec3 pos_view(vec2 pos)
 	{
-		vec2 size = textureSize(fb.depth_buffer, 0);
-		float depth = textureLod(fb.depth_buffer, pos, 0).x;
+		vec2 size = textureSize(fb.depth_buffer_fl, 0);
+		float depth = textureLod(fb.depth_buffer_fl, pos / size, 0).x;
 		float z = depth_to_z(depth);
 		vec2 uv = pos / size;
 		vec2 ndc2 = (uv - 0.5) * 2.0;
@@ -46,7 +46,7 @@ fragment {
 
 	vec2 ndc_to_ss(vec2 p)
 	{
-		vec2 size = textureSize(fb.depth_buffer, 0);
+		vec2 size = textureSize(fb.depth_buffer_fl, 0);
 		return ((p / 2.0) + 0.5) * size;
 	}
 
@@ -67,12 +67,18 @@ fragment {
 			return;
 		}
 		float len;
-		if (dir.z > 0.0) {
+		if (dir.z > 0.0)
 			len = (camera.far - origin.z) / dir.z;
-		} else {
+		else
 			len = (camera.near - origin.z) / dir.z;
-		}
 		vec3 end = origin + dir * len;
+		if (origin.z < camera.near || origin.z > camera.far) {
+			if (dir.z > 0.0)
+				len = (camera.near - origin.z) / dir.z;
+			else
+				len = (camera.far - origin.z) / dir.z;
+			origin += dir * len;
+		}
 		ss_p0 = project_point(origin);
 		ss_p1 = project_point(end);
 	}
@@ -106,7 +112,8 @@ fragment {
 
 		float t = 0.0;
 
-		float last_depth = textureLod(fb.depth_buffer, p0.xy, 0).x;
+		vec2 size = vec2(textureSize(fb.depth_buffer_fl, 0));
+		float last_depth = textureLod(fb.depth_buffer_fl, p0.xy / size, 0).x;
 		float last_ray_depth = p0.z;
 
 		int level = 0;
@@ -114,7 +121,6 @@ fragment {
 		if (dir2 == vec2(0.0))
 			return false;
 
-		vec2 size = vec2(textureSize(fb.depth_buffer_fl, 0));
 		float t_max = inter_rect(vec2(0.0), vec2(size - 1), p0.xy, dir2);
 		vec3 p = p0;
 

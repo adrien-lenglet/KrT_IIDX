@@ -15,6 +15,12 @@ fragment {
 		uint bounce_count;
 		sampler2D bounces[16];
 		sampler2D last_diffuse;
+
+		sampler2D depth_buffer;
+		sampler2D last_depth_buffer;
+		sampler2D last_depth_range;
+		mat4 cur_cam_to_last;
+		mat4 cur_cam_to_last_normal;
 	};
 
 	out vec3 diffuse;

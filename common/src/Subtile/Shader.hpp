@@ -737,6 +737,17 @@ public:
 				return *this;
 			}
 
+			template <typename GlmS, glm::qualifier Q>
+			operator glm::mat<C, R, GlmS, Q>(void) const
+			{
+				glm::mat<C, R, GlmS, Q> res;
+
+				for (size_t i = 0; i < C; i++)
+					for (size_t j = 0; j < R; j++)
+						res[i][j] = (*this)[i][j];
+				return res;
+			}
+
 			using salign = typename S::salign;
 			using balign = typename col_type::balign;
 			using ealign = balign;
