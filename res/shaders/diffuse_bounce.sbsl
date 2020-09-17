@@ -196,7 +196,7 @@ fragment {
 			if (fb.index == 0)
 				ray_illum = vec3(2.0 * unorm, 145.0 * unorm, 223.0 * unorm);
 			vec2 trace_pos;
-			if (traceRay(view, tangent_rvec, 1, trace_pos))
+			if (traceRay(view, tangent_rvec, 0, trace_pos))
 				ray_illum = texture(fb.last_diffuse, trace_pos).xyz;
 			illum += ray_illum;
 		}

@@ -191,6 +191,10 @@ void Race::run(void)
 				}
 			}
 
+			for (auto &d : img.lighting_samplers.sun_dir)
+				d = sb::genDiffuseVector(*m_track, glm::vec3(0.0, 1.0, 0.0), 200.0);
+			instance.cur_img_res->uploadDescSet(img.lighting_samplers);
+
 			cmd.setViewport(viewport, 0.0f, 1.0f);
 			cmd.setScissor({{0, 0}, instance.swapchain->extent()});
 			cmd.render(img.lighting_fb, {{0, 0}, instance.swapchain->extent()},
@@ -205,16 +209,8 @@ void Race::run(void)
 			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
 				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
 
-			for (auto &normal : img.diffuse_bounce_random.normals) {
-				double n = 1.0;
-				auto a0 = std::acos(std::pow(m_track->urandf(), 1.0 / (n + 1.0)));
-				auto a1 = 2.0 * sb::pi * m_track->urandf();
-				auto sa0 = std::sin(a0);
-				auto ca0 = std::cos(a0);
-				auto sa1 = std::sin(a1);
-				auto ca1 = std::cos(a1);
-				normal = glm::vec3(sa0 * ca1, sa0 * sa1, ca0);
-			}
+			for (auto &normal : img.diffuse_bounce_random.normals)
+				normal = sb::genDiffuseVector(*m_track, glm::vec3(0.0, 0.0, 1.0), 1.0);
 			instance.cur_img_res->uploadDescSet(img.diffuse_bounce_random);
 
 			for (auto &b : img.diffuse_bounces) {
