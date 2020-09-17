@@ -488,9 +488,8 @@ public:
 		struct Vec<S, 2> : public glm::vec<2, typename S::to_std, glm::defaultp>
 		{
 			Vec(void) = default;
-			template <typename ...Args>
-			Vec(Args &&...args) :
-				glm::vec<2, typename S::to_std, glm::defaultp>(std::forward<Args>(args)...)
+			Vec(const glm::vec<2, typename S::to_std, glm::defaultp> &vec) :
+				glm::vec<2, typename S::to_std, glm::defaultp>(vec)
 			{
 			}
 
@@ -508,9 +507,8 @@ public:
 		struct Vec<S, 3> : public glm::vec<3, typename S::to_std, glm::defaultp>
 		{
 			Vec(void) = default;
-			template <typename ...Args>
-			Vec(Args &&...args) :
-				glm::vec<3, typename S::to_std, glm::defaultp>(std::forward<Args>(args)...)
+			Vec(const glm::vec<3, typename S::to_std, glm::defaultp> &vec) :
+				glm::vec<3, typename S::to_std, glm::defaultp>(vec)
 			{
 			}
 
@@ -528,9 +526,8 @@ public:
 		struct Vec<S, 4> : public glm::vec<4, typename S::to_std, glm::defaultp>
 		{
 			Vec(void) = default;
-			template <typename ...Args>
-			Vec(Args &&...args) :
-				glm::vec<4, typename S::to_std, glm::defaultp>(std::forward<Args>(args)...)
+			Vec(const glm::vec<4, typename S::to_std, glm::defaultp> &vec) :
+				glm::vec<4, typename S::to_std, glm::defaultp>(vec)
 			{
 			}
 

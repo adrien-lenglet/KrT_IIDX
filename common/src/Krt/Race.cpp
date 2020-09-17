@@ -55,8 +55,10 @@ void Race::run(void)
 		esc.update();
 		if (esc.released()) {
 			cursor_mode = !cursor_mode;
-			instance.surface->cursorMode(cursor_mode);
 			m_track->render.base_cursor = instance.surface->cursor();
+			instance.surface->cursorMode(cursor_mode);
+			if (!cursor_mode)
+				m_track->render.base_cursor = instance.surface->cursor();
 		}
 		if (instance.surface->shouldClose())
 			break;
@@ -102,17 +104,26 @@ void Race::run(void)
 				sb::Color::f32(0.0f), sb::Color::f32(srgb_lin(2.0), srgb_lin(145.0), srgb_lin(223.0), 0.0f), sb::Color::f32(0.0f), 1.0f,
 
 				[&](auto &cmd){
-					glm::mat4 last_view = m_track->render.camera.view;
-					m_track->render.render(cmd);
-					glm::mat4 view = m_track->render.camera.view;
+					auto &cam = m_track->render.camera;
+					auto &s = img.gather_bounces_set;
+					s.last_cam_near = cam.near;
+					s.last_cam_far = cam.far;
+					s.last_cam_proj = cam.proj;
+					glm::mat4 last_view = cam.view;
+					m_track->render.render(cmd, cursor_mode);
+					glm::mat4 view = cam.view;
 
 					auto view_to_last = last_view * glm::inverse(view);
 					auto view_to_last_normal = view_to_last;
 					for (size_t i = 0; i < 3; i++)
 						view_to_last_normal[3][i] = 0.0f;
-					img.gather_bounces_set.cur_cam_to_last = view_to_last;
-					img.gather_bounces_set.cur_cam_to_last_normal = view_to_last_normal;
-					instance.cur_img_res->uploadDescSet(img.gather_bounces_set);
+					s.cur_cam_pos = m_track->render.camera_pos;
+					s.cur_cam_to_last = view_to_last;
+					s.cur_cam_to_last_normal = view_to_last_normal;
+					s.cur_cam_a = cam.a;
+					s.cur_cam_b = cam.b;
+					s.cur_cam_ratio = cam.ratio;
+					instance.cur_img_res->uploadDescSet(s);
 				}
 			);
 

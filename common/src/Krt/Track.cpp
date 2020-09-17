@@ -30,7 +30,7 @@ Track::~Track(void)
 	destroy_children();
 }
 
-void Track::Render::render(sb::CommandBuffer::Record::RenderPass &cmd)
+void Track::Render::render(sb::CommandBuffer::Record::RenderPass &cmd, bool disable_cam_rot)
 {
 	const double ang_rad = sb::pi / 180.0;
 
@@ -41,7 +41,9 @@ void Track::Render::render(sb::CommandBuffer::Record::RenderPass &cmd)
 	proj[1][1] *= -1.0;
 
 	//auto view = glm::lookAtLH(glm::vec3(0.0, 0.0, -7.0), glm::vec3(0.0), glm::vec3(0.0, 1.0, 0.0));
-	auto cursor = m_instance.surface->cursor() - base_cursor;
+	auto cursor = glm::dvec2(0.0);
+	if (!disable_cam_rot)
+		cursor = m_instance.surface->cursor() - base_cursor;
 	const float sensi = 0.1;
 	const float move = 2.0;
 	auto view_rot = glm::rotate(static_cast<float>(-cursor.x * ang_rad) * sensi, glm::vec3(0.0, 1.0, 0.0));

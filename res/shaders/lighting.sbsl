@@ -29,8 +29,8 @@ fragment {
 
 	vec3 pos_view(vec2 pos)
 	{
-		vec2 size = textureSize(fb.depth_buffer_fl, 0);
-		float depth = textureLod(fb.depth_buffer_fl, pos / size, 0).x;
+		vec2 size = textureSize(fb.depth_buffer, 0);
+		float depth = textureLod(fb.depth_buffer, pos, 0).x;
 		float z = depth_to_z(depth);
 		vec2 uv = pos / size;
 		vec2 ndc2 = (uv - 0.5) * 2.0;
@@ -46,7 +46,7 @@ fragment {
 
 	vec2 ndc_to_ss(vec2 p)
 	{
-		vec2 size = textureSize(fb.depth_buffer_fl, 0);
+		vec2 size = textureSize(fb.depth_buffer, 0);
 		return ((p / 2.0) + 0.5) * size;
 	}
 
@@ -112,8 +112,10 @@ fragment {
 
 		float t = 0.0;
 
-		vec2 size = vec2(textureSize(fb.depth_buffer_fl, 0));
-		float last_depth = textureLod(fb.depth_buffer_fl, p0.xy / size, 0).x;
+		vec2 size_d = vec2(textureSize(fb.depth_buffer, 0));
+		vec2 size_dfl = vec2(textureSize(fb.depth_buffer_fl, 0));
+		vec2 size = (size_dfl / size_d) / size_dfl;
+		float last_depth = textureLod(fb.depth_buffer_fl, p0.xy * size, 0).x;
 		float last_ray_depth = p0.z;
 
 		int level = 0;
@@ -121,7 +123,7 @@ fragment {
 		if (dir2 == vec2(0.0))
 			return false;
 
-		float t_max = inter_rect(vec2(0.0), vec2(size - 1), p0.xy, dir2);
+		float t_max = inter_rect(vec2(0.0), vec2(size_d - 1), p0.xy, dir2);
 		vec3 p = p0;
 
 		while (true) {
@@ -144,7 +146,7 @@ fragment {
 				break;
 
 			p = mix(p0, p1, t);
-			float depth = textureLod(fb.depth_buffer_fl, p.xy / size, quality).x;
+			float depth = textureLod(fb.depth_buffer_fl, p.xy * size, quality).x;
 			if ((last_ray_depth > last_depth && p.z < depth) || (last_ray_depth < last_depth && p.z > depth)) {
 				if (depth < 1.0) {
 					pos = p.xy;
@@ -168,7 +170,7 @@ fragment {
 
 	void main(void)
 	{
-		const vec3 sun_dir_w = normalize(vec3(0.0, 1.0, -.2)).xyz;
+		const vec3 sun_dir_w = normalize(vec3(0.0, 1.0, 0.0)).xyz;
 		vec3 sun_dir = (camera.view_normal * vec4(sun_dir_w, 1.0)).xyz;
 		vec3 view = current_view();
 		vec3 view_norm = normalize(view);

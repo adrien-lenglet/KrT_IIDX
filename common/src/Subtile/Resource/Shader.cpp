@@ -103,7 +103,7 @@ Shader::Stage::VkSource::Compiled::Compiled(Shader::Stage::Source &src) :
 void Shader::Stage::VkSource::Compiled::build(std::ostream &o) const
 {
 	auto output = std::string("tmp.spv");
-	auto cmd = std::string("glslangValidator ") + m_src.getPath() + std::string(" -V -o ") + output;
+	auto cmd = std::string("glslangValidator ") + m_src.getPath() + std::string(" -g -V -o ") + output;
 	if (system(cmd.c_str()) != 0)
 		throw std::runtime_error("Vulkan shader compilation failed");
 	{

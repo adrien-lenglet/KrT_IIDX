@@ -39,7 +39,7 @@ public:
 		glm::dvec2 base_cursor;
 		glm::vec3 camera_pos;
 
-		void render(sb::CommandBuffer::Record::RenderPass &cmd);
+		void render(sb::CommandBuffer::Record::RenderPass &cmd, bool disable_cam_rot);
 
 		decltype(m_camera_shader.camera(instance.graphics)) camera;
 	};
