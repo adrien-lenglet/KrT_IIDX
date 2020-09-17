@@ -113,8 +113,7 @@ fragment {
 		float t = 0.0;
 
 		vec2 size_d = vec2(textureSize(fb.depth_buffer, 0));
-		vec2 size_dfl = vec2(textureSize(fb.depth_buffer_fl, 0));
-		vec2 size = (size_dfl / size_d) / size_dfl;
+		vec2 size = vec2(1.0) / vec2(textureSize(fb.depth_buffer_fl, 0));
 		float last_depth = textureLod(fb.depth_buffer_fl, p0.xy * size, 0).x;
 		float last_ray_depth = p0.z;
 
