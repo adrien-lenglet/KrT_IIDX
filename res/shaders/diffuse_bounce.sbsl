@@ -21,6 +21,9 @@ fragment {
 
 		sampler2D depth_buffer;
 		sampler2D depth_buffer_fl;
+		vec2 depth_buffer_fl_size;
+		int depth_buffer_trace_res;
+		uint depth_buffer_max_it;
 		uint index;
 	};
 
@@ -34,7 +37,7 @@ fragment {
 	vec3 pos_view(vec2 pos)
 	{
 		vec2 size = textureSize(fb.depth_buffer, 0);
-		float depth = textureLod(fb.depth_buffer, pos, 0).x;
+		float depth = textureLod(fb.depth_buffer_fl, pos * fb.depth_buffer_fl_size, 0).x;
 		float z = depth_to_z(depth);
 		vec2 uv = pos / size;
 		vec2 ndc2 = (uv - 0.5) * 2.0;
@@ -96,6 +99,13 @@ fragment {
 			d.y == 0.0 ? inf : (d.y > 0.0 ? (br.y - p.y) / d.y : (tl.y - p.y) / d.y)
 		);
 	}
+	bool inter_rect_strong(vec2 tl, vec2 br, vec2 p, vec2 d, float bias, out float res)
+	{
+		res = inter_rect(tl, br, p, d);
+
+		vec2 inter = p + (res - bias) * d;
+		return inter.x >= tl.x && inter.y >= tl.y && inter.x <= br.x && inter.y <= br.y;
+	}
 	// returns t intersection
 	float cell_end(vec2 p, vec2 d, int level)
 	{
@@ -105,6 +115,7 @@ fragment {
 
 		return inter_rect(cell_tl, cell_br, p, d);
 	}
+
 	bool traceRay(vec3 origin, vec3 dir, out vec2 pos)
 	{
 		vec3 p0, p1;
@@ -120,17 +131,19 @@ fragment {
 		float t = 0.0;
 
 		vec2 size_d = vec2(textureSize(fb.depth_buffer, 0));
-		vec2 size = vec2(1.0) / vec2(textureSize(fb.depth_buffer_fl, 0));
 
 		int level = 0;
 
-		float t_max = inter_rect(vec2(0.0), vec2(size_d - 1), p0.xy, dir2);
+		float t_max;
+		if (!inter_rect_strong(vec2(0.0), vec2(size_d - 1), p0.xy, dir2, dir_pp_bias, t_max))
+			return false;
+
 		vec3 p = p0;
 		uint it = 0;
 
-		while (it++ < 128) {
+		while (it++ < fb.depth_buffer_max_it) {
 			float depth;
-			depth = textureLod(fb.depth_buffer_fl, p.xy * size, level).x;
+			depth = textureLod(fb.depth_buffer_fl, p.xy * fb.depth_buffer_fl_size, level).x;
 			if (p.z >= depth) {
 				if (level == 0) {
 					pos = p.xy;
@@ -138,7 +151,7 @@ fragment {
 				}
 				level--;
 			} else {
-				t += cell_end(p.xy, dir2, level) + dir_pp_bias;
+				t += cell_end(p.xy, dir2, level + fb.depth_buffer_trace_res) + dir_pp_bias;
 				if (t >= t_max)
 					return false;
 				p = mix(p0, p1, t);

@@ -129,6 +129,43 @@ void Race::run(void)
 			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput | sb::PipelineStage::LateFragmentTests, sb::PipelineStage::FragmentShader, {},
 				sb::Access::ColorAttachmentWrite | sb::Access::DepthStencilAttachmentWrite, sb::Access::ShaderRead);
 
+			cmd.render(img.depth_to_fl_fb, {{0, 0}, img.fb_depth_buffer_raw_fl.extent()},
+				[&](auto &cmd){
+					cmd.bind(m_depth_to_fl_shader);
+					cmd.bind(m_depth_to_fl_shader, img.depth_to_fl_set, 0);
+					cmd.draw(instance.screen_quad);
+				}
+			);
+
+			cmd.imageMemoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::Transfer, {},
+				sb::Access::ColorAttachmentWrite, sb::Access::TransferRead,
+				sb::Image::Layout::ShaderReadOnlyOptimal, sb::Image::Layout::TransferSrcOptimal, img.fb_depth_buffer_raw_fl_mips.at(0));
+
+			{
+				auto end = img.fb_depth_buffer_raw_fl_mips.end();
+				for (auto it = img.fb_depth_buffer_raw_fl_mips.begin() + 1; it != end; it++) {
+					auto &cur = *it;
+					cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
+						sb::Access::TransferWrite, sb::Access::TransferRead,
+						sb::Image::Layout::Undefined, sb::Image::Layout::TransferDstOptimal, cur);
+
+					cmd.blit(*(it - 1), sb::Image::Layout::TransferSrcOptimal, (it - 1)->blitRegion({0, 0}, (it - 1)->extent()),
+					cur, sb::Image::Layout::TransferDstOptimal, cur.blitRegion({0, 0}, cur.extent()), sb::Filter::Linear);
+
+					cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
+						sb::Access::TransferWrite, sb::Access::TransferRead,
+						sb::Image::Layout::TransferDstOptimal, sb::Image::Layout::TransferSrcOptimal, cur);
+
+					cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
+						sb::Access::TransferWrite, sb::Access::TransferRead,
+						sb::Image::Layout::TransferSrcOptimal, sb::Image::Layout::ShaderReadOnlyOptimal, *(it - 1));
+				}
+			}
+
+			cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::FragmentShader, {},
+				sb::Access::TransferWrite, sb::Access::ShaderRead,
+				sb::Image::Layout::TransferSrcOptimal, sb::Image::Layout::ShaderReadOnlyOptimal, *img.fb_depth_buffer_raw_fl_mips.rbegin());
+
 			{
 				size_t ndx = 0;
 				for (auto &mip : img.fb_depth_buffer_fl_mips) {

@@ -58,19 +58,23 @@ struct Race::Image {
 		fb_emissive(race.instance.device.image2D(sb::Format::rgba8_unorm, race.instance.swapchain->extent(), 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
 		fb_normal(race.instance.device.image2D(sb::Format::rgba16_sfloat, race.instance.swapchain->extent(), 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
 		fb_depth_buffer(race.instance.device.image2D(sb::Format::d24un_or_32sf_spl_att_sfb, race.instance.swapchain->extent(), 1, sb::Image::Usage::DepthStencilAttachment | sb::Image::Usage::Sampled | sb::Image::Usage::TransferSrc, race.instance.graphics)),
+		depth_buffer_trace_res(1),
 		fb_depth_buffer_raw_fl(race.instance.device.image2D(sb::Format::r32_sfloat, {static_cast<size_t>(std::pow(2.0, std::ceil(std::log2(fb_albedo.extent().x)))), static_cast<size_t>(std::pow(2.0, std::ceil(std::log2(fb_albedo.extent().y))))}, sb::Image::allMipLevels, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled | sb::Image::Usage::TransferSrc | sb::Image::Usage::TransferDst, race.instance.graphics)),
 		fb_depth_buffer_raw_fl_mips(getDepthBufferRawFlMips()),
-		fb_depth_buffer_fl(race.instance.device.image2D(sb::Format::r32_sfloat, sb::svec2(static_cast<size_t>(std::pow(2.0, std::ceil(std::log2(fb_albedo.extent().x)))), static_cast<size_t>(std::pow(2.0, std::ceil(std::log2(fb_albedo.extent().y))))), sb::Image::allMipLevels, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled | sb::Image::Usage::TransferSrc | sb::Image::Usage::TransferDst, race.instance.graphics)),
+		depth_to_fl_fb(race.m_depth_to_fl_pass.framebuffer(fb_depth_buffer_raw_fl_mips.at(0).extent(), 1, fb_depth_buffer_raw_fl_mips.at(0))),
+		depth_to_fl_set(race.m_depth_to_fl_shader.fb(race.instance.graphics)),
+		fb_depth_buffer_fl(race.instance.device.image2D(sb::Format::r32_sfloat, sb::svec2(static_cast<size_t>(std::pow(2.0, std::ceil(std::log2(fb_albedo.extent().x)))), static_cast<size_t>(std::pow(2.0, std::ceil(std::log2(fb_albedo.extent().y))))) / sb::svec2(1 << depth_buffer_trace_res), sb::Image::allMipLevels, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled | sb::Image::Usage::TransferSrc | sb::Image::Usage::TransferDst, race.instance.graphics)),
 		fb_depth_buffer_fl_mips(getDepthBufferFlMips()),
 		opaque_fb(race.m_opaque_pass.framebuffer(race.instance.swapchain->extent(), 1, fb_albedo, fb_emissive, fb_normal, fb_depth_buffer)),
 		primary(race.instance.device.image2D(sb::Format::rgba32_sfloat, race.instance.swapchain->extent(), 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
 		diffuse(race.instance.device.image2D(sb::Format::rgba32_sfloat, race.instance.swapchain->extent(), 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
 		lighting_fb(race.m_lighting_pass.framebuffer(race.instance.swapchain->extent(), 1, primary)),
+		lighting_samplers(getLightingSamplers()),
 		swapchain_img_avail(race.instance.device.semaphore()),
 		first_depth_range_in_fb(getFirstDepthRangeInFb()),
 		compute_depth_range_in_fb(getComputeDepthRangeInFb()),
 		diffuse_bounce_random(race.m_diffuse_bounce_shader.random(race.instance.graphics)),
-		diffuse_bounces(getDiffuseBounces(2)),
+		diffuse_bounces(getDiffuseBounces(*this, 2)),
 		gather_bounces_set(race.m_gather_bounces_shader.light(race.instance.graphics)),
 		gather_bounces_fb(race.m_gather_bounces_pass.framebuffer(race.instance.swapchain->extent(), 1, diffuse)),
 		buffer_to_wsi_screen_fbs(getBufferToWsiScreenFbs()),
@@ -78,14 +82,9 @@ struct Race::Image {
 		render_done(race.instance.device.semaphore()),
 		render_done_fence(race.instance.device.fence(false)),
 		ever_rendered(false),
-		lighting_samplers(race.m_lighting_shader.fb(race.instance.graphics)),
 		cmd_prim(race.m_cmd_pool.primary())
 	{
-		lighting_samplers.albedo.bind(race.m_fb_sampler, fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
-		lighting_samplers.emissive.bind(race.m_fb_sampler, fb_emissive, sb::Image::Layout::ShaderReadOnlyOptimal);
-		lighting_samplers.normal.bind(race.m_fb_sampler, fb_normal, sb::Image::Layout::ShaderReadOnlyOptimal);
-		lighting_samplers.depth_buffer.bind(race.m_fb_sampler_linear, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
-		lighting_samplers.depth_buffer_fl.bind(race.m_sampler_clamp, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
+		depth_to_fl_set.depth_buffer.bind(race.m_fb_sampler, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
 
 		gather_bounces_set.primary.bind(race.m_fb_sampler, primary, sb::Image::Layout::ShaderReadOnlyOptimal);
 		for (auto &b : gather_bounces_set.bounces)
@@ -122,6 +121,7 @@ struct Race::Image {
 	sb::Image2D fb_emissive;
 	sb::Image2D fb_normal;
 	sb::Image2D fb_depth_buffer;
+	size_t depth_buffer_trace_res;
 	sb::Image2D fb_depth_buffer_raw_fl;
 	std::vector<sb::Image2D> fb_depth_buffer_raw_fl_mips;
 	decltype(fb_depth_buffer_raw_fl_mips) getDepthBufferRawFlMips(void)
@@ -132,6 +132,8 @@ struct Race::Image {
 			res.emplace_back(fb_depth_buffer_raw_fl.view(sb::ComponentSwizzle::Identity, sb::Image::Aspect::Color, sb::Range(i, 1)));
 		return res;
 	}
+	decltype(Race::m_depth_to_fl_pass)::Framebuffer depth_to_fl_fb;
+	decltype(race.m_depth_to_fl_shader.fb(race.instance.graphics)) depth_to_fl_set;
 	sb::Image2D fb_depth_buffer_fl;
 	struct DepthBufferMip {
 		sb::Image2D img;
@@ -154,6 +156,22 @@ struct Race::Image {
 	sb::Image2D primary;
 	sb::Image2D diffuse;
 	decltype(Race::m_lighting_pass)::Framebuffer lighting_fb;
+	decltype(race.m_lighting_shader.fb(race.instance.graphics)) lighting_samplers;
+	decltype(lighting_samplers) getLightingSamplers(void)
+	{
+		auto res = race.m_lighting_shader.fb(race.instance.graphics);
+
+		res.albedo.bind(race.m_fb_sampler, fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
+		res.emissive.bind(race.m_fb_sampler, fb_emissive, sb::Image::Layout::ShaderReadOnlyOptimal);
+		res.normal.bind(race.m_fb_sampler, fb_normal, sb::Image::Layout::ShaderReadOnlyOptimal);
+		res.depth_buffer.bind(race.m_fb_sampler_linear, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
+		res.depth_buffer_fl.bind(race.m_sampler_clamp, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
+		res.depth_buffer_fl_size = (glm::vec2(1.0) / glm::vec2(fb_depth_buffer_fl.extent())) * glm::vec2(1.0 / static_cast<double>(1 << depth_buffer_trace_res));
+		res.depth_buffer_trace_res = depth_buffer_trace_res;
+		res.depth_buffer_max_it = 128 / (1 << depth_buffer_trace_res);
+		race.instance.cur_img_res->uploadDescSet(res);
+		return res;
+	}
 
 	decltype(Race::instance.device.semaphore()) swapchain_img_avail;
 
@@ -162,7 +180,7 @@ struct Race::Image {
 	{
 		auto res = race.m_first_depth_range.fb(race.instance.graphics);
 
-		res.up.bind(race.m_fb_sampler, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
+		res.up.bind(race.m_fb_sampler, fb_depth_buffer_raw_fl_mips.at(depth_buffer_trace_res), sb::Image::Layout::ShaderReadOnlyOptimal);
 		return res;
 	}
 	std::vector<decltype(m_compute_depth_range.fb(race.instance.graphics))> compute_depth_range_in_fb;
@@ -186,7 +204,7 @@ struct Race::Image {
 		decltype(race.m_diffuse_bounce_shader.fb(race.instance.graphics)) set;
 	};
 	std::vector<DiffuseBounce> diffuse_bounces;
-	std::vector<DiffuseBounce> getDiffuseBounces(size_t count)
+	std::vector<DiffuseBounce> getDiffuseBounces(Image &image, size_t count)
 	{
 		std::vector<DiffuseBounce> res;
 
@@ -199,6 +217,9 @@ struct Race::Image {
 			set.last_diffuse.bind(race.m_fb_sampler, i == 0 ? static_cast<sb::Image2D&>(primary) : res.at(i - 1).img, sb::Image::Layout::ShaderReadOnlyOptimal);
 			set.depth_buffer.bind(race.m_fb_sampler_linear, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
 			set.depth_buffer_fl.bind(race.m_sampler_clamp, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
+			set.depth_buffer_fl_size = image.lighting_samplers.depth_buffer_fl_size;
+			set.depth_buffer_trace_res = image.lighting_samplers.depth_buffer_trace_res;
+			set.depth_buffer_max_it = image.lighting_samplers.depth_buffer_max_it;
 			set.index = i;
 			race.instance.cur_img_res->uploadDescSet(set);
 			res.emplace_back(DiffuseBounce{std::move(img), std::move(fb), std::move(set)});
@@ -223,7 +244,6 @@ struct Race::Image {
 	decltype(race.instance.device.semaphore()) render_done;
 	decltype(race.instance.device.fence()) render_done_fence;
 	bool ever_rendered;
-	decltype(race.m_lighting_shader.fb(race.instance.graphics)) lighting_samplers;
 	decltype(m_cmd_pool.primary()) cmd_prim;
 };
 

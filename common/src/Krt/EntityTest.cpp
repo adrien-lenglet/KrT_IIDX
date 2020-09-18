@@ -55,7 +55,7 @@ EntityTest::~EntityTest(void)
 
 decltype(EntityTest::m_model_buffer) EntityTest::createModelBuffer(void)
 {
-	/*std::vector<decltype(m_model_buffer)::value_type> values;
+	std::vector<decltype(m_model_buffer)::value_type> values;
 
 	for (size_t i = 0; i < 100000; i++) {
 		decltype(m_model_buffer)::value_type tri[3];
@@ -73,8 +73,8 @@ decltype(EntityTest::m_model_buffer) EntityTest::createModelBuffer(void)
 				tri[i].uv[j] = world.urandf();
 		for (size_t i = 0; i < 3; i++)
 			values.emplace_back(tri[i]);
-	}*/
-	auto values = loadObj("res_imm/sponza/sponza.obj");
+	}
+	//auto values = loadObj("res_imm/sponza/sponza.obj");
 	auto res = world.instance.device.vertexBuffer<decltype(m_model_buffer)::value_type>(values.size(), world.instance.graphics);
 	world.instance.cur_img_res->copyBuffer(values, res);
 	return res;
