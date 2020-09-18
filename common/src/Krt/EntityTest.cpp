@@ -74,7 +74,7 @@ decltype(EntityTest::m_model_buffer) EntityTest::createModelBuffer(void)
 		for (size_t i = 0; i < 3; i++)
 			values.emplace_back(tri[i]);
 	}*/
-	auto values = loadObj("res_imm/bridge.obj");
+	auto values = loadObj("res_imm/sponza/sponza.obj");
 	auto res = world.instance.device.vertexBuffer<decltype(m_model_buffer)::value_type>(values.size(), world.instance.graphics);
 	world.instance.cur_img_res->copyBuffer(values, res);
 	return res;

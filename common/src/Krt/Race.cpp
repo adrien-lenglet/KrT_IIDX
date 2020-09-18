@@ -129,45 +129,9 @@ void Race::run(void)
 			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput | sb::PipelineStage::LateFragmentTests, sb::PipelineStage::FragmentShader, {},
 				sb::Access::ColorAttachmentWrite | sb::Access::DepthStencilAttachmentWrite, sb::Access::ShaderRead);
 
-			cmd.setViewport({{0.0f, 0.0f}, {img.fb_depth_buffer_fl.extent().x, img.fb_depth_buffer_fl.extent().y}}, 0.0f, 1.0f);
-			cmd.setScissor({{0, 0}, img.fb_depth_buffer_fl.extent()});
-			cmd.render(img.depth_to_fl_fb, {{0, 0}, img.fb_depth_buffer_fl.extent()}, [&](auto &cmd){
-				cmd.bind(m_depth_to_fl_shader);
-				cmd.bind(m_depth_to_fl_shader, img.depth_buffer_set, 0);
-				cmd.draw(instance.screen_quad);
-			});
-
-			cmd.imageMemoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::Transfer, {},
-				sb::Access::ColorAttachmentWrite, sb::Access::TransferRead,
-				sb::Image::Layout::ShaderReadOnlyOptimal, sb::Image::Layout::TransferSrcOptimal, img.fb_depth_buffer_fl_mips.at(0));
-
-			{
-				auto end = img.fb_depth_buffer_fl_mips.end();
-				for (auto it = img.fb_depth_buffer_fl_mips.begin() + 1; it != end; it++) {
-
-					auto &prev_mip = *(it - 1);
-					auto &cur_mip = *it;
-
-					cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
-						sb::Access::TransferWrite, sb::Access::TransferRead,
-						sb::Image::Layout::ShaderReadOnlyOptimal, sb::Image::Layout::TransferDstOptimal, cur_mip);
-
-					cmd.blit(prev_mip, sb::Image::Layout::TransferSrcOptimal, prev_mip.blitRegion({0, 0}, prev_mip.extent()),
-					cur_mip, sb::Image::Layout::TransferDstOptimal, cur_mip.blitRegion({0, 0}, cur_mip.extent()), sb::Filter::Linear);
-
-					cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
-						sb::Access::TransferWrite, sb::Access::TransferRead,
-						sb::Image::Layout::TransferDstOptimal, sb::Image::Layout::TransferSrcOptimal, cur_mip);
-				}
-			}
-
-			cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::FragmentShader, {},
-				sb::Access::TransferWrite, sb::Access::ShaderRead,
-				sb::Image::Layout::TransferSrcOptimal, sb::Image::Layout::ShaderReadOnlyOptimal, img.fb_depth_buffer_fl);
-
 			{
 				size_t ndx = 0;
-				for (auto &mip : img.depth_range_mips) {
+				for (auto &mip : img.fb_depth_buffer_fl_mips) {
 					auto ex = mip.img.extent();
 					cmd.setViewport({{0.0f, 0.0f}, {ex.x, ex.y}}, 0.0f, 1.0f);
 					cmd.setScissor({{0, 0}, ex});
@@ -175,7 +139,7 @@ void Race::run(void)
 						[&](auto &cmd){
 							if (ndx == 0) {
 								cmd.bind(m_first_depth_range);
-								cmd.bind(m_first_depth_range, img.depth_buffer_set, 0);
+								cmd.bind(m_first_depth_range, img.first_depth_range_in_fb, 0);
 								cmd.draw(instance.screen_quad);
 							} else {
 								cmd.bind(m_compute_depth_range);

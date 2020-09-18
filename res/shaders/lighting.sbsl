@@ -17,7 +17,6 @@ fragment {
 
 		sampler2D depth_buffer;
 		sampler2D depth_buffer_fl;
-		sampler2D depth_range;
 
 		vec3 sun_dir[256];
 	};
@@ -103,7 +102,7 @@ fragment {
 
 		return inter_rect(cell_tl, cell_br, p, d);
 	}
-	bool traceRay(vec3 origin, vec3 dir, const int quality, out vec2 pos)
+	bool traceRay(vec3 origin, vec3 dir, out vec2 pos)
 	{
 		vec3 p0, p1;
 		project_ray(origin, dir, p0, p1);
@@ -119,9 +118,6 @@ fragment {
 
 		vec2 size_d = vec2(textureSize(fb.depth_buffer, 0));
 		vec2 size = vec2(1.0) / vec2(textureSize(fb.depth_buffer_fl, 0));
-		vec2 size_half = size * vec2(0.5);
-		float last_depth = textureLod(fb.depth_buffer_fl, p0.xy * size, 0).x;
-		float last_ray_depth = p0.z;
 
 		int level = 0;
 
@@ -129,35 +125,22 @@ fragment {
 		vec3 p = p0;
 		uint it = 0;
 
-		while (it++ < 1000) {
-			int skip_level = max(level, 1);
-			float t_end = t + cell_end(p.xy, dir2, skip_level + quality) + dir_pp_bias;
-			float p_end = mix(p0, p1, t_end).z;
-
-			vec2 range = texelFetch(fb.depth_range, ivec2(p.xy / float(1 << (skip_level + quality))), skip_level - 1 + quality).xy;
-			vec2 ray_range = p.z < p_end ? vec2(p.z, p_end) : vec2(p_end, p.z);
-			bool isSkippable = !(ray_range.x <= range.y && ray_range.y >= range.x);
-			if (isSkippable) {
-				level++;
-				t = t_end;
-				if (t >= t_max)
-					break;
-			} else
-				level = max(level - 1, 0);
-			t = t + cell_end(mix(p0.xy, p1.xy, t), dir2, quality) + dir_pp_bias;
-			if (t >= t_max)
-				break;
-
-			p = mix(p0, p1, t);
-			float depth = textureLod(fb.depth_buffer_fl, p.xy * size, quality).x;
-			if ((last_ray_depth > last_depth && p.z < depth) || (last_ray_depth < last_depth && p.z > depth)) {
-				if (depth < 1.0) {
+		while (it++ < 128) {
+			float depth;
+			depth = textureLod(fb.depth_buffer_fl, p.xy * size, level).x;
+			if (p.z >= depth) {
+				if (level == 0) {
 					pos = p.xy;
-					return true;
+					return depth < 1.0;
 				}
+				level--;
+			} else {
+				t += cell_end(p.xy, dir2, level) + dir_pp_bias;
+				if (t >= t_max)
+					return false;
+				p = mix(p0, p1, t);
+				level++;
 			}
-			last_depth = depth;
-			last_ray_depth = p.z;
 		}
 		return false;
 	}
@@ -190,7 +173,7 @@ fragment {
 		float illum = max(dot(normal, sun_dir), 0.0);
 		vec2 trace_pos;
 		if (illum > 0.0)
-			if (traceRay(view, sun_dir, 2, trace_pos))
+			if (traceRay(view, sun_dir, trace_pos))
 				illum = 0.0;
 		vec4 emissive = texture(fb.emissive, gl_FragCoord.xy);
 		vec3 emissive_exp = emissive.xyz * pow(2, emissive.w);
