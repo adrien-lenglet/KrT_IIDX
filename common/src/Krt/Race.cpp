@@ -10,6 +10,7 @@ Race::Race(Instance &instance) :
 
 	m_sampler(instance.device.sampler(sb::Filter::Linear, sb::Filter::Nearest, sb::Sampler::AddressMode::MirroredRepeat, sb::BorderColor::FloatOpaqueWhite, std::nullopt, sb::Sampler::MipmapMode::Linear, 0.0f, 64.0f, 0.0f, std::nullopt)),
 	m_sampler_clamp(instance.device.sampler(sb::Filter::Linear, sb::Filter::Linear, sb::Sampler::AddressMode::ClampToEdge, sb::BorderColor::FloatOpaqueWhite, std::nullopt, sb::Sampler::MipmapMode::Nearest, 0.0f, 64.0f, 0.0f, std::nullopt)),
+	m_sampler_nearest(instance.device.sampler(sb::Filter::Nearest, sb::Filter::Nearest, sb::Sampler::AddressMode::ClampToEdge, sb::BorderColor::FloatOpaqueWhite, std::nullopt, sb::Sampler::MipmapMode::Nearest, 0.0f, 64.0f, 0.0f, std::nullopt)),
 	m_fb_sampler(instance.device.samplerUnnormalized(sb::Filter::Nearest, sb::Sampler::AddressMode::ClampToEdge, sb::BorderColor::FloatOpaqueWhite, 0.0f)),
 	m_fb_sampler_linear(instance.device.samplerUnnormalized(sb::Filter::Linear, sb::Sampler::AddressMode::ClampToEdge, sb::BorderColor::FloatOpaqueWhite, 0.0f)),
 	m_opaque_pass(instance.device.load(res.shaders().render_passes().opaque())),
@@ -192,7 +193,7 @@ void Race::run(void)
 			}
 
 			for (auto &d : img.lighting_samplers.sun_dir)
-				d = sb::genDiffuseVector(*m_track, glm::vec3(0.0, 1.0, 0.0), 200.0);
+				d = sb::genDiffuseVector(*m_track, glm::normalize(glm::vec3(1.0, 1.0, 1.0)), 2000.0);
 			instance.cur_img_res->uploadDescSet(img.lighting_samplers);
 
 			cmd.setViewport(viewport, 0.0f, 1.0f);

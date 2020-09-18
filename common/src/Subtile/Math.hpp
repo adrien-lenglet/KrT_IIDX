@@ -13,7 +13,7 @@ namespace Subtile {
 static inline constexpr double pi = 3.141592653589793238462643383279502884;
 
 template <typename RndGen>
-static inline glm::vec3 genDiffuseVector(RndGen &&gen, const glm::vec3 &up, float n)
+static inline glm::vec3 genDiffuseVector(RndGen &&gen, const glm::vec3 &up, double n)
 {
 	auto a0 = std::acos(std::pow(gen.urandf(), 1.0 / (n + 1.0)));
 	auto a1 = 2.0 * sb::pi * gen.urandf();
@@ -23,9 +23,11 @@ static inline glm::vec3 genDiffuseVector(RndGen &&gen, const glm::vec3 &up, floa
 	auto ca1 = std::cos(a1);
 	auto base_diffuse = glm::vec3(sa0 * ca1, sa0 * sa1, ca0);
 
-	glm::vec3 nx = glm::vec3(up.z, up.y, up.x);
-	glm::vec3 ny = glm::vec3(up.y, up.z, up.x);
-	return nx * base_diffuse.x + ny * base_diffuse.y + up * base_diffuse.z;
+	glm::vec3 nx = glm::vec3(-up.z, up.x, up.y);
+	glm::vec3 ny = glm::vec3(up.x, -up.z, up.y);
+	glm::vec3 nz = up;
+
+	return base_diffuse.x * nx + base_diffuse.y * ny + base_diffuse.z * nz;
 }
 
 namespace math = glm;

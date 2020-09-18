@@ -16,6 +16,7 @@ public:
 
 	sb::Sampler::Handle m_sampler;
 	sb::Sampler::Handle m_sampler_clamp;
+	sb::Sampler::Handle m_sampler_nearest;
 	sb::Sampler::Handle m_fb_sampler;
 	sb::Sampler::Handle m_fb_sampler_linear;
 
@@ -86,7 +87,7 @@ struct Race::Image {
 		lighting_samplers.normal.bind(race.m_fb_sampler, fb_normal, sb::Image::Layout::ShaderReadOnlyOptimal);
 		lighting_samplers.depth_buffer.bind(race.m_fb_sampler_linear, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
 		lighting_samplers.depth_buffer_fl.bind(race.m_sampler_clamp, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
-		lighting_samplers.depth_range.bind(race.m_fb_sampler, fb_depth_range, sb::Image::Layout::ShaderReadOnlyOptimal);
+		lighting_samplers.depth_range.bind(race.m_sampler_nearest, fb_depth_range, sb::Image::Layout::ShaderReadOnlyOptimal);
 
 		depth_buffer_set.tex.bind(race.m_fb_sampler, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
 
@@ -202,7 +203,7 @@ struct Race::Image {
 			set.last_diffuse.bind(race.m_fb_sampler, i == 0 ? static_cast<sb::Image2D&>(primary) : res.at(i - 1).img, sb::Image::Layout::ShaderReadOnlyOptimal);
 			set.depth_buffer.bind(race.m_fb_sampler_linear, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
 			set.depth_buffer_fl.bind(race.m_sampler_clamp, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
-			set.depth_range.bind(race.m_fb_sampler, fb_depth_range, sb::Image::Layout::ShaderReadOnlyOptimal);
+			set.depth_range.bind(race.m_sampler_nearest, fb_depth_range, sb::Image::Layout::ShaderReadOnlyOptimal);
 			set.index = i;
 			race.instance.cur_img_res->uploadDescSet(set);
 			res.emplace_back(DiffuseBounce{std::move(img), std::move(fb), std::move(set)});

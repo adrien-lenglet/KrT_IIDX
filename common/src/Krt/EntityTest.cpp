@@ -1,12 +1,11 @@
 #include <iostream>
 #include "EntityTest.hpp"
+#include "ModelLoader.hpp"
 #include <glm/gtx/transform.hpp>
 
 namespace Krt {
 
 EntityTest::EntityTest(void) :
-	entity1(add<EntityTest2>()),
-	entity2(add<EntityTest2>()),
 	m_shader(world.instance.device.load(res.shaders().diffuse())),
 	m_material(m_shader.material(world.instance.graphics)),
 	m_object(m_shader.object(world.instance.graphics)),
@@ -56,9 +55,9 @@ EntityTest::~EntityTest(void)
 
 decltype(EntityTest::m_model_buffer) EntityTest::createModelBuffer(void)
 {
-	std::vector<decltype(m_model_buffer)::value_type> values;
+	/*std::vector<decltype(m_model_buffer)::value_type> values;
 
-	for (size_t i = 0; i < 1000; i++) {
+	for (size_t i = 0; i < 100000; i++) {
 		decltype(m_model_buffer)::value_type tri[3];
 		glm::vec3 points[3];
 		for (size_t i = 0; i < 3; i++)
@@ -74,7 +73,8 @@ decltype(EntityTest::m_model_buffer) EntityTest::createModelBuffer(void)
 				tri[i].uv[j] = world.urandf();
 		for (size_t i = 0; i < 3; i++)
 			values.emplace_back(tri[i]);
-	}
+	}*/
+	auto values = loadObj("res_imm/bridge.obj");
 	auto res = world.instance.device.vertexBuffer<decltype(m_model_buffer)::value_type>(values.size(), world.instance.graphics);
 	world.instance.cur_img_res->copyBuffer(values, res);
 	return res;
