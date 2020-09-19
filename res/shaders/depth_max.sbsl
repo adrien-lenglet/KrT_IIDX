@@ -1,0 +1,25 @@
+render_pass render_passes::depth_max : compute;
+
+require vertex::pnu;
+require modules::camera;
+
+vertex {
+	set object {
+		mat4 model_world;
+	};
+
+	void main(void)
+	{
+		vec4 in_pos_h = vec4((in)pos, 1.0);
+		gl_Position = camera.vp * object.model_world * in_pos_h;
+	}
+}
+
+fragment {
+
+	pipeline rasterization.cull_mode = front;
+
+	void main(void)
+	{
+	}
+}

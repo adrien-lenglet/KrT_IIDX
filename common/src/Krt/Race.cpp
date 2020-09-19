@@ -130,7 +130,8 @@ void Race::run(void)
 			cmd.render(img.depth_buffer_max_fb, {{0, 0}, instance.swapchain->extent()},
 				1.0f,
 
-				[&](auto &){
+				[&](auto &cmd){
+					m_track->render_thick.draw(cmd);
 				}
 			);
 

@@ -2107,6 +2107,8 @@ std::optional<Vk::Pipeline> Vk::Shader::createPipeline(Vk::Device &device, rs::S
 	if (shader.isModule())
 		return std::nullopt;
 
+	auto props = shader.getProps();
+
 	std::vector<VkPipelineShaderStageCreateInfo> stages;
 	for (auto &sp : m_shader_modules) {
 		VkPipelineShaderStageCreateInfo ci {};
@@ -2160,7 +2162,7 @@ std::optional<Vk::Pipeline> Vk::Shader::createPipeline(Vk::Device &device, rs::S
 	VkPipelineRasterizationStateCreateInfo rasterization {};
 	rasterization.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	rasterization.polygonMode = VK_POLYGON_MODE_FILL;
-	rasterization.cullMode = VK_CULL_MODE_BACK_BIT;
+	rasterization.cullMode = util::enum_underlying(props.rasterizationCullMode);
 	rasterization.frontFace = VK_FRONT_FACE_CLOCKWISE;
 	rasterization.lineWidth = 1.0f;
 

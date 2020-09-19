@@ -417,6 +417,37 @@ class FolderPrinter
 			Return | compiled.isModule()
 		};
 
+		{
+			static auto return_type = "sb::Shader::PipelineProps"_t;
+			auto get_props_fwd = sh += return_type | Id("getProps")(Void) | Const | Override;
+			auto &get_props = m_impl_out += return_type | get_props_fwd(Void) | Const | S
+			{
+				"sb::Shader::PipelineProps"_t | Id("res")
+			};
+
+			{
+				static const std::vector<std::string> key {"rasterization", ".", "cull_mode"};
+				static const std::string def = "back";
+				const std::string *cur = &def;
+				auto &cullModeVal = compiled.getProp(key);
+				if (cullModeVal.size() > 0) {
+					if (cullModeVal.size() != 1)
+						throw std::runtime_error("Expected one argument only for rasterization.cull_mod");
+					cur = &cullModeVal.at(0);
+				}
+
+				static const std::map<std::string, std::string> table {
+					{"none", "None"},
+					{"front", "Front"},
+					{"back", "Back"},
+					{"front_and_back", "FrontAndBack"}
+				};
+				get_props += Vd("res.rasterizationCullMode = sb::Shader::CullMode::" + table.at(*cur));
+			}
+
+			get_props += Return | "res"_v;
+		}
+
 		auto name = entry.getPath().parent_path().string() + std::string("/.") + entry.getId() + std::string("_stages");
 		std::fs::create_directory(name);
 		for (auto &s : compiled.getStages()) {

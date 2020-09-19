@@ -917,6 +917,18 @@ public:
 			size_t m_index;
 		};
 	};
+
+	enum class CullMode {
+		None = 0,
+		Front = 0x00000001,
+		Back = 0x00000002,
+		FrontAndBack = 0x00000003
+	};
+
+	struct PipelineProps
+	{
+		CullMode rasterizationCullMode;
+	};
 };
 
 }
@@ -938,6 +950,7 @@ public:
 	virtual DescriptorSetLayouts loadDescriptorSetLayouts(Device &dev) const = 0;
 	virtual std::pair<rs::RenderPass&, size_t> getRenderPass(void) const = 0;
 	virtual bool isModule(void) const = 0;
+	virtual sb::Shader::PipelineProps getProps(void) const = 0;
 
 	class Stage
 	{

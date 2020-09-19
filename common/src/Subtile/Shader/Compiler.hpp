@@ -8,6 +8,7 @@
 #include <optional>
 #include <functional>
 #include <set>
+#include <map>
 #include "../Shader.hpp"
 #include "../Resource/Compiler.hpp"
 #include "cpp_generator.hpp"
@@ -39,9 +40,35 @@ private:
 		virtual void write(token_output &o, Sbi sbi) const = 0;
 	};
 
+	std::map<std::vector<std::string>, std::vector<std::string>> m_props;
+	const std::vector<std::string>* getPropSelf(const std::vector<std::string> &key) const
+	{
+		auto got = m_props.find(key);
+		if (got == m_props.end())
+			return nullptr;
+		else
+			return &got->second;
+	}
+
 public:
 	class Variable;
 	class Struct;
+
+	void setProp(const std::vector<std::string> &key, const std::vector<std::string> &value)
+	{
+		auto [it, suc] = m_props.emplace(key, value);
+		if (!suc) {
+			std::stringstream ss;
+			ss << "Can't insert pipeline key: ";
+			for (auto &k : key)
+				ss << k << " ";
+			ss << "with value: ";
+			for (auto &v : value)
+				ss << v << " ";
+			ss << ", maybe it has already been inserted in that translation unit ?";
+			throw std::runtime_error(ss.str());
+		}
+	}
 
 	class Function : public Primitive
 	{
@@ -307,6 +334,25 @@ public:
 			for (auto &p : got->second.getPrimitives())
 				p.get().write(o, sbi);
 		}
+	}
+
+	const std::vector<std::string>& getProp(const std::vector<std::string> &key) const
+	{
+		auto got = getPropSelf(key);
+		if (got)
+			return *got;
+
+		{
+			auto end = m_all_deps.getCompilers().rend();
+			for (auto it = m_all_deps.getCompilers().rbegin(); it != end; it++) {
+				got = it->get().getPropSelf(key);
+				if (got)
+					return *got;
+			}
+		}
+
+		static const std::vector<std::string> def;
+		return def;
 	}
 
 private:
@@ -2030,6 +2076,37 @@ private:
 		}
 	};
 
+	class Pipeline : public Primitive
+	{
+	public:
+		Pipeline(tstream &s, Compiler &compiler)
+		{
+			s.expect("pipeline");
+
+			std::vector<std::string> key;
+			while (s.peek() != "=")
+				key.emplace_back(s.poll());
+			s.expect("=");
+			std::vector<std::string> value;
+			while (s.peek() != ";")
+				value.emplace_back(s.poll());
+			s.expect(";");
+
+			compiler.setProp(key, value);
+		}
+
+		static bool isComingUp(tstream &s)
+		{
+			return s.peek() == "pipeline";
+		}
+
+		void write(token_output&, Sbi) const
+		{
+		}
+
+	private:
+	};
+
 private:
 	RenderPass *m_local_render_pass = nullptr;
 	Compiler *m_render_pass = nullptr;
@@ -2296,6 +2373,8 @@ inline void Shader::Compiler::Section::poll(tstream &s, Compiler &compiler)
 		m_primitives.emplace<Require>(compiler, s);
 	} else if (RenderPass::isComingUp(s)) {
 		m_primitives.emplace<RenderPass>(s, compiler);
+	} else if (Pipeline::isComingUp(s)) {
+		m_primitives.emplace<Pipeline>(s, compiler);
 	} else
 		m_primitives.emplace<Function>(s, compiler);
 }

@@ -44,6 +44,8 @@ public:
 		decltype(m_camera_shader.camera(instance.graphics)) camera;
 	};
 
+	sb::RenderList render_thick;
+
 	Render render;
 
 private:
