@@ -2483,6 +2483,33 @@ void Vk::CommandBuffer::blit(sb::Image &srcImage, sb::Image::Layout srcLayout, c
 	vkCmdBlitImage(*this, vk_src.getImage(), static_cast<VkImageLayout>(util::enum_underlying(srcLayout)), vk_dst.getImage(), static_cast<VkImageLayout>(util::enum_underlying(dstLayout)), 1, &region, static_cast<VkFilter>(util::enum_underlying(filter)));
 }
 
+void Vk::CommandBuffer::copyBufferToImage(const sb::Buffer::Region &srcBuffer, sb::Image &dstImage, sb::Image::Layout dstImageLayout, const srect3 &dstRegion)
+{
+	auto &vk_src = reinterpret_cast<Vk::VmaBuffer&>(srcBuffer.buffer);;
+	auto &vk_dst = reinterpret_cast<Vk::ImageView&>(dstImage);;
+
+	auto st_to_i32 = [](size_t v){
+		return static_cast<int32_t>(static_cast<uint32_t>(v));
+	};
+	auto st_to_u32 = [](size_t v){
+		return static_cast<uint32_t>(v);
+	};
+
+	VkBufferImageCopy region;
+
+	region.bufferOffset = srcBuffer.offset;
+	region.bufferRowLength = 0;
+	region.bufferImageHeight = 0;
+	region.imageSubresource.aspectMask = static_cast<VkImageAspectFlags>(vk_dst.getAspect());
+	region.imageSubresource.mipLevel = vk_dst.getMipRange().off;
+	region.imageSubresource.baseArrayLayer = vk_dst.getArrayRange().off;
+	region.imageSubresource.layerCount = vk_dst.getArrayRange().size;
+	region.imageOffset = VkOffset3D{st_to_i32(dstRegion.offset.x), st_to_i32(dstRegion.offset.y), st_to_i32(dstRegion.offset.z)};
+	region.imageExtent = VkExtent3D{st_to_u32(dstRegion.extent.x), st_to_u32(dstRegion.extent.y), st_to_u32(dstRegion.extent.z)};
+
+	vkCmdCopyBufferToImage(*this, vk_src, vk_dst.getImage(), static_cast<VkImageLayout>(util::enum_underlying(dstImageLayout)), 1, &region);
+}
+
 Vk::CommandPool::CommandPool(Device &dev, VkQueueFamilyIndex familyIndex, bool isReset) :
 	Device::Handle<VkCommandPool>(dev, create(dev, familyIndex, isReset))
 {

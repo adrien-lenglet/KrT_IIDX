@@ -67,6 +67,7 @@ public:
 	virtual void setScissor(const srect2 &scissor) = 0;
 
 	virtual void blit(sb::Image &srcImage, sb::Image::Layout srcLayout, const srect3 &srcRegion, sb::Image &dstImage, sb::Image::Layout dstLayout, const srect3 &dstRegion, Filter filter) = 0;
+	virtual void copyBufferToImage(const Buffer::Region &srcBuffer, sb::Image &dstImage, sb::Image::Layout dstImageLayout, const srect3 &dstRegion) = 0;
 
 	template <typename Type>
 	class CmdGetter
@@ -532,6 +533,11 @@ public:
 		if (src.size != dst.size)
 			throw std::runtime_error("Writing regions don't match");
 		cmd().copy(src, dst);
+	}
+
+	void copyBufferToImage(const Buffer::Region &srcBuffer, sb::Image &dstImage, sb::Image::Layout dstImageLayout, const srect3 &dstRegion)
+	{
+		cmd().copyBufferToImage(srcBuffer, dstImage, dstImageLayout, dstRegion);
 	}
 };
 

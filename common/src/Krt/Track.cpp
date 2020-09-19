@@ -45,7 +45,9 @@ void Track::Render::render(sb::CommandBuffer::Record::RenderPass &cmd, bool disa
 	if (!disable_cam_rot)
 		cursor = m_instance.surface->cursor() - base_cursor;
 	const float sensi = 0.1;
-	const float move = 2.0;
+	auto &shift = m_instance.surface->buttonsId().at("KB_LEFT_SHIFT");
+	shift->update();
+	float move = shift->state() ? 20.0 : 2.0;
 	auto view_rot = glm::rotate(static_cast<float>(-cursor.x * ang_rad) * sensi, glm::vec3(0.0, 1.0, 0.0));
 	view_rot = glm::rotate(static_cast<float>(std::clamp(-cursor.y * sensi, -90.0, 90.0) * ang_rad), glm::vec3(1.0, 0.0, 0.0)) * view_rot;
 	auto view_rot_inverse = glm::inverse(view_rot);

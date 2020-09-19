@@ -65,6 +65,14 @@ public:
 			staging_off += src_size;
 		}
 
+		void copyDataToImage(const void *srcPixels, size_t sizeofPixel, sb::Image2D &dstImage, sb::Image::Layout dstLayout, const sb::srect3 &dstRegion)
+		{
+			auto src_size = dstRegion.extent.x * dstRegion.extent.y * dstRegion.extent.z * sizeofPixel;
+			staging_buffer.write(staging_off, src_size, srcPixels);
+			transfer.copyBufferToImage(staging_buffer.region(staging_off, ~0ULL), dstImage, dstLayout, dstRegion);
+			staging_off += src_size;
+		}
+
 		template <typename DescSet>
 		void uploadDescSet(DescSet &&set)
 		{

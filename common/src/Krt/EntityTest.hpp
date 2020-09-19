@@ -22,8 +22,11 @@ private:
 	decltype(m_thick_shader.object(world.instance.graphics)) m_thick_object;
 	sb::Buffer::Vertex<decltype(m_shader)::Vertex> m_model_buffer;
 	decltype(world.instance.device.model(m_model_buffer)) m_model;
+	sb::Image2D m_model_albedo;
+	sb::Sampler::Handle m_sampler;
 
 	decltype(m_model_buffer) createModelBuffer(void);
+	decltype(m_model_albedo) createModelAlbedo(void);
 
 	double m_angle = 0.0;
 	bool do_rot = false;

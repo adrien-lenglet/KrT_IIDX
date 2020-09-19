@@ -899,6 +899,7 @@ private:
 		void setScissor(const srect2 &scissor) override;
 
 		void blit(sb::Image &srcImage, sb::Image::Layout srcLayout, const srect3 &srcRegion, sb::Image &dstImage, sb::Image::Layout dstLayout, const srect3 &dstRegion, Filter filter) override;
+		void copyBufferToImage(const sb::Buffer::Region &srcBuffer, sb::Image &dstImage, sb::Image::Layout dstImageLayout, const srect3 &dstRegion) override;
 
 	private:
 		CommandPool &m_pool;

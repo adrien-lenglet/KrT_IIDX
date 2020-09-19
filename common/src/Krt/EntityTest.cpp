@@ -2,6 +2,7 @@
 #include "EntityTest.hpp"
 #include "ModelLoader.hpp"
 #include <glm/gtx/transform.hpp>
+#include "stb_image.h"
 
 namespace Krt {
 
@@ -12,9 +13,13 @@ EntityTest::EntityTest(void) :
 	m_thick_shader(world.instance.device.load(res.shaders().depth_max())),
 	m_thick_object(m_thick_shader.object(world.instance.graphics)),
 	m_model_buffer(createModelBuffer()),
-	m_model(world.instance.device.model(m_model_buffer))
+	m_model(world.instance.device.model(m_model_buffer)),
+	m_model_albedo(createModelAlbedo()),
+	m_sampler(world.instance.device.sampler(sb::Filter::Nearest, sb::Filter::Nearest, sb::Sampler::AddressMode::MirroredRepeat, sb::BorderColor::FloatOpaqueWhite, std::nullopt, sb::Sampler::MipmapMode::Linear, 0.0f, 64.0f, 0.0f, std::nullopt))
 {
 	m_material.counter = 0;
+
+	m_material.albedo.bind(m_sampler, m_model_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
 
 	/*bind(world.events.system.input.button.pressed("quit"), [this](){
 		//std::cout << "quit pressed" << std::endl;
@@ -80,9 +85,35 @@ decltype(EntityTest::m_model_buffer) EntityTest::createModelBuffer(void)
 		for (size_t i = 0; i < 3; i++)
 			values.emplace_back(tri[i]);
 	}*/
-	auto values = loadObj("res_imm/sponza/sponza.obj");
+	auto values = loadObj("res_imm/lost-empire/lost_empire.obj");
 	auto res = world.instance.device.vertexBuffer<decltype(m_model_buffer)::value_type>(values.size(), world.instance.graphics);
 	world.instance.cur_img_res->copyBuffer(values, res);
+	return res;
+}
+
+decltype(EntityTest::m_model_albedo) EntityTest::createModelAlbedo(void)
+{
+	int w, h, channels;
+	auto path = "res_imm/lost-empire/lost_empire-RGBA.png";
+	auto pixels = stbi_load(path, &w, &h, &channels, STBI_rgb_alpha);
+	if (pixels == nullptr)
+		throw std::runtime_error(std::string("Can't load texture: ") + path);
+	if (channels != 4)
+		throw std::runtime_error(std::string("Corrupted texture: ") + path);
+
+	auto res = world.instance.device.image2D(sb::Format::rgba8_srgb, {w, h}, 1, sb::Image::Usage::TransferDst | sb::Image::Usage::Sampled, world.instance.graphics);
+
+	world.instance.cur_img_res->transfer.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::Transfer, {},
+		sb::Access::None, sb::Access::TransferWrite,
+		sb::Image::Layout::Undefined, sb::Image::Layout::TransferDstOptimal, res);
+
+	world.instance.cur_img_res->copyDataToImage(pixels, channels, res, sb::Image::Layout::TransferDstOptimal, res.blitRegion({0, 0}, res.extent()));
+
+	world.instance.cur_img_res->transfer.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::BottomOfPipe, {},
+		sb::Access::TransferWrite, sb::Access::MemoryRead,
+		sb::Image::Layout::TransferDstOptimal, sb::Image::Layout::ShaderReadOnlyOptimal, res);
+
+	stbi_image_free(pixels);
 	return res;
 }
 

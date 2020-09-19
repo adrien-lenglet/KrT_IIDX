@@ -78,6 +78,7 @@ fragment {
 			vec3 dif3 = abs(cur - last);
 			float dif = min((dif3.x + dif3.y + dif3.z) / 3.0, 1.0);
 			(out)diffuse = mix(last, cur, clamp(0.07 + length(light.cur_cam_delta) * 10.0, 0.0, 1.0));
+			//(out)diffuse = mix(last, cur, 0.1);
 		} else
 			(out)diffuse = cur;
 

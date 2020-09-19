@@ -8,6 +8,7 @@ fragment {
 		vec3 color;
 		vec3 normal;
 		uint counter;
+		sampler2D albedo;
 	};
 }
 
@@ -66,9 +67,13 @@ fragment {
 
 	void main(void)
 	{
-		(out)albedo = vec3(0.5);
+		//(out)albedo = vec3(0.5);
 		//(out)albedo = clamp(normalize((in)model_normal) + 0.35, 0, 1);
 		//(out)emissive = vec3(((in)pos_world.y > 0.5 && (in)pos_world.y <= 1.0) ? 0.3 : 0.0);
+		vec4 albedo = texture(material.albedo, vec2((in)uv.x, 1.0 - (in)uv.y)).xyzw;
+		if (albedo.w < 0.1)
+			discard;
+		(out)albedo = albedo.xyz;
 		(out)emissive = vec3(0.0);
 		(out)normal = normalize((in)normal);
 	}
