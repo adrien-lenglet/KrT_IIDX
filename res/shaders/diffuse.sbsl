@@ -19,6 +19,7 @@ vertex {
 	};
 
 	out vec3 pos;
+	//out vec3 pos_world;
 	out vec3 normal;
 	out vec3 model_normal;
 	out vec2 uv;
@@ -28,6 +29,7 @@ vertex {
 		vec4 in_pos_h = vec4((in)pos, 1.0);
 		gl_Position = camera.vp * object.model_world * in_pos_h;
 		(out)pos = (camera.view * object.model_world * in_pos_h).xyz;
+		//(out)pos_world = (object.model_world * in_pos_h).xyz;
 		(out)model_normal = (in)normal;
 		(out)normal = (camera.view_normal * object.model_world_normal * vec4((in)normal, 1.0)).xyz;
 		(out)uv = (in)uv;
@@ -66,6 +68,7 @@ fragment {
 	{
 		(out)albedo = vec3(0.5);
 		//(out)albedo = clamp(normalize((in)model_normal) + 0.35, 0, 1);
+		//(out)emissive = vec3(((in)pos_world.y > 0.5 && (in)pos_world.y <= 1.0) ? 0.3 : 0.0);
 		(out)emissive = vec3(0.0);
 		(out)normal = normalize((in)normal);
 	}

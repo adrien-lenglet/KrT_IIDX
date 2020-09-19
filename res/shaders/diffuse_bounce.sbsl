@@ -146,7 +146,7 @@ fragment {
 			if (p.z >= range.x && p.z <= range.y) {
 				if (level == 0) {
 					pos = p.xy;
-					return range.y < 1.0;
+					return range.x < 1.0;
 				}
 				level--;
 			} else {
