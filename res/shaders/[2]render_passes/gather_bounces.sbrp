@@ -1,4 +1,4 @@
-rgba32_sfloat diffuse { store, out_layout = shader_read_only_optimal };
+rgba16_sfloat diffuse { store, out_layout = shader_read_only_optimal };
 
 compute {
 	out diffuse;
