@@ -27,7 +27,7 @@ vertex {
 
 	void main(void)
 	{
-		vec4 in_pos_h = vec4((in)pos * 100.0, 1.0);
+		vec4 in_pos_h = vec4((in)pos, 1.0);
 		gl_Position = camera.vp * object.model_world * in_pos_h;
 		(out)pos = (camera.view * object.model_world * in_pos_h).xyz;
 		//(out)pos_world = (object.model_world * in_pos_h).xyz;
