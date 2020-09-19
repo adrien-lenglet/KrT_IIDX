@@ -61,8 +61,10 @@ struct ModelParsing
 			glm::vec3 pos = positions.at(std::stoull(ndxs.at(0)) - 1);
 			glm::vec3 normal(0.0);
 			glm::vec2 uv(0.0);
-			if (ndxs.size() >= 2)
-				uv = uvs.at(std::stoull(ndxs.at(1)) - 1);
+			if (ndxs.size() >= 2) {
+				if (ndxs.at(1).size() > 0)
+					uv = uvs.at(std::stoull(ndxs.at(1)) - 1);
+			}
 			if (ndxs.size() == 3)
 				normal = normals.at(std::stoull(ndxs.at(2)) - 1);
 			else

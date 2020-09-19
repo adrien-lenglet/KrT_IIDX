@@ -20,8 +20,9 @@ fragment {
 
 	void main(void)
 	{
+		float mx = texture(fb.depth_buffer_max, gl_FragCoord.xy, 0).x;
 		(out)depth_fl = vec2(
 			texture(fb.depth_buffer, gl_FragCoord.xy, 0).x,
-			texture(fb.depth_buffer_max, gl_FragCoord.xy, 0).x);
+			mx == 0.0 ? 1.0 : mx);
 	}
 }

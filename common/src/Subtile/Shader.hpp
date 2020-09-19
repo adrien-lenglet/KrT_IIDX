@@ -928,6 +928,7 @@ public:
 	struct PipelineProps
 	{
 		CullMode rasterizationCullMode;
+		CompareOp depthStencilDepthCompareOp;
 	};
 };
 

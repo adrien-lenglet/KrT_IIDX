@@ -444,6 +444,29 @@ class FolderPrinter
 				};
 				get_props += Vd("res.rasterizationCullMode = sb::Shader::CullMode::" + table.at(*cur));
 			}
+			{
+				static const std::vector<std::string> key {"depth_stencil", ".", "depth_compare_op"};
+				static const std::string def = "less";
+				const std::string *cur = &def;
+				auto &cullModeVal = compiled.getProp(key);
+				if (cullModeVal.size() > 0) {
+					if (cullModeVal.size() != 1)
+						throw std::runtime_error("Expected one argument only for depth_stencil.depth_compare_op");
+					cur = &cullModeVal.at(0);
+				}
+
+				static const std::map<std::string, std::string> table {
+					{"never", "Never"},
+					{"less", "Less"},
+					{"equal", "Equal"},
+					{"less_or_equal", "LessOrEqual"},
+					{"greater", "Greater"},
+					{"not_equal", "NotEqual"},
+					{"greater_or_equal", "GreaterOrEqual"},
+					{"always", "Always"}
+				};
+				get_props += Vd("res.depthStencilDepthCompareOp = sb::CompareOp::" + table.at(*cur));
+			}
 
 			get_props += Return | "res"_v;
 		}
