@@ -203,7 +203,7 @@ void Race::run(void)
 			}
 
 			for (auto &d : img.lighting_samplers.sun_dir)
-				d = sb::genDiffuseVector(*m_track, glm::normalize(glm::vec3(1.0, 1.0, 1.0)), 2000.0);
+				d = sb::genDiffuseVector(*m_track, glm::normalize(glm::vec3(2.0, 1.3, 1.0)), 2000.0);
 			instance.cur_img_res->uploadDescSet(img.lighting_samplers);
 
 			cmd.setViewport(viewport, 0.0f, 1.0f);

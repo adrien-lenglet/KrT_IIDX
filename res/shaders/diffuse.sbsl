@@ -27,7 +27,7 @@ vertex {
 
 	void main(void)
 	{
-		vec4 in_pos_h = vec4((in)pos, 1.0);
+		vec4 in_pos_h = vec4((in)pos * 100.0, 1.0);
 		gl_Position = camera.vp * object.model_world * in_pos_h;
 		(out)pos = (camera.view * object.model_world * in_pos_h).xyz;
 		//(out)pos_world = (object.model_world * in_pos_h).xyz;
@@ -71,7 +71,7 @@ fragment {
 		//(out)albedo = clamp(normalize((in)model_normal) + 0.35, 0, 1);
 		//(out)emissive = vec3(((in)pos_world.y > 0.5 && (in)pos_world.y <= 1.0) ? 0.3 : 0.0);
 		vec4 albedo = texture(material.albedo, vec2((in)uv.x, 1.0 - (in)uv.y)).xyzw;
-		if (albedo.w < 0.1)
+		if (albedo.w < 0.01)
 			discard;
 		(out)albedo = albedo.xyz;
 		(out)emissive = vec3(0.0);

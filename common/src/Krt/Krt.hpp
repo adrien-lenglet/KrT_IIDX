@@ -36,17 +36,20 @@ public:
 public:
 	size_t img_count;
 	struct ImageRes {
+		Instance &instance;
 		decltype(m_transfer_pool.primary()) transfer_cmd_buf;
 		sb::CommandBuffer &transfer_unsafe;
 		sb::CommandBuffer::Record::Primary<sb::Queue::Flag::Graphics> transfer;
 		sb::Buffer::Mappable staging_buffer;
 		size_t staging_off;
+		static inline constexpr size_t staging_buffer_size = 64000000;
 
 		ImageRes(Instance &instance) :
+			instance(instance),
 			transfer_cmd_buf(instance.m_transfer_pool.primary()),
 			transfer_unsafe(transfer_cmd_buf),
 			transfer(transfer_cmd_buf),
-			staging_buffer(instance.device.mappableBuffer(64000000, sb::Buffer::Usage::TransferSrc | sb::Buffer::Usage::TransferDst, instance.graphics)),
+			staging_buffer(instance.device.mappableBuffer(staging_buffer_size, sb::Buffer::Usage::TransferSrc | sb::Buffer::Usage::TransferDst, instance.graphics)),
 			staging_off(0)
 		{
 		}
@@ -60,6 +63,25 @@ public:
 		void copyBuffer(SrcType &&src, sb::Buffer::Array<Type> &dst)
 		{
 			auto src_size = src.size() * sizeof(decltype(*src.data()));
+			if (staging_off + src_size > staging_buffer_size) {
+				size_t buf_size = staging_buffer_size / 2;
+				auto buf = instance.device.mappableBuffer(buf_size, sb::Buffer::Usage::TransferSrc | sb::Buffer::Usage::TransferDst, instance.graphics);
+				size_t off = 0;
+				size_t bytes_left = src_size;
+				auto cmd = instance.m_transfer_pool.primary();
+				while (bytes_left > 0) {
+					cmd.record([&](auto &cmd){
+						size_t to_write = std::min(bytes_left, buf_size);
+						buf.write(0, to_write, reinterpret_cast<const char*>(src.data()) + off);
+						cmd.copy(buf.region(0, to_write), dst.region(off, to_write));
+						bytes_left -= to_write;
+						off += to_write;
+					});
+					instance.graphics.submit(util::empty, cmd, util::empty);
+					instance.graphics.waitIdle();
+				}
+				return;
+			}
 			staging_buffer.write(staging_off, src_size, src.data());
 			transfer.copy(staging_buffer.region(staging_off, src_size), dst);
 			staging_off += src_size;
