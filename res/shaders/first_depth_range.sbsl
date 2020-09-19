@@ -11,7 +11,7 @@ vertex {
 }
 
 fragment {
-	out float range;
+	out vec2 range;
 
 	set fb {
 		sampler2D up;
@@ -19,6 +19,6 @@ fragment {
 
 	void main(void)
 	{
-		(out)range = textureLod(fb.up, gl_FragCoord.xy, 0).x;
+		(out)range = textureLod(fb.up, gl_FragCoord.xy, 0).xy;
 	}
 }

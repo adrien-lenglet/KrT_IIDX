@@ -13,12 +13,15 @@ vertex {
 fragment {
 	set fb {
 		sampler2D depth_buffer;
+		sampler2D depth_buffer_max;
 	};
 
-	out float depth_fl;
+	out vec2 depth_fl;
 
 	void main(void)
 	{
-		(out)depth_fl = texture(fb.depth_buffer, gl_FragCoord.xy, 0).x;
+		(out)depth_fl = vec2(
+			texture(fb.depth_buffer, gl_FragCoord.xy, 0).x,
+			texture(fb.depth_buffer_max, gl_FragCoord.xy, 0).x);
 	}
 }

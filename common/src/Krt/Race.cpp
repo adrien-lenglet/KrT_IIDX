@@ -15,6 +15,7 @@ Race::Race(Instance &instance) :
 	m_fb_sampler_linear(instance.device.samplerUnnormalized(sb::Filter::Linear, sb::Sampler::AddressMode::ClampToEdge, sb::BorderColor::FloatOpaqueWhite, 0.0f)),
 	m_opaque_pass(instance.device.load(res.shaders().render_passes().opaque())),
 	m_lighting_pass(instance.device.load(res.shaders().render_passes().lighting())),
+	m_depth_max_pass(instance.device.load(res.shaders().render_passes().depth_max())),
 	m_depth_range_pass(instance.device.load(res.shaders().render_passes().depth_range())),
 	m_first_depth_range(instance.device.load(res.shaders().first_depth_range())),
 	m_compute_depth_range(instance.device.load(res.shaders().compute_depth_range())),
@@ -123,6 +124,13 @@ void Race::run(void)
 					s.cur_cam_b = cam.b;
 					s.cur_cam_ratio = cam.ratio;
 					instance.cur_img_res->uploadDescSet(s);
+				}
+			);
+
+			cmd.render(img.depth_buffer_max_fb, {{0, 0}, instance.swapchain->extent()},
+				1.0f,
+
+				[&](auto &){
 				}
 			);
 

@@ -142,12 +142,11 @@ fragment {
 		uint it = 0;
 
 		while (it++ < fb.depth_buffer_max_it) {
-			float depth;
-			depth = textureLod(fb.depth_buffer_fl, p.xy * fb.depth_buffer_fl_size, level).x;
-			if (p.z >= depth) {
+			vec2 range = textureLod(fb.depth_buffer_fl, p.xy * fb.depth_buffer_fl_size, level).xy;
+			if (p.z >= range.x && p.z <= range.y) {
 				if (level == 0) {
 					pos = p.xy;
-					return depth < 1.0;
+					return range.y < 1.0;
 				}
 				level--;
 			} else {
