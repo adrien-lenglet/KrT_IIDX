@@ -158,15 +158,6 @@ Image::~Image(void)
 {
 }
 
-Model::Model(void) :
-	File(true)
-{
-}
-
-Model::~Model(void)
-{
-}
-
 RenderPass::RenderPass(void) :
 	File(false)
 {

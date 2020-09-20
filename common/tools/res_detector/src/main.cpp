@@ -108,7 +108,7 @@ class FolderPrinter
 			return scope += Using | name = tfinal;
 	}
 
-	template <bool isTemplate>
+	template <bool isTemplate, bool use_struct_member = true>
 	decltype(auto) createShaderStruct(Util::CollectionBase &scope, const std::string &name, const std::vector<std::reference_wrapper<const sb::Shader::Compiler::Variable>> &variables, const std::string &layout)
 	{
 		auto layout_c = isTemplate ? "Layout"_t : Type(layout);
@@ -128,10 +128,12 @@ class FolderPrinter
 			if (p.is_user_defined)
 				t.assign((m_scope >> Type(p.user_defined_type)).T(layout_c));
 
-			if (prev_id)
-				t.assign("sb::Shader::Type::StructMember"_t.T(t, layout_c, Decltype(*prev_id)));
-			else
-				t.assign("sb::Shader::Type::StructMember"_t.T(t, layout_c));
+			if (use_struct_member) {
+				if (prev_id)
+					t.assign("sb::Shader::Type::StructMember"_t.T(t, layout_c, Decltype(*prev_id)));
+				else
+					t.assign("sb::Shader::Type::StructMember"_t.T(t, layout_c));
+			}
 			prev_id = s += t | Id(v.getName());
 			ids.emplace_back(*prev_id);
 		}
@@ -150,11 +152,17 @@ class FolderPrinter
 		if constexpr (isTemplate)
 			s_w_param.assign(s_w_param.T("Layout"_t));
 
-		auto tfinal = "sb::Shader::Type::Struct"_t.T(s_w_param);
-		for (auto &i : ids)
-			tfinal.add(Decltype(s_w_param().M(i)));
-		auto mapped_str = createShaderStructFinal<isTemplate>(scope, name, tfinal);
-		return mapped_str;
+		if constexpr (use_struct_member) {
+			auto tfinal = "sb::Shader::Type::Struct"_t.T(s_w_param);
+			for (auto &i : ids)
+				tfinal.add(Decltype(s_w_param().M(i)));
+			auto mapped_str = createShaderStructFinal<isTemplate>(scope, name, tfinal);
+			return mapped_str;
+		} else {
+			auto tfinal = Type(s);
+			auto mapped_str = createShaderStructFinal<isTemplate>(scope, name, tfinal);
+			return mapped_str;
+		}
 	}
 
 	Value getDescriptorType(sb::Shader::DescriptorType type)
@@ -226,7 +234,7 @@ class FolderPrinter
 				for (auto &io : shader.getStages().begin()->second.getInterface())
 					if (io.getDir() == sb::Shader::Compiler::Stage::InterfaceInOut::Dir::In)
 						vars.emplace_back(io.getVariable());
-			return createShaderStruct<false>(scope, "Vertex", vars, "sb::Shader::Type::Std430");
+			return createShaderStruct<false, false>(scope, "Vertex", vars, "sb::Shader::Type::Std430");
 		}
 	}
 
