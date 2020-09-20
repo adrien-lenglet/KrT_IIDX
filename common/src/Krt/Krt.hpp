@@ -42,7 +42,7 @@ public:
 		sb::CommandBuffer::Record::Primary<sb::Queue::Flag::Graphics> transfer;
 		sb::Buffer::Mappable staging_buffer;
 		size_t staging_off;
-		static inline constexpr size_t staging_buffer_size = 64000000;
+		static inline constexpr size_t staging_buffer_size = 8000000;
 
 		ImageRes(Instance &instance) :
 			instance(instance),
@@ -64,7 +64,7 @@ public:
 		{
 			auto src_size = src.size() * sizeof(decltype(*src.data()));
 			if (staging_off + src_size > staging_buffer_size) {
-				size_t buf_size = staging_buffer_size / 2;
+				size_t buf_size = staging_buffer_size;
 				auto buf = instance.device.mappableBuffer(buf_size, sb::Buffer::Usage::TransferSrc | sb::Buffer::Usage::TransferDst, instance.graphics);
 				size_t off = 0;
 				size_t bytes_left = src_size;
@@ -90,6 +90,34 @@ public:
 		void copyDataToImage(const void *srcPixels, size_t sizeofPixel, sb::Image2D &dstImage, sb::Image::Layout dstLayout, const sb::srect3 &dstRegion)
 		{
 			auto src_size = dstRegion.extent.x * dstRegion.extent.y * dstRegion.extent.z * sizeofPixel;
+			if (staging_off + src_size > staging_buffer_size) {
+				size_t lines_per_pass = std::min((staging_buffer_size / (dstRegion.extent.x * sizeofPixel)) / sizeofPixel, dstRegion.extent.y);
+				if (lines_per_pass == 0)
+					throw std::runtime_error("Can't even fit one line in staging buffer!");
+				auto buf = instance.device.mappableBuffer(staging_buffer_size, sb::Buffer::Usage::TransferSrc | sb::Buffer::Usage::TransferDst, instance.graphics);
+				for (size_t z = 0; z < dstRegion.extent.z; z++) {
+					size_t line_off = 0;
+					size_t byte_off = 0;
+					size_t lines_left = dstRegion.extent.y;
+					auto cmd = instance.m_transfer_pool.primary();
+					while (lines_left > 0) {
+						cmd.record([&](auto &cmd){
+							size_t lines_to_write = std::min(lines_left, lines_per_pass);
+							auto img_off = sb::svec3(0, line_off, z);
+							auto img_extent = sb::svec3(dstRegion.extent.x, lines_to_write, 1);
+							size_t bytes_to_write = img_extent.y * img_extent.x * sizeofPixel;
+							buf.write(0, bytes_to_write, reinterpret_cast<const char*>(srcPixels) + byte_off);
+							cmd.copyBufferToImage(buf.region(0, bytes_to_write), dstImage, dstLayout, dstImage.blitRegion(dstRegion.offset + img_off, img_extent));
+							lines_left -= lines_to_write;
+							line_off += lines_to_write;
+							byte_off += bytes_to_write;
+						});
+						instance.graphics.submit(util::empty, cmd, util::empty);
+						instance.graphics.waitIdle();
+					}
+				}
+				return;
+			}
 			staging_buffer.write(staging_off, src_size, srcPixels);
 			transfer.copyBufferToImage(staging_buffer.region(staging_off, ~0ULL), dstImage, dstLayout, dstRegion);
 			staging_off += src_size;

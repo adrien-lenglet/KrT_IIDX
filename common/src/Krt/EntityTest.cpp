@@ -103,9 +103,16 @@ decltype(EntityTest::m_model_albedo) EntityTest::createModelAlbedo(void)
 
 	auto res = world.instance.device.image2D(sb::Format::rgba8_srgb, {w, h}, 1, sb::Image::Usage::TransferDst | sb::Image::Usage::Sampled, world.instance.graphics);
 
-	world.instance.cur_img_res->transfer.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::Transfer, {},
-		sb::Access::None, sb::Access::TransferWrite,
-		sb::Image::Layout::Undefined, sb::Image::Layout::TransferDstOptimal, res);
+	auto cmd = world.instance.m_transfer_pool.primary();
+
+	cmd.record([&](auto &cmd){
+		cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::Transfer, {},
+			sb::Access::None, sb::Access::TransferWrite,
+			sb::Image::Layout::Undefined, sb::Image::Layout::TransferDstOptimal, res);
+	});
+
+	world.instance.graphics.submit(util::empty, cmd, util::empty);
+	world.instance.graphics.waitIdle();
 
 	world.instance.cur_img_res->copyDataToImage(pixels, channels, res, sb::Image::Layout::TransferDstOptimal, res.blitRegion({0, 0}, res.extent()));
 
