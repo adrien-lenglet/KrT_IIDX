@@ -109,7 +109,8 @@ decltype(EntityTest::m_model_buffer) EntityTest::createModelBuffer(void)
 decltype(EntityTest::m_model_albedo) EntityTest::createModelAlbedo(void)
 {
 	int w, h, channels;
-	auto path = "res_imm/vokselia_spawn/vokselia_spawn.png";
+	res.models().map().vokselia_spawn_albedo().beforeRead();
+	auto path = "res/models/map/vokselia_spawn_albedo.png";
 	auto pixels = stbi_load(path, &w, &h, &channels, STBI_rgb_alpha);
 	if (pixels == nullptr)
 		throw std::runtime_error(std::string("Can't load texture: ") + path);

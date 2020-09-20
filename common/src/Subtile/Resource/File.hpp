@@ -22,12 +22,12 @@ public:
 	};
 
 	Istream read(void) const;
+	virtual void beforeRead(void) const;
 
 protected:
 	File(const std::string &name, bool ship);
 
 	friend Target;
-	virtual void beforeRead(void) const;
 
 private:
 	bool m_ship;
