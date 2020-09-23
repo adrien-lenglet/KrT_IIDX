@@ -62,7 +62,7 @@ struct Race::Image {
 		fb_depth_buffer(race.instance.device.image2D(sb::Format::d24un_or_32sf_spl_att_sfb, race.instance.swapchain->extent(), 1, sb::Image::Usage::DepthStencilAttachment | sb::Image::Usage::Sampled | sb::Image::Usage::TransferSrc, race.instance.graphics)),
 		fb_depth_buffer_max(race.instance.device.image2D(sb::Format::d24un_or_32sf_spl_att_sfb, race.instance.swapchain->extent(), 1, sb::Image::Usage::DepthStencilAttachment | sb::Image::Usage::Sampled | sb::Image::Usage::TransferSrc, race.instance.graphics)),
 		depth_buffer_max_fb(race.m_depth_max_pass.framebuffer(race.instance.swapchain->extent(), 1, fb_depth_buffer_max)),
-		depth_buffer_trace_res(1),
+		depth_buffer_trace_res(3),
 		fb_depth_buffer_raw_fl(race.instance.device.image2D(sb::Format::rg32_sfloat, {static_cast<size_t>(std::pow(2.0, std::ceil(std::log2(fb_albedo.extent().x)))), static_cast<size_t>(std::pow(2.0, std::ceil(std::log2(fb_albedo.extent().y))))}, sb::Image::allMipLevels, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled | sb::Image::Usage::TransferSrc | sb::Image::Usage::TransferDst, race.instance.graphics)),
 		fb_depth_buffer_raw_fl_mips(getDepthBufferRawFlMips()),
 		depth_to_fl_fb(race.m_depth_to_fl_pass.framebuffer(fb_depth_buffer_raw_fl_mips.at(0).extent(), 1, fb_depth_buffer_raw_fl_mips.at(0))),
@@ -172,7 +172,8 @@ struct Race::Image {
 		res.emissive.bind(race.m_fb_sampler, fb_emissive, sb::Image::Layout::ShaderReadOnlyOptimal);
 		res.normal.bind(race.m_fb_sampler, fb_normal, sb::Image::Layout::ShaderReadOnlyOptimal);
 		res.depth_buffer.bind(race.m_fb_sampler_linear, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
-		res.depth_buffer_fl.bind(race.m_sampler_clamp, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
+		res.depth_buffer_fl.bind(race.m_sampler_nearest, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
+		res.depth_buffer_fl_lin.bind(race.m_sampler, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
 		res.depth_buffer_fl_size = (glm::vec2(1.0) / glm::vec2(fb_depth_buffer_fl.extent())) * glm::vec2(1.0 / static_cast<double>(1 << depth_buffer_trace_res));
 		res.depth_buffer_trace_res = depth_buffer_trace_res;
 		res.depth_buffer_max_it = 200 / (1 << depth_buffer_trace_res);
@@ -223,7 +224,8 @@ struct Race::Image {
 			set.normal.bind(race.m_fb_sampler, fb_normal, sb::Image::Layout::ShaderReadOnlyOptimal);
 			set.last_diffuse.bind(race.m_fb_sampler, i == 0 ? static_cast<sb::Image2D&>(primary) : res.at(i - 1).img, sb::Image::Layout::ShaderReadOnlyOptimal);
 			set.depth_buffer.bind(race.m_fb_sampler_linear, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
-			set.depth_buffer_fl.bind(race.m_sampler_clamp, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
+			set.depth_buffer_fl.bind(race.m_sampler_nearest, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
+			set.depth_buffer_fl_lin.bind(race.m_sampler, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
 			set.depth_buffer_fl_size = image.lighting_samplers.depth_buffer_fl_size;
 			set.depth_buffer_trace_res = image.lighting_samplers.depth_buffer_trace_res;
 			set.depth_buffer_max_it = image.lighting_samplers.depth_buffer_max_it;

@@ -69,6 +69,8 @@ fragment {
 		cur += texture(light.primary, gl_FragCoord.xy).xyz;
 		for (uint i = 0; i < light.bounce_count; i++)
 			cur += texture(light.bounces[i], gl_FragCoord.xy).xyz;
+		//(out)diffuse = cur;
+		//return;
 
 		vec3 last_view = (light.cur_cam_to_last * vec4(current_view(), 1.0)).xyz;
 		vec2 size_d = vec2(textureSize(light.depth_buffer, 0));
