@@ -42,10 +42,10 @@ fragment {
 
 	vec3 pos_view(vec2 pos)
 	{
-		vec2 size = textureSize(fb.depth_buffer, 0);
+		vec2 size = vec2(1.0) / textureSize(fb.depth_buffer, 0);
 		float depth = textureLod(fb.depth_buffer_fl_lin, pos * fb.depth_buffer_fl_size, 0).x;
 		float z = depth_to_z(depth);
-		vec2 uv = pos / size;
+		vec2 uv = pos * size;
 		vec2 ndc2 = (uv - 0.5) * 2.0;
 		ndc2 *= camera.ratio;
 		ndc2 *= z;
@@ -61,6 +61,18 @@ fragment {
 	{
 		vec2 size = textureSize(fb.depth_buffer, 0);
 		return ((p / 2.0) + 0.5) * size;
+	}
+
+	vec3 pos_view_precise(vec2 pos)
+	{
+		vec2 size = vec2(1.0) / textureSize(fb.depth_buffer, 0);
+		float depth = textureLod(fb.depth_buffer, pos, 0).x;
+		float z = depth_to_z(depth);
+		vec2 uv = pos * size;
+		vec2 ndc2 = (uv - 0.5) * 2.0;
+		ndc2 *= camera.ratio;
+		ndc2 *= z;
+		return vec3(ndc2, z);
 	}
 
 	vec3 project_point(vec3 point)
@@ -126,10 +138,13 @@ fragment {
 	{
 		vec3 p0, p1;
 		project_ray(origin, dir, p0, p1);
-		vec3 normal = normalize(textureLod(fb.normal, p0.xy, 0).xyz);
-		float bias = (1.0 - min(dot(-normal, normalize(origin)), 0.0)) * 0.001 / length(origin);
-		p0.z -= bias;
-		p1.z -= bias;
+
+		const float first_size = float(1 << fb.depth_buffer_trace_res);
+		vec2 first_cell_center = floor(p0.xy / first_size) * first_size + vec2(first_size * 0.5);
+		//vec3 first_pos_cam = pos_view(first_cell_center);
+		vec3 normal = normalize(textureLod(fb.normal, first_cell_center, 0)).xyz;
+
+		float bias = 0.025 * (1.0 - max(dot(normalize(origin), -normal), 0.0));
 
 		vec2 dir2 = p1.xy - p0.xy;
 		if (dir2 == vec2(0.0))
@@ -164,14 +179,20 @@ fragment {
 		uint max_it = fb.depth_buffer_max_it * 3;
 		while (it++ < max_it) {
 			int cur_lev = level + fb.depth_buffer_trace_res;
-			float start_d = mix(p0.z, p1.z, t + cell_end(p.xy, dir2n, cur_lev));
-			float end_d = mix(p0.z, p1.z, t + cell_end(p.xy, dir2, cur_lev));
-			vec2 range;
-			if (level == 0)
-				range = textureLod(fb.depth_buffer_fl_lin, p.xy * fb.depth_buffer_fl_size, 0).xy;
-			else
-				range = textureLod(fb.depth_buffer_fl, p.xy * fb.depth_buffer_fl_size, level).xy;
-			if ((start_d >= range.x && start_d <= range.y) || (end_d >= range.x && end_d <= range.y) || (start_d <= range.y && end_d >= range.x) || (start_d >= range.y && end_d <= range.x)) {
+			int cell_lev = level == 0 ? 0 : cur_lev;
+			float t_start = t + cell_end(p.xy, dir2n, cell_lev);
+			float t_end = t + cell_end(p.xy, dir2, cell_lev);
+			float start_d = mix(p0.z, p1.z, t_start);
+			float end_d = mix(p0.z, p1.z, t_end);
+			vec2 range = textureLod(fb.depth_buffer_fl, p.xy * fb.depth_buffer_fl_size, level).xy;
+			bool cond = (start_d >= range.x && start_d <= range.y) || (end_d >= range.x && end_d <= range.y) || (start_d <= range.y && end_d >= range.x) || (start_d >= range.y && end_d <= range.x);;
+			if (level == 0) {
+				float r_depth = textureLod(fb.depth_buffer, p.xy, 0).x;
+				range = vec2(z_to_depth(depth_to_z(r_depth) + bias), textureLod(fb.depth_buffer_fl_lin, p.xy * fb.depth_buffer_fl_size, 0).y);
+				float depth = mix(p0.z, p1.z, mix(t_start, t_end, .5));
+				cond = (depth >= range.x && depth <= range.y) || (depth >= range.x && depth <= range.y);
+			}
+			if (cond) {
 				if (level == 0) {
 					pos = p.xy;
 					return true;
@@ -201,7 +222,7 @@ fragment {
 
 	void main(void)
 	{
-		vec3 view = current_view();
+		vec3 view = pos_view_precise(gl_FragCoord.xy);
 		vec3 view_norm = normalize(view);
 		vec3 normal = texture(fb.normal, gl_FragCoord.xy).xyz;
 		vec3 albedo = texture(fb.albedo, gl_FragCoord.xy).xyz;
