@@ -126,6 +126,10 @@ fragment {
 	{
 		vec3 p0, p1;
 		project_ray(origin, dir, p0, p1);
+		vec3 normal = normalize(textureLod(fb.normal, p0.xy, 0).xyz);
+		float bias = (1.0 - min(dot(-normal, normalize(origin)), 0.0)) * 0.001 / length(origin);
+		p0.z -= bias;
+		p1.z -= bias;
 
 		vec2 dir2 = p1.xy - p0.xy;
 		if (dir2 == vec2(0.0))
@@ -147,7 +151,7 @@ fragment {
 		vec3 p = p0;
 		uint it = 0;
 
-		if (dot(textureLod(fb.normal, p.xy, 0).xyz, dir) < 0.0) {
+		if (dot(normal, dir) < 0.0) {
 			pos = p.xy;
 			return true;
 		}
@@ -162,9 +166,11 @@ fragment {
 			int cur_lev = level + fb.depth_buffer_trace_res;
 			float start_d = mix(p0.z, p1.z, t + cell_end(p.xy, dir2n, cur_lev));
 			float end_d = mix(p0.z, p1.z, t + cell_end(p.xy, dir2, cur_lev));
-			vec2 range = textureLod(fb.depth_buffer_fl, p.xy * fb.depth_buffer_fl_size, level).xy;
+			vec2 range;
 			if (level == 0)
 				range = textureLod(fb.depth_buffer_fl_lin, p.xy * fb.depth_buffer_fl_size, 0).xy;
+			else
+				range = textureLod(fb.depth_buffer_fl, p.xy * fb.depth_buffer_fl_size, level).xy;
 			if ((start_d >= range.x && start_d <= range.y) || (end_d >= range.x && end_d <= range.y) || (start_d <= range.y && end_d >= range.x) || (start_d >= range.y && end_d <= range.x)) {
 				if (level == 0) {
 					pos = p.xy;
