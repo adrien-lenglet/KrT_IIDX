@@ -3,7 +3,8 @@ COMMON_LIBS_FOLDER = ../../libs
 RESOURCES_SRC = $(wildcard $(COMMON_SRC_FOLDER)/Subtile/Resource/*.cpp)
 
 CXX = clang++
-CXXFLAGS = -std=c++17 -Wall -Wextra -g -I $(COMMON_SRC_FOLDER) -I $(COMMON_LIBS_FOLDER)/include
+CXXFLAGS = -std=c++17 -Wall -Wextra -O3 -I $(COMMON_SRC_FOLDER) -I $(COMMON_LIBS_FOLDER)/include
+LINK_OPT = -s
 
 SRC_FOLDER = src
 SRC = $(wildcard $(SRC_FOLDER)/*.cpp)
@@ -25,7 +26,7 @@ $(ENGINE_DEPS): $(ENGINE_SRC)
 	rm -f $(ENGINE_OBJ)
 
 $(TARGET): $(ENGINE_DEPS) $(OBJ)
-	$(CXX) $(CXXFLAGS) $(OBJ) $(ENGINE_DEPS) -o $(TARGET)
+	$(CXX) $(CXXFLAGS) $(LINK_OPT) $(OBJ) $(ENGINE_DEPS) -o $(TARGET)
 
 clean:
 	rm -f $(TARGET) $(OBJ) $(ENGINE_DEPS)
