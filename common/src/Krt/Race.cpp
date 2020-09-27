@@ -163,6 +163,10 @@ void Race::run(void)
 					s.cur_cam_ratio = cam.ratio;
 					instance.cur_img_res->uploadDescSet(s);
 
+					img.diffuse_to_wsi_screen_set.cam_a = cam.a;
+					img.diffuse_to_wsi_screen_set.cam_b = cam.b;
+					instance.cur_img_res->uploadDescSet(img.diffuse_to_wsi_screen_set);
+
 					for (size_t i = 0; i < 6; i++) {
 						auto &set = img.cube_depth_set;
 						set.cur_view = view;
