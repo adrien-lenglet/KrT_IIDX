@@ -31,8 +31,8 @@ decltype(Instance::m_screen_quad_buffer) Instance::createScreenQuadBuffer(void)
 	return res;
 }
 
-Instance::Instance(bool isDebug, const std::vector<std::string> &args) :
-	sb::Instance<Instance>(isDebug, Config(args).isProfile),
+Instance::Instance(bool isDebug, const Config &config) :
+	sb::Instance<Instance>((isDebug && !config.isNoValidation) || config.forceValidation, config.isRenderDoc, config.isMonitor),
 	surface(static_cast<sb::InstanceBase&>(*this).surface({1600, 900}, "SUNREN®")),
 	device(static_cast<sb::InstanceBase&>(*this).device(*surface, {
 		{m_graphics_family, {1.0f}}
@@ -46,6 +46,11 @@ Instance::Instance(bool isDebug, const std::vector<std::string> &args) :
 	cur_img_res(&images.at(cur_img)),
 	m_screen_quad_buffer((cur_img_res->transfer_unsafe.begin(sb::CommandBuffer::Usage::OneTimeSubmit), createScreenQuadBuffer())),
 	screen_quad(device.model(m_screen_quad_buffer))
+{
+}
+
+Instance::Instance(bool isDebug, const std::vector<std::string> &args) :
+	Instance(isDebug, Config(args))
 {
 }
 
@@ -63,10 +68,14 @@ Config::Config(const std::vector<std::string> &argsRo)
 {
 	auto args = argsRo;
 
-	if (util::erase_if_contains(args, "-p"))
-		isProfile = true;
-	if (util::erase_if_contains(args, "--profile"))
-		isProfile = true;
+	if (util::erase_if_contains(args, "-nv") || util::erase_if_contains(args, "--no-validation"))
+		isNoValidation = true;
+	if (util::erase_if_contains(args, "-fv") || util::erase_if_contains(args, "--force-validation"))
+		forceValidation = true;
+	if (util::erase_if_contains(args, "-rd") || util::erase_if_contains(args, "--render-doc"))
+		isRenderDoc = true;
+	if (util::erase_if_contains(args, "-m") || util::erase_if_contains(args, "--monitor"))
+		isMonitor = true;
 
 	if (!args.empty())
 		throw std::runtime_error(std::string("Unknown argument(s): " + util::join(args, std::string(", "))));

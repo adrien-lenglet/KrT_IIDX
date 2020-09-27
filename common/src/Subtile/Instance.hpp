@@ -17,7 +17,7 @@ class WorldBase;
 class InstanceBase
 {
 public:
-	InstanceBase(bool isDebug, bool isProfile);
+	InstanceBase(bool validate, bool isRenderDoc, bool isMonitor);
 	~InstanceBase(void);
 
 	class Getter
@@ -76,8 +76,8 @@ template <typename InstanceType>
 class Instance : public InstanceBase
 {
 public:
-	Instance(bool isDebug, bool isProfile) :
-		InstanceBase(isDebug, isProfile)
+	Instance(bool validate, bool isRenderDoc, bool isMonidor) :
+		InstanceBase(validate, isRenderDoc, isMonidor)
 	{
 	}
 

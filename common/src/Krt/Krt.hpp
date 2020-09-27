@@ -14,12 +14,17 @@ public:
 	Config(const std::vector<std::string> &args);
 	~Config(void);
 
-	bool isProfile = false;
+	bool isNoValidation = false;
+	bool forceValidation = false;
+	bool isRenderDoc = false;
+	bool isMonitor = false;
 };
 
 class Instance : public sb::Instance<Instance>
 {
 	static inline constexpr auto m_graphics_family = sb::Queue::Flag::Graphics | sb::Queue::Flag::Present;
+
+	Instance(bool isDebug, const Config &config);
 
 public:
 	Instance(bool isDebug, const std::vector<std::string> &args);

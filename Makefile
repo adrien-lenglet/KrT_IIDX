@@ -30,6 +30,10 @@ debug: CXXFLAGS_ADD = -g
 debug: resources
 	$(MAKE) -C $(COMMON) debug $(OPT)
 
+regular: CXXFLAGS_ADD = -O3
+regular: resources
+	$(MAKE) -C $(COMMON) regular $(OPT)
+
 release: CXXFLAGS_ADD = -O3
 release: resources
 	$(MAKE) -C $(COMMON) release $(OPT)
@@ -38,8 +42,13 @@ windows: LIB = "$(shell cygpath --unix $(VULKAN_SDK))/Lib/vulkan-1.lib" -lglfw3
 windows: $(TARGET)
 
 debug_windows: debug windows
+regular_windows: LINK_OPT = -s
+regular_windows: regular windows
 release_windows: LINK_OPT = -s
 release_windows: release windows
+
+res_ship:
+	$(MAKE) -C $(COMMON) res_ship $(OPT)
 
 build:
 	mkdir build
@@ -50,7 +59,7 @@ WIN_DLLS = libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll glfw3.dll
 clean_windows_publish:
 	rm -rf $(WIN_PUBLISH)
 
-publish_windows: wipe_all_bin clean_windows_publish release_windows build
+publish_windows: wipe_all_bin clean_windows_publish release_windows res_ship build
 	mkdir -p $(WIN_PUBLISH)
 	cp $(TARGET).exe $(WIN_PUBLISH)/$(TARGET).exe
 	./common/res_ship $(WIN_PUBLISH)
@@ -62,6 +71,8 @@ linux: LIB = -lglfw -lvulkan -Wl,-rpath,.
 linux: $(TARGET)
 
 debug_linux: debug linux
+regular_linux: LINK_OPT = -s
+regular_linux: regular linux
 release_linux: LINK_OPT = -s
 release_linux: release linux
 

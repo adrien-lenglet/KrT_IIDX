@@ -52,8 +52,14 @@ debug: EXTRA += -g
 debug: DEFINE += -DDEBUG
 debug: all
 
+regular: EXTRA += -O3
+regular: DEFINE += -DDEBUG
+regular: all
+
 release: EXTRA += -O3
-release: all $(RES_SHIP)
+release: all
+
+res_ship: $(RES_SHIP)
 
 $(TARGET): $(OBJ) $(LIB_OBJ)
 	ar rcs $(TARGET) $(OBJ) $(LIB_OBJ)

@@ -14,11 +14,10 @@ void framebufferResizeCallback(GLFWwindow *window, int width, int height)
 	windowToSurface.at(window)->resized({width, height});
 }
 
-Vk::Vk(bool isDebug, bool isProfile) :
+Vk::Vk(bool validate, bool isRenderDoc, bool isMonitor) :
 	m_glfw(GLFW_NO_API),
-	m_is_debug(isDebug),
-	m_is_profile(isProfile),
-	m_instance(createInstance()),
+	m_is_debug(validate),
+	m_instance(createInstance(isRenderDoc, isMonitor)),
 	m_debug_messenger(createDebugMessenger())
 {
 }
@@ -104,7 +103,7 @@ Vk::PhysicalDevices Vk::Instance::enumerateDevices(void)
 	return PhysicalDevices(*this);
 }
 
-Vk::Instance Vk::createInstance(void)
+Vk::Instance Vk::createInstance(bool isRenderDoc, bool isMonitor)
 {
 	util::svec layers;
 	util::svec exts = m_glfw.getRequiredVkInstanceExts();
@@ -113,10 +112,20 @@ Vk::Instance Vk::createInstance(void)
 		layers.emplace_back("VK_LAYER_KHRONOS_validation");
 		exts.emplace_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 	}
-	if (m_is_profile) {
+	if (isRenderDoc)
 		layers.emplace_back("VK_LAYER_RENDERDOC_Capture");
+	if (isMonitor)
 		layers.emplace_back("VK_LAYER_LUNARG_monitor");
+
+	std::cout << "Enabled Vulkan layers: ";
+	auto comma = "";
+	for (auto &l : layers) {
+		std::cout << comma << l;
+		comma = ", ";
 	}
+	if (layers.size() == 0)
+		std::cout << "[NONE]";
+	std::cout << std::endl;
 
 	VkApplicationInfo ai {};
 

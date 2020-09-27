@@ -15,7 +15,7 @@ namespace Subtile {
 class Vk : public System
 {
 public:
-	Vk(bool isDebug, bool isProfile);
+	Vk(bool validate, bool isRenderDoc, bool isMonitor);
 	~Vk(void) override;
 
 	void scanInputs(void) override;
@@ -25,7 +25,6 @@ public:
 private:
 	Glfw m_glfw;
 	bool m_is_debug;
-	bool m_is_profile;
 
 	static const std::string& resultToString(VkResult res);
 	static void assert(VkResult res);
@@ -239,7 +238,7 @@ private:
 	};
 
 	Instance m_instance;
-	Instance createInstance(void);
+	Instance createInstance(bool isRenderDoc, bool isMonitor);
 
 	class DebugMessenger : public Instance::Handle<VkDebugUtilsMessengerEXT>
 	{
