@@ -136,10 +136,7 @@ fragment {
 		vec3 p0, p1;
 		project_ray(origin, dir, p0, p1);
 
-		const float first_size = float(1 << fb.depth_buffer_trace_res);
-		vec2 first_cell_center = floor(p0.xy / first_size) * first_size + vec2(first_size * 0.5);
-		//vec3 first_pos_cam = pos_view(first_cell_center);
-		vec3 normal = normalize(textureLod(fb.normal, first_cell_center, 0)).xyz;
+		vec3 normal = normalize(textureLod(fb.normal, p0.xy, 0)).xyz;
 
 		float bias = 0.025 * (1.0 - max(dot(normalize(origin), -normal), 0.0));
 
@@ -151,13 +148,10 @@ fragment {
 
 		float t = 0.0;
 
-		vec2 size_d = vec2(textureSize(fb.depth_buffer, 0));
-
 		int level = 0;
-		int max_level = textureQueryLevels(fb.depth_buffer_fl);
 
 		float t_max;
-		if (!inter_rect_strong(vec2(0.0), vec2(size_d - 1), p0.xy, dir2, dir_pp_bias, t_max))
+		if (!inter_rect_strong(vec2(0.0), vec2(textureSize(fb.depth_buffer, 0) - 1), p0.xy, dir2, dir_pp_bias, t_max))
 			return false;
 
 		vec3 p = p0;
@@ -181,13 +175,13 @@ fragment {
 			float t_end = t + cell_end(p.xy, dir2, cell_lev);
 			float start_d = mix(p0.z, p1.z, t_start);
 			float end_d = mix(p0.z, p1.z, t_end);
-			vec2 range = textureLod(fb.depth_buffer_fl, p.xy * fb.depth_buffer_fl_size, level).xy;
+			vec2 range = textureLod(fb.depth_buffer_fl, p.xy * fb.depth_buffer_fl_size, cur_lev).xy;
 			bool cond = (start_d >= range.x && start_d <= range.y) || (end_d >= range.x && end_d <= range.y) || (start_d <= range.y && end_d >= range.x) || (start_d >= range.y && end_d <= range.x);;
 			if (level == 0) {
 				float r_depth = textureLod(fb.depth_buffer, p.xy, 0).x;
-				range = vec2(z_to_depth(depth_to_z(r_depth) + bias), textureLod(fb.depth_buffer_fl_lin, p.xy * fb.depth_buffer_fl_size, 0).y);
+				range = vec2(z_to_depth(depth_to_z(r_depth) + bias), textureLod(fb.depth_buffer_fl, p.xy * fb.depth_buffer_fl_size, 0).y);
 				float depth = mix(p0.z, p1.z, mix(t_start, t_end, .5));
-				cond = (depth >= range.x && depth <= range.y) || (depth >= range.x && depth <= range.y);
+				cond = depth >= range.x && depth <= range.y;
 			}
 			if (cond) {
 				if (level == 0) {

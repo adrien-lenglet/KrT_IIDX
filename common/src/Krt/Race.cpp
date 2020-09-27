@@ -30,6 +30,7 @@ Race::Race(Instance &instance) :
 	m_diffuse_to_wsi_screen(instance.device.load(res.shaders().diffuse_to_wsi_screen())),
 	m_lighting_shader(instance.device.load(res.shaders().lighting())),
 	m_cmd_pool(instance.graphics.pool<true>()),
+	m_rt_quality(4),
 	images(getImages()),
 
 	m_track(instance.create<Track>())
@@ -48,6 +49,8 @@ void Race::run(void)
 {
 	Image *last_frame = nullptr;
 	auto &esc = *instance.surface->buttonsId().at("KB_ESCAPE");
+	auto &f5 = *instance.surface->buttonsId().at("KB_F5");
+	auto &f6 = *instance.surface->buttonsId().at("KB_F6");
 	bool cursor_mode = false;
 	while (!m_is_done) {
 		auto t_start = std::chrono::high_resolution_clock::now();
@@ -64,6 +67,27 @@ void Race::run(void)
 		}
 		if (instance.surface->shouldClose())
 			break;
+
+		bool shouldRecreateSc = false;
+
+		f5.update();
+		if (f5.released() && m_rt_quality > 0) {
+			m_rt_quality--;
+			shouldRecreateSc = true;
+		}
+		f6.update();
+		if (f6.released()) {
+			m_rt_quality++;
+			shouldRecreateSc = true;
+		}
+		if (shouldRecreateSc) {
+			instance.graphics.waitIdle();
+			images.clear();
+			instance.swapchain.reset();
+			instance.swapchain = instance.device.swapchain(*instance.surface, instance.surface->extent(), 2, sb::Image::Usage::ColorAttachment, instance.graphics);
+			images = getImages();
+			last_frame = nullptr;
+		}
 
 		auto resized = instance.surface->resized();
 		if (resized) {
