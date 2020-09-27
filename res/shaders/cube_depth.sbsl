@@ -55,16 +55,20 @@ fragment {
 		return fb.cur_cam_b / z + fb.cur_cam_a;
 	}
 
-	vec3 pos_view(vec2 pos)
+	vec3 pos_view_depth(vec2 pos, float depth)
 	{
 		vec2 size = textureSize(fb.last_cube, 0).xy;
-		float depth = .5;
 		float z = depth_to_z(depth);
 		vec2 uv = pos / size;
 		vec2 ndc2 = (uv - 0.5) * 2.0;
 		//ndc2 *= fb.cur_cam_ratio;
 		ndc2 *= z;
 		return vec3(ndc2, z);
+	}
+
+	vec3 pos_view(vec2 pos)
+	{
+		return pos_view_depth(pos, .5);
 	}
 
 	vec3 ndc_to_ss(vec3 p)
@@ -77,22 +81,74 @@ fragment {
 		return ndc_to_ss(vec3(clip.xy / clip.w, clip.z / clip.w));
 	}
 
+	vec3 ndc_to_ss_cube(vec3 p)
+	{
+		return vec3(((p.xy / 2.0) + 0.5) * textureSize(fb.last_cube, 0).xy, p.z);
+	}
+
+	vec3 project_point_cube(vec4 clip)
+	{
+		return ndc_to_ss_cube(vec3(clip.xy / clip.w, clip.z / clip.w));
+	}
+
 	float cam_depth_to_cur_layer(vec3 cam_view, float depth)
 	{
 		return z_to_depth((fb.cube_view[gl_Layer] * fb.cur_view_inv * vec4(cam_view / cam_view.z * depth_to_z(depth), 1.0)).z);
 	}
 
+	float cam_depth_to_cur_layer_cube(vec3 cam_view, float depth, int layer)
+	{
+		return z_to_depth((fb.cube_view[gl_Layer] * fb.last_cube_view_inv[layer] * vec4(cam_view / cam_view.z * depth_to_z(depth), 1.0)).z);
+	}
+
+	bool is_in_range(vec3 value, vec3 low, vec3 high)
+	{
+		return (value.x >= low.x) && (value.y >= low.y) && (value.z >= low.z) && (value.x <= high.x) && (value.y <= high.y) && (value.z <= high.z);
+	}
+
 	void main(void)
 	{
 		vec4 view = vec4(pos_view(gl_FragCoord.xy), 1.0);
-		vec4 cam_view_h = fb.cur_view * fb.cube_view_inv[gl_Layer] * view;
+		vec4 world_view = fb.cube_view_inv[gl_Layer] * view;
+		vec4 cam_view_h = fb.cur_view * world_view;
 		vec3 cam_view = cam_view_h.xyz;
 		vec3 cam_pov = project_point(fb.cur_cam_proj * cam_view_h);
 		vec2 size_d = fb.fb_size;
-		if ((cam_pov.x >= 0) && (cam_pov.y >= 0) && (cam_pov.x <= (size_d.x - 1)) && (cam_pov.y <= (size_d.y - 1)) && (cam_pov.z >= 0.0) && (cam_pov.z <= 1.0)) {
+		if (is_in_range(cam_pov, vec3(0.0), vec3(size_d - 1, 1.0))) {
 			vec2 range = textureLod(fb.cur_depth, cam_pov.xy * fb.depth_buffer_fl_size, 0).xy;
 			(out)range = vec2(cam_depth_to_cur_layer(cam_view, range.x), cam_depth_to_cur_layer(cam_view, range.y));
-		} else
+		} else {
 			(out)range = textureLod(fb.last_cube, vec3(gl_FragCoord.xy / textureSize(fb.last_cube, 0).xy, gl_Layer), 0).xy;
+			{
+				vec4 world_view = fb.cube_view_inv[gl_Layer] * vec4(pos_view_depth(gl_FragCoord.xy, (out)range.x), 1.0);
+				for (int i = 0; i < 6; i++) {
+					vec4 cam_view_h = fb.last_cube_view[i] * world_view;
+					vec3 cam_view = cam_view_h.xyz;
+					if (cam_view == view.xyz)
+						continue;
+					vec3 cam_pov = project_point_cube(fb.cube_proj * cam_view_h);
+					vec2 size_d = textureSize(fb.last_cube, 0).xy;
+					if (is_in_range(cam_pov, vec3(0.0), vec3(size_d - 1, 1.0))) {
+						vec2 range = textureLod(fb.last_cube, vec3(cam_pov.xy / size_d, i), 0).xy;
+						(out)range.x = cam_depth_to_cur_layer_cube(cam_view, range.x, i);
+					}
+				}
+			}
+			{
+				vec4 world_view = fb.cube_view_inv[gl_Layer] * vec4(pos_view_depth(gl_FragCoord.xy, (out)range.y), 1.0);
+				for (int i = 0; i < 6; i++) {
+					vec4 cam_view_h = fb.last_cube_view[i] * world_view;
+					vec3 cam_view = cam_view_h.xyz;
+					if (cam_view == view.xyz)
+						continue;
+					vec3 cam_pov = project_point_cube(fb.cube_proj * cam_view_h);
+					vec2 size_d = textureSize(fb.last_cube, 0).xy;
+					if (is_in_range(cam_pov, vec3(0.0), vec3(size_d - 1, 1.0))) {
+						vec2 range = textureLod(fb.last_cube, vec3(cam_pov.xy / size_d, i), 0).xy;
+						(out)range.y = cam_depth_to_cur_layer_cube(cam_view, range.y, i);
+					}
+				}
+			}
+		}
 	}
 }
