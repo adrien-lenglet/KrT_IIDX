@@ -167,8 +167,7 @@ fragment {
 			return false;
 		p = mix(p0, p1, t);
 
-		uint max_it = fb.depth_buffer_max_it * 3;
-		while (it++ < max_it) {
+		while (it++ < fb.depth_buffer_max_it) {
 			int cur_lev = level + fb.depth_buffer_trace_res;
 			int cell_lev = level == 0 ? 0 : cur_lev;
 			float t_start = t + cell_end(p.xy, dir2n, cell_lev);

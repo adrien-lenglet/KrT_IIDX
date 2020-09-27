@@ -73,11 +73,13 @@ void Race::run(void)
 		f5.update();
 		if (f5.released() && m_rt_quality > 0) {
 			m_rt_quality--;
+			std::cout << "RT_QUALITY: " << m_rt_quality << std::endl;
 			shouldRecreateSc = true;
 		}
 		f6.update();
-		if (f6.released()) {
+		if (f6.released() && m_rt_quality < images.at(0).fb_depth_buffer_fl_mips.size()) {
 			m_rt_quality++;
+			std::cout << "RT_QUALITY: " << m_rt_quality << std::endl;
 			shouldRecreateSc = true;
 		}
 		if (shouldRecreateSc) {

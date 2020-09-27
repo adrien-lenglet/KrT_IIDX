@@ -177,7 +177,7 @@ struct Race::Image {
 		res.depth_buffer_fl_lin.bind(race.m_sampler, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
 		res.depth_buffer_fl_size = glm::vec2(1.0) / glm::vec2(fb_depth_buffer_fl.extent());
 		res.depth_buffer_trace_res = depth_buffer_trace_res;
-		res.depth_buffer_max_it = 200 / (1 << depth_buffer_trace_res);
+		res.depth_buffer_max_it = ((1 << (fb_depth_buffer_fl_mips.size() - depth_buffer_trace_res)) / 4) + 8;
 		race.instance.cur_img_res->uploadDescSet(res);
 		return res;
 	}
