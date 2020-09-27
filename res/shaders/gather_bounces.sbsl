@@ -16,8 +16,11 @@ fragment {
 		sampler2D bounces[16];
 		sampler2D last_diffuse;
 
+		sampler2D last_depth_buffer;
 		sampler2D depth_buffer;
 		mat4 cur_cam_to_last;
+		mat4 cur_cam_inv;
+		mat4 last_cam_inv;
 
 		vec3 cur_cam_delta;
 		float cur_cam_a, cur_cam_b;
@@ -34,6 +37,18 @@ fragment {
 	{
 		vec2 size = textureSize(light.depth_buffer, 0);
 		float depth = textureLod(light.depth_buffer, pos, 0).x;
+		float z = depth_to_z(depth);
+		vec2 uv = pos / size;
+		vec2 ndc2 = (uv - 0.5) * 2.0;
+		ndc2 *= light.cur_cam_ratio;
+		ndc2 *= z;
+		return vec3(ndc2, z);
+	}
+
+	vec3 last_pos_view(vec2 pos)
+	{
+		vec2 size = textureSize(light.last_depth_buffer, 0);
+		float depth = textureLod(light.last_depth_buffer, pos, 0).x;
 		float z = depth_to_z(depth);
 		vec2 uv = pos / size;
 		vec2 ndc2 = (uv - 0.5) * 2.0;
@@ -72,18 +87,19 @@ fragment {
 		//(out)diffuse = cur;
 		//return;
 
-		vec3 last_view = (light.cur_cam_to_last * vec4(current_view(), 1.0)).xyz;
+		vec4 cur_view =  vec4(current_view(), 1.0);
+		vec4 last_view = light.cur_cam_to_last * cur_view;
+		vec2 trace_pos = project_point(last_view.xyz).xy;
+		vec4 last_view_reproj = vec4(last_pos_view(trace_pos), 1.0);
+		float dist = length((light.cur_cam_inv * cur_view).xyz - (light.last_cam_inv * last_view_reproj).xyz);
 		vec2 size_d = vec2(textureSize(light.depth_buffer, 0));
-		vec2 trace_pos = project_point(last_view).xy;
-		if (trace_pos.x >= 0 && trace_pos.y >= 0 && trace_pos.x <= (size_d.x - 1) && trace_pos.y <= (size_d.y - 1)) {
+		if (trace_pos.x >= 0 && trace_pos.y >= 0 && trace_pos.x <= (size_d.x - 1) && trace_pos.y <= (size_d.y - 1) && (dist < 0.1)) {
 			vec3 last = texture(light.last_diffuse, trace_pos).xyz;
 			vec3 dif3 = abs(cur - last);
 			float dif = min((dif3.x + dif3.y + dif3.z) / 3.0, 1.0);
-			(out)diffuse = mix(last, cur, clamp(0.07 + length(light.cur_cam_delta) * 10.0, 0.0, 1.0));
-			//(out)diffuse = mix(last, cur, 0.1);
+			(out)diffuse = mix(last, cur, 0.07);
 		} else
-			(out)diffuse = cur;
-
+				(out)diffuse = cur;
 		/*vec3 last = texture(light.last_diffuse, gl_FragCoord.xy).xyz;
 		//float last_sum = abs(last.x) + abs(last.y) + abs(last.z);
 

@@ -89,6 +89,8 @@ struct Race::Image {
 		ever_rendered(false),
 		cmd_prim(race.m_cmd_pool.primary())
 	{
+		update_depth_buffer_trace_res(rt_quality);
+
 		depth_to_fl_set.depth_buffer.bind(race.m_fb_sampler, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
 		depth_to_fl_set.depth_buffer_max.bind(race.m_fb_sampler, fb_depth_buffer_max, sb::Image::Layout::ShaderReadOnlyOptimal);
 
@@ -176,10 +178,19 @@ struct Race::Image {
 		res.depth_buffer_fl.bind(race.m_sampler_nearest, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
 		res.depth_buffer_fl_lin.bind(race.m_sampler, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
 		res.depth_buffer_fl_size = glm::vec2(1.0) / glm::vec2(fb_depth_buffer_fl.extent());
-		res.depth_buffer_trace_res = depth_buffer_trace_res;
-		res.depth_buffer_max_it = ((1 << (fb_depth_buffer_fl_mips.size() - depth_buffer_trace_res)) / 4) + 8;
-		race.instance.cur_img_res->uploadDescSet(res);
 		return res;
+	}
+
+	void update_depth_buffer_trace_res(size_t new_res)
+	{
+		lighting_samplers.depth_buffer_trace_res = new_res;
+		lighting_samplers.depth_buffer_max_it = ((1 << (fb_depth_buffer_fl_mips.size() - new_res)) / 4) + 8;
+		race.instance.cur_img_res->uploadDescSet(lighting_samplers);
+		for (auto &b : diffuse_bounces) {
+			b.set.depth_buffer_trace_res = lighting_samplers.depth_buffer_trace_res;
+			b.set.depth_buffer_max_it = lighting_samplers.depth_buffer_max_it;
+			race.instance.cur_img_res->uploadDescSet(b.set);
+		}
 	}
 
 	decltype(Race::instance.device.semaphore()) swapchain_img_avail;
@@ -228,10 +239,7 @@ struct Race::Image {
 			set.depth_buffer_fl.bind(race.m_sampler_nearest, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
 			set.depth_buffer_fl_lin.bind(race.m_sampler, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
 			set.depth_buffer_fl_size = image.lighting_samplers.depth_buffer_fl_size;
-			set.depth_buffer_trace_res = image.lighting_samplers.depth_buffer_trace_res;
-			set.depth_buffer_max_it = image.lighting_samplers.depth_buffer_max_it;
 			set.index = i;
-			race.instance.cur_img_res->uploadDescSet(set);
 			res.emplace_back(DiffuseBounce{std::move(img), std::move(fb), std::move(set)});
 		}
 		return res;
@@ -267,6 +275,7 @@ inline decltype(Race::images) Race::getImages(void)
 		size_t ndx = 0;
 		for (auto &i : res) {
 			res.at((ndx + 1) % res.size()).gather_bounces_set.last_diffuse.bind(m_fb_sampler_linear, i.diffuse, sb::Image::Layout::ShaderReadOnlyOptimal);
+			res.at((ndx + 1) % res.size()).gather_bounces_set.last_depth_buffer.bind(m_fb_sampler_linear, i.fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
 			ndx++;
 		}
 	}

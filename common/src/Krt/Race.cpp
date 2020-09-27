@@ -72,15 +72,21 @@ void Race::run(void)
 
 		f5.update();
 		if (f5.released() && m_rt_quality > 0) {
+			instance.graphics.waitIdle();
 			m_rt_quality--;
 			std::cout << "RT_QUALITY: " << m_rt_quality << std::endl;
-			shouldRecreateSc = true;
+			for (auto &i : images)
+				i.update_depth_buffer_trace_res(m_rt_quality);
+			last_frame = nullptr;
 		}
 		f6.update();
 		if (f6.released() && m_rt_quality < images.at(0).fb_depth_buffer_fl_mips.size()) {
+			instance.graphics.waitIdle();
 			m_rt_quality++;
 			std::cout << "RT_QUALITY: " << m_rt_quality << std::endl;
-			shouldRecreateSc = true;
+			for (auto &i : images)
+				i.update_depth_buffer_trace_res(m_rt_quality);
+			last_frame = nullptr;
 		}
 		if (shouldRecreateSc) {
 			instance.graphics.waitIdle();
@@ -146,6 +152,8 @@ void Race::run(void)
 						view_to_last_normal[3][i] = 0.0f;
 					s.cur_cam_delta = m_track->render.camera_pos - last_pos;
 					s.cur_cam_to_last = view_to_last;
+					s.last_cam_inv = glm::inverse(last_view);
+					s.cur_cam_inv = glm::inverse(view);
 					s.cur_cam_a = cam.a;
 					s.cur_cam_b = cam.b;
 					s.cur_cam_ratio = cam.ratio;
