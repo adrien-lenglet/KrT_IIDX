@@ -12,12 +12,19 @@ vertex {
 fragment {
 	set light {
 		sampler2D diffuse;
+		sampler2DArray cube_depth;
 	};
 
 	out vec3 wsi_screen;
 
+	const float cube_size = 300.0;
+
 	void main(void)
 	{
-		(out)wsi_screen = texture(light.diffuse, gl_FragCoord.xy).xyz * 0.8;
+		int layer = int(gl_FragCoord.x / cube_size);
+		if (layer < 6 && gl_FragCoord.y < cube_size)
+			(out)wsi_screen = textureLod(light.cube_depth, vec3((gl_FragCoord.x - cube_size * layer) / cube_size, gl_FragCoord.y / cube_size, layer), 0).xyz;
+		else
+			(out)wsi_screen = texture(light.diffuse, gl_FragCoord.xy).xyz * 0.8;
 	}
 }

@@ -588,6 +588,20 @@ public:
 			{
 				return m_values[ndx];
 			}
+			auto& at(size_t ndx)
+			{
+				if (ndx < Size)
+					return m_values[ndx];
+				else
+					throw std::runtime_error("sb::Shader::Array::at");
+			}
+			auto& at(size_t ndx) const
+			{
+				if (ndx < Size)
+					return m_values[ndx];
+				else
+					throw std::runtime_error("sb::Shader::Array::at");
+			}
 
 			inline constexpr auto size(void) const
 			{
@@ -888,6 +902,26 @@ public:
 			}
 
 			void bind(Sampler &sampler, Image2D &image, Image::Layout layout)
+			{
+				m_set.bindCombinedImageSampler(Binding, m_index, sampler, image, layout);
+			}
+
+		private:
+			DescriptorSet &m_set;
+			size_t m_index;
+		};
+
+		template <size_t Binding>
+		class Sampler2DArray
+		{
+		public:
+			Sampler2DArray(DescriptorSet &set, size_t index) :
+				m_set(set),
+				m_index(index)
+			{
+			}
+
+			void bind(Sampler &sampler, Image2DArray &image, Image::Layout layout)
 			{
 				m_set.bindCombinedImageSampler(Binding, m_index, sampler, image, layout);
 			}

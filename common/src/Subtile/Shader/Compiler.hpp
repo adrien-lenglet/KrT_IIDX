@@ -1212,6 +1212,7 @@ public:
 			static const std::map<std::string, std::string> table {
 				{"atomic_uint", "AtomicUint"},
 				{"sampler2D", "Sampler2D"},
+				{"sampler2DArray", "Sampler2DArray"},
 				{"texture2D", "Texture2D"}
 			};
 
@@ -1636,6 +1637,7 @@ public:
 		{
 			static const std::map<std::string, sb::Shader::DescriptorType> descTypeTable {
 				{"sb::Shader::Type::Sampler2D", sb::Shader::DescriptorType::CombinedImageSampler},
+				{"sb::Shader::Type::Sampler2DArray", sb::Shader::DescriptorType::CombinedImageSampler},
 				{"sb::Shader::Type::Texture2D", sb::Shader::DescriptorType::SampledImage}
 			};
 

@@ -2,6 +2,7 @@
 #include <thread>
 #include "Race.hpp"
 #include "res.resdecl.hpp"
+#include <glm/gtx/transform.hpp>
 
 namespace Krt {
 
@@ -29,6 +30,8 @@ Race::Race(Instance &instance) :
 	m_buffer_to_wsi_screen(instance.device.load(res.shaders().render_passes().buffer_to_wsi_screen())),
 	m_diffuse_to_wsi_screen(instance.device.load(res.shaders().diffuse_to_wsi_screen())),
 	m_lighting_shader(instance.device.load(res.shaders().lighting())),
+	m_cube_depth_pass(instance.device.load(res.shaders().render_passes().cube_depth())),
+	m_cube_depth_shader(instance.device.load(res.shaders().cube_depth())),
 	m_cmd_pool(instance.graphics.pool<true>()),
 	m_rt_quality(4),
 	images(getImages()),
@@ -150,7 +153,8 @@ void Race::run(void)
 					auto view_to_last_normal = view_to_last;
 					for (size_t i = 0; i < 3; i++)
 						view_to_last_normal[3][i] = 0.0f;
-					s.cur_cam_delta = m_track->render.camera_pos - last_pos;
+					glm::vec3 cur_pos = m_track->render.camera_pos;
+					s.cur_cam_delta = cur_pos - last_pos;
 					s.cur_cam_to_last = view_to_last;
 					s.last_cam_inv = glm::inverse(last_view);
 					s.cur_cam_inv = glm::inverse(view);
@@ -158,6 +162,46 @@ void Race::run(void)
 					s.cur_cam_b = cam.b;
 					s.cur_cam_ratio = cam.ratio;
 					instance.cur_img_res->uploadDescSet(s);
+
+					for (size_t i = 0; i < 6; i++) {
+						auto &set = img.cube_depth_set;
+						set.cur_view = view;
+						set.cur_view_inv = glm::inverse(view);
+						static const std::array<glm::vec3, 6> dir_table = {
+							glm::vec3(1.0f, 0.0f, 0.0),
+							glm::vec3(-1.0f, 0.0f, 0.0),
+							glm::vec3(0.0f, 1.0f, 0.0),
+							glm::vec3(0.0f, -1.0f, 0.0),
+							glm::vec3(0.0f, 0.0f, 1.0),
+							glm::vec3(0.0f, 0.0f, -1.0)
+						};
+						static const std::array<glm::vec3, 6> up_table = {
+							glm::vec3(0.0f, 1.0f, 0.0),
+							glm::vec3(0.0f, 1.0f, 0.0),
+							glm::vec3(1.0f, 0.0f, 0.0),
+							glm::vec3(1.0f, 0.0f, 0.0),
+							glm::vec3(0.0f, 1.0f, 0.0),
+							glm::vec3(0.0f, 1.0f, 0.0),
+						};
+						auto dir = glm::lookAtLH(glm::vec3(0.0f), dir_table.at(i), up_table.at(i));
+						auto cube_view = dir * glm::translate(-cur_pos);
+						auto last_cube_view = dir * glm::translate(-last_pos);
+						set.cube_view.at(i) = cube_view;
+						set.cube_view_inv.at(i) = glm::inverse(cube_view);
+						set.last_cube_view.at(i) = last_cube_view;
+						set.last_cube_view_inv.at(i) = glm::inverse(last_cube_view);
+						set.cube_proj = glm::perspectiveLH_ZO<float>(sb::pi * 0.5, 1.0f, cam.near, cam.far);
+
+						set.cur_cam_a = cam.a;
+						set.cur_cam_b = cam.b;
+						set.cur_cam_ratio = cam.ratio;
+						set.cur_cam_proj = cam.proj;
+						set.depth_buffer_fl_size = img.lighting_samplers.depth_buffer_fl_size;
+						auto fb_ex = img.fb_depth_buffer.extent();
+						set.fb_size = glm::vec2(fb_ex.x, fb_ex.y);
+
+						instance.cur_img_res->uploadDescSet(set);
+					}
 				}
 			);
 
@@ -235,6 +279,22 @@ void Race::run(void)
 					ndx++;
 				}
 			}
+
+			{
+				auto ex = img.cube_depth.extent();
+				cmd.render(img.cube_depth_fb, {{0, 0}, ex},
+					[&](auto &cmd){
+						cmd.setViewport({{0.0f, 0.0f}, {ex.x, ex.y}}, 0.0f, 1.0f);
+						cmd.setScissor({{0, 0}, ex});
+						cmd.bind(m_cube_depth_shader);
+						cmd.bind(m_cube_depth_shader, img.cube_depth_set, 0);
+						cmd.draw(instance.screen_quad);
+					}
+				);
+			}
+
+			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
+				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
 
 			for (auto &d : img.lighting_samplers.sun_dir)
 				d = sb::genDiffuseVector(*m_track, glm::normalize(glm::vec3(1.3, 3.0, 1.0)), 2000.0);

@@ -43,6 +43,10 @@ public:
 	decltype(instance.device.load(res.shaders().diffuse_to_wsi_screen())) m_diffuse_to_wsi_screen;
 
 	decltype(res.shaders().lighting().loaded()) m_lighting_shader;
+
+	decltype(instance.device.load(res.shaders().render_passes().cube_depth())) m_cube_depth_pass;
+	decltype(instance.device.load(res.shaders().cube_depth())) m_cube_depth_shader;
+
 	decltype(instance.graphics.pool<true>()) m_cmd_pool;
 	size_t m_rt_quality;
 	struct Image;
@@ -84,6 +88,11 @@ struct Race::Image {
 		gather_bounces_fb(race.m_gather_bounces_pass.framebuffer(race.instance.swapchain->extent(), 1, diffuse)),
 		buffer_to_wsi_screen_fbs(getBufferToWsiScreenFbs()),
 		diffuse_to_wsi_screen_set(race.m_diffuse_to_wsi_screen.light(race.instance.graphics)),
+		//cube_depth(race.instance.device.image2DArray(sb::Format::rg32_sfloat, {16, 16}, 6, sb::Image::allMipLevels, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
+		cube_depth(race.instance.device.image2DArray(sb::Format::rg32_sfloat, {512, 512}, 6, sb::Image::allMipLevels, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
+		cube_depth_mips(getCubeDepthMips()),
+		cube_depth_fb(race.m_cube_depth_pass.framebuffer(cube_depth.extent(), 6, cube_depth_mips.at(0))),
+		cube_depth_set(getCubeDepthSet()),
 		render_done(race.instance.device.semaphore()),
 		render_done_fence(race.instance.device.fence(false)),
 		ever_rendered(false),
@@ -107,6 +116,7 @@ struct Race::Image {
 		gather_bounces_set.depth_buffer.bind(race.m_fb_sampler_linear, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
 
 		diffuse_to_wsi_screen_set.diffuse.bind(race.m_fb_sampler, diffuse, sb::Image::Layout::ShaderReadOnlyOptimal);
+		diffuse_to_wsi_screen_set.cube_depth.bind(race.m_sampler_nearest, cube_depth_mips.at(0), sb::Image::Layout::ShaderReadOnlyOptimal);
 
 		auto cmd = race.m_cmd_pool.primary();
 		cmd.record([&](auto &cmd){
@@ -119,6 +129,9 @@ struct Race::Image {
 			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
 				sb::Access::MemoryWrite, sb::Access::MemoryRead,
 				sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, diffuse);
+			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
+				sb::Access::MemoryWrite, sb::Access::MemoryRead,
+				sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, cube_depth);
 		});
 		race.instance.graphics.submit(util::empty, cmd, util::empty);
 		race.instance.graphics.waitIdle();
@@ -259,6 +272,26 @@ struct Race::Image {
 		return res;
 	}
 
+	sb::Image2DArray cube_depth;
+	std::vector<sb::Image2DArray> cube_depth_mips;
+	decltype(cube_depth_mips) getCubeDepthMips(void)
+	{
+		decltype(cube_depth_mips) res;
+
+		for (size_t i = 0; i < cube_depth.mipLevels(); i++)
+			res.emplace_back(cube_depth.view(sb::ComponentSwizzle::Identity, sb::Image::Aspect::Color, sb::wholeRange, sb::Range(i, 1)));
+		return res;
+	}
+	decltype(race.m_cube_depth_pass)::Framebuffer cube_depth_fb;
+	decltype(race.m_cube_depth_shader.fb(race.instance.graphics)) cube_depth_set;
+	decltype(cube_depth_set) getCubeDepthSet(void)
+	{
+		auto res = race.m_cube_depth_shader.fb(race.instance.graphics);
+
+		res.cur_depth.bind(race.m_sampler_nearest, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
+		return res;
+	}
+
 	decltype(race.instance.device.semaphore()) render_done;
 	decltype(race.instance.device.fence()) render_done_fence;
 	bool ever_rendered;
@@ -276,6 +309,7 @@ inline decltype(Race::images) Race::getImages(void)
 		for (auto &i : res) {
 			res.at((ndx + 1) % res.size()).gather_bounces_set.last_diffuse.bind(m_fb_sampler_linear, i.diffuse, sb::Image::Layout::ShaderReadOnlyOptimal);
 			res.at((ndx + 1) % res.size()).gather_bounces_set.last_depth_buffer.bind(m_fb_sampler_linear, i.fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
+			res.at((ndx + 1) % res.size()).cube_depth_set.last_cube.bind(m_sampler, i.cube_depth_mips.at(0), sb::Image::Layout::ShaderReadOnlyOptimal);
 			ndx++;
 		}
 	}

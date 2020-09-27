@@ -1,0 +1,98 @@
+
+render_pass render_passes::cube_depth : compute;
+
+require vertex::p2;
+vertex {
+	void main(void)
+	{
+		gl_Position = vec4((in)pos, 0, 1.0);
+	}
+}
+
+geometry {
+	void main(void)
+	{
+		for (int j = 0; j < 6; j++) {
+			for (int i = 0; i < 3; i++) {
+				gl_Position = gl_in[i].gl_Position;
+				gl_Layer = j;
+				EmitVertex();
+			}
+			EndPrimitive();
+		}
+	}
+}
+
+fragment {
+	out vec2 range;
+
+	set fb {
+		mat4 last_cube_view[6];
+		mat4 last_cube_view_inv[6];
+		mat4 cube_view[6];
+		mat4 cube_view_inv[6];
+		mat4 cube_proj;
+		sampler2DArray last_cube;
+		sampler2D cur_depth;
+		mat4 cur_view;
+		mat4 cur_view_inv;
+
+		float cur_cam_a, cur_cam_b;
+		vec2 cur_cam_ratio;
+		mat4 cur_cam_proj;
+
+		vec2 depth_buffer_fl_size;
+		vec2 fb_size;
+	};
+
+	float depth_to_z(float depth)
+	{
+		return fb.cur_cam_b / (depth - fb.cur_cam_a);
+	}
+
+	float z_to_depth(float z)
+	{
+		return fb.cur_cam_b / z + fb.cur_cam_a;
+	}
+
+	vec3 pos_view(vec2 pos)
+	{
+		vec2 size = textureSize(fb.last_cube, 0).xy;
+		float depth = .5;
+		float z = depth_to_z(depth);
+		vec2 uv = pos / size;
+		vec2 ndc2 = (uv - 0.5) * 2.0;
+		//ndc2 *= fb.cur_cam_ratio;
+		ndc2 *= z;
+		return vec3(ndc2, z);
+	}
+
+	vec3 ndc_to_ss(vec3 p)
+	{
+		return vec3(((p.xy / 2.0) + 0.5) * fb.fb_size, p.z);
+	}
+
+	vec3 project_point(vec4 clip)
+	{
+		return ndc_to_ss(vec3(clip.xy / clip.w, clip.z / clip.w));
+	}
+
+	float cam_depth_to_cur_layer(vec3 cam_view, float depth)
+	{
+		return z_to_depth((fb.cube_view[gl_Layer] * fb.cur_view_inv * vec4(cam_view / cam_view.z * depth_to_z(depth), 1.0)).z);
+	}
+
+	void main(void)
+	{
+		vec4 view = vec4(pos_view(gl_FragCoord.xy), 1.0);
+		vec4 cam_view_h = fb.cur_view * fb.cube_view_inv[gl_Layer] * view;
+		vec3 cam_view = cam_view_h.xyz;
+		vec3 cam_pov = project_point(fb.cur_cam_proj * cam_view_h);
+		vec2 size_d = fb.fb_size;
+		if ((cam_pov.x >= 0) && (cam_pov.y >= 0) && (cam_pov.x <= (size_d.x - 1)) && (cam_pov.y <= (size_d.y - 1)) && (cam_pov.z >= 0.0) && (cam_pov.z <= 1.0)) {
+			vec2 range = textureLod(fb.cur_depth, cam_pov.xy * fb.depth_buffer_fl_size, 0).xy;
+			(out)range = vec2(cam_depth_to_cur_layer(cam_view, range.x), cam_depth_to_cur_layer(cam_view, range.y));
+		} else
+			(out)range = textureLod(fb.last_cube, vec3(gl_FragCoord.xy / textureSize(fb.last_cube, 0).xy, gl_Layer), 0).xy;
+	}
+}

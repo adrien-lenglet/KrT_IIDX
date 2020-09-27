@@ -1,0 +1,18 @@
+rg32_sfloat range {store, out_layout = shader_read_only_optimal};
+
+compute {
+	out range;
+}
+
+/*[
+	albedo,
+	lighting,
+
+	color_attachment_output | late_fragment_tests,
+	fragment_shader,
+
+	color_attachment_write | depth_stencil_attachment_write,
+	input_attachment_read,
+
+	by_region
+]*/
