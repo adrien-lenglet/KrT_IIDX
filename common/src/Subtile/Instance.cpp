@@ -12,9 +12,4 @@ InstanceBase::~InstanceBase(void)
 {
 }
 
-System& InstanceBase::system(void)
-{
-	return *m_system;
-}
-
 }

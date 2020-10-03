@@ -47,7 +47,15 @@ private:
 
 	std::unique_ptr<System> m_system;
 
-	System& system(void);
+	System& system(void)
+	{
+		return *m_system;
+	}
+
+	const System& system(void) const
+	{
+		return *m_system;
+	}
 
 public:
 	auto surface(const svec2 &extent, const std::string &title)
@@ -63,6 +71,12 @@ public:
 	void scanInputs(void)
 	{
 		system().scanInputs();
+	}
+
+	// Valid until next scanInputs
+	auto& monitors(void) const
+	{
+		return system().getMonitors();
 	}
 };
 

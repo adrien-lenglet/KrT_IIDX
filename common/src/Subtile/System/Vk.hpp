@@ -262,6 +262,9 @@ public:
 		std::optional<svec2> isResized(void) const override;
 		bool shouldClose(void) const override;
 
+		void setMonitor(sb::Monitor &monitor, const sb::Monitor::VideoMode &videoMode) override;
+		void setWindowed(void) override;
+
 		const std::vector<Input*>& getInputs(void) const override;
 		const std::map<std::string, Input*>& getInputsId(void) const override;
 		const std::vector<Button*>& getButtons(void) const override;
@@ -362,6 +365,30 @@ public:
 	};
 
 	std::unique_ptr<sb::Surface> createSurface(const svec2 &extent, const std::string &title) override;
+
+	class Monitor : public sb::Monitor
+	{
+	public:
+		Monitor(GLFWmonitor *monitor);
+		~Monitor(void) override;
+
+		operator GLFWmonitor*(void) const
+		{
+			return m_monitor;
+		}
+
+		const std::vector<VideoMode>& getVideoModes(void) const override;
+
+	private:
+		GLFWmonitor *m_monitor;
+		std::vector<VideoMode> m_video_modes;
+
+		std::vector<VideoMode> queryVideoModes(void) const;
+	};
+
+	std::vector<sb::Monitor::Handle> m_monitors;
+	static std::vector<sb::Monitor::Handle> queryMonitors(void);
+	const std::vector<sb::Monitor::Handle>& getMonitors(void) const override;
 
 private:
 	class PhysicalDevice

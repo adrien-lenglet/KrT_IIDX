@@ -6,6 +6,7 @@
 #include <map>
 #include "Queue.hpp"
 #include "Input.hpp"
+#include "Monitor.hpp"
 
 namespace Subtile {
 
@@ -17,6 +18,8 @@ public:
 	virtual svec2 getExtent(void) const = 0;
 	virtual std::optional<svec2> isResized(void) const = 0;
 	virtual bool shouldClose(void) const = 0;
+	virtual void setMonitor(Monitor &monitor, const Monitor::VideoMode &videoMode) = 0;
+	virtual void setWindowed(void) = 0;
 	virtual const std::vector<Input*>& getInputs(void) const = 0;
 	virtual const std::map<std::string, Input*>& getInputsId(void) const = 0;
 	virtual const std::vector<Button*>& getButtons(void) const = 0;
@@ -47,6 +50,16 @@ public:
 		bool shouldClose(void) const
 		{
 			return m_surface->shouldClose();
+		}
+
+		void setMonitor(Monitor &monitor, const Monitor::VideoMode &videoMode)
+		{
+			return m_surface->setMonitor(monitor, videoMode);
+		}
+
+		void setWindowed(void)
+		{
+			return m_surface->setWindowed();
 		}
 
 		auto& inputs(void) const

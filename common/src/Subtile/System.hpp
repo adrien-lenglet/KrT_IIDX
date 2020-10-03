@@ -26,6 +26,7 @@ public:
 	virtual void scanInputs(void) = 0;
 
 	virtual std::unique_ptr<Surface> createSurface(const svec2 &extent, const std::string &title) = 0;
+	virtual const std::vector<Monitor::Handle>& getMonitors(void) const = 0;
 	virtual std::unique_ptr<Device> createDevice(Surface &surface, const sb::Queue::Set &queues) = 0;
 };
 

@@ -8,22 +8,40 @@
 namespace Subtile {
 
 static std::map<GLFWwindow*, Vk::Surface*> windowToSurface;
+static std::set<Vk*> vk_instances;
 
-void framebufferResizeCallback(GLFWwindow *window, int width, int height)
+static void framebufferResizeCallback(GLFWwindow *window, int width, int height)
 {
 	windowToSurface.at(window)->resized({width, height});
+}
+
+static void monitorCallback(GLFWmonitor *monitor, int event)
+{
+	static_cast<void>(monitor);
+	static_cast<void>(event);
+	for (auto &vk : vk_instances)
+		vk->m_monitors = vk->queryMonitors();
 }
 
 Vk::Vk(bool validate, bool isRenderDoc, bool isMonitor) :
 	m_glfw(GLFW_NO_API),
 	m_is_debug(validate),
 	m_instance(createInstance(isRenderDoc, isMonitor)),
-	m_debug_messenger(createDebugMessenger())
+	m_debug_messenger(createDebugMessenger()),
+	m_monitors(queryMonitors())
 {
+	vk_instances.emplace(this);
+	glfwSetMonitorCallback(monitorCallback);
 }
 
 Vk::~Vk(void)
 {
+	auto got = vk_instances.find(this);
+	if (got == vk_instances.end())
+		util::fatal_throw([](){
+			throw std::runtime_error("Can't find current Vk instance for destruction");
+		});
+	vk_instances.erase(got);
 }
 
 void Vk::scanInputs(void)
@@ -441,6 +459,17 @@ bool Vk::Surface::shouldClose(void) const
 	return glfwWindowShouldClose(m_window);
 }
 
+void Vk::Surface::setMonitor(sb::Monitor &monitor, const sb::Monitor::VideoMode &videoMode)
+{
+	glfwSetWindowMonitor(m_window, reinterpret_cast<Monitor&>(monitor), 0, 0, videoMode.width, videoMode.height, videoMode.refresh_rate);
+}
+
+void Vk::Surface::setWindowed(void)
+{
+	auto size = getExtent();
+	glfwSetWindowMonitor(m_window, nullptr, 64, 64, size.x, size.y, GLFW_DONT_CARE);
+}
+
 const std::vector<Input*>& Vk::Surface::getInputs(void) const
 {
 	return m_inputs;
@@ -487,6 +516,97 @@ void Vk::Surface::cursorMode(bool show)
 std::unique_ptr<sb::Surface> Vk::createSurface(const svec2 &extent, const std::string &title)
 {
 	return std::make_unique<Surface>(m_instance, extent, title);
+}
+
+Vk::Monitor::Monitor(GLFWmonitor *monitor) :
+	m_monitor(monitor),
+	m_video_modes(queryVideoModes())
+{
+}
+
+Vk::Monitor::~Monitor(void)
+{
+}
+
+const std::vector<sb::Monitor::VideoMode>& Vk::Monitor::getVideoModes(void) const
+{
+	return m_video_modes;
+}
+
+std::vector<sb::Monitor::VideoMode> Vk::Monitor::queryVideoModes(void) const
+{
+	// ratio, refresh_rate, total screen pixels
+	std::map<double, std::map<size_t, std::map<size_t, sb::Monitor::VideoMode>>> mres;
+	int count;
+	auto modes = glfwGetVideoModes(m_monitor, &count);
+
+	for (int i = 0; i < count; i++) {
+		auto &cur_mode = modes[i];
+		sb::Monitor::VideoMode cur;
+		cur.width = cur_mode.width;
+		cur.height = cur_mode.height;
+		cur.refresh_rate = cur_mode.refreshRate,
+		cur.red_bits = cur_mode.redBits;
+		cur.green_bits = cur_mode.greenBits;
+		cur.blue_bits = cur_mode.blueBits;
+
+		double ratio = std::floor((static_cast<double>(cur.width) / static_cast<double>(cur.height)) * 10.0);
+		auto ratio_got = mres.find(ratio);
+		if (ratio_got == mres.end()) {
+			auto [it, suc] = mres.emplace(std::piecewise_construct, std::forward_as_tuple(ratio), std::forward_as_tuple());
+			if (!suc)
+				throw std::runtime_error("Can't emplace mode");
+			ratio_got = it;
+		}
+
+		auto refresh_rate_got = ratio_got->second.find(cur.width * cur.height);
+		if (refresh_rate_got == ratio_got->second.end()) {
+			auto [it, suc] = ratio_got->second.emplace(std::piecewise_construct, std::forward_as_tuple(cur.width * cur.height), std::forward_as_tuple());
+			if (!suc)
+				throw std::runtime_error("Can't emplace mode");
+			refresh_rate_got = it;
+		}
+
+		refresh_rate_got->second.emplace(std::piecewise_construct, std::forward_as_tuple(cur.refresh_rate), std::forward_as_tuple(cur));
+	}
+	std::vector<sb::Monitor::VideoMode> res;
+	{
+		auto end = mres.rend();
+		for (auto it = mres.rbegin(); it != end; it++) {
+			{
+				auto end = it->second.rend();
+				for (auto it_1 = it->second.rbegin(); it_1 != end; it_1++) {
+					{
+						auto end = it_1->second.rend();
+						for (auto it_2 = it_1->second.rbegin(); it_2 != end; it_2++)
+							res.emplace_back(it_2->second);
+					}
+				}
+			}
+		}
+	}
+
+	for (auto &v : res) {
+		std::cout << "MODE: " << v.width << " x " << v.height << " @ " << v.refresh_rate << "Hz" << std::endl;
+	}
+
+	return res;
+}
+
+std::vector<Monitor::Handle> Vk::queryMonitors(void)
+{
+	std::vector<Monitor::Handle> res;
+	int count;
+	auto monitors = glfwGetMonitors(&count);
+
+	for (int i = 0; i < count; i++)
+		res.emplace_back(std::make_unique<Monitor>(monitors[i]));
+	return res;
+}
+
+const std::vector<sb::Monitor::Handle>& Vk::getMonitors(void) const
+{
+	return m_monitors;
 }
 
 Vk::PhysicalDevice::PhysicalDevice(VkPhysicalDevice device) :

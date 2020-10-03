@@ -54,7 +54,12 @@ void Race::run(void)
 	auto &esc = *instance.surface->buttonsId().at("KB_ESCAPE");
 	auto &f5 = *instance.surface->buttonsId().at("KB_F5");
 	auto &f6 = *instance.surface->buttonsId().at("KB_F6");
+	auto &f8 = *instance.surface->buttonsId().at("KB_F8");
+	auto &f9 = *instance.surface->buttonsId().at("KB_F9");
+	auto &f11 = *instance.surface->buttonsId().at("KB_F11");
 	bool cursor_mode = false;
+	std::optional<size_t> monitor;
+	size_t video_mode = 0;
 	while (!m_is_done) {
 		auto t_start = std::chrono::high_resolution_clock::now();
 
@@ -90,6 +95,40 @@ void Race::run(void)
 			for (auto &i : images)
 				i.update_depth_buffer_trace_res(m_rt_quality);
 			last_frame = nullptr;
+		}
+		f11.update();
+		if (f11.released()) {
+			if (monitor) {
+				instance.surface->setWindowed();
+				monitor.reset();
+			} else {
+				video_mode = 0;
+				monitor = 0;
+				auto &mon = instance.monitors().at(*monitor);
+				auto& modes = mon.videoModes();
+				instance.surface->setMonitor(mon, modes.at(video_mode));
+			}
+			shouldRecreateSc = true;
+		}
+		f8.update();
+		f9.update();
+		if (monitor) {
+			if (f8.released() && video_mode > 0) {
+				video_mode--;
+				monitor = 0;
+				auto &mon = instance.monitors().at(*monitor);
+				auto& modes = mon.videoModes();
+				instance.surface->setMonitor(mon, modes.at(video_mode));
+				shouldRecreateSc = true;
+			}
+			if (f9.released()) {
+				monitor = 0;
+				auto &mon = instance.monitors().at(*monitor);
+				auto& modes = mon.videoModes();
+				video_mode = std::min(modes.size() - 1, video_mode + 1);
+				instance.surface->setMonitor(mon, modes.at(video_mode));
+				shouldRecreateSc = true;
+			}
 		}
 		if (shouldRecreateSc) {
 			instance.graphics.waitIdle();

@@ -23,15 +23,16 @@ fragment {
 
 	out vec3 wsi_screen;
 
-	const float cube_size = 300.0;
+	const float cube_size = 400.0;
 
 	void main(void)
 	{
-		int layer = int(gl_FragCoord.x / cube_size);
-		if (layer < 6 && gl_FragCoord.y < cube_size) {
-			vec2 range = textureLod(light.cube_depth, vec3((gl_FragCoord.x - cube_size * layer) / cube_size, gl_FragCoord.y / cube_size, layer), 0).xy;
+		int layer = int(int(gl_FragCoord.x / cube_size) + int(gl_FragCoord.y / cube_size) * 3);
+		if (gl_FragCoord.x < cube_size * 3 && gl_FragCoord.y < cube_size * 2) {
+			vec2 range = textureLod(light.cube_depth, vec3((gl_FragCoord.x - cube_size * int(gl_FragCoord.x / cube_size)) / cube_size, (gl_FragCoord.y - cube_size * int(gl_FragCoord.y / cube_size)) / cube_size, layer), 0).xy;
 			(out)wsi_screen = vec3(depth_to_z(range.x) / 1000.0, depth_to_z(range.y) / 1000.0, 0.0);
 		} else
+			(out)wsi_screen = texture(light.diffuse, gl_FragCoord.xy).xyz * 0.8;
 			(out)wsi_screen = texture(light.diffuse, gl_FragCoord.xy).xyz * 0.8;
 	}
 }
