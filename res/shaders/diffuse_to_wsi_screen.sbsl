@@ -11,6 +11,8 @@ vertex {
 
 fragment {
 	set light {
+		usampler2D it_count;
+
 		sampler2D diffuse;
 		sampler2D albedo;
 		sampler2D emissive;
@@ -42,5 +44,7 @@ fragment {
 		vec3 emissive = texture(light.emissive, gl_FragCoord.xy).xyz;
 		vec3 irradiance = (diffuse - emissive) / albedo;
 		(out)wsi_screen = irradiance * 0.25;*/
+
+		(out)wsi_screen = vec3(float(texture(light.it_count, gl_FragCoord.xy).x) / 8.0);
 	}
 }

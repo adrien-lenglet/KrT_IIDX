@@ -1,0 +1,93 @@
+
+render_pass render_passes::it_count : compute;
+
+require vertex::p2;
+vertex {
+	void main(void)
+	{
+		gl_Position = vec4((in)pos, 0, 1.0);
+	}
+}
+
+fragment {
+	set fb {
+		sampler2D last_depth_buffer;
+		sampler2D depth_buffer;
+		usampler2D last_it_count;
+		mat4 cur_cam_to_last;
+		mat4 cur_cam_inv;
+		mat4 last_cam_inv;
+
+		float cur_cam_a, cur_cam_b;
+		vec2 cur_cam_ratio;
+		mat4 last_cam_proj;
+	};
+
+	float depth_to_z(float depth)
+	{
+		return fb.cur_cam_b / (depth - fb.cur_cam_a);
+	}
+
+	vec3 pos_view(vec2 pos)
+	{
+		vec2 size = textureSize(fb.depth_buffer, 0);
+		float depth = textureLod(fb.depth_buffer, pos, 0).x;
+		float z = depth_to_z(depth);
+		vec2 uv = pos / size;
+		vec2 ndc2 = (uv - 0.5) * 2.0;
+		ndc2 *= fb.cur_cam_ratio;
+		ndc2 *= z;
+		return vec3(ndc2, z);
+	}
+
+	vec3 last_pos_view(vec2 pos)
+	{
+		vec2 size = textureSize(fb.last_depth_buffer, 0);
+		float depth = textureLod(fb.last_depth_buffer, pos, 0).x;
+		float z = depth_to_z(depth);
+		vec2 uv = pos / size;
+		vec2 ndc2 = (uv - 0.5) * 2.0;
+		ndc2 *= fb.cur_cam_ratio;
+		ndc2 *= z;
+		return vec3(ndc2, z);
+	}
+
+	vec3 current_view(void)
+	{
+		return pos_view(gl_FragCoord.xy);
+	}
+
+	vec2 ndc_to_ss(vec2 p)
+	{
+		vec2 size = textureSize(fb.depth_buffer, 0);
+		return ((p / 2.0) + 0.5) * size;
+	}
+
+	vec3 project_point(vec3 point)
+	{
+		vec4 ph = fb.last_cam_proj * vec4(point, 1.0);
+		vec3 res = ph.xyz / ph.w;
+		return vec3(ndc_to_ss(res.xy), res.z);
+	}
+
+	out uint it_count;
+
+	pipeline color_blend.blend_enable = false;
+
+	void main(void)
+	{
+		vec4 cur_view =  vec4(current_view(), 1.0);
+		vec4 last_view = fb.cur_cam_to_last * cur_view;
+		vec2 trace_pos = project_point(last_view.xyz).xy;
+		vec4 last_view_reproj = vec4(last_pos_view(trace_pos), 1.0);
+		float dist = length((fb.cur_cam_inv * cur_view).xyz - (fb.last_cam_inv * last_view_reproj).xyz);
+		vec2 size_d = vec2(textureSize(fb.depth_buffer, 0));
+		const float dist_tres = 0.1;
+		if (trace_pos.x >= 0 && trace_pos.y >= 0 && trace_pos.x <= (size_d.x - 1) && trace_pos.y <= (size_d.y - 1) && (dist < dist_tres)) {
+			uint last_it_count = texture(fb.last_it_count, gl_FragCoord.xy).x;
+			(out)it_count = last_it_count >> 1;
+		} else {
+			(out)it_count = 8;
+		}
+	}
+}

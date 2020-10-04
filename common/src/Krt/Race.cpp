@@ -23,6 +23,8 @@ Race::Race(Instance &instance) :
 	m_depth_buffer_module(instance.device.load(res.shaders().modules().depth_buffer())),
 	m_depth_to_fl_pass(instance.device.load(res.shaders().render_passes().depth_to_fl())),
 	m_depth_to_fl_shader(instance.device.load(res.shaders().depth_to_fl())),
+	m_it_count_pass(instance.device.load(res.shaders().render_passes().it_count())),
+	m_it_count_shader(instance.device.load(res.shaders().it_count())),
 	m_diffuse_bounce_pass(instance.device.load(res.shaders().render_passes().diffuse_bounce())),
 	m_diffuse_bounce_shader(instance.device.load(res.shaders().diffuse_bounce())),
 	m_gather_bounces_pass(instance.device.load(res.shaders().render_passes().gather_bounces())),
@@ -182,6 +184,7 @@ void Race::run(void)
 				[&](auto &cmd){
 					auto &cam = m_track->render.camera;
 					auto &s = img.gather_bounces_set;
+					auto &s_it = img.it_count_set;
 					s.last_cam_proj = cam.proj;
 					glm::mat4 last_view = cam.view;
 					glm::vec3 last_pos = m_track->render.camera_pos;
@@ -193,6 +196,16 @@ void Race::run(void)
 					for (size_t i = 0; i < 3; i++)
 						view_to_last_normal[3][i] = 0.0f;
 					glm::vec3 cur_pos = m_track->render.camera_pos;
+
+					s_it.cur_cam_to_last = view_to_last;
+					s_it.cur_cam_inv = glm::inverse(view);
+					s_it.last_cam_inv = glm::inverse(last_view);
+					s_it.cur_cam_a = cam.a;
+					s_it.cur_cam_b = cam.b;
+					s_it.cur_cam_ratio = cam.ratio;
+					s_it.last_cam_proj = cam.proj;
+					instance.cur_img_res->uploadDescSet(s_it);
+
 					s.cur_cam_delta = cur_pos - last_pos;
 					s.cur_cam_to_last = view_to_last;
 					s.last_cam_inv = glm::inverse(last_view);
@@ -336,6 +349,20 @@ void Race::run(void)
 				);
 			}
 
+			cmd.setViewport(viewport, 0.0f, 1.0f);
+			cmd.setScissor({{0, 0}, instance.swapchain->extent()});
+
+			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
+				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
+
+			cmd.render(img.it_count_fb, {{0, 0}, instance.swapchain->extent()},
+				[&](auto &cmd){
+					cmd.bind(m_it_count_shader);
+					cmd.bind(m_it_count_shader, img.it_count_set, 0);
+					cmd.draw(instance.screen_quad);
+				}
+			);
+
 			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
 				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
 
@@ -343,8 +370,6 @@ void Race::run(void)
 				d = sb::genDiffuseVector(*m_track, glm::normalize(glm::vec3(1.3, 3.0, 1.0)), 2000.0);
 			instance.cur_img_res->uploadDescSet(img.lighting_samplers);
 
-			cmd.setViewport(viewport, 0.0f, 1.0f);
-			cmd.setScissor({{0, 0}, instance.swapchain->extent()});
 			cmd.render(img.lighting_fb, {{0, 0}, instance.swapchain->extent()},
 				[&](auto &cmd){
 					cmd.bind(m_lighting_shader);

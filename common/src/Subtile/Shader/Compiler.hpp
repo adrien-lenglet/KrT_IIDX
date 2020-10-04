@@ -1213,6 +1213,10 @@ public:
 				{"atomic_uint", "AtomicUint"},
 				{"sampler2D", "Sampler2D"},
 				{"sampler2DArray", "Sampler2DArray"},
+				{"usampler2D", "Sampler2D"},
+				{"usampler2DArray", "Sampler2DArray"},
+				{"isampler2D", "Sampler2D"},
+				{"isampler2DArray", "Sampler2DArray"},
 				{"texture2D", "Texture2D"}
 			};
 

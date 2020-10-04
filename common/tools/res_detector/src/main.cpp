@@ -475,6 +475,23 @@ class FolderPrinter
 				};
 				get_props += Vd("res.depthStencilDepthCompareOp = sb::CompareOp::" + table.at(*cur));
 			}
+			{
+				static const std::vector<std::string> key {"color_blend", ".", "blend_enable"};
+				static const std::string def = "true";
+				const std::string *cur = &def;
+				auto &val = compiled.getProp(key);
+				if (val.size() > 0) {
+					if (val.size() != 1)
+						throw std::runtime_error("Expected one argument only for color_blend.blend_enable");
+					cur = &val.at(0);
+				}
+
+				static const std::map<std::string, std::string> table {
+					{"true", "true"},
+					{"false", "false"}
+				};
+				get_props += Vd("res.colorBlendBlendEnable = " + table.at(*cur));
+			}
 
 			get_props += Return | "res"_v;
 		}

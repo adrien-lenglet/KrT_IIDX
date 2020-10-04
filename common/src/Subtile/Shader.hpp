@@ -963,6 +963,7 @@ public:
 	{
 		CullMode rasterizationCullMode;
 		CompareOp depthStencilDepthCompareOp;
+		bool colorBlendBlendEnable;
 	};
 };
 
