@@ -14,7 +14,13 @@ fragment {
 		sampler2D primary;
 		uint bounce_count;
 		sampler2D bounces[16];
+
+		sampler2D albedo;
+		sampler2D emissive;
+
 		sampler2D last_diffuse;
+		sampler2D last_albedo;
+		sampler2D last_emissive;
 		sampler2D last_diffuse_accum;
 
 		sampler2D last_depth_buffer;
@@ -97,7 +103,17 @@ fragment {
 		vec2 size_d = vec2(textureSize(light.depth_buffer, 0));
 		const float dist_tres = 0.1;
 		if (trace_pos.x >= 0 && trace_pos.y >= 0 && trace_pos.x <= (size_d.x - 1) && trace_pos.y <= (size_d.y - 1) && (dist < dist_tres)) {
-			vec3 last = texture(light.last_diffuse, trace_pos).xyz;
+			const float albedo_bias = 0.001;
+
+			vec3 last_diffuse = texture(light.last_diffuse, trace_pos).xyz;
+			vec3 last_albedo = texture(light.last_albedo, trace_pos).xyz + albedo_bias;
+			vec3 last_emissive = texture(light.last_emissive, trace_pos).xyz;
+			vec3 last_irradiance = (last_diffuse - last_emissive) / last_albedo;
+
+			vec3 albedo = texture(light.albedo, gl_FragCoord.xy).xyz + albedo_bias;
+			vec3 emissive = texture(light.emissive, gl_FragCoord.xy).xyz;
+			vec3 last = (last_irradiance * albedo) + emissive;
+
 			float last_accum = texture(light.last_diffuse_accum, trace_pos).x;
 			float acc = last_accum + 1.0;
 			(out)diffuse = (last * last_accum + cur) / acc;

@@ -12,6 +12,8 @@ vertex {
 fragment {
 	set light {
 		sampler2D diffuse;
+		sampler2D albedo;
+		sampler2D emissive;
 		sampler2DArray cube_depth;
 		float cam_a, cam_b;
 	};
@@ -34,5 +36,11 @@ fragment {
 		} else
 			(out)wsi_screen = texture(light.diffuse, gl_FragCoord.xy).xyz * 0.8;
 			(out)wsi_screen = texture(light.diffuse, gl_FragCoord.xy).xyz * 0.8;
+
+		/*vec3 diffuse = texture(light.diffuse, gl_FragCoord.xy).xyz;
+		vec3 albedo = texture(light.albedo, gl_FragCoord.xy).xyz;
+		vec3 emissive = texture(light.emissive, gl_FragCoord.xy).xyz;
+		vec3 irradiance = (diffuse - emissive) / albedo;
+		(out)wsi_screen = irradiance * 0.25;*/
 	}
 }

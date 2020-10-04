@@ -112,11 +112,15 @@ struct Race::Image {
 			for (auto &b : diffuse_bounces)
 				gather_bounces_set.bounces.at(ndx++).bind(race.m_fb_sampler, b.img, sb::Image::Layout::ShaderReadOnlyOptimal);
 		}
+		gather_bounces_set.albedo.bind(race.m_fb_sampler, fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
+		gather_bounces_set.emissive.bind(race.m_fb_sampler, fb_emissive, sb::Image::Layout::ShaderReadOnlyOptimal);
 		gather_bounces_set.bounce_count = diffuse_bounces.size();
 		race.instance.cur_img_res->uploadDescSet(gather_bounces_set);
 		gather_bounces_set.depth_buffer.bind(race.m_fb_sampler_linear, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
 
 		diffuse_to_wsi_screen_set.diffuse.bind(race.m_fb_sampler, diffuse, sb::Image::Layout::ShaderReadOnlyOptimal);
+		diffuse_to_wsi_screen_set.albedo.bind(race.m_fb_sampler, fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
+		diffuse_to_wsi_screen_set.emissive.bind(race.m_fb_sampler, fb_emissive, sb::Image::Layout::ShaderReadOnlyOptimal);
 		diffuse_to_wsi_screen_set.cube_depth.bind(race.m_sampler_nearest, cube_depth_mips.at(0), sb::Image::Layout::ShaderReadOnlyOptimal);
 
 		auto cmd = race.m_cmd_pool.primary();
@@ -130,6 +134,12 @@ struct Race::Image {
 			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
 				sb::Access::MemoryWrite, sb::Access::MemoryRead,
 				sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, diffuse);
+			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
+				sb::Access::MemoryWrite, sb::Access::MemoryRead,
+				sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, fb_albedo);
+			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
+				sb::Access::MemoryWrite, sb::Access::MemoryRead,
+				sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, fb_emissive);
 			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
 				sb::Access::MemoryWrite, sb::Access::MemoryRead,
 				sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, diffuse_accum);
@@ -313,6 +323,8 @@ inline decltype(Race::images) Race::getImages(void)
 		size_t ndx = 0;
 		for (auto &i : res) {
 			res.at((ndx + 1) % res.size()).gather_bounces_set.last_diffuse.bind(m_fb_sampler_linear, i.diffuse, sb::Image::Layout::ShaderReadOnlyOptimal);
+			res.at((ndx + 1) % res.size()).gather_bounces_set.last_albedo.bind(m_fb_sampler_linear, i.fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
+			res.at((ndx + 1) % res.size()).gather_bounces_set.last_emissive.bind(m_fb_sampler_linear, i.fb_emissive, sb::Image::Layout::ShaderReadOnlyOptimal);
 			res.at((ndx + 1) % res.size()).gather_bounces_set.last_diffuse_accum.bind(m_fb_sampler_linear, i.diffuse_accum, sb::Image::Layout::ShaderReadOnlyOptimal);
 			res.at((ndx + 1) % res.size()).gather_bounces_set.last_depth_buffer.bind(m_fb_sampler_linear, i.fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
 			res.at((ndx + 1) % res.size()).cube_depth_set.last_cube.bind(m_sampler, i.cube_depth_mips.at(0), sb::Image::Layout::ShaderReadOnlyOptimal);
