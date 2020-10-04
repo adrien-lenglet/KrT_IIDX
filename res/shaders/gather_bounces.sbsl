@@ -101,7 +101,7 @@ fragment {
 		vec4 last_view_reproj = vec4(last_pos_view(trace_pos), 1.0);
 		float dist = length((light.cur_cam_inv * cur_view).xyz - (light.last_cam_inv * last_view_reproj).xyz);
 		vec2 size_d = vec2(textureSize(light.depth_buffer, 0));
-		const float dist_tres = 0.1;
+		const float dist_tres = 0.5;
 		(out)diffuse = cur;
 		if (trace_pos.x >= 0 && trace_pos.y >= 0 && trace_pos.x <= (size_d.x - 1) && trace_pos.y <= (size_d.y - 1) && (dist < dist_tres)) {
 			const float albedo_bias = 0.001;

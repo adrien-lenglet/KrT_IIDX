@@ -19,6 +19,8 @@ fragment {
 		sampler2D normal;
 
 		sampler2D last_lighting;
+		sampler2D last_albedo;
+		sampler2D last_emissive;
 
 		sampler2D depth_buffer;
 		sampler2D depth_buffer_fl;
@@ -287,9 +289,8 @@ fragment {
 			}
 			illum /= float(it);
 			vec3 emissive = texture(fb.emissive, gl_FragCoord.xy).xyz;
-			vec4 albedo = texture(fb.albedo, gl_FragCoord.xy);
-			float albedo_factor = albedo.w;
-			vec3 base_color = albedo.xyz * illum * vec3(2.0, 2.0, 1.0) * 1.9 + emissive;
+			vec3 albedo = texture(fb.albedo, gl_FragCoord.xy).xyz;
+			vec3 base_color = albedo * illum * vec3(2.0, 2.0, 1.0) * 1.9 + emissive;
 			(out)primary = base_color;
 		}
 		/*base_color = vec3(texture(fb.depth_buffer_fl, gl_FragCoord.xy * fb.depth_buffer_fl_size, 9).xy, 0.0);

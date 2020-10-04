@@ -350,6 +350,8 @@ inline decltype(Race::images) Race::getImages(void)
 			res.at((ndx + 1) % res.size()).it_count_set.last_it_count.bind(m_fb_sampler_linear, i.it_count, sb::Image::Layout::ShaderReadOnlyOptimal);
 
 			res.at((ndx + 1) % res.size()).lighting_samplers.last_lighting.bind(m_fb_sampler_linear, i.primary, sb::Image::Layout::ShaderReadOnlyOptimal);
+			res.at((ndx + 1) % res.size()).lighting_samplers.last_albedo.bind(m_fb_sampler_linear, i.fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
+			res.at((ndx + 1) % res.size()).lighting_samplers.last_emissive.bind(m_fb_sampler_linear, i.fb_emissive, sb::Image::Layout::ShaderReadOnlyOptimal);
 
 			size_t ndx_sec = 0;
 			for (auto &b : i.diffuse_bounces) {
