@@ -586,9 +586,9 @@ std::vector<sb::Monitor::VideoMode> Vk::Monitor::queryVideoModes(void) const
 		}
 	}
 
-	for (auto &v : res) {
-		std::cout << "MODE: " << v.width << " x " << v.height << " @ " << v.refresh_rate << "Hz" << std::endl;
-	}
+	//for (auto &v : res) {
+	//	std::cout << "MODE: " << v.width << " x " << v.height << " @ " << v.refresh_rate << "Hz" << std::endl;
+	//}
 
 	return res;
 }

@@ -1,5 +1,7 @@
 rgba16_sfloat diffuse { store, out_layout = shader_read_only_optimal };
+r32_sfloat diffuse_accum { store, out_layout = shader_read_only_optimal };
 
 compute {
 	out diffuse;
+	out diffuse_accum;
 }
