@@ -102,7 +102,7 @@ fragment {
 			float acc = last_accum + 1.0;
 			(out)diffuse = (last * last_accum + cur) / acc;
 			const float dist_tres_rat = 1.0 / dist_tres;
-			(out)diffuse_accum = max(acc * (pow(1.0 - dist * dist_tres_rat, 20.0)), 1.0);
+			(out)diffuse_accum = max(acc * (pow(1.0 - dist * dist_tres_rat, 6.0)), 1.0);
 		} else {
 				(out)diffuse = cur;
 				(out)diffuse_accum = 1.0;
