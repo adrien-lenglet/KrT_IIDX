@@ -142,6 +142,16 @@ struct Race::Image {
 				sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, fb_depth_buffer_fl);
 			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
 				sb::Access::MemoryWrite, sb::Access::MemoryRead,
+				sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, it_count);
+			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
+				sb::Access::MemoryWrite, sb::Access::MemoryRead,
+				sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, primary);
+			for (auto &b : diffuse_bounces)
+				cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
+					sb::Access::MemoryWrite, sb::Access::MemoryRead,
+					sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, b.img);
+			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
+				sb::Access::MemoryWrite, sb::Access::MemoryRead,
 				sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, diffuse);
 			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
 				sb::Access::MemoryWrite, sb::Access::MemoryRead,
@@ -211,6 +221,7 @@ struct Race::Image {
 	{
 		auto res = race.m_lighting_shader.fb(race.instance.graphics);
 
+		res.it_count.bind(race.m_fb_sampler, it_count, sb::Image::Layout::ShaderReadOnlyOptimal);
 		res.albedo.bind(race.m_fb_sampler, fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
 		res.emissive.bind(race.m_fb_sampler, fb_emissive, sb::Image::Layout::ShaderReadOnlyOptimal);
 		res.normal.bind(race.m_fb_sampler, fb_normal, sb::Image::Layout::ShaderReadOnlyOptimal);
@@ -272,6 +283,7 @@ struct Race::Image {
 			auto img = race.instance.device.image2D(sb::Format::rgba16_sfloat, race.instance.swapchain->extent(), 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics);
 			auto fb = race.m_diffuse_bounce_pass.framebuffer(race.instance.swapchain->extent(), 1, img);
 			auto set = race.m_diffuse_bounce_shader.fb(race.instance.graphics);
+			set.it_count.bind(race.m_fb_sampler, it_count, sb::Image::Layout::ShaderReadOnlyOptimal);
 			set.albedo.bind(race.m_fb_sampler, fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
 			set.normal.bind(race.m_fb_sampler, fb_normal, sb::Image::Layout::ShaderReadOnlyOptimal);
 			set.last_diffuse.bind(race.m_fb_sampler, i == 0 ? static_cast<sb::Image2D&>(primary) : res.at(i - 1).img, sb::Image::Layout::ShaderReadOnlyOptimal);
@@ -335,6 +347,15 @@ inline decltype(Race::images) Race::getImages(void)
 		size_t ndx = 0;
 		for (auto &i : res) {
 			res.at((ndx + 1) % res.size()).it_count_set.last_depth_buffer.bind(m_fb_sampler_linear, i.fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
+			res.at((ndx + 1) % res.size()).it_count_set.last_it_count.bind(m_fb_sampler_linear, i.it_count, sb::Image::Layout::ShaderReadOnlyOptimal);
+
+			res.at((ndx + 1) % res.size()).lighting_samplers.last_lighting.bind(m_fb_sampler_linear, i.primary, sb::Image::Layout::ShaderReadOnlyOptimal);
+
+			size_t ndx_sec = 0;
+			for (auto &b : i.diffuse_bounces) {
+				res.at((ndx + 1) % res.size()).diffuse_bounces.at(ndx_sec).set.last_frame_diffuse.bind(m_fb_sampler_linear, b.img, sb::Image::Layout::ShaderReadOnlyOptimal);
+				ndx_sec++;
+			}
 
 			res.at((ndx + 1) % res.size()).gather_bounces_set.last_diffuse.bind(m_fb_sampler_linear, i.diffuse, sb::Image::Layout::ShaderReadOnlyOptimal);
 			res.at((ndx + 1) % res.size()).gather_bounces_set.last_albedo.bind(m_fb_sampler_linear, i.fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);

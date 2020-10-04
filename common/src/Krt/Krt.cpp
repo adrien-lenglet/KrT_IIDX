@@ -38,7 +38,8 @@ Instance::Instance(bool isDebug, const Config &config) :
 		{m_graphics_family, {1.0f}}
 	})),
 	graphics(device.queue<m_graphics_family>(0)),
-	swapchain(device.swapchain(*surface, surface->extent(), 2, sb::Image::Usage::ColorAttachment, graphics)),
+	swap_imgs(2),
+	swapchain(device.swapchain(*surface, surface->extent(), swap_imgs, sb::Image::Usage::ColorAttachment, graphics)),
 	m_transfer_pool(graphics.pool<true>()),
 	img_count(std::max(swapchain->images().size(), static_cast<size_t>(2))),
 	images(createImages()),

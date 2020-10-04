@@ -35,6 +35,7 @@ public:
 	std::optional<sb::Surface::Handle> surface;
 	sb::Device::Handle device;
 	sb::Queue::Handle<m_graphics_family> graphics;
+	size_t swap_imgs;
 	std::optional<sb::Swapchain::Handle> swapchain;
 	decltype(graphics.pool<true>()) m_transfer_pool;
 

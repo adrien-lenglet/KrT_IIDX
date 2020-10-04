@@ -15,9 +15,14 @@ fragment {
 	};
 
 	set fb {
+		usampler2D it_count;
+		uint it_bias;
+
 		sampler2D albedo;
 		sampler2D normal;
 		sampler2D last_diffuse;
+
+		sampler2D last_frame_diffuse;
 
 		sampler2D depth_buffer;
 		sampler2D depth_buffer_fl;
@@ -26,9 +31,49 @@ fragment {
 		int depth_buffer_trace_res;
 		uint depth_buffer_max_it;
 		uint index;
+
+		mat4 cur_cam_to_last;
+		float cur_cam_a, cur_cam_b;
+		vec2 cur_cam_ratio;
+		mat4 last_cam_proj;
 	};
 
 	require modules::camera;
+
+	float repr_depth_to_z(float depth)
+	{
+		return fb.cur_cam_b / (depth - fb.cur_cam_a);
+	}
+
+	vec3 repr_pos_view(vec2 pos)
+	{
+		vec2 size = textureSize(fb.depth_buffer, 0);
+		float depth = textureLod(fb.depth_buffer, pos, 0).x;
+		float z = repr_depth_to_z(depth);
+		vec2 uv = pos / size;
+		vec2 ndc2 = (uv - 0.5) * 2.0;
+		ndc2 *= fb.cur_cam_ratio;
+		ndc2 *= z;
+		return vec3(ndc2, z);
+	}
+
+	vec3 repr_current_view(void)
+	{
+		return repr_pos_view(gl_FragCoord.xy);
+	}
+
+	vec2 repr_ndc_to_ss(vec2 p)
+	{
+		vec2 size = textureSize(fb.depth_buffer, 0);
+		return ((p / 2.0) + 0.5) * size;
+	}
+
+	vec3 repr_project_point(vec3 point)
+	{
+		vec4 ph = fb.last_cam_proj * vec4(point, 1.0);
+		vec3 res = ph.xyz / ph.w;
+		return vec3(repr_ndc_to_ss(res.xy), res.z);
+	}
 
 	float depth_to_z(float depth)
 	{
@@ -215,37 +260,45 @@ fragment {
 
 	void main(void)
 	{
-		vec3 view = pos_view_precise(gl_FragCoord.xy);
-		vec3 view_norm = normalize(view);
-		vec3 normal = texture(fb.normal, gl_FragCoord.xy).xyz;
-		vec3 albedo = texture(fb.albedo, gl_FragCoord.xy).xyz;
+		uint it = min(texture(fb.it_count, gl_FragCoord.xy).x + fb.it_bias, 1);
+		if (it == 0) {
+			vec4 cur_view =  vec4(repr_current_view(), 1.0);
+			vec4 last_view = fb.cur_cam_to_last * cur_view;
+			vec2 trace_pos = repr_project_point(last_view.xyz).xy;
+			(out)diffuse = texture(fb.last_frame_diffuse, trace_pos).xyz;
+		} else {
+			vec3 view = pos_view_precise(gl_FragCoord.xy);
+			vec3 view_norm = normalize(view);
+			vec3 normal = texture(fb.normal, gl_FragCoord.xy).xyz;
+			vec3 albedo = texture(fb.albedo, gl_FragCoord.xy).xyz;
 
-		vec3 nx = vec3(-normal.z, normal.y, normal.x);
-		vec3 ny = vec3(normal.y, -normal.z, normal.x);
-		vec3 nz = normal;
+			vec3 nx = vec3(-normal.z, normal.y, normal.x);
+			vec3 ny = vec3(normal.y, -normal.z, normal.x);
+			vec3 nz = normal;
 
-		vec3 illum = vec3(0.0);
-		uint samples = 1;
-		uint rand = hash(uint(gl_FragCoord.x)) + hash(uint(gl_FragCoord.y));
-		for (uint i = 0; i < samples; i++) {
-			vec3 rvec = random.normals[hash(i + rand) % 256];
-			vec3 tangent_rvec = nx * rvec.x + ny * rvec.y + nz * rvec.z;
-			const float unorm = 1.0 / 255.0;
-			vec3 ray_illum = vec3(0.0);
-			if (fb.index == 0)
-				ray_illum = vec3(100.0 * unorm, 145.0 * unorm, 223.0 * unorm) * 1.5;
-			vec2 trace_pos;
-			if (traceRay(view, tangent_rvec, trace_pos))
-				ray_illum = texture(fb.last_diffuse, trace_pos).xyz;
-			illum += ray_illum;
+			vec3 illum = vec3(0.0);
+			uint samples = it;
+			uint rand = hash(uint(gl_FragCoord.x)) + hash(uint(gl_FragCoord.y));
+			for (uint i = 0; i < samples; i++) {
+				vec3 rvec = random.normals[hash(i + rand) % 256];
+				vec3 tangent_rvec = nx * rvec.x + ny * rvec.y + nz * rvec.z;
+				const float unorm = 1.0 / 255.0;
+				vec3 ray_illum = vec3(0.0);
+				if (fb.index == 0)
+					ray_illum = vec3(100.0 * unorm, 145.0 * unorm, 223.0 * unorm) * 1.5;
+				vec2 trace_pos;
+				if (traceRay(view, tangent_rvec, trace_pos))
+					ray_illum = texture(fb.last_diffuse, trace_pos).xyz;
+				illum += ray_illum;
+			}
+			illum /= samples;
+
+			vec3 cur = albedo * illum;
+			//vec3 last = texture(fb.last_frame, gl_FragCoord.xy).xyz;
+			//vec3 dif3 = abs(cur - last);
+			//float dif = (dif3.x + dif3.y + dif3.z) / 3.0;
+			//(out)diffuse += mix(cur, last, clamp(pow(dif, 0.25), 0.0, 1.0));
+			(out)diffuse = cur;
 		}
-		illum /= samples;
-
-		vec3 cur = albedo * illum;
-		//vec3 last = texture(fb.last_frame, gl_FragCoord.xy).xyz;
-		//vec3 dif3 = abs(cur - last);
-		//float dif = (dif3.x + dif3.y + dif3.z) / 3.0;
-		//(out)diffuse += mix(cur, last, clamp(pow(dif, 0.25), 0.0, 1.0));
-		(out)diffuse = cur;
 	}
 }

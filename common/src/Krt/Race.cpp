@@ -62,6 +62,8 @@ void Race::run(void)
 	bool cursor_mode = false;
 	std::optional<size_t> monitor;
 	size_t video_mode = 0;
+	size_t step = 0;
+	size_t rt_lag = 1;
 	while (!m_is_done) {
 		auto t_start = std::chrono::high_resolution_clock::now();
 
@@ -136,7 +138,7 @@ void Race::run(void)
 			instance.graphics.waitIdle();
 			images.clear();
 			instance.swapchain.reset();
-			instance.swapchain = instance.device.swapchain(*instance.surface, instance.surface->extent(), 2, sb::Image::Usage::ColorAttachment, instance.graphics);
+			instance.swapchain = instance.device.swapchain(*instance.surface, instance.surface->extent(), instance.swap_imgs, sb::Image::Usage::ColorAttachment, instance.graphics);
 			images = getImages();
 			last_frame = nullptr;
 		}
@@ -154,7 +156,7 @@ void Race::run(void)
 				instance.scanInputs();
 				resized = instance.surface->resized();
 			}
-			instance.swapchain = instance.device.swapchain(*instance.surface, instance.surface->extent(), 2, sb::Image::Usage::ColorAttachment, instance.graphics);
+			instance.swapchain = instance.device.swapchain(*instance.surface, instance.surface->extent(), instance.swap_imgs, sb::Image::Usage::ColorAttachment, instance.graphics);
 			images = getImages();
 			last_frame = nullptr;
 		}
@@ -185,6 +187,7 @@ void Race::run(void)
 					auto &cam = m_track->render.camera;
 					auto &s = img.gather_bounces_set;
 					auto &s_it = img.it_count_set;
+					auto &s_light = img.lighting_samplers;
 					s.last_cam_proj = cam.proj;
 					glm::mat4 last_view = cam.view;
 					glm::vec3 last_pos = m_track->render.camera_pos;
@@ -205,6 +208,29 @@ void Race::run(void)
 					s_it.cur_cam_ratio = cam.ratio;
 					s_it.last_cam_proj = cam.proj;
 					instance.cur_img_res->uploadDescSet(s_it);
+
+					s_light.it_bias = step == 0;
+					s_light.cur_cam_to_last = view_to_last;
+					s_light.cur_cam_a = cam.a;
+					s_light.cur_cam_b = cam.b;
+					s_light.cur_cam_ratio = cam.ratio;
+					s_light.last_cam_proj = cam.proj;
+					instance.cur_img_res->uploadDescSet(s_light);
+
+					{
+						size_t ndx = 0;
+						for (auto &b : img.diffuse_bounces) {
+							auto &s = b.set;
+							s.it_bias = ((step / rt_lag) - 1) == ndx;
+							s.cur_cam_to_last = view_to_last;
+							s.cur_cam_a = cam.a;
+							s.cur_cam_b = cam.b;
+							s.cur_cam_ratio = cam.ratio;
+							s.last_cam_proj = cam.proj;
+							instance.cur_img_res->uploadDescSet(s);
+							ndx++;
+						}
+					}
 
 					s.cur_cam_delta = cur_pos - last_pos;
 					s.cur_cam_to_last = view_to_last;
@@ -455,6 +481,8 @@ void Race::run(void)
 		}
 		instance.cur_img_res->resetStagingOff();
 		instance.cur_img_res->transfer_unsafe.begin(sb::CommandBuffer::Usage::OneTimeSubmit);
+
+		step = (step + 1) % (3 * rt_lag);
 
 		auto t_end = std::chrono::high_resolution_clock::now();
 

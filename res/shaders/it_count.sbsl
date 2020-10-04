@@ -84,10 +84,10 @@ fragment {
 		vec2 size_d = vec2(textureSize(fb.depth_buffer, 0));
 		const float dist_tres = 0.1;
 		if (trace_pos.x >= 0 && trace_pos.y >= 0 && trace_pos.x <= (size_d.x - 1) && trace_pos.y <= (size_d.y - 1) && (dist < dist_tres)) {
-			uint last_it_count = texture(fb.last_it_count, gl_FragCoord.xy).x;
-			(out)it_count = last_it_count >> 1;
+			//uint last_it_count = texture(fb.last_it_count, gl_FragCoord.xy).x;
+			(out)it_count = 0;
 		} else {
-			(out)it_count = 8;
+			(out)it_count = 1;
 		}
 	}
 }

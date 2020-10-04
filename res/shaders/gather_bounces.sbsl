@@ -102,6 +102,7 @@ fragment {
 		float dist = length((light.cur_cam_inv * cur_view).xyz - (light.last_cam_inv * last_view_reproj).xyz);
 		vec2 size_d = vec2(textureSize(light.depth_buffer, 0));
 		const float dist_tres = 0.1;
+		(out)diffuse = cur;
 		if (trace_pos.x >= 0 && trace_pos.y >= 0 && trace_pos.x <= (size_d.x - 1) && trace_pos.y <= (size_d.y - 1) && (dist < dist_tres)) {
 			const float albedo_bias = 0.001;
 
@@ -119,10 +120,8 @@ fragment {
 			(out)diffuse = (last * last_accum + cur) / acc;
 			const float dist_tres_rat = 1.0 / dist_tres;
 			(out)diffuse_accum = max(acc * (pow(1.0 - dist * dist_tres_rat, 6.0)), 1.0);
-		} else {
-				(out)diffuse = cur;
+		} else
 				(out)diffuse_accum = 1.0;
-		}
 		/*vec3 last = texture(light.last_diffuse, gl_FragCoord.xy).xyz;
 		//float last_sum = abs(last.x) + abs(last.y) + abs(last.z);
 
