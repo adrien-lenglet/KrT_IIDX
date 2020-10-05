@@ -213,12 +213,13 @@ fragment {
 			if (t >= t_max)
 				return false;
 			int cur_lev = level + fb.depth_buffer_trace_res;
-			float cell_size = float(1 << (level == 0 ? 0 : cur_lev));
+			int cell_lev = level == 0 ? 0 : cur_lev;
+			float cell_size = float(1 << cell_lev);
 			float start_d = mix(p0.z, p1.z, t + cell_end(p.xy, dir2n, cell_size));
 			float end_d = mix(p0.z, p1.z, t + cell_end(p.xy, dir2, cell_size));
-			vec2 range = textureLod(fb.depth_buffer_fl, p.xy * fb.depth_buffer_fl_size, cur_lev).xy;
+			vec2 range = textureLod(fb.depth_buffer_fl, p.xy * fb.depth_buffer_fl_size, cell_lev).xy;
 			if (level == 0)
-				range.x = z_to_depth(depth_to_z(textureLod(fb.depth_buffer_fl, p.xy * fb.depth_buffer_fl_size, 0).x) + bias);
+				range.x = z_to_depth(depth_to_z(range.x) + bias);
 			if ((start_d >= range.x && start_d <= range.y) || (end_d >= range.x && end_d <= range.y)) {
 				if (level == 0) {
 					pos = p.xy;
