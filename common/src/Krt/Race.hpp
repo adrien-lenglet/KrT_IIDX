@@ -46,6 +46,7 @@ public:
 	decltype(instance.device.load(res.shaders().diffuse_to_wsi_screen())) m_diffuse_to_wsi_screen;
 
 	decltype(res.shaders().lighting().loaded()) m_lighting_shader;
+	decltype(res.shaders().modules().rt().loaded()) m_rt_shader;
 
 	decltype(instance.device.load(res.shaders().render_passes().cube_depth())) m_cube_depth_pass;
 	decltype(instance.device.load(res.shaders().cube_depth())) m_cube_depth_shader;
@@ -86,11 +87,12 @@ struct Race::Image {
 		it_count_set(race.m_it_count_shader.fb(race.instance.graphics)),
 		lighting_fb(race.m_lighting_pass.framebuffer(race.instance.swapchain->extent(), 1, primary)),
 		lighting_samplers(getLightingSamplers()),
+		rt_set(race.m_rt_shader.rt_fb(race.instance.graphics)),
 		swapchain_img_avail(race.instance.device.semaphore()),
 		first_depth_range_in_fb(getFirstDepthRangeInFb()),
 		compute_depth_range_in_fb(getComputeDepthRangeInFb()),
 		diffuse_bounce_random(race.m_diffuse_bounce_shader.random(race.instance.graphics)),
-		diffuse_bounces(getDiffuseBounces(*this, 2)),
+		diffuse_bounces(getDiffuseBounces(2)),
 		gather_bounces_set(race.m_gather_bounces_shader.light(race.instance.graphics)),
 		gather_bounces_fb(race.m_gather_bounces_pass.framebuffer(race.instance.swapchain->extent(), 1, diffuse, diffuse_accum)),
 		buffer_to_wsi_screen_fbs(getBufferToWsiScreenFbs()),
@@ -105,6 +107,11 @@ struct Race::Image {
 		ever_rendered(false),
 		cmd_prim(race.m_cmd_pool.primary())
 	{
+		rt_set.depth_buffer.bind(race.m_fb_sampler, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
+		rt_set.depth_buffer_fl.bind(race.m_sampler_nearest, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
+		rt_set.normal.bind(race.m_fb_sampler, fb_normal, sb::Image::Layout::ShaderReadOnlyOptimal);
+		//rt_set.depth_buffer_fl_lin.bind(race.m_sampler, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
+		rt_set.depth_buffer_fl_size = glm::vec2(1.0) / glm::vec2(fb_depth_buffer_fl.extent());
 		update_depth_buffer_trace_res(rt_quality);
 
 		depth_to_fl_set.depth_buffer.bind(race.m_fb_sampler, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
@@ -217,6 +224,7 @@ struct Race::Image {
 	decltype(race.m_it_count_shader.fb(race.instance.graphics)) it_count_set;
 	decltype(Race::m_lighting_pass)::Framebuffer lighting_fb;
 	decltype(race.m_lighting_shader.fb(race.instance.graphics)) lighting_samplers;
+	decltype(race.m_rt_shader.rt_fb(race.instance.graphics)) rt_set;
 	decltype(lighting_samplers) getLightingSamplers(void)
 	{
 		auto res = race.m_lighting_shader.fb(race.instance.graphics);
@@ -225,23 +233,14 @@ struct Race::Image {
 		res.albedo.bind(race.m_fb_sampler, fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
 		res.emissive.bind(race.m_fb_sampler, fb_emissive, sb::Image::Layout::ShaderReadOnlyOptimal);
 		res.normal.bind(race.m_fb_sampler, fb_normal, sb::Image::Layout::ShaderReadOnlyOptimal);
-		res.depth_buffer.bind(race.m_fb_sampler, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
-		res.depth_buffer_fl.bind(race.m_sampler_nearest, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
-		res.depth_buffer_fl_lin.bind(race.m_sampler, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
-		res.depth_buffer_fl_size = glm::vec2(1.0) / glm::vec2(fb_depth_buffer_fl.extent());
 		return res;
 	}
 
 	void update_depth_buffer_trace_res(size_t new_res)
 	{
-		lighting_samplers.depth_buffer_trace_res = new_res;
-		lighting_samplers.depth_buffer_max_it = ((1 << (fb_depth_buffer_fl_mips.size() - new_res)) / 4) + 8;
-		race.instance.cur_img_res->uploadDescSet(lighting_samplers);
-		for (auto &b : diffuse_bounces) {
-			b.set.depth_buffer_trace_res = lighting_samplers.depth_buffer_trace_res;
-			b.set.depth_buffer_max_it = lighting_samplers.depth_buffer_max_it;
-			race.instance.cur_img_res->uploadDescSet(b.set);
-		}
+		rt_set.depth_buffer_trace_res = new_res;
+		rt_set.depth_buffer_max_it = ((1 << (fb_depth_buffer_fl_mips.size() - new_res)) / 4) + 8;
+		race.instance.cur_img_res->uploadDescSet(rt_set);
 	}
 
 	decltype(Race::instance.device.semaphore()) swapchain_img_avail;
@@ -275,7 +274,7 @@ struct Race::Image {
 		decltype(race.m_diffuse_bounce_shader.fb(race.instance.graphics)) set;
 	};
 	std::vector<DiffuseBounce> diffuse_bounces;
-	std::vector<DiffuseBounce> getDiffuseBounces(Image &image, size_t count)
+	std::vector<DiffuseBounce> getDiffuseBounces(size_t count)
 	{
 		std::vector<DiffuseBounce> res;
 
@@ -287,10 +286,6 @@ struct Race::Image {
 			set.albedo.bind(race.m_fb_sampler, fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
 			set.normal.bind(race.m_fb_sampler, fb_normal, sb::Image::Layout::ShaderReadOnlyOptimal);
 			set.last_diffuse.bind(race.m_fb_sampler, i == 0 ? static_cast<sb::Image2D&>(primary) : res.at(i - 1).img, sb::Image::Layout::ShaderReadOnlyOptimal);
-			set.depth_buffer.bind(race.m_fb_sampler, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
-			set.depth_buffer_fl.bind(race.m_sampler_nearest, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
-			set.depth_buffer_fl_lin.bind(race.m_sampler, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
-			set.depth_buffer_fl_size = image.lighting_samplers.depth_buffer_fl_size;
 			set.index = i;
 			res.emplace_back(DiffuseBounce{std::move(img), std::move(fb), std::move(set)});
 		}

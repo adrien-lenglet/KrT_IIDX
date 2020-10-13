@@ -32,6 +32,7 @@ Race::Race(Instance &instance) :
 	m_buffer_to_wsi_screen(instance.device.load(res.shaders().render_passes().buffer_to_wsi_screen())),
 	m_diffuse_to_wsi_screen(instance.device.load(res.shaders().diffuse_to_wsi_screen())),
 	m_lighting_shader(instance.device.load(res.shaders().lighting())),
+	m_rt_shader(instance.device.load(res.shaders().modules().rt())),
 	m_cube_depth_pass(instance.device.load(res.shaders().render_passes().cube_depth())),
 	m_cube_depth_shader(instance.device.load(res.shaders().cube_depth())),
 	m_cmd_pool(instance.graphics.pool<true>()),
@@ -188,6 +189,8 @@ void Race::run(void)
 					auto &s = img.gather_bounces_set;
 					auto &s_it = img.it_count_set;
 					auto &s_light = img.lighting_samplers;
+					auto &s_rt = img.rt_set;
+
 					s.last_cam_proj = cam.proj;
 					glm::mat4 last_view = cam.view;
 					glm::vec3 last_pos = m_track->render.camera_pos;
@@ -211,11 +214,15 @@ void Race::run(void)
 
 					s_light.it_bias = step == 0;
 					s_light.cur_cam_to_last = view_to_last;
-					s_light.cur_cam_a = cam.a;
-					s_light.cur_cam_b = cam.b;
-					s_light.cur_cam_ratio = cam.ratio;
-					s_light.last_cam_proj = cam.proj;
+					s_light.view_normal = cam.view_normal;
+					s_rt.cur_cam_a = cam.a;
+					s_rt.cur_cam_b = cam.b;
+					s_rt.cur_cam_far = cam.far;
+					s_rt.cur_cam_near = cam.near;
+					s_rt.cur_cam_ratio = cam.ratio;
+					s_rt.last_cam_proj = cam.proj;
 					instance.cur_img_res->uploadDescSet(s_light);
+					instance.cur_img_res->uploadDescSet(s_rt);
 
 					{
 						size_t ndx = 0;
@@ -223,10 +230,6 @@ void Race::run(void)
 							auto &s = b.set;
 							s.it_bias = ((step / rt_lag) - 1) == ndx;
 							s.cur_cam_to_last = view_to_last;
-							s.cur_cam_a = cam.a;
-							s.cur_cam_b = cam.b;
-							s.cur_cam_ratio = cam.ratio;
-							s.last_cam_proj = cam.proj;
 							instance.cur_img_res->uploadDescSet(s);
 							ndx++;
 						}
@@ -278,7 +281,6 @@ void Race::run(void)
 						set.cur_cam_b = cam.b;
 						set.cur_cam_ratio = cam.ratio;
 						set.cur_cam_proj = cam.proj;
-						set.depth_buffer_fl_size = img.lighting_samplers.depth_buffer_fl_size;
 						auto fb_ex = img.fb_depth_buffer.extent();
 						set.fb_size = glm::vec2(fb_ex.x, fb_ex.y);
 
@@ -400,7 +402,7 @@ void Race::run(void)
 				[&](auto &cmd){
 					cmd.bind(m_lighting_shader);
 					cmd.bind(m_lighting_shader, img.lighting_samplers, 0);
-					cmd.bind(m_lighting_shader, m_track->render.camera, 1);
+					cmd.bind(m_lighting_shader, img.rt_set, 1);
 					cmd.draw(instance.screen_quad);
 				}
 			);
@@ -418,7 +420,7 @@ void Race::run(void)
 						cmd.bind(m_diffuse_bounce_shader);
 						cmd.bind(m_diffuse_bounce_shader, img.diffuse_bounce_random, 0);
 						cmd.bind(m_diffuse_bounce_shader, b.set, 1);
-						cmd.bind(m_diffuse_bounce_shader, m_track->render.camera, 2);
+						cmd.bind(m_diffuse_bounce_shader, img.rt_set, 2);
 						cmd.draw(instance.screen_quad);
 					}
 				);
@@ -482,7 +484,7 @@ void Race::run(void)
 		instance.cur_img_res->resetStagingOff();
 		instance.cur_img_res->transfer_unsafe.begin(sb::CommandBuffer::Usage::OneTimeSubmit);
 
-		step = (step + 1) % (3 * rt_lag);
+		step = (step + 1) % ((1 + img.diffuse_bounces.size()) * rt_lag);
 
 		auto t_end = std::chrono::high_resolution_clock::now();
 
