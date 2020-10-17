@@ -451,7 +451,7 @@ void Race::run(void)
 				}
 			);
 
-			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
+			/*cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
 				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
 
 			cmd.render(img.reflect_fb, {{0, 0}, instance.swapchain->extent()},
@@ -473,7 +473,7 @@ void Race::run(void)
 					cmd.bind(m_compo_shader, img.rt_set, 1);
 					cmd.draw(instance.screen_quad);
 				}
-			);
+			);*/
 
 			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
 				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
