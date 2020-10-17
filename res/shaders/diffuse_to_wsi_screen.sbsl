@@ -16,6 +16,7 @@ fragment {
 		sampler2D diffuse;
 		sampler2D albedo;
 		sampler2D emissive;
+		sampler2D reflection;
 		sampler2DArray cube_depth;
 		float cam_a, cam_b;
 	};
@@ -46,5 +47,6 @@ fragment {
 		(out)wsi_screen = irradiance * 0.25;*/
 
 		//(out)wsi_screen = vec3(float(texture(light.it_count, gl_FragCoord.xy).x) / 8.0);
+		(out)wsi_screen = texture(light.reflection, gl_FragCoord.xy).xyz;
 	}
 }

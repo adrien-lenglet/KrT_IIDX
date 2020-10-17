@@ -29,6 +29,8 @@ Race::Race(Instance &instance) :
 	m_diffuse_bounce_shader(instance.device.load(res.shaders().diffuse_bounce())),
 	m_gather_bounces_pass(instance.device.load(res.shaders().render_passes().gather_bounces())),
 	m_gather_bounces_shader(instance.device.load(res.shaders().gather_bounces())),
+	m_reflect_pass(instance.device.load(res.shaders().render_passes().reflect())),
+	m_reflect_shader(instance.device.load(res.shaders().reflect())),
 	m_buffer_to_wsi_screen(instance.device.load(res.shaders().render_passes().buffer_to_wsi_screen())),
 	m_diffuse_to_wsi_screen(instance.device.load(res.shaders().diffuse_to_wsi_screen())),
 	m_lighting_shader(instance.device.load(res.shaders().lighting())),
@@ -182,13 +184,18 @@ void Race::run(void)
 			cmd.setViewport(viewport, 0.0f, 1.0f);
 			cmd.setScissor({{0, 0}, instance.swapchain->extent()});
 			cmd.render(img.opaque_fb, {{0, 0}, instance.swapchain->extent()},
-				sb::Color::f32(0.0f), sb::Color::f32(srgb_lin(2.0), srgb_lin(145.0), srgb_lin(223.0), 0.0f), sb::Color::f32(0.0f), 1.0f,
+				sb::Color::f32(0.0f),	// albedo
+				sb::Color::f32(srgb_lin(2.0), srgb_lin(145.0), srgb_lin(223.0), 0.0f),	// emissive
+				sb::Color::f32(0.0f),	// normal
+				sb::Color::f32(0.0f),	// refl
+				1.0f,	// depth_buffer
 
 				[&](auto &cmd){
 					auto &cam = m_track->render.camera;
 					auto &s = img.gather_bounces_set;
 					auto &s_it = img.it_count_set;
 					auto &s_light = img.lighting_samplers;
+					auto &s_refl = img.reflect_set;
 					auto &s_rt = img.rt_set;
 
 					s.last_cam_proj = cam.proj;
@@ -221,6 +228,7 @@ void Race::run(void)
 					s_rt.cur_cam_near = cam.near;
 					s_rt.cur_cam_ratio = cam.ratio;
 					s_rt.last_cam_proj = cam.proj;
+					s_refl.cur_cam_to_last = view_to_last;
 					instance.cur_img_res->uploadDescSet(s_light);
 					instance.cur_img_res->uploadDescSet(s_rt);
 
@@ -398,6 +406,10 @@ void Race::run(void)
 				d = sb::genDiffuseVector(*m_track, glm::normalize(glm::vec3(1.3, 3.0, 1.0)), 2000.0);
 			instance.cur_img_res->uploadDescSet(img.lighting_samplers);
 
+			for (auto &d : img.reflect_set.random_diffuse)
+				d = sb::genDiffuseVector(*m_track, glm::vec3(0.3f, 0.0f, 1.0f), 1.0);
+			instance.cur_img_res->uploadDescSet(img.reflect_set);
+
 			cmd.render(img.lighting_fb, {{0, 0}, instance.swapchain->extent()},
 				[&](auto &cmd){
 					cmd.bind(m_lighting_shader);
@@ -433,6 +445,18 @@ void Race::run(void)
 				[&](auto &cmd){
 					cmd.bind(m_gather_bounces_shader);
 					cmd.bind(m_gather_bounces_shader, img.gather_bounces_set, 0);
+					cmd.draw(instance.screen_quad);
+				}
+			);
+
+			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
+				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
+
+			cmd.render(img.reflect_fb, {{0, 0}, instance.swapchain->extent()},
+				[&](auto &cmd){
+					cmd.bind(m_reflect_shader);
+					cmd.bind(m_reflect_shader, img.reflect_set, 0);
+					cmd.bind(m_reflect_shader, img.rt_set, 1);
 					cmd.draw(instance.screen_quad);
 				}
 			);

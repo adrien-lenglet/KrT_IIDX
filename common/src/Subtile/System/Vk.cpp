@@ -2313,7 +2313,8 @@ std::optional<Vk::Pipeline> Vk::Shader::createPipeline(Vk::Device &device, rs::S
 	std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
 	for (size_t i = 0; i < sp.colorAttachments.size(); i++) {
 		VkPipelineColorBlendAttachmentState colorBlendAttachment {};
-		colorBlendAttachment.blendEnable = props.colorBlendBlendEnable ? VK_TRUE : VK_FALSE;
+		//colorBlendAttachment.blendEnable = props.colorBlendBlendEnable ? VK_TRUE : VK_FALSE;
+		colorBlendAttachment.blendEnable = VK_FALSE;
 		colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
 		colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
 		colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;

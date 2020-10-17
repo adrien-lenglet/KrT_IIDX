@@ -61,9 +61,10 @@ vertex {
 }*/
 
 fragment {
-	out vec3 albedo;
+	out vec4 albedo;
 	out vec3 emissive;
 	out vec3 normal;
+	out vec3 refl;
 
 	void main(void)
 	{
@@ -73,8 +74,9 @@ fragment {
 		vec4 albedo = texture(material.albedo, vec2((in)uv.x, 1.0 - (in)uv.y)).xyzw;
 		if (albedo.w < 0.01)
 			discard;
-		(out)albedo = albedo.xyz;
+		(out)albedo = albedo;
 		(out)emissive = vec3(0.0);
 		(out)normal = normalize((in)normal);
+		(out)refl = vec3(0.1, 1.0, 1.0);
 	}
 }
