@@ -22,6 +22,7 @@ vertex {
 fragment {
 
 	pipeline rasterization.cull_mode = front;
+	//pipeline depth_stencil.depth_compare_op = greater;
 
 	void main(void)
 	{
