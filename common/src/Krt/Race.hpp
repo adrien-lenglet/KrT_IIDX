@@ -45,6 +45,9 @@ public:
 	decltype(instance.device.load(res.shaders().render_passes().reflect())) m_reflect_pass;
 	decltype(instance.device.load(res.shaders().reflect())) m_reflect_shader;
 
+	decltype(instance.device.load(res.shaders().render_passes().compo())) m_compo_pass;
+	decltype(instance.device.load(res.shaders().compo())) m_compo_shader;
+
 	decltype(instance.device.load(res.shaders().render_passes().buffer_to_wsi_screen())) m_buffer_to_wsi_screen;
 	decltype(instance.device.load(res.shaders().diffuse_to_wsi_screen())) m_diffuse_to_wsi_screen;
 
@@ -87,6 +90,7 @@ struct Race::Image {
 		diffuse(race.instance.device.image2D(sb::Format::rgba16_sfloat, race.instance.swapchain->extent(), 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
 		diffuse_accum(race.instance.device.image2D(sb::Format::r32_sfloat, race.instance.swapchain->extent(), 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
 		reflection(race.instance.device.image2D(sb::Format::rgba16_sfloat, race.instance.swapchain->extent(), 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
+		compo(race.instance.device.image2D(sb::Format::rgba16_sfloat, race.instance.swapchain->extent(), 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
 		it_count(race.instance.device.image2D(sb::Format::r8_uint, race.instance.swapchain->extent(), 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
 		it_count_fb(race.m_it_count_pass.framebuffer(race.instance.swapchain->extent(), 1, it_count)),
 		it_count_set(race.m_it_count_shader.fb(race.instance.graphics)),
@@ -102,6 +106,8 @@ struct Race::Image {
 		gather_bounces_fb(race.m_gather_bounces_pass.framebuffer(race.instance.swapchain->extent(), 1, diffuse, diffuse_accum)),
 		reflect_set(race.m_reflect_shader.fb(race.instance.graphics)),
 		reflect_fb(race.m_reflect_pass.framebuffer(race.instance.swapchain->extent(), 1, reflection)),
+		compo_set(race.m_compo_shader.fb(race.instance.graphics)),
+		compo_fb(race.m_compo_pass.framebuffer(race.instance.swapchain->extent(), 1, compo)),
 		buffer_to_wsi_screen_fbs(getBufferToWsiScreenFbs()),
 		diffuse_to_wsi_screen_set(race.m_diffuse_to_wsi_screen.light(race.instance.graphics)),
 		//cube_depth(race.instance.device.image2DArray(sb::Format::rg32_sfloat, {16, 16}, 6, sb::Image::allMipLevels, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
@@ -143,12 +149,18 @@ struct Race::Image {
 		reflect_set.normal.bind(race.m_fb_sampler, fb_normal, sb::Image::Layout::ShaderReadOnlyOptimal);
 		reflect_set.diffuse.bind(race.m_fb_sampler, diffuse, sb::Image::Layout::ShaderReadOnlyOptimal);
 
+		compo_set.diffuse.bind(race.m_fb_sampler, diffuse, sb::Image::Layout::ShaderReadOnlyOptimal);
+		compo_set.reflection.bind(race.m_fb_sampler, reflection, sb::Image::Layout::ShaderReadOnlyOptimal);
+		compo_set.refl.bind(race.m_fb_sampler, fb_refl, sb::Image::Layout::ShaderReadOnlyOptimal);
+		compo_set.normal.bind(race.m_fb_sampler, fb_normal, sb::Image::Layout::ShaderReadOnlyOptimal);
+
 		diffuse_to_wsi_screen_set.it_count.bind(race.m_fb_sampler, it_count, sb::Image::Layout::ShaderReadOnlyOptimal);
 		diffuse_to_wsi_screen_set.diffuse.bind(race.m_fb_sampler, diffuse, sb::Image::Layout::ShaderReadOnlyOptimal);
 		diffuse_to_wsi_screen_set.albedo.bind(race.m_fb_sampler, fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
 		diffuse_to_wsi_screen_set.emissive.bind(race.m_fb_sampler, fb_emissive, sb::Image::Layout::ShaderReadOnlyOptimal);
 		diffuse_to_wsi_screen_set.cube_depth.bind(race.m_sampler_nearest, cube_depth_mips.at(0), sb::Image::Layout::ShaderReadOnlyOptimal);
 		diffuse_to_wsi_screen_set.reflection.bind(race.m_fb_sampler, reflection, sb::Image::Layout::ShaderReadOnlyOptimal);
+		diffuse_to_wsi_screen_set.compo.bind(race.m_fb_sampler, compo, sb::Image::Layout::ShaderReadOnlyOptimal);
 
 		auto cmd = race.m_cmd_pool.primary();
 		cmd.record([&](auto &cmd){
@@ -232,6 +244,7 @@ struct Race::Image {
 	sb::Image2D diffuse;
 	sb::Image2D diffuse_accum;
 	sb::Image2D reflection;
+	sb::Image2D compo;
 	sb::Image2D it_count;
 	decltype(Race::m_it_count_pass)::Framebuffer it_count_fb;
 	decltype(race.m_it_count_shader.fb(race.instance.graphics)) it_count_set;
@@ -310,6 +323,9 @@ struct Race::Image {
 
 	decltype(race.m_reflect_shader.fb(instance.graphics)) reflect_set;
 	decltype(race.m_reflect_pass)::Framebuffer reflect_fb;
+
+	decltype(race.m_compo_shader.fb(instance.graphics)) compo_set;
+	decltype(race.m_compo_pass)::Framebuffer compo_fb;
 
 	std::vector<decltype(race.m_buffer_to_wsi_screen)::Framebuffer> buffer_to_wsi_screen_fbs;
 	decltype(race.m_diffuse_to_wsi_screen.light(race.instance.graphics)) diffuse_to_wsi_screen_set;

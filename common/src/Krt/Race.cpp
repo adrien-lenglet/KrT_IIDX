@@ -31,6 +31,8 @@ Race::Race(Instance &instance) :
 	m_gather_bounces_shader(instance.device.load(res.shaders().gather_bounces())),
 	m_reflect_pass(instance.device.load(res.shaders().render_passes().reflect())),
 	m_reflect_shader(instance.device.load(res.shaders().reflect())),
+	m_compo_pass(instance.device.load(res.shaders().render_passes().compo())),
+	m_compo_shader(instance.device.load(res.shaders().compo())),
 	m_buffer_to_wsi_screen(instance.device.load(res.shaders().render_passes().buffer_to_wsi_screen())),
 	m_diffuse_to_wsi_screen(instance.device.load(res.shaders().diffuse_to_wsi_screen())),
 	m_lighting_shader(instance.device.load(res.shaders().lighting())),
@@ -457,6 +459,18 @@ void Race::run(void)
 					cmd.bind(m_reflect_shader);
 					cmd.bind(m_reflect_shader, img.reflect_set, 0);
 					cmd.bind(m_reflect_shader, img.rt_set, 1);
+					cmd.draw(instance.screen_quad);
+				}
+			);
+
+			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
+				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
+
+			cmd.render(img.compo_fb, {{0, 0}, instance.swapchain->extent()},
+				[&](auto &cmd){
+					cmd.bind(m_compo_shader);
+					cmd.bind(m_compo_shader, img.compo_set, 0);
+					cmd.bind(m_compo_shader, img.rt_set, 1);
 					cmd.draw(instance.screen_quad);
 				}
 			);

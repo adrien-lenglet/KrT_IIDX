@@ -1,0 +1,5 @@
+rgba16_sfloat compo { store, out_layout = shader_read_only_optimal };
+
+compute {
+	out compo;
+}

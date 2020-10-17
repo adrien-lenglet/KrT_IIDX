@@ -77,6 +77,6 @@ fragment {
 		(out)albedo = albedo;
 		(out)emissive = vec3(0.0);
 		(out)normal = normalize((in)normal);
-		(out)refl = vec3(0.1, 1.0, 1.0);
+		(out)refl = vec3(0.1, 1.0, 0.0);
 	}
 }

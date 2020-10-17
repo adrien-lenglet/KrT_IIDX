@@ -17,6 +17,7 @@ fragment {
 		sampler2D albedo;
 		sampler2D emissive;
 		sampler2D reflection;
+		sampler2D compo;
 		sampler2DArray cube_depth;
 		float cam_a, cam_b;
 	};
@@ -32,13 +33,13 @@ fragment {
 
 	void main(void)
 	{
-		int layer = int(int(gl_FragCoord.x / cube_size) + int(gl_FragCoord.y / cube_size) * 3);
+		/*int layer = int(int(gl_FragCoord.x / cube_size) + int(gl_FragCoord.y / cube_size) * 3);
 		if (gl_FragCoord.x < cube_size * 3 && gl_FragCoord.y < cube_size * 2) {
 			vec2 range = textureLod(light.cube_depth, vec3((gl_FragCoord.x - cube_size * int(gl_FragCoord.x / cube_size)) / cube_size, (gl_FragCoord.y - cube_size * int(gl_FragCoord.y / cube_size)) / cube_size, layer), 0).xy;
 			(out)wsi_screen = vec3(depth_to_z(range.x) / 1000.0, depth_to_z(range.y) / 1000.0, 0.0);
 		} else
-			(out)wsi_screen = texture(light.diffuse, gl_FragCoord.xy).xyz * 0.8;
-			(out)wsi_screen = texture(light.diffuse, gl_FragCoord.xy).xyz * 0.8;
+			(out)wsi_screen = texture(light.diffuse, gl_FragCoord.xy).xyz * 0.8;*/
+		(out)wsi_screen = texture(light.compo, gl_FragCoord.xy).xyz * 0.8;
 
 		/*vec3 diffuse = texture(light.diffuse, gl_FragCoord.xy).xyz;
 		vec3 albedo = texture(light.albedo, gl_FragCoord.xy).xyz;
@@ -47,6 +48,6 @@ fragment {
 		(out)wsi_screen = irradiance * 0.25;*/
 
 		//(out)wsi_screen = vec3(float(texture(light.it_count, gl_FragCoord.xy).x) / 8.0);
-		(out)wsi_screen = texture(light.reflection, gl_FragCoord.xy).xyz;
+		//(out)wsi_screen = texture(light.reflection, gl_FragCoord.xy).xyz;
 	}
 }
