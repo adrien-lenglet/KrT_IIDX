@@ -48,7 +48,6 @@ public:
 
 	Render render;
 
-private:
 	EntityTest &entity;
 };
 

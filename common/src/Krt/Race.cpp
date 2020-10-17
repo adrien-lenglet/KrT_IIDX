@@ -17,6 +17,9 @@ Race::Race(Instance &instance) :
 	m_opaque_pass(instance.device.load(res.shaders().render_passes().opaque())),
 	m_lighting_pass(instance.device.load(res.shaders().render_passes().lighting())),
 	m_depth_max_pass(instance.device.load(res.shaders().render_passes().depth_max())),
+	m_depth_max_shader(instance.device.load(res.shaders().depth_max())),
+	m_depth_inter_front_shader(instance.device.load(res.shaders().depth_inter_front())),
+	m_depth_inter_back_shader(instance.device.load(res.shaders().depth_inter_back())),
 	m_depth_range_pass(instance.device.load(res.shaders().render_passes().depth_range())),
 	m_first_depth_range(instance.device.load(res.shaders().first_depth_range())),
 	m_compute_depth_range(instance.device.load(res.shaders().compute_depth_range())),
@@ -303,12 +306,26 @@ void Race::run(void)
 				0.0f,
 
 				[&](auto &cmd){
-					m_track->render_thick.draw(cmd);
+					cmd.bind(m_depth_max_shader);
+					cmd.bind(m_depth_max_shader, m_track->render.camera, 0);
+					cmd.bind(m_depth_max_shader, m_track->entity.m_depth_object, 1);
+					cmd.draw(m_track->entity.m_model);
 				}
 			);
 
 			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput | sb::PipelineStage::LateFragmentTests, sb::PipelineStage::FragmentShader, {},
 				sb::Access::ColorAttachmentWrite | sb::Access::DepthStencilAttachmentWrite, sb::Access::ShaderRead);
+
+			/*cmd.render(img.depth_buffer_max_fb, {{0, 0}, instance.swapchain->extent()},
+				0.0f,
+
+				[&](auto &cmd){
+					cmd.bind(m_depth_max_shader);
+					cmd.bind(m_depth_max_shader, img.depth_max_set, 0);
+					cmd.bind(m_depth_max_shader, m_track->entity.m_depth_object, 1);
+					m_track->render_thick.draw(cmd);
+				}
+			);*/
 
 			cmd.render(img.depth_to_fl_fb, {{0, 0}, img.fb_depth_buffer_raw_fl.extent()},
 				[&](auto &cmd){

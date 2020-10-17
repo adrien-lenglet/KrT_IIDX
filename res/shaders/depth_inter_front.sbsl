@@ -3,6 +3,12 @@ render_pass render_passes::depth_max : compute;
 require vertex::pnu;
 require modules::camera;
 
+fragment {
+	set fb {
+		sampler2D prev;
+	};
+}
+
 vertex {
 	require modules::depth_object;
 
@@ -16,9 +22,10 @@ vertex {
 fragment {
 
 	pipeline rasterization.cull_mode = front;
-	pipeline depth_stencil.depth_compare_op = greater;
 
 	void main(void)
 	{
+		if (gl_FragCoord.z < texture(fb.prev, gl_FragCoord.xy).x)
+			discard;
 	}
 }
