@@ -11,8 +11,8 @@ EntityTest::EntityTest(void) :
 	m_shader(world.instance.device.load(res.shaders().diffuse())),
 	m_material(m_shader.material(world.instance.graphics)),
 	m_object(m_shader.object(world.instance.graphics)),
-	m_thick_shader(world.instance.device.load(res.shaders().depth_max())),
-	m_thick_object(m_thick_shader.object(world.instance.graphics)),
+	m_depth_object_shader(world.instance.device.load(res.shaders().modules().depth_object())),
+	m_depth_object(m_depth_object_shader.depth_object(world.instance.graphics)),
 	m_model_buffer(createModelBuffer()),
 	m_model(world.instance.device.model(m_model_buffer)),
 	m_model_albedo(createModelAlbedo()),
@@ -33,7 +33,7 @@ EntityTest::EntityTest(void) :
 	});*/
 
 	bind(world.render, m_shader.render(m_model, world.render.camera, m_material, m_object));
-	bind(world.render_thick, m_thick_shader.render(m_model, world.render.camera, m_thick_object));
+	//bind(world.render_thick, m_thick_shader.render(m_model, world.render.camera, m_thick_object));
 
 	bind(world.events.update, [this](auto &time){
 		m_material.counter++;
@@ -56,8 +56,8 @@ EntityTest::EntityTest(void) :
 			m_object.model_world_normal[3][i] = 0.0f;
 		world.instance.cur_img_res->uploadDescSet(m_object);
 
-		m_thick_object.model_world = m_object.model_world;
-		world.instance.cur_img_res->uploadDescSet(m_thick_object);
+		m_depth_object.model_world = m_object.model_world;
+		world.instance.cur_img_res->uploadDescSet(m_depth_object);
 	});
 }
 

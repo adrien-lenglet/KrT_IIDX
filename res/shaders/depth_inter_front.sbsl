@@ -4,21 +4,27 @@ require vertex::pnu;
 require modules::camera;
 
 vertex {
+	set fb {
+		sampler2D prev;
+	};
+
 	require modules::depth_object;
 
 	void main(void)
 	{
 		vec4 in_pos_h = vec4((in)pos, 1.0);
-		gl_Position = camera.vp * depth_object.model_world * in_pos_h;
+		gl_Position = camera.vp * object.model_world * in_pos_h;
 	}
 }
 
 fragment {
 
 	pipeline rasterization.cull_mode = front;
-	pipeline depth_stencil.depth_compare_op = greater;
+	//pipeline depth_stencil.depth_compare_op = greater;
 
 	void main(void)
 	{
+		if (gl_FragCoord.z < texture(fb.prev, gl_Position.xy).x)
+			discard;
 	}
 }

@@ -24,6 +24,7 @@ public:
 	decltype(instance.device.load(res.shaders().render_passes().lighting())) m_lighting_pass;
 
 	decltype(instance.device.load(res.shaders().render_passes().depth_max())) m_depth_max_pass;
+	decltype(instance.device.load(res.shaders().depth_max())) m_depth_max_shader;
 
 	decltype(instance.device.load(res.shaders().render_passes().depth_range())) m_depth_range_pass;
 	decltype(instance.device.load(res.shaders().first_depth_range())) m_first_depth_range;
