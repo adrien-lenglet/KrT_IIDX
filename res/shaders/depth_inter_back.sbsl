@@ -25,7 +25,7 @@ fragment {
 
 	void main(void)
 	{
-		if (gl_FragCoord.z < texture(fb.prev, gl_FragCoord.xy).x)
+		if (gl_FragCoord.z < cam_depth_z_bias(texture(fb.prev, gl_FragCoord.xy).x, 2.0))
 			discard;
 	}
 }

@@ -174,6 +174,7 @@ struct Race::Image {
 		diffuse_to_wsi_screen_set.cube_depth.bind(race.m_sampler_nearest, cube_depth_mips.at(0), sb::Image::Layout::ShaderReadOnlyOptimal);
 		diffuse_to_wsi_screen_set.reflection.bind(race.m_fb_sampler, reflection, sb::Image::Layout::ShaderReadOnlyOptimal);
 		diffuse_to_wsi_screen_set.compo.bind(race.m_fb_sampler, compo, sb::Image::Layout::ShaderReadOnlyOptimal);
+		diffuse_to_wsi_screen_set.depth_range_raw.bind(race.m_sampler, fb_depth_buffer_raw_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
 		diffuse_to_wsi_screen_set.depth_range.bind(race.m_sampler, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
 
 		auto cmd = race.m_cmd_pool.primary();

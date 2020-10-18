@@ -19,6 +19,7 @@ fragment {
 		sampler2D reflection;
 		sampler2D compo;
 
+		sampler2D depth_range_raw;
 		sampler2D depth_range;
 
 		sampler2DArray cube_depth;
@@ -51,9 +52,9 @@ fragment {
 		(out)wsi_screen = irradiance * 0.25;*/
 
 		//(out)wsi_screen = vec3(float(texture(light.it_count, gl_FragCoord.xy).x) / 8.0);
-		vec2 size = vec2(1.0) / textureSize(light.depth_range, 0);
-		vec4 range = texture(light.depth_range, gl_FragCoord.xy * size);
-		(out)wsi_screen = vec3(depth_to_z(range.x) * 0.001, depth_to_z(range.y) * 0.001, depth_to_z(range.z) * 0.001);
+		//vec2 size = vec2(1.0) / textureSize(light.depth_range, 0);
+		//vec4 range = textureLod(light.depth_range, gl_FragCoord.xy * size, 0);
+		//(out)wsi_screen = vec3(depth_to_z(range.x) * 0.001, depth_to_z(range.y) * 0.001, depth_to_z(range.z) * 0.001);
 		//(out)wsi_screen = vec3(depth_to_z(range.x) * 0.001, depth_to_z(range.z) * 0.001, 0.0);
 	}
 }

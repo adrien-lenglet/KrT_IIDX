@@ -410,7 +410,7 @@ void Race::run(void)
 				}
 			}
 
-			{
+			/*{
 				auto ex = img.cube_depth.extent();
 				cmd.render(img.cube_depth_fb, {{0, 0}, ex},
 					[&](auto &cmd){
@@ -421,7 +421,7 @@ void Race::run(void)
 						cmd.draw(instance.screen_quad);
 					}
 				);
-			}
+			}*/
 
 			cmd.setViewport(viewport, 0.0f, 1.0f);
 			cmd.setScissor({{0, 0}, instance.swapchain->extent()});

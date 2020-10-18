@@ -14,3 +14,18 @@ vec4 camera_project_point(vec3 p)
 {
 	return camera.vp * vec4(p, 1.0);
 }
+
+float cam_depth_to_z(float depth)
+{
+	return camera.b / (depth -  camera.a);
+}
+
+float cam_z_to_depth(float z)
+{
+	return camera.b / z + camera.a;
+}
+
+float cam_depth_z_bias(float depth, float z_bias)
+{
+	return cam_z_to_depth(cam_depth_to_z(depth) + z_bias);
+}
