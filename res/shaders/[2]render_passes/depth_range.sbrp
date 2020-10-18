@@ -1,4 +1,4 @@
-rg32_sfloat range { store, out_layout = shader_read_only_optimal };
+rgba32_sfloat range { store, out_layout = shader_read_only_optimal };
 
 compute {
 	out range;

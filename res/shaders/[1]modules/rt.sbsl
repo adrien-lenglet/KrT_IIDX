@@ -146,10 +146,11 @@ bool rt_traceRay(vec3 origin, vec3 dir, out vec2 pos)
 		float cell_size = float(1 << cell_lev);
 		float start_d = mix(p0.z, p1.z, t + rt_cell_end(p.xy, dir2n, cell_size));
 		float end_d = mix(p0.z, p1.z, t + rt_cell_end(p.xy, dir2, cell_size));
-		vec2 range = textureLod(rt_fb.depth_buffer_fl, p.xy * rt_fb.depth_buffer_fl_size, cell_lev).xy;
+		vec4 range = textureLod(rt_fb.depth_buffer_fl, p.xy * rt_fb.depth_buffer_fl_size, cell_lev);
 		if (level == 0)
 			range.x = rt_z_to_depth(rt_depth_to_z(range.x) + bias);
-		if ((start_d >= range.x && start_d <= range.y) || (end_d >= range.x && end_d <= range.y)) {
+		if ((start_d >= range.x && start_d <= range.y) || (end_d >= range.x && end_d <= range.y) ||
+		(start_d >= range.z && start_d <= range.w) || (end_d >= range.z && end_d <= range.w)) {
 			if (level == 0) {
 				pos = p.xy;
 				return true;
