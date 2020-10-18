@@ -3,17 +3,19 @@ render_pass render_passes::depth_max : compute;
 require vertex::pnu;
 require modules::camera;
 
-vertex {
+fragment {
 	set fb {
 		sampler2D prev;
 	};
+}
 
+vertex {
 	require modules::depth_object;
 
 	void main(void)
 	{
 		vec4 in_pos_h = vec4((in)pos, 1.0);
-		gl_Position = camera.vp * object.model_world * in_pos_h;
+		gl_Position = camera.vp * depth_object.model_world * in_pos_h;
 	}
 }
 
@@ -24,7 +26,7 @@ fragment {
 
 	void main(void)
 	{
-		if (gl_FragCoord.z < texture(fb.prev, gl_Position.xy).x)
+		if (gl_FragCoord.z < texture(fb.prev, gl_FragCoord.xy).x)
 			discard;
 	}
 }

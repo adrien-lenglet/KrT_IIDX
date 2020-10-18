@@ -18,6 +18,8 @@ Race::Race(Instance &instance) :
 	m_lighting_pass(instance.device.load(res.shaders().render_passes().lighting())),
 	m_depth_max_pass(instance.device.load(res.shaders().render_passes().depth_max())),
 	m_depth_max_shader(instance.device.load(res.shaders().depth_max())),
+	m_depth_inter_front_shader(instance.device.load(res.shaders().depth_inter_front())),
+	m_depth_inter_back_shader(instance.device.load(res.shaders().depth_inter_back())),
 	m_depth_range_pass(instance.device.load(res.shaders().render_passes().depth_range())),
 	m_first_depth_range(instance.device.load(res.shaders().first_depth_range())),
 	m_compute_depth_range(instance.device.load(res.shaders().compute_depth_range())),
