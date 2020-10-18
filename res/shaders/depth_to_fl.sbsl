@@ -22,15 +22,16 @@ fragment {
 
 	void main(void)
 	{
+		vec2 size = vec2(1.0) / textureSize(fb.depth_buffer_max, 0);
 		float depth = texture(fb.depth_buffer, gl_FragCoord.xy, 0).x;
-		float front = texture(fb.depth_inter_front, gl_FragCoord.xy, 0).x;
-		float back = texture(fb.depth_inter_back, gl_FragCoord.xy, 0).x;
-		float mx = texture(fb.depth_buffer_max, gl_FragCoord.xy, 0).x;
+		float front = texture(fb.depth_inter_front, gl_FragCoord.xy * size, 0).x;
+		float back = texture(fb.depth_inter_back, gl_FragCoord.xy * size, 0).x;
+		float mx = texture(fb.depth_buffer_max, gl_FragCoord.xy * size, 0).x;
 		float max_final = mx == 0.0 ? 1.0 : mx;
 		(out)depth_fl = vec4(
 			depth,
-			front,
+			max(front, depth),
 			back,
-			max_final);
+			max(max_final, back));
 	}
 }

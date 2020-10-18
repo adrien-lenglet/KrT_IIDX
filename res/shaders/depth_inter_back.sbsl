@@ -6,6 +6,7 @@ require modules::camera;
 fragment {
 	set fb {
 		sampler2D prev;
+		vec2 size;
 	};
 }
 
@@ -26,7 +27,7 @@ fragment {
 
 	void main(void)
 	{
-		if (gl_FragCoord.z < cam_depth_z_bias(texture(fb.prev, gl_FragCoord.xy).x, 1.5))
+		if (gl_FragCoord.z < cam_depth_z_bias(texture(fb.prev, gl_FragCoord.xy * fb.size).x, 1.5))
 			discard;
 	}
 }

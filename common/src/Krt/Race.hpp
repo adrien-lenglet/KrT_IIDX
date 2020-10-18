@@ -136,13 +136,17 @@ struct Race::Image {
 		rt_set.depth_buffer_fl_size = glm::vec2(1.0) / glm::vec2(fb_depth_buffer_fl.extent());
 		update_depth_buffer_trace_res(rt_quality);
 
-		depth_inter_front_set.prev.bind(race.m_fb_sampler, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
-		depth_inter_back_set.prev.bind(race.m_fb_sampler, depth_inter_front, sb::Image::Layout::ShaderReadOnlyOptimal);
+		depth_inter_front_set.prev.bind(race.m_sampler, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
+		depth_inter_front_set.size = glm::vec2(1.0) / glm::vec2(depth_inter_front.extent());
+		race.instance.cur_img_res->uploadDescSet(depth_inter_front_set);
+		depth_inter_back_set.prev.bind(race.m_sampler, depth_inter_front, sb::Image::Layout::ShaderReadOnlyOptimal);
+		depth_inter_back_set.size = glm::vec2(1.0) / glm::vec2(depth_inter_back.extent());
+		race.instance.cur_img_res->uploadDescSet(depth_inter_back_set);
 
 		depth_to_fl_set.depth_buffer.bind(race.m_fb_sampler, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
-		depth_to_fl_set.depth_inter_front.bind(race.m_fb_sampler, depth_inter_front, sb::Image::Layout::ShaderReadOnlyOptimal);
-		depth_to_fl_set.depth_inter_back.bind(race.m_fb_sampler, depth_inter_back, sb::Image::Layout::ShaderReadOnlyOptimal);
-		depth_to_fl_set.depth_buffer_max.bind(race.m_fb_sampler, fb_depth_buffer_max, sb::Image::Layout::ShaderReadOnlyOptimal);
+		depth_to_fl_set.depth_inter_front.bind(race.m_sampler_nearest, depth_inter_front, sb::Image::Layout::ShaderReadOnlyOptimal);
+		depth_to_fl_set.depth_inter_back.bind(race.m_sampler_nearest, depth_inter_back, sb::Image::Layout::ShaderReadOnlyOptimal);
+		depth_to_fl_set.depth_buffer_max.bind(race.m_sampler_nearest, fb_depth_buffer_max, sb::Image::Layout::ShaderReadOnlyOptimal);
 
 		it_count_set.depth_buffer.bind(race.m_fb_sampler_linear, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
 
