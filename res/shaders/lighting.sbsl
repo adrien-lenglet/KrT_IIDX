@@ -74,7 +74,7 @@ fragment {
 			illum /= float(it);
 			vec3 emissive = texture(fb.emissive, gl_FragCoord.xy).xyz;
 			vec3 albedo = texture(fb.albedo, gl_FragCoord.xy).xyz;
-			vec3 base_color = albedo * illum * vec3(1.0, 1.0, 0.8) + emissive;
+			vec3 base_color = albedo * illum * vec3(2.0, 2.0, 0.8) * 1.5 + emissive;
 			(out)primary = base_color;
 
 			// ILLUM = vec3(2.0, 2.0, 1.0) * 1.9;
