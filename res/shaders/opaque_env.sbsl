@@ -4,9 +4,7 @@ require vertex::p2;
 require modules::camera;
 
 fragment {
-	set material {
-		samplerCube env;
-	};
+	require modules::env;
 }
 
 vertex {
@@ -26,7 +24,7 @@ fragment {
 	{
 		(out)albedo = vec4(vec3(0.0), 1.0);
 		vec3 view = cam_view_from_depth(gl_FragCoord.xy, 1.0);
-		(out)emissive = texture(material.env, normalize((camera.view_normal_inv * vec4(view, 1.0)).zxy)).xyz;
+		(out)emissive = env_sample(normalize((camera.view_normal_inv * vec4(view, 1.0)).xyz));
 		(out)normal = vec3(0.0, 0.0, 1.0);
 		(out)refl = vec3(0.0);
 	}

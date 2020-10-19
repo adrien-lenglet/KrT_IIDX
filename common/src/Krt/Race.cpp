@@ -39,6 +39,7 @@ Race::Race(Instance &instance) :
 	m_buffer_to_wsi_screen(instance.device.load(res.shaders().render_passes().buffer_to_wsi_screen())),
 	m_diffuse_to_wsi_screen(instance.device.load(res.shaders().diffuse_to_wsi_screen())),
 	m_lighting_shader(instance.device.load(res.shaders().lighting())),
+	m_env_shader(instance.device.load(res.shaders().modules().env())),
 	m_rt_shader(instance.device.load(res.shaders().modules().rt())),
 	m_cube_depth_pass(instance.device.load(res.shaders().render_passes().cube_depth())),
 	m_cube_depth_shader(instance.device.load(res.shaders().cube_depth())),
@@ -46,7 +47,6 @@ Race::Race(Instance &instance) :
 	m_rt_quality(4),
 	env(instance.loadImageCube_srgb("res/env/consul")),
 	m_opaque_env_shader(instance.device.load(res.shaders().opaque_env())),
-	m_opaque_env_set(m_opaque_env_shader.material(instance.graphics)),
 	images(getImages()),
 
 	m_track(instance.create<Track>())
@@ -54,8 +54,6 @@ Race::Race(Instance &instance) :
 	bind(m_track->done, [this](){
 		m_is_done = true;
 	});
-
-	m_opaque_env_set.env.bind(m_sampler, env, sb::Image::Layout::ShaderReadOnlyOptimal);
 }
 
 Race::~Race(void)
@@ -308,7 +306,7 @@ void Race::run(void)
 
 					cmd.bind(m_opaque_env_shader);
 					cmd.bind(m_opaque_env_shader, m_track->render.camera, 0);
-					cmd.bind(m_opaque_env_shader, m_opaque_env_set, 1);
+					cmd.bind(m_opaque_env_shader, img.env_set, 1);
 					cmd.draw(instance.screen_quad);
 				}
 			);
@@ -482,6 +480,7 @@ void Race::run(void)
 						cmd.bind(m_diffuse_bounce_shader, img.diffuse_bounce_random, 0);
 						cmd.bind(m_diffuse_bounce_shader, b.set, 1);
 						cmd.bind(m_diffuse_bounce_shader, img.rt_set, 2);
+						cmd.bind(m_diffuse_bounce_shader, img.env_set, 3);
 						cmd.draw(instance.screen_quad);
 					}
 				);

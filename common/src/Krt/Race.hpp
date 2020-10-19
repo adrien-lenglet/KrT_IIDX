@@ -55,6 +55,7 @@ public:
 	decltype(instance.device.load(res.shaders().diffuse_to_wsi_screen())) m_diffuse_to_wsi_screen;
 
 	decltype(res.shaders().lighting().loaded()) m_lighting_shader;
+	decltype(res.shaders().modules().env().loaded()) m_env_shader;
 	decltype(res.shaders().modules().rt().loaded()) m_rt_shader;
 
 	decltype(instance.device.load(res.shaders().render_passes().cube_depth())) m_cube_depth_pass;
@@ -65,7 +66,6 @@ public:
 
 	sb::ImageCube env;
 	decltype(instance.device.load(res.shaders().opaque_env())) m_opaque_env_shader;
-	decltype(m_opaque_env_shader.material(instance.graphics)) m_opaque_env_set;
 
 	struct Image;
 	std::vector<Image> images;
@@ -110,6 +110,7 @@ struct Race::Image {
 		it_count_set(race.m_it_count_shader.fb(race.instance.graphics)),
 		lighting_fb(race.m_lighting_pass.framebuffer(race.instance.swapchain->extent(), 1, primary)),
 		lighting_samplers(getLightingSamplers()),
+		env_set(race.m_env_shader.env(race.instance.graphics)),
 		rt_set(race.m_rt_shader.rt_fb(race.instance.graphics)),
 		swapchain_img_avail(race.instance.device.semaphore()),
 		first_depth_range_in_fb(getFirstDepthRangeInFb()),
@@ -134,10 +135,10 @@ struct Race::Image {
 		ever_rendered(false),
 		cmd_prim(race.m_cmd_pool.primary())
 	{
+		env_set.map.bind(race.m_sampler, race.env, sb::Image::Layout::ShaderReadOnlyOptimal);
 		rt_set.depth_buffer.bind(race.m_fb_sampler, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
 		rt_set.depth_buffer_fl.bind(race.m_sampler_nearest, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
 		rt_set.normal.bind(race.m_fb_sampler, fb_normal, sb::Image::Layout::ShaderReadOnlyOptimal);
-		rt_set.env.bind(race.m_sampler, race.env, sb::Image::Layout::ShaderReadOnlyOptimal);
 		//rt_set.depth_buffer_fl_lin.bind(race.m_sampler, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
 		rt_set.depth_buffer_fl_size = glm::vec2(1.0) / glm::vec2(fb_depth_buffer_fl.extent());
 		update_depth_buffer_trace_res(rt_quality);
@@ -282,6 +283,7 @@ struct Race::Image {
 	decltype(race.m_it_count_shader.fb(race.instance.graphics)) it_count_set;
 	decltype(Race::m_lighting_pass)::Framebuffer lighting_fb;
 	decltype(race.m_lighting_shader.fb(race.instance.graphics)) lighting_samplers;
+	decltype(race.m_env_shader.env(race.instance.graphics)) env_set;
 	decltype(race.m_rt_shader.rt_fb(race.instance.graphics)) rt_set;
 	decltype(lighting_samplers) getLightingSamplers(void)
 	{
@@ -429,9 +431,6 @@ inline decltype(Race::images) Race::getImages(void)
 			res.at((ndx + 1) % res.size()).cube_depth_set.last_cube.bind(m_sampler, i.cube_depth_mips.at(0), sb::Image::Layout::ShaderReadOnlyOptimal);
 			ndx++;
 		}
-
-		for (auto &i : res)
-			i.gather_bounces_set.env.bind(m_sampler, env, sb::Image::Layout::ShaderReadOnlyOptimal);
 	}
 	return res;
 }
