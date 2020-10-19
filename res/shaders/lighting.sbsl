@@ -72,10 +72,13 @@ fragment {
 				illum += ill;
 			}
 			illum /= float(it);
+				illum = 0.0;
 			vec3 emissive = texture(fb.emissive, gl_FragCoord.xy).xyz;
 			vec3 albedo = texture(fb.albedo, gl_FragCoord.xy).xyz;
-			vec3 base_color = albedo * illum * vec3(2.0, 2.0, 1.0) * 1.9 + emissive;
+			vec3 base_color = albedo * illum + emissive;
 			(out)primary = base_color;
+
+			// ILLUM = vec3(2.0, 2.0, 1.0) * 1.9;
 		}
 		/*base_color = vec3(texture(fb.depth_buffer_fl, gl_FragCoord.xy * fb.depth_buffer_fl_size, 9).xy, 0.0);
 		base_color.x = depth_to_z(base_color.x) * 0.01;

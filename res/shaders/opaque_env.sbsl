@@ -1,0 +1,33 @@
+render_pass render_passes::opaque : compute;
+
+require vertex::p2;
+require modules::camera;
+
+fragment {
+	set material {
+		samplerCube env;
+	};
+}
+
+vertex {
+	void main(void)
+	{
+		gl_Position = vec4((in)pos, 0.9999999, 1.0);
+	}
+}
+
+fragment {
+	out vec4 albedo;
+	out vec3 emissive;
+	out vec3 normal;
+	out vec3 refl;
+
+	void main(void)
+	{
+		(out)albedo = vec4(vec3(0.0), 1.0);
+		vec3 view = cam_view_from_depth(gl_FragCoord.xy, 1.0);
+		(out)emissive = texture(material.env, normalize((camera.view_normal_inv * vec4(view, 1.0)).zxy)).xyz;
+		(out)normal = vec3(0.0, 0.0, 1.0);
+		(out)refl = vec3(0.0);
+	}
+}

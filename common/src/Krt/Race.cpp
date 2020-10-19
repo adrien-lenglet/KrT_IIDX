@@ -44,7 +44,9 @@ Race::Race(Instance &instance) :
 	m_cube_depth_shader(instance.device.load(res.shaders().cube_depth())),
 	m_cmd_pool(instance.graphics.pool<true>()),
 	m_rt_quality(4),
-	env(instance.loadImageCube_srgb("res/env/citadel")),
+	env(instance.loadImageCube_srgb("res/env/consul")),
+	m_opaque_env_shader(instance.device.load(res.shaders().opaque_env())),
+	m_opaque_env_set(m_opaque_env_shader.material(instance.graphics)),
 	images(getImages()),
 
 	m_track(instance.create<Track>())
@@ -52,6 +54,8 @@ Race::Race(Instance &instance) :
 	bind(m_track->done, [this](){
 		m_is_done = true;
 	});
+
+	m_opaque_env_set.env.bind(m_sampler, env, sb::Image::Layout::ShaderReadOnlyOptimal);
 }
 
 Race::~Race(void)
@@ -179,11 +183,11 @@ void Race::run(void)
 			cmd.memoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::AllGraphics, {},
 				sb::Access::TransferWrite, sb::Access::MemoryRead);
 
-			auto srgb_lin = [](double val){
+			/*auto srgb_lin = [](double val){
 				constexpr float unorm = 1.0 / 255.0;
 
 				return std::pow(val * unorm, 2.2);
-			};
+			};*/
 
 			auto viewport = sb::rect2({0.0f, 0.0f}, {instance.swapchain->extent().x, instance.swapchain->extent().y});
 
@@ -191,8 +195,8 @@ void Race::run(void)
 			cmd.setScissor({{0, 0}, instance.swapchain->extent()});
 			cmd.render(img.opaque_fb, {{0, 0}, instance.swapchain->extent()},
 				sb::Color::f32(0.0f),	// albedo
-				sb::Color::f32(srgb_lin(2.0), srgb_lin(145.0), srgb_lin(223.0), 0.0f),	// emissive
-				sb::Color::f32(0.0f),	// normal
+				sb::Color::f32(0.0f),	// emissive
+				sb::Color::f32(0.0f, 0.0f, 1.0f, 0.0f),	// normal
 				sb::Color::f32(0.0f),	// refl
 				1.0f,	// depth_buffer
 
@@ -234,6 +238,7 @@ void Race::run(void)
 					s_rt.cur_cam_near = cam.near;
 					s_rt.cur_cam_ratio = cam.ratio;
 					s_rt.last_cam_proj = cam.proj;
+					s_rt.view_normal_inv = cam.view_normal_inv;
 					s_refl.cur_cam_to_last = view_to_last;
 					instance.cur_img_res->uploadDescSet(s_light);
 					instance.cur_img_res->uploadDescSet(s_rt);
@@ -300,6 +305,11 @@ void Race::run(void)
 
 						instance.cur_img_res->uploadDescSet(set);
 					}
+
+					cmd.bind(m_opaque_env_shader);
+					cmd.bind(m_opaque_env_shader, m_track->render.camera, 0);
+					cmd.bind(m_opaque_env_shader, m_opaque_env_set, 1);
+					cmd.draw(instance.screen_quad);
 				}
 			);
 

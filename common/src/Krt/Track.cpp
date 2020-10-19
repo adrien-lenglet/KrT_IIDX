@@ -77,11 +77,15 @@ void Track::Render::render(sb::CommandBuffer::Record::RenderPass &cmd, bool disa
 		camera_pos += dir_side * move * static_cast<float>(delta_time);
 	auto view = view_rot * glm::translate(-camera_pos);
 
+	camera.size = glm::vec2(1.0) / glm::vec2(m_instance.swapchain->extent());
 	camera.vp = proj * view;
 	camera.view = view;
+	glm::mat4 view_normal = view;
 	camera.view_normal = view;
 	for (size_t i = 0; i < 3; i++)
-		camera.view_normal[3][i] = 0.0f;
+		view_normal[3][i] = 0.0f;
+	camera.view_normal = view_normal;
+	camera.view_normal_inv = glm::inverse(view_normal);
 	camera.proj = proj;
 	camera.inv_proj = glm::inverse(proj);
 	camera.near = near;

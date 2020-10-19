@@ -12,6 +12,9 @@ set rt_fb {
 	float cur_cam_far, cur_cam_near;
 	vec2 cur_cam_ratio;
 	mat4 last_cam_proj;
+
+	mat4 view_normal_inv;
+	samplerCube env;
 };
 
 

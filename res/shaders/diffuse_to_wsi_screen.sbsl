@@ -39,7 +39,7 @@ fragment {
 			(out)wsi_screen = vec3(depth_to_z(range.x) / 1000.0, depth_to_z(range.y) / 1000.0, 0.0);
 		} else
 			(out)wsi_screen = texture(light.diffuse, gl_FragCoord.xy).xyz * 0.8;*/
-		(out)wsi_screen = texture(light.diffuse, gl_FragCoord.xy).xyz * 0.8;
+		(out)wsi_screen = texture(light.diffuse, gl_FragCoord.xy).xyz * 20.0;
 
 		/*vec3 diffuse = texture(light.diffuse, gl_FragCoord.xy).xyz;
 		vec3 albedo = texture(light.albedo, gl_FragCoord.xy).xyz;

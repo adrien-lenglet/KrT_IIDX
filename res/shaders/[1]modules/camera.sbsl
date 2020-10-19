@@ -2,18 +2,15 @@ set camera {
 	mat4 vp;
 	mat4 view;
 	mat4 view_normal;
+	mat4 view_normal_inv;
 	mat4 proj;
 	mat4 inv_proj;
 	vec2 ratio;
 	float a, b;
 	float far, near;
+	vec2 size;
 	//push_constant mat4 vp;
 };
-
-vec4 camera_project_point(vec3 p)
-{
-	return camera.vp * vec4(p, 1.0);
-}
 
 float cam_depth_to_z(float depth)
 {
@@ -28,4 +25,14 @@ float cam_z_to_depth(float z)
 float cam_depth_z_bias(float depth, float z_bias)
 {
 	return cam_z_to_depth(cam_depth_to_z(depth) + z_bias);
+}
+
+vec3 cam_view_from_depth(vec2 pos, float depth)
+{
+	float z = cam_depth_to_z(depth);
+	vec2 uv = pos * camera.size;
+	vec2 ndc2 = (uv - 0.5) * 2.0;
+	ndc2 *= camera.ratio;
+	ndc2 *= z;
+	return vec3(ndc2, z);
 }

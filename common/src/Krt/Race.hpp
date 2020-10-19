@@ -64,6 +64,8 @@ public:
 	size_t m_rt_quality;
 
 	sb::ImageCube env;
+	decltype(instance.device.load(res.shaders().opaque_env())) m_opaque_env_shader;
+	decltype(m_opaque_env_shader.material(instance.graphics)) m_opaque_env_set;
 
 	struct Image;
 	std::vector<Image> images;
@@ -135,6 +137,7 @@ struct Race::Image {
 		rt_set.depth_buffer.bind(race.m_fb_sampler, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
 		rt_set.depth_buffer_fl.bind(race.m_sampler_nearest, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
 		rt_set.normal.bind(race.m_fb_sampler, fb_normal, sb::Image::Layout::ShaderReadOnlyOptimal);
+		rt_set.env.bind(race.m_sampler, race.env, sb::Image::Layout::ShaderReadOnlyOptimal);
 		//rt_set.depth_buffer_fl_lin.bind(race.m_sampler, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
 		rt_set.depth_buffer_fl_size = glm::vec2(1.0) / glm::vec2(fb_depth_buffer_fl.extent());
 		update_depth_buffer_trace_res(rt_quality);
