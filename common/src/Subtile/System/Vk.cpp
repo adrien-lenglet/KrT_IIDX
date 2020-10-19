@@ -1109,6 +1109,8 @@ std::unique_ptr<sb::Image> Vk::Device::createImage(sb::Image::Type type, Format 
 
 	VkImageCreateInfo ici {};
 	ici.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	if (type == sb::Image::Type::Cube || type == sb::Image::Type::CubeArray)
+		ici.flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 	ici.imageType = Vk::Image::sbImageTypeToVk(type);
 	ici.format = sbFormatToVk(format);
 	ici.extent = VkExtent3D {static_cast<uint32_t>(extent.x), static_cast<uint32_t>(extent.y), static_cast<uint32_t>(extent.z)};

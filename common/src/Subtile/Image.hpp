@@ -320,6 +320,17 @@ public:
 	}
 };
 
+// layers = 6, mips >= 1, samples = 1
+class ImageCube : public Image::Handle2DArray<ImageCube, Image2D>
+{
+public:
+	template <typename ...Args>
+	ImageCube(Args &&...args) :
+		Image::Handle2DArray<ImageCube, Image2D>(std::forward<Args>(args)...)
+	{
+	}
+};
+
 }
 
 template <>

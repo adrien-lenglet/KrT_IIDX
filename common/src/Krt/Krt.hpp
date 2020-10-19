@@ -6,6 +6,7 @@
 
 #include "Subtile/Instance.hpp"
 #include "res.resdecl.hpp"
+#include "stb_image.h"
 
 namespace Krt {
 
@@ -160,6 +161,97 @@ public:
 	}
 	size_t cur_img;
 	ImageRes *cur_img_res;
+
+	auto loadImage2D_srgb(const std::string &path)
+	{
+		int w, h, channels;
+		auto pixels = stbi_load(path.c_str(), &w, &h, &channels, STBI_rgb_alpha);
+		if (pixels == nullptr)
+			throw std::runtime_error(std::string("Can't load texture: ") + path);
+		if (channels != 4)
+			throw std::runtime_error(std::string("Corrupted texture: ") + path);
+
+		auto res = device.image2D(sb::Format::rgba8_srgb, {w, h}, 1, sb::Image::Usage::TransferDst | sb::Image::Usage::Sampled, graphics);
+
+		auto cmd = m_transfer_pool.primary();
+
+		cmd.record([&](auto &cmd){
+			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::Transfer, {},
+				sb::Access::None, sb::Access::TransferWrite,
+				sb::Image::Layout::Undefined, sb::Image::Layout::TransferDstOptimal, res);
+		});
+
+		graphics.submit(util::empty, cmd, util::empty);
+		graphics.waitIdle();
+
+		cur_img_res->copyDataToImage(pixels, channels, res, sb::Image::Layout::TransferDstOptimal, res.blitRegion({0, 0}, res.extent()));
+
+		cur_img_res->transfer.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::BottomOfPipe, {},
+			sb::Access::TransferWrite, sb::Access::MemoryRead,
+			sb::Image::Layout::TransferDstOptimal, sb::Image::Layout::ShaderReadOnlyOptimal, res);
+
+		stbi_image_free(pixels);
+		return res;
+	}
+
+	auto loadImageCube_srgb(const std::string &path)
+	{
+		int w, h, channels;
+		{
+			std::stringstream ss;
+			ss << path << "/c" << 0 << ".png";
+			auto full_path = ss.str();
+			auto pixels = stbi_load(full_path.c_str(), &w, &h, &channels, STBI_rgb_alpha);
+			if (pixels == nullptr) {
+				std::stringstream ss;
+				ss << "Can't load texture: " << full_path << ": " << stbi_failure_reason();
+				throw std::runtime_error(ss.str());
+			}
+			if (channels != 4)
+				throw std::runtime_error(std::string("Corrupted texture: ") + full_path);
+			if (w != h)
+				throw std::runtime_error(std::string("Cube image must be of ratio 1: ") + full_path);
+			stbi_image_free(pixels);
+		}
+
+		auto res = device.imageCube(sb::Format::rgba8_srgb, w, 1, sb::Image::Usage::TransferDst | sb::Image::Usage::Sampled, graphics);
+
+		auto cmd = m_transfer_pool.primary();
+
+		cmd.record([&](auto &cmd){
+			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::Transfer, {},
+				sb::Access::None, sb::Access::TransferWrite,
+				sb::Image::Layout::Undefined, sb::Image::Layout::TransferDstOptimal, res);
+		});
+
+		graphics.submit(util::empty, cmd, util::empty);
+		graphics.waitIdle();
+
+		for (size_t i = 0; i < 6; i++) {
+			std::stringstream ss;
+			ss << path << "/c" << i << ".png";
+			auto full_path = ss.str();
+			int w_cur, h_cur, channels_cur;
+			auto pixels = stbi_load(full_path.c_str(), &w_cur, &h_cur, &channels_cur, STBI_rgb_alpha);
+			if (pixels == nullptr) {
+				std::stringstream ss;
+				ss << "Can't load texture: " << full_path << ": " << stbi_failure_reason();
+				throw std::runtime_error(ss.str());
+			}
+			if (!(w == w_cur && h == h_cur && channels  == channels_cur))
+				throw std::runtime_error(std::string("Non matching cube images: ") + full_path);
+			auto elem = res.viewElem(i, sb::ComponentSwizzle::Identity, sb::Image::Aspect::Color, sb::wholeRange);
+			cur_img_res->copyDataToImage(pixels, channels, elem, sb::Image::Layout::TransferDstOptimal, elem.blitRegion({0, 0}, elem.extent()));
+
+			stbi_image_free(pixels);
+		}
+
+		cur_img_res->transfer.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::BottomOfPipe, {},
+			sb::Access::TransferWrite, sb::Access::MemoryRead,
+			sb::Image::Layout::TransferDstOptimal, sb::Image::Layout::ShaderReadOnlyOptimal, res);
+
+		return res;
+	}
 
 	void nextFrame(void)
 	{

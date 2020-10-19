@@ -28,7 +28,6 @@ public:
 	sb::Sampler::Handle m_sampler;
 
 	decltype(m_model_buffer) createModelBuffer(void);
-	decltype(m_model_albedo) createModelAlbedo(void);
 
 	double m_angle = 0.0;
 	bool do_rot = false;

@@ -126,6 +126,11 @@ public:
 			return Image2DMSArray(m_device->createImage(Image::Type::Image2DArray, format, sampleCount, svec3(extent.x, extent.y, 1), layers, mipLevels, usage, queue));
 		}
 
+		auto imageCube(Format format, size_t size, const sb::Image::MipmapLevels &mipLevels, Image::Usage usage, sb::Queue &queue)
+		{
+			return ImageCube(m_device->createImage(Image::Type::Cube, format, Image::Sample::Count1, svec3(size, size, 1), 6, mipLevels, usage, queue));
+		}
+
 		auto semaphore(void)
 		{
 			return Semaphore::Handle(m_device->createSemaphore());

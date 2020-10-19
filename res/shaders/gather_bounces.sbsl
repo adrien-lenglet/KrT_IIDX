@@ -11,6 +11,8 @@ vertex {
 
 fragment {
 	set light {
+		samplerCube env;
+
 		sampler2D primary;
 		uint bounce_count;
 		sampler2D bounces[16];
@@ -122,6 +124,8 @@ fragment {
 			(out)diffuse_accum = max(acc * (pow(1.0 - dist * dist_tres_rat, 6.0)), 1.0);
 		} else
 				(out)diffuse_accum = 1.0;
+		if (texture(light.depth_buffer, gl_FragCoord.xy).x == 1.0)
+			(out)diffuse = texture(light.env, normalize((light.cur_cam_inv * cur_view).xyz)).xyz;
 		/*vec3 last = texture(light.last_diffuse, gl_FragCoord.xy).xyz;
 		//float last_sum = abs(last.x) + abs(last.y) + abs(last.z);
 

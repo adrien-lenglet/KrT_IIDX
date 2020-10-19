@@ -44,6 +44,7 @@ Race::Race(Instance &instance) :
 	m_cube_depth_shader(instance.device.load(res.shaders().cube_depth())),
 	m_cmd_pool(instance.graphics.pool<true>()),
 	m_rt_quality(4),
+	env(instance.loadImageCube_srgb("res/env/citadel")),
 	images(getImages()),
 
 	m_track(instance.create<Track>())

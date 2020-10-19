@@ -62,6 +62,9 @@ public:
 
 	decltype(instance.graphics.pool<true>()) m_cmd_pool;
 	size_t m_rt_quality;
+
+	sb::ImageCube env;
+
 	struct Image;
 	std::vector<Image> images;
 	decltype(images) getImages(void);
@@ -423,6 +426,9 @@ inline decltype(Race::images) Race::getImages(void)
 			res.at((ndx + 1) % res.size()).cube_depth_set.last_cube.bind(m_sampler, i.cube_depth_mips.at(0), sb::Image::Layout::ShaderReadOnlyOptimal);
 			ndx++;
 		}
+
+		for (auto &i : res)
+			i.gather_bounces_set.env.bind(m_sampler, env, sb::Image::Layout::ShaderReadOnlyOptimal);
 	}
 	return res;
 }

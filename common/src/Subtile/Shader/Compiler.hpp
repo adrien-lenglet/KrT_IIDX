@@ -1217,6 +1217,7 @@ public:
 				{"usampler2DArray", "Sampler2DArray"},
 				{"isampler2D", "Sampler2D"},
 				{"isampler2DArray", "Sampler2DArray"},
+				{"samplerCube", "SamplerCube"},
 				{"texture2D", "Texture2D"}
 			};
 
@@ -1642,6 +1643,7 @@ public:
 			static const std::map<std::string, sb::Shader::DescriptorType> descTypeTable {
 				{"sb::Shader::Type::Sampler2D", sb::Shader::DescriptorType::CombinedImageSampler},
 				{"sb::Shader::Type::Sampler2DArray", sb::Shader::DescriptorType::CombinedImageSampler},
+				{"sb::Shader::Type::SamplerCube", sb::Shader::DescriptorType::CombinedImageSampler},
 				{"sb::Shader::Type::Texture2D", sb::Shader::DescriptorType::SampledImage}
 			};
 

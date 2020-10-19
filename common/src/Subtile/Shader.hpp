@@ -932,6 +932,26 @@ public:
 		};
 
 		template <size_t Binding>
+		class SamplerCube
+		{
+		public:
+			SamplerCube(DescriptorSet &set, size_t index) :
+				m_set(set),
+				m_index(index)
+			{
+			}
+
+			void bind(Sampler &sampler, ImageCube &image, Image::Layout layout)
+			{
+				m_set.bindCombinedImageSampler(Binding, m_index, sampler, image, layout);
+			}
+
+		private:
+			DescriptorSet &m_set;
+			size_t m_index;
+		};
+
+		template <size_t Binding>
 		class Texture2D
 		{
 		public:
