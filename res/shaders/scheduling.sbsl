@@ -163,6 +163,9 @@ fragment {
 		(out)diffuse = (out)primary + (out)bounce0 + (out)bounce1;
 		(out)diffuse_it = 0.0;
 
+		if (texture(rt_fb.depth_buffer, gl_FragCoord.xy).x >= 0.9999999)
+			(out)diffuse = env_sample(view_norm);
+
 		if (repr_success) {
 			const float albedo_bias = 0.001;
 
