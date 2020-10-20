@@ -106,7 +106,7 @@ float rt_cell_end(vec2 p, vec2 d, float size)
 	return rt_inter_rect(cell_tl, cell_tl + size, p, d);
 }
 
-bool rt_traceRay(vec3 origin, vec3 dir, in sampler2D depth_buffer_fl, out vec2 pos)
+bool rt_traceRay(vec3 origin, vec3 dir, in sampler2D depth_buffer_fl, uint max_it_fac, out vec2 pos)
 {
 	vec3 p0, p1;
 	rt_project_ray(origin, dir, p0, p1);
@@ -140,7 +140,8 @@ bool rt_traceRay(vec3 origin, vec3 dir, in sampler2D depth_buffer_fl, out vec2 p
 	t += rt_cell_end(p.xy, dir2, float(1 << rt_fb.depth_buffer_trace_res)) + dir_pp_bias;
 	p = mix(p0, p1, t);
 
-	while (it++ < rt_fb.depth_buffer_max_it) {
+	uint max_it = rt_fb.depth_buffer_max_it >> max_it_fac;
+	while (it++ < max_it) {
 		if (t >= t_max)
 			return false;
 		int cur_lev = level + rt_fb.depth_buffer_trace_res;

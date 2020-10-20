@@ -459,6 +459,7 @@ void Race::run(void)
 					cmd.bind(m_scheduling_shader);
 					cmd.bind(m_scheduling_shader, img.rt_set, 0);
 					cmd.bind(m_scheduling_shader, img.scheduling_set, 1);
+					cmd.bind(m_scheduling_shader, img.env_set, 2);
 					cmd.draw(instance.screen_quad);
 				}
 			);

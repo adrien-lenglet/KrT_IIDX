@@ -38,6 +38,8 @@ fragment {
 		mat4 last_cam_inv;
 	};
 
+	require modules::env;
+
 	out vec3 primary;
 	out vec3 bounce0;
 	out vec3 bounce1;
@@ -86,6 +88,7 @@ fragment {
 		vec3 rt_orig;
 		vec3 rt_dir;
 		int rt_ndx = 0;
+		uint max_it_fac = 1;
 
 		vec3 normal = normalize(texture(fb.normal, gl_FragCoord.xy).xyz);
 		uint rand = (hash(uint(gl_FragCoord.x)) + hash(uint(gl_FragCoord.y))) % 256;
@@ -102,10 +105,11 @@ fragment {
 			rt_dir = (fb.cur_cam_to_last_normal * vec4(nx * rvec.x + ny * rvec.y + nz * rvec.z, 1.0)).xyz;
 
 			rt_ndx = 1;
+			max_it_fac = 2;
 		}
 
 		vec2 rt_trace_pos;
-		bool rt_success = rt_traceRay(rt_orig, rt_dir, rt_fb.depth_buffer_fl[rt_ndx], rt_trace_pos);
+		bool rt_success = rt_traceRay(rt_orig, rt_dir, rt_fb.depth_buffer_fl[rt_ndx], max_it_fac, rt_trace_pos);
 
 		if (path == 0) {
 			float ill = max(dot(normal, rt_dir), 0.0) * (rt_success ? 0.0 : 1.0);
@@ -114,9 +118,9 @@ fragment {
 			(out)primary = albedo * ill * vec3(2.0, 2.0, 0.8) * 1.5 + emissive;
 		}
 		if (path == 1)
-			(out)bounce0 = texture(fb.albedo, gl_FragCoord.xy).xyz * texture(fb.last_primary, rt_trace_pos).xyz;
+			(out)bounce0 = texture(fb.albedo, gl_FragCoord.xy).xyz * (rt_success ? texture(fb.last_primary, rt_trace_pos).xyz : env_sample((fb.last_cam_inv * vec4(rt_dir, 1.0)).xyz));
 		if (path == 2)
-			(out)bounce1 = texture(fb.albedo, gl_FragCoord.xy).xyz * texture(fb.last_bounce0, rt_trace_pos).xyz;
+			(out)bounce1 = texture(fb.albedo, gl_FragCoord.xy).xyz * (rt_success ? texture(fb.last_bounce0, rt_trace_pos).xyz : env_sample((fb.last_cam_inv * vec4(rt_dir, 1.0)).xyz));
 
 		if (path != 0)
 			(out)primary = texture(fb.last_primary, last_view_pos).xyz;
