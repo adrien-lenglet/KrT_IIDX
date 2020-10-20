@@ -3,7 +3,7 @@ set rt_fb {
 	sampler2D normal;
 
 	sampler2D depth_buffer;
-	sampler2D depth_buffer_fl;
+	sampler2D depth_buffer_fl[2];
 	vec2 depth_buffer_fl_size;
 	int depth_buffer_trace_res;
 	uint depth_buffer_max_it;
@@ -106,7 +106,7 @@ float rt_cell_end(vec2 p, vec2 d, float size)
 	return rt_inter_rect(cell_tl, cell_tl + size, p, d);
 }
 
-bool rt_traceRay(vec3 origin, vec3 dir, out vec2 pos)
+bool rt_traceRay(vec3 origin, vec3 dir, in sampler2D depth_buffer_fl, out vec2 pos)
 {
 	vec3 p0, p1;
 	rt_project_ray(origin, dir, p0, p1);
@@ -148,7 +148,7 @@ bool rt_traceRay(vec3 origin, vec3 dir, out vec2 pos)
 		float cell_size = float(1 << cell_lev);
 		float start_d = mix(p0.z, p1.z, t + rt_cell_end(p.xy, dir2n, cell_size));
 		float end_d = mix(p0.z, p1.z, t + rt_cell_end(p.xy, dir2, cell_size));
-		vec4 range = textureLod(rt_fb.depth_buffer_fl, p.xy * rt_fb.depth_buffer_fl_size, cell_lev);
+		vec4 range = textureLod(depth_buffer_fl, p.xy * rt_fb.depth_buffer_fl_size, cell_lev);
 		if (level == 0)
 			range.x = rt_z_to_depth(rt_depth_to_z(range.x) + bias);
 		if ((start_d >= range.x && start_d <= range.y) || (end_d >= range.x && end_d <= range.y) ||

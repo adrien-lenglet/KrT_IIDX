@@ -66,9 +66,9 @@ fragment {
 				vec3 normal = texture(fb.normal, gl_FragCoord.xy).xyz;
 				vec2 trace_pos;
 				float ill = max(dot(normal, sun_dir), 0.0);
-				if (ill > 0.0)
+				/*if (ill > 0.0)
 					if (rt_traceRay(view, sun_dir, trace_pos))
-						ill = 0.0;
+						ill = 0.0;*/
 				illum += ill;
 			}
 			illum /= float(it);

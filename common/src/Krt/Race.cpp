@@ -246,6 +246,7 @@ void Race::run(void)
 
 					s_sche.view_normal = cam.view_normal;
 					s_sche.cur_cam_to_last = view_to_last;
+					s_sche.cur_cam_to_last_normal = view_to_last_normal;
 					s_sche.cur_cam_inv = glm::inverse(view);
 					s_sche.last_cam_inv = glm::inverse(last_view);
 					instance.cur_img_res->uploadDescSet(s_sche);

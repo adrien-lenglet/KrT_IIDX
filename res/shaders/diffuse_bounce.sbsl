@@ -72,8 +72,8 @@ fragment {
 					ray_illum = env_sample(normalize((rt_fb.view_normal_inv * vec4(tangent_rvec, 1.0)).xyz));//vec3(100.0 * unorm, 145.0 * unorm, 223.0 * unorm) * 1.5;
 				}
 				vec2 trace_pos;
-				if (rt_traceRay(view, tangent_rvec, trace_pos))
-					ray_illum = texture(fb.last_diffuse, trace_pos).xyz;
+				//if (rt_traceRay(view, tangent_rvec, trace_pos))
+				//	ray_illum = texture(fb.last_diffuse, trace_pos).xyz;
 				illum += ray_illum;
 			}
 			illum /= samples;

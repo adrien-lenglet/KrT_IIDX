@@ -142,7 +142,7 @@ struct Race::Image {
 	{
 		env_set.map.bind(race.m_sampler, race.env, sb::Image::Layout::ShaderReadOnlyOptimal);
 		rt_set.depth_buffer.bind(race.m_fb_sampler, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
-		rt_set.depth_buffer_fl.bind(race.m_sampler_nearest, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
+		rt_set.depth_buffer_fl[0].bind(race.m_sampler_nearest, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
 		rt_set.normal.bind(race.m_fb_sampler, fb_normal, sb::Image::Layout::ShaderReadOnlyOptimal);
 		//rt_set.depth_buffer_fl_lin.bind(race.m_sampler, fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
 		rt_set.depth_buffer_fl_size = glm::vec2(1.0) / glm::vec2(fb_depth_buffer_fl.extent());
@@ -452,6 +452,8 @@ inline decltype(Race::images) Race::getImages(void)
 			n.scheduling_set.last_bounce1.bind(m_fb_sampler_linear, i.diffuse_bounces.at(1).img, sb::Image::Layout::ShaderReadOnlyOptimal);
 			n.scheduling_set.last_diffuse.bind(m_fb_sampler_linear, i.diffuse, sb::Image::Layout::ShaderReadOnlyOptimal);
 			n.scheduling_set.last_diffuse_it.bind(m_fb_sampler_linear, i.diffuse_accum, sb::Image::Layout::ShaderReadOnlyOptimal);
+
+			n.rt_set.depth_buffer_fl[1].bind(m_sampler_nearest, i.fb_depth_buffer_fl, sb::Image::Layout::ShaderReadOnlyOptimal);
 
 			ndx++;
 		}

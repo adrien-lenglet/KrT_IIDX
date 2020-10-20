@@ -49,9 +49,9 @@ fragment {
 		vec3 view_norm = normalize(view);
 		vec3 normal = texture(fb.normal, gl_FragCoord.xy).xyz;
 		vec2 trace_pos;
-		if (rt_traceRay(view, reflect(view_norm, normal), trace_pos) && texture(rt_fb.depth_buffer, gl_FragCoord.xy).x < 1.0) {
+		/*if (rt_traceRay(view, reflect(view_norm, normal), trace_pos) && texture(rt_fb.depth_buffer, gl_FragCoord.xy).x < 1.0) {
 			reflection = texture(fb.diffuse, trace_pos).xyz;
-		}
+		}*/
 		(out)reflection = reflection;
 	}
 }
