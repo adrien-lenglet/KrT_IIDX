@@ -36,6 +36,7 @@ fragment {
 		mat4 cur_cam_to_last_normal;
 		mat4 cur_cam_inv;
 		mat4 last_cam_inv;
+		mat4 last_cam_inv_normal;
 
 		uint path;
 	};
@@ -149,7 +150,7 @@ fragment {
 			(out)primary = albedo * ill * vec3(2.0, 2.0, 0.8) * 1.5 + emissive;
 		}
 		if (path == 1)
-			(out)bounce0 = texture(fb.albedo, gl_FragCoord.xy).xyz * (rt_success ? texture(fb.last_primary, rt_trace_pos).xyz : env_sample((fb.last_cam_inv * vec4(rt_dir, 1.0)).xyz));
+			(out)bounce0 = texture(fb.albedo, gl_FragCoord.xy).xyz * (rt_success ? texture(fb.last_primary, rt_trace_pos).xyz : env_sample((fb.last_cam_inv_normal * vec4(rt_dir, 1.0)).xyz));
 		if (path == 2)
 			(out)bounce1 = texture(fb.albedo, gl_FragCoord.xy).xyz * (rt_success ? texture(fb.last_bounce0, rt_trace_pos).xyz : vec3(0.0));
 
