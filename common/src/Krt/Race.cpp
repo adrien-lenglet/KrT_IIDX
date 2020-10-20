@@ -41,6 +41,8 @@ Race::Race(Instance &instance) :
 	m_lighting_shader(instance.device.load(res.shaders().lighting())),
 	m_env_shader(instance.device.load(res.shaders().modules().env())),
 	m_rt_shader(instance.device.load(res.shaders().modules().rt())),
+	m_scheduling_pass(instance.device.load(res.shaders().render_passes().scheduling())),
+	m_scheduling_shader(instance.device.load(res.shaders().scheduling())),
 	m_cube_depth_pass(instance.device.load(res.shaders().render_passes().cube_depth())),
 	m_cube_depth_shader(instance.device.load(res.shaders().cube_depth())),
 	m_cmd_pool(instance.graphics.pool<true>()),
@@ -205,6 +207,7 @@ void Race::run(void)
 					auto &s_light = img.lighting_samplers;
 					auto &s_refl = img.reflect_set;
 					auto &s_rt = img.rt_set;
+					auto &s_sche = img.scheduling_set;
 
 					s.last_cam_proj = cam.proj;
 					glm::mat4 last_view = cam.view;
@@ -240,6 +243,12 @@ void Race::run(void)
 					s_refl.cur_cam_to_last = view_to_last;
 					instance.cur_img_res->uploadDescSet(s_light);
 					instance.cur_img_res->uploadDescSet(s_rt);
+
+					s_sche.view_normal = cam.view_normal;
+					s_sche.cur_cam_to_last = view_to_last;
+					s_sche.cur_cam_inv = glm::inverse(view);
+					s_sche.last_cam_inv = glm::inverse(last_view);
+					instance.cur_img_res->uploadDescSet(s_sche);
 
 					{
 						size_t ndx = 0;
@@ -419,7 +428,7 @@ void Race::run(void)
 				}
 			}
 
-			{
+			/*{
 				auto ex = img.cube_depth.extent();
 				cmd.render(img.cube_depth_fb, {{0, 0}, ex},
 					[&](auto &cmd){
@@ -430,7 +439,7 @@ void Race::run(void)
 						cmd.draw(instance.screen_quad);
 					}
 				);
-			}
+			}*/
 
 			cmd.setViewport(viewport, 0.0f, 1.0f);
 			cmd.setScissor({{0, 0}, instance.swapchain->extent()});
@@ -438,7 +447,25 @@ void Race::run(void)
 			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
 				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
 
-			cmd.render(img.it_count_fb, {{0, 0}, instance.swapchain->extent()},
+			for (auto &d : img.scheduling_set.random_sun_dir)
+				d = sb::genDiffuseVector(*m_track, glm::normalize(glm::vec3(1.3, 3.0, 1.0)), 2000.0);
+
+			for (auto &d : img.scheduling_set.random_diffuse)
+				d = sb::genDiffuseVector(*m_track, glm::vec3(0.0f, 0.0f, 1.0f), 1.0);
+
+			cmd.render(img.scheduling_fb, {{0, 0}, instance.swapchain->extent()},
+				[&](auto &cmd){
+					cmd.bind(m_scheduling_shader);
+					cmd.bind(m_scheduling_shader, img.rt_set, 0);
+					cmd.bind(m_scheduling_shader, img.scheduling_set, 1);
+					cmd.draw(instance.screen_quad);
+				}
+			);
+
+			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
+				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
+
+			/*cmd.render(img.it_count_fb, {{0, 0}, instance.swapchain->extent()},
 				[&](auto &cmd){
 					cmd.bind(m_it_count_shader);
 					cmd.bind(m_it_count_shader, img.it_count_set, 0);
@@ -487,15 +514,15 @@ void Race::run(void)
 
 				cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
 					sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
-			}
+			}*/
 
-			cmd.render(img.gather_bounces_fb, {{0, 0}, instance.swapchain->extent()},
+			/*cmd.render(img.gather_bounces_fb, {{0, 0}, instance.swapchain->extent()},
 				[&](auto &cmd){
 					cmd.bind(m_gather_bounces_shader);
 					cmd.bind(m_gather_bounces_shader, img.gather_bounces_set, 0);
 					cmd.draw(instance.screen_quad);
 				}
-			);
+			);*/
 
 			/*cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
 				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
@@ -521,8 +548,8 @@ void Race::run(void)
 				}
 			);*/
 
-			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
-				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
+			//cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
+			//	sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
 
 			cmd.render(img.buffer_to_wsi_screen_fbs.at(swapchain_img), {{0, 0}, instance.swapchain->extent()},
 				[&](auto &cmd){

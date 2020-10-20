@@ -58,6 +58,9 @@ public:
 	decltype(res.shaders().modules().env().loaded()) m_env_shader;
 	decltype(res.shaders().modules().rt().loaded()) m_rt_shader;
 
+	decltype(instance.device.load(res.shaders().render_passes().scheduling())) m_scheduling_pass;
+	decltype(instance.device.load(res.shaders().scheduling())) m_scheduling_shader;
+
 	decltype(instance.device.load(res.shaders().render_passes().cube_depth())) m_cube_depth_pass;
 	decltype(instance.device.load(res.shaders().cube_depth())) m_cube_depth_shader;
 
@@ -123,6 +126,8 @@ struct Race::Image {
 		reflect_fb(race.m_reflect_pass.framebuffer(race.instance.swapchain->extent(), 1, reflection)),
 		compo_set(race.m_compo_shader.fb(race.instance.graphics)),
 		compo_fb(race.m_compo_pass.framebuffer(race.instance.swapchain->extent(), 1, compo)),
+		scheduling_fb(race.m_scheduling_pass.framebuffer(race.instance.swapchain->extent(), 1, primary, diffuse_bounces.at(0).img, diffuse_bounces.at(1).img, diffuse, diffuse_accum)),
+		scheduling_set(race.m_scheduling_shader.fb(race.instance.graphics)),
 		buffer_to_wsi_screen_fbs(getBufferToWsiScreenFbs()),
 		diffuse_to_wsi_screen_set(race.m_diffuse_to_wsi_screen.light(race.instance.graphics)),
 		//cube_depth(race.instance.device.image2DArray(sb::Format::rg32_sfloat, {16, 16}, 6, sb::Image::allMipLevels, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
@@ -361,6 +366,9 @@ struct Race::Image {
 	decltype(race.m_compo_shader.fb(instance.graphics)) compo_set;
 	decltype(race.m_compo_pass)::Framebuffer compo_fb;
 
+	decltype(race.m_scheduling_pass)::Framebuffer scheduling_fb;
+	decltype(race.m_scheduling_shader.fb(race.instance.graphics)) scheduling_set;
+
 	std::vector<decltype(race.m_buffer_to_wsi_screen)::Framebuffer> buffer_to_wsi_screen_fbs;
 	decltype(race.m_diffuse_to_wsi_screen.light(race.instance.graphics)) diffuse_to_wsi_screen_set;
 	decltype(buffer_to_wsi_screen_fbs) getBufferToWsiScreenFbs(void)
@@ -429,6 +437,18 @@ inline decltype(Race::images) Race::getImages(void)
 			res.at((ndx + 1) % res.size()).reflect_set.last_reflect.bind(m_fb_sampler_linear, i.reflection, sb::Image::Layout::ShaderReadOnlyOptimal);
 
 			res.at((ndx + 1) % res.size()).cube_depth_set.last_cube.bind(m_sampler, i.cube_depth_mips.at(0), sb::Image::Layout::ShaderReadOnlyOptimal);
+
+			auto &n = res.at((ndx + 1) % res.size());
+			n.scheduling_set.last_albedo.bind(m_fb_sampler_linear, i.fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
+			n.scheduling_set.last_emissive.bind(m_fb_sampler_linear, i.fb_emissive, sb::Image::Layout::ShaderReadOnlyOptimal);
+			n.scheduling_set.last_depth_buffer.bind(m_fb_sampler_linear, i.fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
+
+			n.scheduling_set.last_primary.bind(m_fb_sampler_linear, i.primary, sb::Image::Layout::ShaderReadOnlyOptimal);
+			n.scheduling_set.last_bounce0.bind(m_fb_sampler_linear, i.diffuse_bounces.at(0).img, sb::Image::Layout::ShaderReadOnlyOptimal);
+			n.scheduling_set.last_bounce1.bind(m_fb_sampler_linear, i.diffuse_bounces.at(1).img, sb::Image::Layout::ShaderReadOnlyOptimal);
+			n.scheduling_set.last_diffuse.bind(m_fb_sampler_linear, i.diffuse, sb::Image::Layout::ShaderReadOnlyOptimal);
+			n.scheduling_set.last_diffuse_it.bind(m_fb_sampler, i.diffuse_accum, sb::Image::Layout::ShaderReadOnlyOptimal);
+
 			ndx++;
 		}
 	}
