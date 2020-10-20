@@ -184,6 +184,10 @@ struct Race::Image {
 		compo_set.refl.bind(race.m_fb_sampler, fb_refl, sb::Image::Layout::ShaderReadOnlyOptimal);
 		compo_set.normal.bind(race.m_fb_sampler, fb_normal, sb::Image::Layout::ShaderReadOnlyOptimal);
 
+		scheduling_set.albedo.bind(race.m_fb_sampler, fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
+		scheduling_set.emissive.bind(race.m_fb_sampler, fb_emissive, sb::Image::Layout::ShaderReadOnlyOptimal);
+		scheduling_set.normal.bind(race.m_fb_sampler, fb_normal, sb::Image::Layout::ShaderReadOnlyOptimal);
+
 		diffuse_to_wsi_screen_set.it_count.bind(race.m_fb_sampler, it_count, sb::Image::Layout::ShaderReadOnlyOptimal);
 		diffuse_to_wsi_screen_set.diffuse.bind(race.m_fb_sampler, diffuse, sb::Image::Layout::ShaderReadOnlyOptimal);
 		diffuse_to_wsi_screen_set.albedo.bind(race.m_fb_sampler, fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
@@ -447,7 +451,7 @@ inline decltype(Race::images) Race::getImages(void)
 			n.scheduling_set.last_bounce0.bind(m_fb_sampler_linear, i.diffuse_bounces.at(0).img, sb::Image::Layout::ShaderReadOnlyOptimal);
 			n.scheduling_set.last_bounce1.bind(m_fb_sampler_linear, i.diffuse_bounces.at(1).img, sb::Image::Layout::ShaderReadOnlyOptimal);
 			n.scheduling_set.last_diffuse.bind(m_fb_sampler_linear, i.diffuse, sb::Image::Layout::ShaderReadOnlyOptimal);
-			n.scheduling_set.last_diffuse_it.bind(m_fb_sampler, i.diffuse_accum, sb::Image::Layout::ShaderReadOnlyOptimal);
+			n.scheduling_set.last_diffuse_it.bind(m_fb_sampler_linear, i.diffuse_accum, sb::Image::Layout::ShaderReadOnlyOptimal);
 
 			ndx++;
 		}
