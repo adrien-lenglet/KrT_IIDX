@@ -76,7 +76,6 @@ void Race::run(void)
 	std::optional<size_t> monitor;
 	size_t video_mode = 0;
 	size_t step = 0;
-	size_t rt_lag = 1;
 	while (!m_is_done) {
 		auto t_start = std::chrono::high_resolution_clock::now();
 
@@ -249,13 +248,14 @@ void Race::run(void)
 					s_sche.cur_cam_to_last_normal = view_to_last_normal;
 					s_sche.cur_cam_inv = glm::inverse(view);
 					s_sche.last_cam_inv = glm::inverse(last_view);
+					s_sche.path = step;
 					instance.cur_img_res->uploadDescSet(s_sche);
 
 					{
 						size_t ndx = 0;
 						for (auto &b : img.diffuse_bounces) {
 							auto &s = b.set;
-							s.it_bias = ((step / rt_lag) - 1) == ndx;
+							s.it_bias = (step - 1) == ndx;
 							s.cur_cam_to_last = view_to_last;
 							instance.cur_img_res->uploadDescSet(s);
 							ndx++;
@@ -597,7 +597,7 @@ void Race::run(void)
 		instance.cur_img_res->resetStagingOff();
 		instance.cur_img_res->transfer_unsafe.begin(sb::CommandBuffer::Usage::OneTimeSubmit);
 
-		step = (step + 1) % ((1 + img.diffuse_bounces.size()) * rt_lag);
+		step = (step + 1) % 3;
 
 		auto t_end = std::chrono::high_resolution_clock::now();
 
