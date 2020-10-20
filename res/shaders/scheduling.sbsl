@@ -35,6 +35,7 @@ fragment {
 		mat4 cur_cam_to_last;
 		mat4 cur_cam_to_last_normal;
 		mat4 cur_cam_inv;
+		mat4 cur_cam_inv_normal;
 		mat4 last_cam_inv;
 		mat4 last_cam_inv_normal;
 
@@ -165,7 +166,7 @@ fragment {
 		(out)diffuse_it = 0.0;
 
 		if (texture(rt_fb.depth_buffer, gl_FragCoord.xy).x >= 0.9999999)
-			(out)diffuse = env_sample(view_norm);
+			(out)diffuse = env_sample((fb.cur_cam_inv_normal * vec4(view_norm, 1.0)).xyz);
 
 		if (repr_success) {
 			const float albedo_bias = 0.001;

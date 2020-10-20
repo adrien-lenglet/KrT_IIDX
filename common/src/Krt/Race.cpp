@@ -247,6 +247,10 @@ void Race::run(void)
 					s_sche.cur_cam_to_last = view_to_last;
 					s_sche.cur_cam_to_last_normal = view_to_last_normal;
 					s_sche.cur_cam_inv = glm::inverse(view);
+					glm::mat4 cur_cam_inv_normal = glm::inverse(view);
+					for (size_t i = 0; i < 3; i++)
+						cur_cam_inv_normal[3][i] = 0.0f;
+					s_sche.cur_cam_inv_normal = cur_cam_inv_normal;
 					s_sche.last_cam_inv = glm::inverse(last_view);
 					glm::mat4 last_cam_inv_normal = glm::inverse(last_view);
 					for (size_t i = 0; i < 3; i++)
