@@ -80,7 +80,6 @@ void Race::run(void)
 		auto t_start = std::chrono::high_resolution_clock::now();
 
 		instance.scanInputs();
-		m_track->events.updateEvents();
 		esc.update();
 		if (esc.released()) {
 			cursor_mode = !cursor_mode;
@@ -177,6 +176,9 @@ void Race::run(void)
 		auto t_before_ac = std::chrono::high_resolution_clock::now();
 		auto swapchain_img = instance.swapchain->acquireNextImage(img.swapchain_img_avail);
 		auto t_begin_record = std::chrono::high_resolution_clock::now();
+
+		instance.scanInputs();
+		m_track->events.updateEvents();
 
 		img.cmd_prim.record([&](auto &cmd){
 			cmd.memoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::AllGraphics, {},
