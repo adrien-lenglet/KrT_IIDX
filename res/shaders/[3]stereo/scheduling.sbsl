@@ -1,5 +1,5 @@
 
-render_pass render_passes::scheduling : compute;
+render_pass shaders::render_passes::scheduling : compute;
 
 require vertex::p2;
 vertex {

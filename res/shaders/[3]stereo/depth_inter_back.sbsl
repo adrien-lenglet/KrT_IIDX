@@ -1,4 +1,4 @@
-render_pass render_passes::depth_max : compute;
+render_pass shaders::render_passes::depth_max : compute;
 
 require vertex::pnu;
 require modules::camera;

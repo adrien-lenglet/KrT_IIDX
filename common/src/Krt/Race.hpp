@@ -24,16 +24,15 @@ public:
 
 	decltype(instance.device.load(res.shaders().render_passes().depth_max())) m_depth_max_pass;
 	decltype(instance.device.load(res.shaders().depth_max())) m_depth_max_shader;
-	decltype(instance.device.load(res.shaders().depth_inter_front())) m_depth_inter_front_shader;
-	decltype(instance.device.load(res.shaders().depth_inter_back())) m_depth_inter_back_shader;
+	decltype(instance.device.load(res.shaders().stereo().depth_inter_front())) m_depth_inter_front_shader;
+	decltype(instance.device.load(res.shaders().stereo().depth_inter_back())) m_depth_inter_back_shader;
 
-	decltype(instance.device.load(res.shaders().render_passes().depth_range())) m_depth_range_pass;
-	decltype(instance.device.load(res.shaders().first_depth_range())) m_first_depth_range;
-	decltype(instance.device.load(res.shaders().compute_depth_range())) m_compute_depth_range;
+	decltype(instance.device.load(res.shaders().stereo().render_passes().depth_range())) m_depth_range_pass;
+	decltype(instance.device.load(res.shaders().stereo().first_depth_range())) m_first_depth_range;
+	decltype(instance.device.load(res.shaders().stereo().compute_depth_range())) m_compute_depth_range;
 
-	decltype(instance.device.load(res.shaders().modules().depth_buffer())) m_depth_buffer_module;
-	decltype(instance.device.load(res.shaders().render_passes().depth_to_fl())) m_depth_to_fl_pass;
-	decltype(instance.device.load(res.shaders().depth_to_fl())) m_depth_to_fl_shader;
+	decltype(instance.device.load(res.shaders().stereo().render_passes().depth_to_fl())) m_depth_to_fl_pass;
+	decltype(instance.device.load(res.shaders().stereo().depth_to_fl())) m_depth_to_fl_shader;
 
 	decltype(instance.device.load(res.shaders().render_passes().buffer_to_wsi_screen())) m_buffer_to_wsi_screen;
 	decltype(instance.device.load(res.shaders().diffuse_to_wsi_screen())) m_diffuse_to_wsi_screen;
@@ -43,7 +42,7 @@ public:
 
 	decltype(instance.device.load(res.shaders().render_passes().scheduling())) m_scheduling_pass;
 	decltype(instance.device.load(res.shaders().modules().scheduling_fb())) m_scheduling_fb_shader;
-	decltype(instance.device.load(res.shaders().scheduling())) m_scheduling_shader;
+	decltype(instance.device.load(res.shaders().stereo().scheduling())) m_scheduling_shader;
 
 	decltype(instance.device.load(res.shaders().render_passes().cube_depth())) m_cube_depth_pass;
 	decltype(instance.device.load(res.shaders().cube_depth())) m_cube_depth_shader;
