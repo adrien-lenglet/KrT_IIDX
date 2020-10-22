@@ -30,6 +30,7 @@ Race::Race(Instance &instance) :
 	m_env_shader(instance.device.load(res.shaders().modules().env())),
 	m_rt_shader(instance.device.load(res.shaders().modules().rt())),
 	m_scheduling_pass(instance.device.load(res.shaders().render_passes().scheduling())),
+	m_scheduling_fb_shader(instance.device.load(res.shaders().modules().scheduling_fb())),
 	m_scheduling_shader(instance.device.load(res.shaders().scheduling())),
 	m_cube_depth_pass(instance.device.load(res.shaders().render_passes().cube_depth())),
 	m_cube_depth_shader(instance.device.load(res.shaders().cube_depth())),
@@ -417,8 +418,8 @@ void Race::run(void)
 				[&](auto &cmd){
 					cmd.bind(m_scheduling_shader);
 					cmd.bind(m_scheduling_shader, img.rt_set, 0);
-					cmd.bind(m_scheduling_shader, img.scheduling_set, 1);
-					cmd.bind(m_scheduling_shader, img.env_set, 2);
+					cmd.bind(m_scheduling_shader, img.env_set, 1);
+					cmd.bind(m_scheduling_shader, img.scheduling_set, 2);
 					cmd.draw(instance.screen_quad);
 				}
 			);

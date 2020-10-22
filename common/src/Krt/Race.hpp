@@ -42,6 +42,7 @@ public:
 	decltype(res.shaders().modules().rt().loaded()) m_rt_shader;
 
 	decltype(instance.device.load(res.shaders().render_passes().scheduling())) m_scheduling_pass;
+	decltype(instance.device.load(res.shaders().modules().scheduling_fb())) m_scheduling_fb_shader;
 	decltype(instance.device.load(res.shaders().scheduling())) m_scheduling_shader;
 
 	decltype(instance.device.load(res.shaders().render_passes().cube_depth())) m_cube_depth_pass;
@@ -97,7 +98,7 @@ struct Race::Image {
 		first_depth_range_in_fb(getFirstDepthRangeInFb()),
 		compute_depth_range_in_fb(getComputeDepthRangeInFb()),
 		scheduling_fb(race.m_scheduling_pass.framebuffer(race.instance.swapchain->extent(), 1, primary, bounce0, bounce1, diffuse, diffuse_accum)),
-		scheduling_set(race.m_scheduling_shader.fb(race.instance.graphics)),
+		scheduling_set(race.m_scheduling_fb_shader.fb(race.instance.graphics)),
 		buffer_to_wsi_screen_fbs(getBufferToWsiScreenFbs()),
 		diffuse_to_wsi_screen_set(race.m_diffuse_to_wsi_screen.light(race.instance.graphics)),
 		//cube_depth(race.instance.device.image2DArray(sb::Format::rg32_sfloat, {16, 16}, 6, sb::Image::allMipLevels, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
@@ -270,7 +271,7 @@ struct Race::Image {
 	}
 
 	decltype(race.m_scheduling_pass)::Framebuffer scheduling_fb;
-	decltype(race.m_scheduling_shader.fb(race.instance.graphics)) scheduling_set;
+	decltype(race.m_scheduling_fb_shader.fb(race.instance.graphics)) scheduling_set;
 
 	std::vector<decltype(race.m_buffer_to_wsi_screen)::Framebuffer> buffer_to_wsi_screen_fbs;
 	decltype(race.m_diffuse_to_wsi_screen.light(race.instance.graphics)) diffuse_to_wsi_screen_set;

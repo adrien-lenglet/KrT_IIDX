@@ -11,38 +11,8 @@ vertex {
 
 fragment {
 	require modules::rt;
-
-	set fb {
-		sampler2D albedo;
-		sampler2D emissive;
-		sampler2D normal;
-
-		sampler2D last_albedo;
-		sampler2D last_emissive;
-		sampler2D last_depth_buffer;
-
-		sampler2D last_primary;
-		sampler2D last_bounce0;
-		sampler2D last_bounce1;
-		sampler2D last_diffuse;
-		sampler2D last_diffuse_it;
-
-		vec3 random_sun_dir[256];
-
-		vec3 random_diffuse[256];
-
-		mat4 view_normal;
-		mat4 cur_cam_to_last;
-		mat4 cur_cam_to_last_normal;
-		mat4 cur_cam_inv;
-		mat4 cur_cam_inv_normal;
-		mat4 last_cam_inv;
-		mat4 last_cam_inv_normal;
-
-		uint path;
-	};
-
 	require modules::env;
+	require modules::scheduling_fb;
 
 	out vec3 primary;
 	out vec3 bounce0;
