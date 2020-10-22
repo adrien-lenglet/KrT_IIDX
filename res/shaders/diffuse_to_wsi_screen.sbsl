@@ -11,13 +11,9 @@ vertex {
 
 fragment {
 	set light {
-		usampler2D it_count;
-
 		sampler2D diffuse;
 		sampler2D albedo;
 		sampler2D emissive;
-		sampler2D reflection;
-		sampler2D compo;
 		sampler2DArray cube_depth;
 		float cam_a, cam_b;
 	};

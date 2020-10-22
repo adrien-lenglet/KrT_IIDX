@@ -15,7 +15,6 @@ Race::Race(Instance &instance) :
 	m_fb_sampler(instance.device.samplerUnnormalized(sb::Filter::Nearest, sb::Sampler::AddressMode::ClampToEdge, sb::BorderColor::FloatOpaqueWhite, 0.0f)),
 	m_fb_sampler_linear(instance.device.samplerUnnormalized(sb::Filter::Linear, sb::Sampler::AddressMode::ClampToEdge, sb::BorderColor::FloatOpaqueWhite, 0.0f)),
 	m_opaque_pass(instance.device.load(res.shaders().render_passes().opaque())),
-	m_lighting_pass(instance.device.load(res.shaders().render_passes().lighting())),
 	m_depth_max_pass(instance.device.load(res.shaders().render_passes().depth_max())),
 	m_depth_max_shader(instance.device.load(res.shaders().depth_max())),
 	m_depth_inter_front_shader(instance.device.load(res.shaders().depth_inter_front())),
@@ -26,19 +25,8 @@ Race::Race(Instance &instance) :
 	m_depth_buffer_module(instance.device.load(res.shaders().modules().depth_buffer())),
 	m_depth_to_fl_pass(instance.device.load(res.shaders().render_passes().depth_to_fl())),
 	m_depth_to_fl_shader(instance.device.load(res.shaders().depth_to_fl())),
-	m_it_count_pass(instance.device.load(res.shaders().render_passes().it_count())),
-	m_it_count_shader(instance.device.load(res.shaders().it_count())),
-	m_diffuse_bounce_pass(instance.device.load(res.shaders().render_passes().diffuse_bounce())),
-	m_diffuse_bounce_shader(instance.device.load(res.shaders().diffuse_bounce())),
-	m_gather_bounces_pass(instance.device.load(res.shaders().render_passes().gather_bounces())),
-	m_gather_bounces_shader(instance.device.load(res.shaders().gather_bounces())),
-	m_reflect_pass(instance.device.load(res.shaders().render_passes().reflect())),
-	m_reflect_shader(instance.device.load(res.shaders().reflect())),
-	m_compo_pass(instance.device.load(res.shaders().render_passes().compo())),
-	m_compo_shader(instance.device.load(res.shaders().compo())),
 	m_buffer_to_wsi_screen(instance.device.load(res.shaders().render_passes().buffer_to_wsi_screen())),
 	m_diffuse_to_wsi_screen(instance.device.load(res.shaders().diffuse_to_wsi_screen())),
-	m_lighting_shader(instance.device.load(res.shaders().lighting())),
 	m_env_shader(instance.device.load(res.shaders().modules().env())),
 	m_rt_shader(instance.device.load(res.shaders().modules().rt())),
 	m_scheduling_pass(instance.device.load(res.shaders().render_passes().scheduling())),
@@ -203,14 +191,9 @@ void Race::run(void)
 
 				[&](auto &cmd){
 					auto &cam = m_track->render.camera;
-					auto &s = img.gather_bounces_set;
-					auto &s_it = img.it_count_set;
-					auto &s_light = img.lighting_samplers;
-					auto &s_refl = img.reflect_set;
 					auto &s_rt = img.rt_set;
 					auto &s_sche = img.scheduling_set;
 
-					s.last_cam_proj = cam.proj;
 					glm::mat4 last_view = cam.view;
 					glm::vec3 last_pos = m_track->render.camera_pos;
 					m_track->render.render(cmd, cursor_mode);
@@ -222,18 +205,6 @@ void Race::run(void)
 						view_to_last_normal[3][i] = 0.0f;
 					glm::vec3 cur_pos = m_track->render.camera_pos;
 
-					s_it.cur_cam_to_last = view_to_last;
-					s_it.cur_cam_inv = glm::inverse(view);
-					s_it.last_cam_inv = glm::inverse(last_view);
-					s_it.cur_cam_a = cam.a;
-					s_it.cur_cam_b = cam.b;
-					s_it.cur_cam_ratio = cam.ratio;
-					s_it.last_cam_proj = cam.proj;
-					instance.cur_img_res->uploadDescSet(s_it);
-
-					s_light.it_bias = step == 0;
-					s_light.cur_cam_to_last = view_to_last;
-					s_light.view_normal = cam.view_normal;
 					s_rt.cur_cam_a = cam.a;
 					s_rt.cur_cam_b = cam.b;
 					s_rt.cur_cam_far = cam.far;
@@ -241,8 +212,6 @@ void Race::run(void)
 					s_rt.cur_cam_ratio = cam.ratio;
 					s_rt.last_cam_proj = cam.proj;
 					s_rt.view_normal_inv = cam.view_normal_inv;
-					s_refl.cur_cam_to_last = view_to_last;
-					instance.cur_img_res->uploadDescSet(s_light);
 					instance.cur_img_res->uploadDescSet(s_rt);
 
 					s_sche.view_normal = cam.view_normal;
@@ -260,26 +229,6 @@ void Race::run(void)
 					s_sche.last_cam_inv_normal = last_cam_inv_normal;
 					s_sche.path = step;
 					instance.cur_img_res->uploadDescSet(s_sche);
-
-					{
-						size_t ndx = 0;
-						for (auto &b : img.diffuse_bounces) {
-							auto &s = b.set;
-							s.it_bias = (step - 1) == ndx;
-							s.cur_cam_to_last = view_to_last;
-							instance.cur_img_res->uploadDescSet(s);
-							ndx++;
-						}
-					}
-
-					s.cur_cam_delta = cur_pos - last_pos;
-					s.cur_cam_to_last = view_to_last;
-					s.last_cam_inv = glm::inverse(last_view);
-					s.cur_cam_inv = glm::inverse(view);
-					s.cur_cam_a = cam.a;
-					s.cur_cam_b = cam.b;
-					s.cur_cam_ratio = cam.ratio;
-					instance.cur_img_res->uploadDescSet(s);
 
 					img.diffuse_to_wsi_screen_set.cam_a = cam.a;
 					img.diffuse_to_wsi_screen_set.cam_b = cam.b;
@@ -476,92 +425,6 @@ void Race::run(void)
 
 			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
 				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
-
-			/*cmd.render(img.it_count_fb, {{0, 0}, instance.swapchain->extent()},
-				[&](auto &cmd){
-					cmd.bind(m_it_count_shader);
-					cmd.bind(m_it_count_shader, img.it_count_set, 0);
-					cmd.draw(instance.screen_quad);
-				}
-			);
-
-			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
-				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
-
-			for (auto &d : img.lighting_samplers.sun_dir)
-				d = sb::genDiffuseVector(*m_track, glm::normalize(glm::vec3(1.3, 3.0, 1.0)), 2000.0);
-			instance.cur_img_res->uploadDescSet(img.lighting_samplers);
-
-			for (auto &d : img.reflect_set.random_diffuse)
-				d = sb::genDiffuseVector(*m_track, glm::vec3(0.3f, 0.0f, 1.0f), 1.0);
-			instance.cur_img_res->uploadDescSet(img.reflect_set);
-
-			cmd.render(img.lighting_fb, {{0, 0}, instance.swapchain->extent()},
-				[&](auto &cmd){
-					cmd.bind(m_lighting_shader);
-					cmd.bind(m_lighting_shader, img.lighting_samplers, 0);
-					cmd.bind(m_lighting_shader, img.rt_set, 1);
-					cmd.draw(instance.screen_quad);
-				}
-			);
-
-			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
-				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
-
-			for (auto &normal : img.diffuse_bounce_random.normals)
-				normal = sb::genDiffuseVector(*m_track, glm::vec3(0.0, 0.0, 1.0), 1.0);
-			instance.cur_img_res->uploadDescSet(img.diffuse_bounce_random);
-
-			for (auto &b : img.diffuse_bounces) {
-				cmd.render(b.fb, {{0, 0}, instance.swapchain->extent()},
-					[&](auto &cmd){
-						cmd.bind(m_diffuse_bounce_shader);
-						cmd.bind(m_diffuse_bounce_shader, img.diffuse_bounce_random, 0);
-						cmd.bind(m_diffuse_bounce_shader, b.set, 1);
-						cmd.bind(m_diffuse_bounce_shader, img.rt_set, 2);
-						cmd.bind(m_diffuse_bounce_shader, img.env_set, 3);
-						cmd.draw(instance.screen_quad);
-					}
-				);
-
-				cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
-					sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
-			}*/
-
-			/*cmd.render(img.gather_bounces_fb, {{0, 0}, instance.swapchain->extent()},
-				[&](auto &cmd){
-					cmd.bind(m_gather_bounces_shader);
-					cmd.bind(m_gather_bounces_shader, img.gather_bounces_set, 0);
-					cmd.draw(instance.screen_quad);
-				}
-			);*/
-
-			/*cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
-				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
-
-			cmd.render(img.reflect_fb, {{0, 0}, instance.swapchain->extent()},
-				[&](auto &cmd){
-					cmd.bind(m_reflect_shader);
-					cmd.bind(m_reflect_shader, img.reflect_set, 0);
-					cmd.bind(m_reflect_shader, img.rt_set, 1);
-					cmd.draw(instance.screen_quad);
-				}
-			);
-
-			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
-				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
-
-			cmd.render(img.compo_fb, {{0, 0}, instance.swapchain->extent()},
-				[&](auto &cmd){
-					cmd.bind(m_compo_shader);
-					cmd.bind(m_compo_shader, img.compo_set, 0);
-					cmd.bind(m_compo_shader, img.rt_set, 1);
-					cmd.draw(instance.screen_quad);
-				}
-			);*/
-
-			//cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
-			//	sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
 
 			cmd.render(img.buffer_to_wsi_screen_fbs.at(swapchain_img), {{0, 0}, instance.swapchain->extent()},
 				[&](auto &cmd){

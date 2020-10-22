@@ -1,5 +1,0 @@
-rgba16_sfloat reflection { store, out_layout = shader_read_only_optimal };
-
-compute {
-	out reflection;
-}
