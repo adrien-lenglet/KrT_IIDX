@@ -1,0 +1,36 @@
+
+render_pass render_passes::depth_range : compute;
+
+require vertex::p2;
+vertex {
+	void main(void)
+	{
+		gl_Position = vec4((in)pos, 0, 1.0);
+	}
+}
+
+fragment {
+	out vec4 range;
+
+	set fb {
+		sampler2D up;
+	};
+
+	const ivec2[4] off = ivec2[](
+		ivec2(0, 0),
+		ivec2(1, 0),
+		ivec2(0, 1),
+		ivec2(1, 1)
+	);
+
+	void main(void)
+	{
+		vec2[4] values;
+
+		for (int i = 0; i < 4; i++)
+			values[i] = texelFetch(fb.up, ivec2(gl_FragCoord.xy) * 2 + off[i], 0);
+		(out)range = vec4(
+			min(min(min(values[0].x, values[1].x), values[2].x), values[3].x),
+			max(max(max(values[0].y, values[1].y), values[2].y), values[3].y));
+	}
+}

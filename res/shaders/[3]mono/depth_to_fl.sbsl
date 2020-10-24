@@ -1,0 +1,33 @@
+
+render_pass render_passes::depth_to_fl : compute;
+
+require vertex::p2;
+
+vertex {
+	void main(void)
+	{
+		gl_Position = vec4((in)pos, 0, 1.0);
+	}
+}
+
+fragment {
+	set fb {
+		sampler2D depth_buffer;
+		sampler2D depth_inter_front;
+		sampler2D depth_inter_back;
+		sampler2D depth_buffer_max;
+	};
+
+	out vec2 depth_fl;
+
+	void main(void)
+	{
+		vec2 size = vec2(1.0) / textureSize(fb.depth_buffer_max, 0);
+		float depth = texture(fb.depth_buffer, gl_FragCoord.xy, 0).x;
+		float mx = texture(fb.depth_buffer_max, gl_FragCoord.xy * size, 0).x;
+		float max_final = mx == 0.0 ? 1.0 : mx;
+		(out)depth_fl = vec2(
+			depth,
+			max_final);
+	}
+}

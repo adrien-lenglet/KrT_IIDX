@@ -1,0 +1,24 @@
+
+render_pass render_passes::depth_range : compute;
+
+require vertex::p2;
+
+vertex {
+	void main(void)
+	{
+		gl_Position = vec4((in)pos, 0, 1.0);
+	}
+}
+
+fragment {
+	out vec2 range;
+
+	set fb {
+		sampler2D up;
+	};
+
+	void main(void)
+	{
+		(out)range = textureLod(fb.up, gl_FragCoord.xy, 0).xy;
+	}
+}
