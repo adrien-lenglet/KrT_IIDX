@@ -27,6 +27,7 @@ Race::Race(Instance &instance) :
 	m_cube_depth_shader(instance.device.load(res.shaders().cube_depth())),
 	m_cmd_pool(instance.graphics.pool<true>()),
 	m_rt_quality(4),
+	m_is_stereo(true),
 	env(instance.loadImageCube_srgb("res/env/consul")),
 	m_opaque_env_shader(instance.device.load(res.shaders().opaque_env())),
 	images(getImages()),
@@ -49,6 +50,7 @@ void Race::run(void)
 	auto &esc = *instance.surface->buttonsId().at("KB_ESCAPE");
 	auto &f5 = *instance.surface->buttonsId().at("KB_F5");
 	auto &f6 = *instance.surface->buttonsId().at("KB_F6");
+	auto &f7 = *instance.surface->buttonsId().at("KB_F7");
 	auto &f8 = *instance.surface->buttonsId().at("KB_F8");
 	auto &f9 = *instance.surface->buttonsId().at("KB_F9");
 	auto &f11 = *instance.surface->buttonsId().at("KB_F11");
@@ -91,6 +93,15 @@ void Race::run(void)
 				i.update_depth_buffer_trace_res(m_rt_quality);
 			last_frame = nullptr;
 		}
+		f7.update();
+		if (f7.released()) {
+			m_is_stereo = !m_is_stereo;
+			instance.graphics.waitIdle();
+			images.clear();
+			images = getImages();
+			last_frame = nullptr;
+		}
+
 		f11.update();
 		if (f11.released()) {
 			if (monitor) {

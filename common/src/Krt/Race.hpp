@@ -39,6 +39,7 @@ public:
 
 	decltype(instance.graphics.pool<true>()) m_cmd_pool;
 	size_t m_rt_quality;
+	bool m_is_stereo;
 
 	sb::ImageCube env;
 	decltype(instance.device.load(res.shaders().opaque_env())) m_opaque_env_shader;
@@ -63,10 +64,10 @@ struct Race::Image {
 		virtual void schedule(sb::CommandBuffer::Record::Primary<sb::Queue::Flag::Graphics> &cmd, Image &img) = 0;
 	};
 
-	class DepthStero : public DepthRange
+	class DepthStereo : public DepthRange
 	{
 	public:
-		DepthStero(Race &race, sb::Image2D &fb_depth_buffer, sb::Image2D &fb_depth_buffer_max) :
+		DepthStereo(Race &race, sb::Image2D &fb_depth_buffer, sb::Image2D &fb_depth_buffer_max) :
 			race(race),
 			m_depth_inter_front_shader(race.instance.device.load(res.shaders().stereo().depth_inter_front())),
 			m_depth_inter_back_shader(race.instance.device.load(res.shaders().stereo().depth_inter_back())),
@@ -107,7 +108,7 @@ struct Race::Image {
 			depth_to_fl_set.depth_inter_back.bind(race.m_sampler_nearest, depth_inter_back, sb::Image::Layout::ShaderReadOnlyOptimal);
 			depth_to_fl_set.depth_buffer_max.bind(race.m_sampler_nearest, fb_depth_buffer_max, sb::Image::Layout::ShaderReadOnlyOptimal);
 		}
-		~DepthStero(void) override
+		~DepthStereo(void) override
 		{
 		}
 
@@ -315,7 +316,190 @@ struct Race::Image {
 		}
 	};
 
-	Image(Race &race, size_t rt_quality) :
+	class DepthMono : public DepthRange
+	{
+	public:
+		DepthMono(Race &race, sb::Image2D &fb_depth_buffer, sb::Image2D &fb_depth_buffer_max) :
+			race(race),
+			m_depth_range_pass(race.instance.device.load(res.shaders().mono().render_passes().depth_range())),
+			m_first_depth_range(race.instance.device.load(res.shaders().mono().first_depth_range())),
+			m_compute_depth_range(race.instance.device.load(res.shaders().mono().compute_depth_range())),
+			m_depth_to_fl_pass(race.instance.device.load(res.shaders().mono().render_passes().depth_to_fl())),
+			m_depth_to_fl_shader(race.instance.device.load(res.shaders().mono().depth_to_fl())),
+			m_scheduling_shader(race.instance.device.load(res.shaders().mono().scheduling())),
+
+			extent(race.instance.swapchain->extent()),
+
+			fb_depth_buffer_raw_fl(race.instance.device.image2D(sb::Format::rg32_sfloat, {static_cast<size_t>(std::pow(2.0, std::ceil(std::log2(extent.x)))), static_cast<size_t>(std::pow(2.0, std::ceil(std::log2(extent.y))))}, sb::Image::allMipLevels, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled | sb::Image::Usage::TransferSrc | sb::Image::Usage::TransferDst, race.instance.graphics)),
+			fb_depth_buffer_raw_fl_mips(getDepthBufferRawFlMips()),
+			depth_to_fl_fb(m_depth_to_fl_pass.framebuffer(fb_depth_buffer_raw_fl_mips.at(0).extent(), 1, fb_depth_buffer_raw_fl_mips.at(0))),
+			depth_to_fl_set(m_depth_to_fl_shader.fb(race.instance.graphics)),
+			fb_depth_buffer_fl(race.instance.device.image2D(sb::Format::rg32_sfloat, sb::svec2(static_cast<size_t>(std::pow(2.0, std::ceil(std::log2(extent.x)))), static_cast<size_t>(std::pow(2.0, std::ceil(std::log2(extent.y))))), sb::Image::allMipLevels, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled | sb::Image::Usage::TransferSrc | sb::Image::Usage::TransferDst, race.instance.graphics)),
+			fb_depth_buffer_fl_mips(getDepthBufferFlMips()),
+
+			first_depth_range_in_fb(getFirstDepthRangeInFb()),
+			compute_depth_range_in_fb(getComputeDepthRangeInFb())
+		{
+			depth_to_fl_set.depth_buffer.bind(race.m_fb_sampler, fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
+			depth_to_fl_set.depth_buffer_max.bind(race.m_sampler_nearest, fb_depth_buffer_max, sb::Image::Layout::ShaderReadOnlyOptimal);
+		}
+		~DepthMono(void) override
+		{
+		}
+
+		sb::Image2D& depthBufferFl(void) override
+		{
+			return fb_depth_buffer_fl;
+		}
+
+		void drawDepth(sb::CommandBuffer::Record::Primary<sb::Queue::Flag::Graphics> &cmd, Track&) override
+		{
+			cmd.render(depth_to_fl_fb, {{0, 0}, fb_depth_buffer_raw_fl.extent()},
+				[&](auto &cmd){
+					cmd.bind(m_depth_to_fl_shader);
+					cmd.bind(m_depth_to_fl_shader, depth_to_fl_set, 0);
+					cmd.draw(race.instance.screen_quad);
+				}
+			);
+
+			cmd.imageMemoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::Transfer, {},
+				sb::Access::ColorAttachmentWrite, sb::Access::TransferRead,
+				sb::Image::Layout::ShaderReadOnlyOptimal, sb::Image::Layout::TransferSrcOptimal, fb_depth_buffer_raw_fl_mips.at(0));
+
+			{
+				auto end = fb_depth_buffer_raw_fl_mips.end();
+				for (auto it = fb_depth_buffer_raw_fl_mips.begin() + 1; it != end; it++) {
+					auto &cur = *it;
+					cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
+						sb::Access::TransferWrite, sb::Access::TransferRead,
+						sb::Image::Layout::Undefined, sb::Image::Layout::TransferDstOptimal, cur);
+
+					cmd.blit(*(it - 1), sb::Image::Layout::TransferSrcOptimal, (it - 1)->blitRegion({0, 0}, (it - 1)->extent()),
+					cur, sb::Image::Layout::TransferDstOptimal, cur.blitRegion({0, 0}, cur.extent()), sb::Filter::Linear);
+
+					cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
+						sb::Access::TransferWrite, sb::Access::TransferRead,
+						sb::Image::Layout::TransferDstOptimal, sb::Image::Layout::TransferSrcOptimal, cur);
+
+					cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
+						sb::Access::TransferWrite, sb::Access::TransferRead,
+						sb::Image::Layout::TransferSrcOptimal, sb::Image::Layout::ShaderReadOnlyOptimal, *(it - 1));
+				}
+			}
+
+			cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::FragmentShader, {},
+				sb::Access::TransferWrite, sb::Access::ShaderRead,
+				sb::Image::Layout::TransferSrcOptimal, sb::Image::Layout::ShaderReadOnlyOptimal, *fb_depth_buffer_raw_fl_mips.rbegin());
+
+			{
+				size_t ndx = 0;
+				for (auto &mip : fb_depth_buffer_fl_mips) {
+					auto ex = mip.img.extent();
+					cmd.setViewport({{0.0f, 0.0f}, {ex.x, ex.y}}, 0.0f, 1.0f);
+					cmd.setScissor({{0, 0}, ex});
+					cmd.render(mip.fb, {{0, 0}, ex},
+						[&](auto &cmd){
+							if (ndx == 0) {
+								cmd.bind(m_first_depth_range);
+								cmd.bind(m_first_depth_range, first_depth_range_in_fb, 0);
+								cmd.draw(race.instance.screen_quad);
+							} else {
+								cmd.bind(m_compute_depth_range);
+								cmd.bind(m_compute_depth_range, compute_depth_range_in_fb.at(ndx - 1), 0);
+								cmd.draw(race.instance.screen_quad);
+							}
+						}
+					);
+
+					cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
+						sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
+
+					ndx++;
+				}
+			}
+		}
+
+		void schedule(sb::CommandBuffer::Record::Primary<sb::Queue::Flag::Graphics> &cmd, Image &img) override
+		{
+			cmd.render(img.scheduling_fb, {{0, 0}, race.instance.swapchain->extent()},
+				[&](auto &cmd){
+					cmd.bind(m_scheduling_shader);
+					cmd.bind(m_scheduling_shader, img.rt_set, 0);
+					cmd.bind(m_scheduling_shader, img.env_set, 1);
+					cmd.bind(m_scheduling_shader, img.scheduling_set, 2);
+					cmd.draw(race.instance.screen_quad);
+				}
+			);
+		}
+
+	private:
+		Race &race;
+
+		decltype(race.instance.device.load(res.shaders().mono().render_passes().depth_range())) m_depth_range_pass;
+		decltype(race.instance.device.load(res.shaders().mono().first_depth_range())) m_first_depth_range;
+		decltype(race.instance.device.load(res.shaders().mono().compute_depth_range())) m_compute_depth_range;
+
+		decltype(race.instance.device.load(res.shaders().mono().render_passes().depth_to_fl())) m_depth_to_fl_pass;
+		decltype(race.instance.device.load(res.shaders().mono().depth_to_fl())) m_depth_to_fl_shader;
+
+		decltype(instance.device.load(res.shaders().mono().scheduling())) m_scheduling_shader;
+
+		sb::svec2 extent;
+
+		sb::Image2D fb_depth_buffer_raw_fl;
+		std::vector<sb::Image2D> fb_depth_buffer_raw_fl_mips;
+		decltype(fb_depth_buffer_raw_fl_mips) getDepthBufferRawFlMips(void)
+		{
+			decltype(fb_depth_buffer_raw_fl_mips) res;
+
+			for (size_t i = 0; i < fb_depth_buffer_raw_fl.mipLevels(); i++)
+				res.emplace_back(fb_depth_buffer_raw_fl.view(sb::ComponentSwizzle::Identity, sb::Image::Aspect::Color, sb::Range(i, 1)));
+			return res;
+		}
+		decltype(m_depth_to_fl_pass)::Framebuffer depth_to_fl_fb;
+		decltype(m_depth_to_fl_shader.fb(race.instance.graphics)) depth_to_fl_set;
+		sb::Image2D fb_depth_buffer_fl;
+		struct DepthBufferMip {
+			sb::Image2D img;
+			decltype(m_depth_range_pass)::Framebuffer fb;
+		};
+		std::vector<DepthBufferMip> fb_depth_buffer_fl_mips;
+		decltype(fb_depth_buffer_fl_mips) getDepthBufferFlMips(void)
+		{
+			decltype(fb_depth_buffer_fl_mips) res;
+
+			for (size_t i = 0; i < fb_depth_buffer_fl.mipLevels(); i++) {
+				auto img = fb_depth_buffer_fl.view(sb::ComponentSwizzle::Identity, sb::Image::Aspect::Color, sb::Range(i, 1));
+				auto fb = m_depth_range_pass.framebuffer(img.extent(), 1, img);
+				res.emplace_back(DepthBufferMip{std::move(img), std::move(fb)});
+			}
+			return res;
+		}
+
+		decltype(m_first_depth_range.fb(race.instance.graphics)) first_depth_range_in_fb;
+		decltype(first_depth_range_in_fb) getFirstDepthRangeInFb(void)
+		{
+			auto res = m_first_depth_range.fb(race.instance.graphics);
+
+			res.up.bind(race.m_fb_sampler, fb_depth_buffer_raw_fl_mips.at(0), sb::Image::Layout::ShaderReadOnlyOptimal);
+			return res;
+		}
+		std::vector<decltype(m_compute_depth_range.fb(race.instance.graphics))> compute_depth_range_in_fb;
+		decltype(compute_depth_range_in_fb) getComputeDepthRangeInFb(void)
+		{
+			decltype(compute_depth_range_in_fb) res;
+
+			auto end = fb_depth_buffer_fl_mips.end();
+			for (auto it = fb_depth_buffer_fl_mips.begin() + 1; it != end; it++) {
+				auto in_fb = m_compute_depth_range.fb(race.instance.graphics);
+				in_fb.up.bind(race.m_fb_sampler, (it - 1)->img, sb::Image::Layout::ShaderReadOnlyOptimal);
+				res.emplace_back(std::move(in_fb));
+			}
+			return res;
+		}
+	};
+
+	Image(Race &race, size_t rt_quality, bool isStereo) :
 		race(race),
 		fb_albedo(race.instance.device.image2D(sb::Format::rgba8_unorm, race.instance.swapchain->extent(), 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
 		fb_emissive(race.instance.device.image2D(sb::Format::rgba16_sfloat, race.instance.swapchain->extent(), 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
@@ -325,7 +509,7 @@ struct Race::Image {
 		fb_depth_buffer_max(race.instance.device.image2D(sb::Format::d24un_or_32sf_spl_att_sfb, race.instance.swapchain->extent(), 1, sb::Image::Usage::DepthStencilAttachment | sb::Image::Usage::Sampled | sb::Image::Usage::TransferSrc, race.instance.graphics)),
 		depth_buffer_max_fb(race.m_depth_max_pass.framebuffer(race.instance.swapchain->extent(), 1, fb_depth_buffer_max)),
 		depth_buffer_trace_res(rt_quality),
-		depth_range(new DepthStero(race, fb_depth_buffer, fb_depth_buffer_max)),
+		depth_range(isStereo ? static_cast<DepthRange*>(new DepthStereo(race, fb_depth_buffer, fb_depth_buffer_max)) : static_cast<DepthRange*>(new DepthMono(race, fb_depth_buffer, fb_depth_buffer_max))),
 		depth_buffer_fl(depth_range->depthBufferFl()),
 		opaque_fb(race.m_opaque_pass.framebuffer(race.instance.swapchain->extent(), 1, fb_albedo, fb_emissive, fb_normal, fb_refl, fb_depth_buffer)),
 		primary(race.instance.device.image2D(sb::Format::rgba16_sfloat, race.instance.swapchain->extent(), 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
@@ -488,7 +672,7 @@ inline decltype(Race::images) Race::getImages(void)
 	decltype(images) res;
 
 	for (size_t i = 0; i < instance.img_count; i++)
-		res.emplace_back(*this, m_rt_quality);
+		res.emplace_back(*this, m_rt_quality, m_is_stereo);
 	{
 		size_t ndx = 0;
 		for (auto &i : res) {
