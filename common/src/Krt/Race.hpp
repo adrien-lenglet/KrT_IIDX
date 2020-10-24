@@ -544,6 +544,7 @@ struct Race::Image {
 
 		scheduling_set.albedo.bind(race.m_fb_sampler, fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
 		scheduling_set.emissive.bind(race.m_fb_sampler, fb_emissive, sb::Image::Layout::ShaderReadOnlyOptimal);
+		scheduling_set.refl.bind(race.m_fb_sampler, fb_refl, sb::Image::Layout::ShaderReadOnlyOptimal);
 		scheduling_set.normal.bind(race.m_fb_sampler, fb_normal, sb::Image::Layout::ShaderReadOnlyOptimal);
 
 		diffuse_to_wsi_screen_set.diffuse.bind(race.m_fb_sampler, diffuse, sb::Image::Layout::ShaderReadOnlyOptimal);

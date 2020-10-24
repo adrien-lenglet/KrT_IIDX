@@ -2,6 +2,7 @@
 	set fb {
 		sampler2D albedo;
 		sampler2D emissive;
+		sampler2D refl;
 		sampler2D normal;
 
 		sampler2D last_albedo;
