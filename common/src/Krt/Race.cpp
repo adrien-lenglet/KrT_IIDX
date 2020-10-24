@@ -286,113 +286,7 @@ void Race::run(void)
 			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput | sb::PipelineStage::LateFragmentTests, sb::PipelineStage::FragmentShader, {},
 				sb::Access::ColorAttachmentWrite | sb::Access::DepthStencilAttachmentWrite, sb::Access::ShaderRead);
 
-			/*cmd.render(img.depth_inter_front_fb, {{0, 0}, instance.swapchain->extent()},
-				1.0f,
-
-				[&](auto &cmd){
-					cmd.bind(m_depth_inter_front_shader);
-					cmd.bind(m_depth_inter_front_shader, m_track->render.camera, 0);
-					cmd.bind(m_depth_inter_front_shader, img.depth_inter_front_set, 1);
-					cmd.bind(m_depth_inter_front_shader, m_track->entity.m_depth_object, 2);
-					cmd.draw(m_track->entity.m_model);
-				}
-			);
-
-			cmd.memoryBarrier(sb::PipelineStage::LateFragmentTests, sb::PipelineStage::FragmentShader, {},
-				sb::Access::DepthStencilAttachmentWrite, sb::Access::ShaderRead);
-
-			cmd.render(img.depth_inter_back_fb, {{0, 0}, instance.swapchain->extent()},
-				1.0f,
-
-				[&](auto &cmd){
-					cmd.bind(m_depth_inter_back_shader);
-					cmd.bind(m_depth_inter_back_shader, m_track->render.camera, 0);
-					cmd.bind(m_depth_inter_back_shader, img.depth_inter_back_set, 1);
-					cmd.bind(m_depth_inter_back_shader, m_track->entity.m_depth_object, 2);
-					cmd.draw(m_track->entity.m_model);
-				}
-			);
-
-			cmd.memoryBarrier(sb::PipelineStage::LateFragmentTests, sb::PipelineStage::FragmentShader, {},
-				sb::Access::DepthStencilAttachmentWrite, sb::Access::ShaderRead);
-
-			cmd.render(img.depth_to_fl_fb, {{0, 0}, img.fb_depth_buffer_raw_fl.extent()},
-				[&](auto &cmd){
-					cmd.bind(m_depth_to_fl_shader);
-					cmd.bind(m_depth_to_fl_shader, img.depth_to_fl_set, 0);
-					cmd.draw(instance.screen_quad);
-				}
-			);*/
-
-			// SAVABLE
-			/*cmd.imageMemoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::Transfer, {},
-				sb::Access::ColorAttachmentWrite, sb::Access::TransferRead,
-				sb::Image::Layout::ShaderReadOnlyOptimal, sb::Image::Layout::TransferSrcOptimal, img.fb_depth_buffer_raw_fl_mips.at(0));
-
-			{
-				auto end = img.fb_depth_buffer_raw_fl_mips.end();
-				for (auto it = img.fb_depth_buffer_raw_fl_mips.begin() + 1; it != end; it++) {
-					auto &cur = *it;
-					cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
-						sb::Access::TransferWrite, sb::Access::TransferRead,
-						sb::Image::Layout::Undefined, sb::Image::Layout::TransferDstOptimal, cur);
-
-					cmd.blit(*(it - 1), sb::Image::Layout::TransferSrcOptimal, (it - 1)->blitRegion({0, 0}, (it - 1)->extent()),
-					cur, sb::Image::Layout::TransferDstOptimal, cur.blitRegion({0, 0}, cur.extent()), sb::Filter::Linear);
-
-					cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
-						sb::Access::TransferWrite, sb::Access::TransferRead,
-						sb::Image::Layout::TransferDstOptimal, sb::Image::Layout::TransferSrcOptimal, cur);
-
-					cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
-						sb::Access::TransferWrite, sb::Access::TransferRead,
-						sb::Image::Layout::TransferSrcOptimal, sb::Image::Layout::ShaderReadOnlyOptimal, *(it - 1));
-				}
-			}
-
-			cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::FragmentShader, {},
-				sb::Access::TransferWrite, sb::Access::ShaderRead,
-				sb::Image::Layout::TransferSrcOptimal, sb::Image::Layout::ShaderReadOnlyOptimal, *img.fb_depth_buffer_raw_fl_mips.rbegin());*/
-
-			/*{
-				size_t ndx = 0;
-				for (auto &mip : img.fb_depth_buffer_fl_mips) {
-					auto ex = mip.img.extent();
-					cmd.setViewport({{0.0f, 0.0f}, {ex.x, ex.y}}, 0.0f, 1.0f);
-					cmd.setScissor({{0, 0}, ex});
-					cmd.render(mip.fb, {{0, 0}, ex},
-						[&](auto &cmd){
-							if (ndx == 0) {
-								cmd.bind(m_first_depth_range);
-								cmd.bind(m_first_depth_range, img.first_depth_range_in_fb, 0);
-								cmd.draw(instance.screen_quad);
-							} else {
-								cmd.bind(m_compute_depth_range);
-								cmd.bind(m_compute_depth_range, img.compute_depth_range_in_fb.at(ndx - 1), 0);
-								cmd.draw(instance.screen_quad);
-							}
-						}
-					);
-
-					cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
-						sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
-
-					ndx++;
-				}
-			}*/
-
-			/*{
-				auto ex = img.cube_depth.extent();
-				cmd.render(img.cube_depth_fb, {{0, 0}, ex},
-					[&](auto &cmd){
-						cmd.setViewport({{0.0f, 0.0f}, {ex.x, ex.y}}, 0.0f, 1.0f);
-						cmd.setScissor({{0, 0}, ex});
-						cmd.bind(m_cube_depth_shader);
-						cmd.bind(m_cube_depth_shader, img.cube_depth_set, 0);
-						cmd.draw(instance.screen_quad);
-					}
-				);
-			}*/
+			img.depth_range->drawDepth(cmd, *m_track);
 
 			cmd.setViewport(viewport, 0.0f, 1.0f);
 			cmd.setScissor({{0, 0}, instance.swapchain->extent()});
@@ -406,15 +300,7 @@ void Race::run(void)
 			for (auto &d : img.scheduling_set.random_diffuse)
 				d = sb::genDiffuseVector(*m_track, glm::vec3(0.0f, 0.0f, 1.0f), 1.0);
 
-			/*cmd.render(img.scheduling_fb, {{0, 0}, instance.swapchain->extent()},
-				[&](auto &cmd){
-					cmd.bind(m_scheduling_shader);
-					cmd.bind(m_scheduling_shader, img.rt_set, 0);
-					cmd.bind(m_scheduling_shader, img.env_set, 1);
-					cmd.bind(m_scheduling_shader, img.scheduling_set, 2);
-					cmd.draw(instance.screen_quad);
-				}
-			);*/
+			img.depth_range->schedule(cmd, img);
 
 			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
 				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);

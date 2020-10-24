@@ -59,12 +59,14 @@ struct Race::Image {
 		virtual ~DepthRange(void) = default;
 
 		virtual sb::Image2D& depthBufferFl(void) = 0;
+		virtual void drawDepth(sb::CommandBuffer::Record::Primary<sb::Queue::Flag::Graphics> &cmd, Track &track) = 0;
+		virtual void schedule(sb::CommandBuffer::Record::Primary<sb::Queue::Flag::Graphics> &cmd, Image &img) = 0;
 	};
 
 	class DepthStero : public DepthRange
 	{
 	public:
-		DepthStero(Race &race, 	sb::Image2D &fb_depth_buffer, sb::Image2D &fb_depth_buffer_max, decltype(Race::m_depth_max_pass)::Framebuffer &depth_buffer_max_fb) :
+		DepthStero(Race &race, sb::Image2D &fb_depth_buffer, sb::Image2D &fb_depth_buffer_max) :
 			race(race),
 			m_depth_inter_front_shader(race.instance.device.load(res.shaders().stereo().depth_inter_front())),
 			m_depth_inter_back_shader(race.instance.device.load(res.shaders().stereo().depth_inter_back())),
@@ -112,6 +114,129 @@ struct Race::Image {
 		sb::Image2D& depthBufferFl(void) override
 		{
 			return fb_depth_buffer_fl;
+		}
+
+		void drawDepth(sb::CommandBuffer::Record::Primary<sb::Queue::Flag::Graphics> &cmd, Track &track) override
+		{
+			cmd.render(depth_inter_front_fb, {{0, 0}, extent},
+				1.0f,
+
+				[&](auto &cmd){
+					cmd.bind(m_depth_inter_front_shader);
+					cmd.bind(m_depth_inter_front_shader, track.render.camera, 0);
+					cmd.bind(m_depth_inter_front_shader, depth_inter_front_set, 1);
+					cmd.bind(m_depth_inter_front_shader, track.entity.m_depth_object, 2);
+					cmd.draw(track.entity.m_model);
+				}
+			);
+
+			cmd.memoryBarrier(sb::PipelineStage::LateFragmentTests, sb::PipelineStage::FragmentShader, {},
+				sb::Access::DepthStencilAttachmentWrite, sb::Access::ShaderRead);
+
+			cmd.render(depth_inter_back_fb, {{0, 0}, extent},
+				1.0f,
+
+				[&](auto &cmd){
+					cmd.bind(m_depth_inter_back_shader);
+					cmd.bind(m_depth_inter_back_shader, track.render.camera, 0);
+					cmd.bind(m_depth_inter_back_shader, depth_inter_back_set, 1);
+					cmd.bind(m_depth_inter_back_shader, track.entity.m_depth_object, 2);
+					cmd.draw(track.entity.m_model);
+				}
+			);
+
+			cmd.memoryBarrier(sb::PipelineStage::LateFragmentTests, sb::PipelineStage::FragmentShader, {},
+				sb::Access::DepthStencilAttachmentWrite, sb::Access::ShaderRead);
+
+			cmd.render(depth_to_fl_fb, {{0, 0}, fb_depth_buffer_raw_fl.extent()},
+				[&](auto &cmd){
+					cmd.bind(m_depth_to_fl_shader);
+					cmd.bind(m_depth_to_fl_shader, depth_to_fl_set, 0);
+					cmd.draw(race.instance.screen_quad);
+				}
+			);
+
+			cmd.imageMemoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::Transfer, {},
+				sb::Access::ColorAttachmentWrite, sb::Access::TransferRead,
+				sb::Image::Layout::ShaderReadOnlyOptimal, sb::Image::Layout::TransferSrcOptimal, fb_depth_buffer_raw_fl_mips.at(0));
+
+			{
+				auto end = fb_depth_buffer_raw_fl_mips.end();
+				for (auto it = fb_depth_buffer_raw_fl_mips.begin() + 1; it != end; it++) {
+					auto &cur = *it;
+					cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
+						sb::Access::TransferWrite, sb::Access::TransferRead,
+						sb::Image::Layout::Undefined, sb::Image::Layout::TransferDstOptimal, cur);
+
+					cmd.blit(*(it - 1), sb::Image::Layout::TransferSrcOptimal, (it - 1)->blitRegion({0, 0}, (it - 1)->extent()),
+					cur, sb::Image::Layout::TransferDstOptimal, cur.blitRegion({0, 0}, cur.extent()), sb::Filter::Linear);
+
+					cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
+						sb::Access::TransferWrite, sb::Access::TransferRead,
+						sb::Image::Layout::TransferDstOptimal, sb::Image::Layout::TransferSrcOptimal, cur);
+
+					cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::Transfer, {},
+						sb::Access::TransferWrite, sb::Access::TransferRead,
+						sb::Image::Layout::TransferSrcOptimal, sb::Image::Layout::ShaderReadOnlyOptimal, *(it - 1));
+				}
+			}
+
+			cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::FragmentShader, {},
+				sb::Access::TransferWrite, sb::Access::ShaderRead,
+				sb::Image::Layout::TransferSrcOptimal, sb::Image::Layout::ShaderReadOnlyOptimal, *fb_depth_buffer_raw_fl_mips.rbegin());
+
+			{
+				size_t ndx = 0;
+				for (auto &mip : fb_depth_buffer_fl_mips) {
+					auto ex = mip.img.extent();
+					cmd.setViewport({{0.0f, 0.0f}, {ex.x, ex.y}}, 0.0f, 1.0f);
+					cmd.setScissor({{0, 0}, ex});
+					cmd.render(mip.fb, {{0, 0}, ex},
+						[&](auto &cmd){
+							if (ndx == 0) {
+								cmd.bind(m_first_depth_range);
+								cmd.bind(m_first_depth_range, first_depth_range_in_fb, 0);
+								cmd.draw(race.instance.screen_quad);
+							} else {
+								cmd.bind(m_compute_depth_range);
+								cmd.bind(m_compute_depth_range, compute_depth_range_in_fb.at(ndx - 1), 0);
+								cmd.draw(race.instance.screen_quad);
+							}
+						}
+					);
+
+					cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
+						sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
+
+					ndx++;
+				}
+			}
+
+			/*{
+				auto ex = img.cube_depth.extent();
+				cmd.render(img.cube_depth_fb, {{0, 0}, ex},
+					[&](auto &cmd){
+						cmd.setViewport({{0.0f, 0.0f}, {ex.x, ex.y}}, 0.0f, 1.0f);
+						cmd.setScissor({{0, 0}, ex});
+						cmd.bind(m_cube_depth_shader);
+						cmd.bind(m_cube_depth_shader, img.cube_depth_set, 0);
+						cmd.draw(instance.screen_quad);
+					}
+				);
+			}*/
+		}
+
+		void schedule(sb::CommandBuffer::Record::Primary<sb::Queue::Flag::Graphics> &cmd, Image &img) override
+		{
+			cmd.render(img.scheduling_fb, {{0, 0}, race.instance.swapchain->extent()},
+				[&](auto &cmd){
+					cmd.bind(m_scheduling_shader);
+					cmd.bind(m_scheduling_shader, img.rt_set, 0);
+					cmd.bind(m_scheduling_shader, img.env_set, 1);
+					cmd.bind(m_scheduling_shader, img.scheduling_set, 2);
+					cmd.draw(race.instance.screen_quad);
+				}
+			);
 		}
 
 	private:
@@ -200,7 +325,7 @@ struct Race::Image {
 		fb_depth_buffer_max(race.instance.device.image2D(sb::Format::d24un_or_32sf_spl_att_sfb, race.instance.swapchain->extent(), 1, sb::Image::Usage::DepthStencilAttachment | sb::Image::Usage::Sampled | sb::Image::Usage::TransferSrc, race.instance.graphics)),
 		depth_buffer_max_fb(race.m_depth_max_pass.framebuffer(race.instance.swapchain->extent(), 1, fb_depth_buffer_max)),
 		depth_buffer_trace_res(rt_quality),
-		depth_range(new DepthStero(race, fb_depth_buffer, fb_depth_buffer_max, depth_buffer_max_fb)),
+		depth_range(new DepthStero(race, fb_depth_buffer, fb_depth_buffer_max)),
 		depth_buffer_fl(depth_range->depthBufferFl()),
 		opaque_fb(race.m_opaque_pass.framebuffer(race.instance.swapchain->extent(), 1, fb_albedo, fb_emissive, fb_normal, fb_refl, fb_depth_buffer)),
 		primary(race.instance.device.image2D(sb::Format::rgba16_sfloat, race.instance.swapchain->extent(), 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
