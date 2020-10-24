@@ -1,6 +1,9 @@
 rgba16_sfloat primary { store, out_layout = shader_read_only_optimal };
 rgba16_sfloat bounce0 { store, out_layout = shader_read_only_optimal };
 rgba16_sfloat bounce1 { store, out_layout = shader_read_only_optimal };
+rgba16_sfloat refl_albedo { store, out_layout = shader_read_only_optimal };
+rg16_sfloat refl_pos { store, out_layout = shader_read_only_optimal };
+rgba16_sfloat refl_dir { store, out_layout = shader_read_only_optimal };
 rgba16_sfloat diffuse { store, out_layout = shader_read_only_optimal };
 r32_sfloat diffuse_it { store, out_layout = shader_read_only_optimal };
 
@@ -8,6 +11,9 @@ compute {
 	out primary;
 	out bounce0;
 	out bounce1;
+	out refl_albedo;
+	out refl_pos;
+	out refl_dir;
 	out diffuse;
 	out diffuse_it;
 }

@@ -7,11 +7,16 @@
 
 		sampler2D last_albedo;
 		sampler2D last_emissive;
+		sampler2D last_refl;
+		sampler2D last_normal;
 		sampler2D last_depth_buffer;
 
 		sampler2D last_primary;
 		sampler2D last_bounce0;
 		sampler2D last_bounce1;
+		sampler2D last_refl_albedo;
+		sampler2D last_refl_pos;
+		sampler2D last_refl_dir;
 		sampler2D last_diffuse;
 		sampler2D last_diffuse_it;
 
@@ -26,6 +31,8 @@
 		mat4 cur_cam_inv_normal;
 		mat4 last_cam_inv;
 		mat4 last_cam_inv_normal;
+		mat4 last_cam_to_cur;
+		mat4 last_cam_to_cur_normal;
 
 		uint path;
 	};

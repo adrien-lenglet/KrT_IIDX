@@ -230,6 +230,12 @@ void Race::run(void)
 					for (size_t i = 0; i < 3; i++)
 						last_cam_inv_normal[3][i] = 0.0f;
 					s_sche.last_cam_inv_normal = last_cam_inv_normal;
+					glm::mat4 last_cam_to_cur = view * glm::inverse(last_view);
+					s_sche.last_cam_to_cur = last_cam_to_cur;
+					glm::mat4 last_cam_to_cur_normal = last_cam_to_cur;
+					for (size_t i = 0; i < 3; i++)
+						last_cam_to_cur_normal[3][i] = 0.0f;
+					s_sche.last_cam_to_cur_normal = last_cam_to_cur_normal;
 					s_sche.path = step;
 					instance.cur_img_res->uploadDescSet(s_sche);
 

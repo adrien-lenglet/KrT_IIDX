@@ -515,12 +515,15 @@ struct Race::Image {
 		primary(race.instance.device.image2D(sb::Format::rgba16_sfloat, race.instance.swapchain->extent(), 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
 		bounce0(race.instance.device.image2D(sb::Format::rgba16_sfloat, race.instance.swapchain->extent(), 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
 		bounce1(race.instance.device.image2D(sb::Format::rgba16_sfloat, race.instance.swapchain->extent(), 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
+		refl_albedo(race.instance.device.image2D(sb::Format::rgba16_sfloat, race.instance.swapchain->extent(), 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
+		refl_pos(race.instance.device.image2D(sb::Format::rg16_sfloat, race.instance.swapchain->extent(), 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
+		refl_dir(race.instance.device.image2D(sb::Format::rgba16_sfloat, race.instance.swapchain->extent(), 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
 		diffuse(race.instance.device.image2D(sb::Format::rgba16_sfloat, race.instance.swapchain->extent(), 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
 		diffuse_accum(race.instance.device.image2D(sb::Format::r32_sfloat, race.instance.swapchain->extent(), 1, sb::Image::Usage::ColorAttachment | sb::Image::Usage::Sampled, race.instance.graphics)),
 		env_set(race.m_env_shader.env(race.instance.graphics)),
 		rt_set(race.m_rt_shader.rt_fb(race.instance.graphics)),
 		swapchain_img_avail(race.instance.device.semaphore()),
-		scheduling_fb(race.m_scheduling_pass.framebuffer(race.instance.swapchain->extent(), 1, primary, bounce0, bounce1, diffuse, diffuse_accum)),
+		scheduling_fb(race.m_scheduling_pass.framebuffer(race.instance.swapchain->extent(), 1, primary, bounce0, bounce1, refl_albedo, refl_pos, refl_dir, diffuse, diffuse_accum)),
 		scheduling_set(race.m_scheduling_fb_shader.fb(race.instance.graphics)),
 		buffer_to_wsi_screen_fbs(getBufferToWsiScreenFbs()),
 		diffuse_to_wsi_screen_set(race.m_diffuse_to_wsi_screen.light(race.instance.graphics)),
@@ -577,6 +580,15 @@ struct Race::Image {
 				sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, bounce1);
 			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
 				sb::Access::MemoryWrite, sb::Access::MemoryRead,
+				sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, refl_albedo);
+			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
+				sb::Access::MemoryWrite, sb::Access::MemoryRead,
+				sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, refl_pos);
+			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
+				sb::Access::MemoryWrite, sb::Access::MemoryRead,
+				sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, refl_dir);
+			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
+				sb::Access::MemoryWrite, sb::Access::MemoryRead,
 				sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, diffuse);
 			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
 				sb::Access::MemoryWrite, sb::Access::MemoryRead,
@@ -584,6 +596,12 @@ struct Race::Image {
 			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
 				sb::Access::MemoryWrite, sb::Access::MemoryRead,
 				sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, fb_emissive);
+			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
+				sb::Access::MemoryWrite, sb::Access::MemoryRead,
+				sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, fb_refl);
+			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
+				sb::Access::MemoryWrite, sb::Access::MemoryRead,
+				sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, fb_normal);
 			cmd.imageMemoryBarrier(sb::PipelineStage::BottomOfPipe, sb::PipelineStage::TopOfPipe, {},
 				sb::Access::MemoryWrite, sb::Access::MemoryRead,
 				sb::Image::Layout::Undefined, sb::Image::Layout::ShaderReadOnlyOptimal, diffuse_accum);
@@ -614,6 +632,9 @@ struct Race::Image {
 	sb::Image2D primary;
 	sb::Image2D bounce0;
 	sb::Image2D bounce1;
+	sb::Image2D refl_albedo;
+	sb::Image2D refl_pos;
+	sb::Image2D refl_dir;
 	sb::Image2D diffuse;
 	sb::Image2D diffuse_accum;
 	decltype(race.m_env_shader.env(race.instance.graphics)) env_set;
@@ -682,11 +703,16 @@ inline decltype(Race::images) Race::getImages(void)
 			auto &n = res.at((ndx + 1) % res.size());
 			n.scheduling_set.last_albedo.bind(m_fb_sampler_linear, i.fb_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
 			n.scheduling_set.last_emissive.bind(m_fb_sampler_linear, i.fb_emissive, sb::Image::Layout::ShaderReadOnlyOptimal);
+			n.scheduling_set.last_refl.bind(m_fb_sampler_linear, i.fb_refl, sb::Image::Layout::ShaderReadOnlyOptimal);
+			n.scheduling_set.last_normal.bind(m_fb_sampler_linear, i.fb_normal, sb::Image::Layout::ShaderReadOnlyOptimal);
 			n.scheduling_set.last_depth_buffer.bind(m_fb_sampler_linear, i.fb_depth_buffer, sb::Image::Layout::ShaderReadOnlyOptimal);
 
 			n.scheduling_set.last_primary.bind(m_fb_sampler_linear, i.primary, sb::Image::Layout::ShaderReadOnlyOptimal);
 			n.scheduling_set.last_bounce0.bind(m_fb_sampler_linear, i.bounce0, sb::Image::Layout::ShaderReadOnlyOptimal);
 			n.scheduling_set.last_bounce1.bind(m_fb_sampler_linear, i.bounce1, sb::Image::Layout::ShaderReadOnlyOptimal);
+			n.scheduling_set.last_refl_albedo.bind(m_fb_sampler_linear, i.refl_albedo, sb::Image::Layout::ShaderReadOnlyOptimal);
+			n.scheduling_set.last_refl_pos.bind(m_fb_sampler_linear, i.refl_pos, sb::Image::Layout::ShaderReadOnlyOptimal);
+			n.scheduling_set.last_refl_dir.bind(m_fb_sampler_linear, i.refl_dir, sb::Image::Layout::ShaderReadOnlyOptimal);
 			n.scheduling_set.last_diffuse.bind(m_fb_sampler_linear, i.diffuse, sb::Image::Layout::ShaderReadOnlyOptimal);
 			n.scheduling_set.last_diffuse_it.bind(m_fb_sampler_linear, i.diffuse_accum, sb::Image::Layout::ShaderReadOnlyOptimal);
 

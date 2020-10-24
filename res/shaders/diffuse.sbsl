@@ -64,7 +64,7 @@ fragment {
 	out vec4 albedo;
 	out vec3 emissive;
 	out vec3 normal;
-	out float refl;
+	out vec2 refl;
 
 	void main(void)
 	{
@@ -77,6 +77,6 @@ fragment {
 		(out)albedo = albedo;
 		(out)emissive = vec3(0.0);
 		(out)normal = normalize((in)normal);
-		(out)refl = (in)pos_world.y < 2.1 ? 1.0 : 0.0;
+		(out)refl = vec2((in)pos_world.y < 2.1 ? 1.0 : 0.0, 0.1);
 	}
 }

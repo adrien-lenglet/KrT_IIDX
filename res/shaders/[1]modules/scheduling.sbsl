@@ -5,6 +5,9 @@
 	out vec3 primary;
 	out vec3 bounce0;
 	out vec3 bounce1;
+	out vec4 refl_albedo;
+	out vec2 refl_pos;
+	out vec3 refl_dir;
 	out vec3 diffuse;
 	out float diffuse_it;
 
@@ -43,11 +46,20 @@
 
 			const float repr_dist_tres = 0.5;
 			bool repr_success = (last_view_pos.x >= 0 && last_view_pos.y >= 0 && last_view_pos.x <= (size.x - 1) && last_view_pos.y <= (size.y - 1) && (repr_dist < repr_dist_tres))
-			&& texture(rt_fb.depth_buffer, gl_FragCoord.xy).x < 0.9999999;
+			&& texture(rt_fb.depth_buffer, gl_FragCoord.xy).x < 0.9999999 && texture(fb.last_refl, last_view_pos).x == 0.0;
 			if (repr_success)
 				return last_view_pos;
 		}
 		return vec2(base_repr);
+	}
+
+	vec3 rnd_diffuse_around(vec3 normal, uint rand)
+	{
+		vec3 nx = vec3(-normal.z, normal.y, normal.x);
+		vec3 ny = vec3(normal.y, -normal.z, normal.x);
+		vec3 nz = normal;
+		vec3 rvec = fb.random_diffuse[rand];
+		return nx * rvec.x + ny * rvec.y + nz * rvec.z;
 	}
 
 	void scheduling_main(void)
@@ -62,7 +74,7 @@
 
 		const float repr_dist_tres = 0.5;
 		bool repr_success = (last_view_pos.x >= 0 && last_view_pos.y >= 0 && last_view_pos.x <= (size.x - 1) && last_view_pos.y <= (size.y - 1) && (repr_dist < repr_dist_tres))
-		&& texture(rt_fb.depth_buffer, gl_FragCoord.xy).x < 0.9999999;
+		&& texture(rt_fb.depth_buffer, gl_FragCoord.xy).x < 0.9999999 && texture(fb.last_refl, last_view_pos).x == 0.0;
 
 		vec2 valid_repr = last_view_pos;
 		if (!repr_success)
@@ -74,6 +86,7 @@
 		if (repr_success)
 			path = (uint(last_diffuse_it) + 1) % 3;*/
 		float refl = texture(fb.refl, gl_FragCoord.xy).x;
+		float roughness = texture(fb.refl, gl_FragCoord.xy).y;
 		bool is_refl = refl > 0.0;
 
 		vec3 rt_orig;
@@ -84,9 +97,15 @@
 		vec3 normal = normalize(texture(fb.normal, gl_FragCoord.xy).xyz);
 		uint rand = (hash(uint(gl_FragCoord.x)) + hash(uint(gl_FragCoord.y))) % 256;
 		if (is_refl) {
-			rt_orig = (fb.cur_cam_to_last * vec4(view, 1.0)).xyz;
-			rt_dir = (fb.cur_cam_to_last_normal * vec4(reflect(view_norm, normal), 1.0)).xyz;
-			rt_ndx = 1;
+			if (!repr_success || texture(fb.last_refl_albedo, last_view_pos).w == 0.0) {
+				rt_orig = (fb.cur_cam_to_last * vec4(view, 1.0)).xyz;
+				rt_dir = (fb.cur_cam_to_last_normal * vec4(normalize(mix(reflect(view_norm, normal), rnd_diffuse_around(normal, rand), roughness)), 1.0)).xyz;
+				rt_ndx = 1;
+			} else {
+				rt_orig = last_pos_view(texture(fb.last_refl_pos, last_view_pos).xy, size);
+				rt_dir = texture(fb.last_refl_dir, last_view_pos).xyz;
+				rt_ndx = 1;
+			}
 		} else {
 			if (path == 0) {
 				rt_orig = view;
@@ -94,11 +113,7 @@
 			} else {
 				rt_orig = (fb.cur_cam_to_last * vec4(view, 1.0)).xyz;
 
-				vec3 nx = vec3(-normal.z, normal.y, normal.x);
-				vec3 ny = vec3(normal.y, -normal.z, normal.x);
-				vec3 nz = normal;
-				vec3 rvec = fb.random_diffuse[rand];
-				rt_dir = (fb.cur_cam_to_last_normal * vec4(nx * rvec.x + ny * rvec.y + nz * rvec.z, 1.0)).xyz;
+				rt_dir = (fb.cur_cam_to_last_normal * vec4(rnd_diffuse_around(normal, rand), 1.0)).xyz;
 
 				rt_ndx = 1;
 				max_it_fac = 2;
@@ -114,9 +129,37 @@
 			(out)primary = vec3(0.0);
 			(out)bounce0 = vec3(0.0);
 			(out)bounce1 = vec3(0.0);
-			(out)diffuse = rt_success ? texture(fb.last_diffuse, rt_trace_pos).xyz : env_sample((fb.last_cam_inv_normal * vec4(rt_dir, 1.0)).xyz);
-			(out)diffuse *= texture(fb.albedo, gl_FragCoord.xy).xyz;
 			(out)diffuse_it = 1.0;
+
+			bool hit_refl = rt_success ? texture(fb.last_refl, rt_trace_pos).x > 0.0 : false;
+			vec3 hit = rt_success ?
+					(hit_refl ? texture(fb.last_albedo, rt_trace_pos).xyz :
+						texture(fb.last_diffuse, rt_trace_pos).xyz) :
+				env_sample((fb.last_cam_inv_normal * vec4(rt_dir, 1.0)).xyz);
+
+			// first local it
+			if (!repr_success || texture(fb.last_refl_albedo, last_view_pos).w == 0.0) {
+				(out)refl_albedo = vec4(texture(fb.albedo, gl_FragCoord.xy).xyz * hit, 1.0);
+			} else {
+				(out)refl_albedo = vec4(texture(fb.last_refl_albedo, last_view_pos).xyz * hit, 1.0);
+			}
+			(out)refl_pos = rt_project_point((fb.last_cam_to_cur * vec4(last_pos_view(rt_trace_pos, size), 1.0)).xyz).xy;
+			vec3 normal = texture(fb.last_normal, rt_trace_pos).xyz;
+			(out)refl_dir = (fb.last_cam_to_cur_normal * vec4(normalize(mix(reflect(rt_dir, normal), rnd_diffuse_around(normal, rand), roughness)), 1.0)).xyz;
+			(out)diffuse = texture(fb.last_diffuse, valid_repr).xyz;
+			if (!repr_success)
+				(out)diffuse_it = 0.0;
+			else
+				(out)diffuse_it = texture(fb.last_diffuse_it, last_view_pos).x;
+			if (!hit_refl) {
+				vec3 last = texture(fb.last_diffuse, last_view_pos).xyz;
+				vec3 cur = (out)refl_albedo.xyz;
+				float last_it = texture(fb.last_diffuse_it, last_view_pos).x;
+				(out)diffuse_it = last_it + 1.0;
+				(out)diffuse = (last_it * last + cur) / (out)diffuse_it;
+				(out)refl_albedo.w = 0.0;
+			}
+
 		} else {
 			if (path == 0) {
 				float ill = max(dot(normal, rt_dir), 0.0) * (rt_success ? 0.0 : 1.0);
