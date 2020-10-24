@@ -17,20 +17,12 @@ Race::Race(Instance &instance) :
 	m_opaque_pass(instance.device.load(res.shaders().render_passes().opaque())),
 	m_depth_max_pass(instance.device.load(res.shaders().render_passes().depth_max())),
 	m_depth_max_shader(instance.device.load(res.shaders().depth_max())),
-	m_depth_inter_front_shader(instance.device.load(res.shaders().stereo().depth_inter_front())),
-	m_depth_inter_back_shader(instance.device.load(res.shaders().stereo().depth_inter_back())),
-	m_depth_range_pass(instance.device.load(res.shaders().stereo().render_passes().depth_range())),
-	m_first_depth_range(instance.device.load(res.shaders().stereo().first_depth_range())),
-	m_compute_depth_range(instance.device.load(res.shaders().stereo().compute_depth_range())),
-	m_depth_to_fl_pass(instance.device.load(res.shaders().stereo().render_passes().depth_to_fl())),
-	m_depth_to_fl_shader(instance.device.load(res.shaders().stereo().depth_to_fl())),
 	m_buffer_to_wsi_screen(instance.device.load(res.shaders().render_passes().buffer_to_wsi_screen())),
 	m_diffuse_to_wsi_screen(instance.device.load(res.shaders().diffuse_to_wsi_screen())),
 	m_env_shader(instance.device.load(res.shaders().modules().env())),
 	m_rt_shader(instance.device.load(res.shaders().modules().rt())),
 	m_scheduling_pass(instance.device.load(res.shaders().render_passes().scheduling())),
 	m_scheduling_fb_shader(instance.device.load(res.shaders().modules().scheduling_fb())),
-	m_scheduling_shader(instance.device.load(res.shaders().stereo().scheduling())),
 	m_cube_depth_pass(instance.device.load(res.shaders().render_passes().cube_depth())),
 	m_cube_depth_shader(instance.device.load(res.shaders().cube_depth())),
 	m_cmd_pool(instance.graphics.pool<true>()),
@@ -91,7 +83,7 @@ void Race::run(void)
 			last_frame = nullptr;
 		}
 		f6.update();
-		if (f6.released() && m_rt_quality < images.at(0).fb_depth_buffer_fl_mips.size()) {
+		if (f6.released() && m_rt_quality < images.at(0).depth_buffer_fl.mipLevels()) {
 			instance.graphics.waitIdle();
 			m_rt_quality++;
 			std::cout << "RT_QUALITY: " << m_rt_quality << std::endl;
@@ -294,7 +286,7 @@ void Race::run(void)
 			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput | sb::PipelineStage::LateFragmentTests, sb::PipelineStage::FragmentShader, {},
 				sb::Access::ColorAttachmentWrite | sb::Access::DepthStencilAttachmentWrite, sb::Access::ShaderRead);
 
-			cmd.render(img.depth_inter_front_fb, {{0, 0}, instance.swapchain->extent()},
+			/*cmd.render(img.depth_inter_front_fb, {{0, 0}, instance.swapchain->extent()},
 				1.0f,
 
 				[&](auto &cmd){
@@ -330,9 +322,10 @@ void Race::run(void)
 					cmd.bind(m_depth_to_fl_shader, img.depth_to_fl_set, 0);
 					cmd.draw(instance.screen_quad);
 				}
-			);
+			);*/
 
-			cmd.imageMemoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::Transfer, {},
+			// SAVABLE
+			/*cmd.imageMemoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::Transfer, {},
 				sb::Access::ColorAttachmentWrite, sb::Access::TransferRead,
 				sb::Image::Layout::ShaderReadOnlyOptimal, sb::Image::Layout::TransferSrcOptimal, img.fb_depth_buffer_raw_fl_mips.at(0));
 
@@ -359,9 +352,9 @@ void Race::run(void)
 
 			cmd.imageMemoryBarrier(sb::PipelineStage::Transfer, sb::PipelineStage::FragmentShader, {},
 				sb::Access::TransferWrite, sb::Access::ShaderRead,
-				sb::Image::Layout::TransferSrcOptimal, sb::Image::Layout::ShaderReadOnlyOptimal, *img.fb_depth_buffer_raw_fl_mips.rbegin());
+				sb::Image::Layout::TransferSrcOptimal, sb::Image::Layout::ShaderReadOnlyOptimal, *img.fb_depth_buffer_raw_fl_mips.rbegin());*/
 
-			{
+			/*{
 				size_t ndx = 0;
 				for (auto &mip : img.fb_depth_buffer_fl_mips) {
 					auto ex = mip.img.extent();
@@ -386,7 +379,7 @@ void Race::run(void)
 
 					ndx++;
 				}
-			}
+			}*/
 
 			/*{
 				auto ex = img.cube_depth.extent();
@@ -413,7 +406,7 @@ void Race::run(void)
 			for (auto &d : img.scheduling_set.random_diffuse)
 				d = sb::genDiffuseVector(*m_track, glm::vec3(0.0f, 0.0f, 1.0f), 1.0);
 
-			cmd.render(img.scheduling_fb, {{0, 0}, instance.swapchain->extent()},
+			/*cmd.render(img.scheduling_fb, {{0, 0}, instance.swapchain->extent()},
 				[&](auto &cmd){
 					cmd.bind(m_scheduling_shader);
 					cmd.bind(m_scheduling_shader, img.rt_set, 0);
@@ -421,7 +414,7 @@ void Race::run(void)
 					cmd.bind(m_scheduling_shader, img.scheduling_set, 2);
 					cmd.draw(instance.screen_quad);
 				}
-			);
+			);*/
 
 			cmd.memoryBarrier(sb::PipelineStage::ColorAttachmentOutput, sb::PipelineStage::FragmentShader, {},
 				sb::Access::ColorAttachmentWrite, sb::Access::ShaderRead);
