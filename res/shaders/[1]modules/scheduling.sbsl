@@ -6,7 +6,7 @@
 	out vec3 bounce0;
 	out vec3 bounce1;
 	out vec4 refl_albedo;
-	out vec2 refl_pos;
+	out vec4 refl_pos;
 	out vec3 refl_dir;
 	out vec3 diffuse;
 	out float diffuse_it;
@@ -106,7 +106,7 @@
 		vec3 normal = normalize(texture(fb.normal, gl_FragCoord.xy).xyz);
 		uint rand = (hash(uint(gl_FragCoord.x)) + hash(uint(gl_FragCoord.y))) % 256;
 		if (is_refl) {
-			if (!repr_refl_success || texture(fb.last_refl_albedo, last_view_pos).w == 0.0) {
+			if (!repr_refl_success || texture(fb.last_refl_pos, last_view_pos).w == 0.0) {
 				rt_orig = (fb.cur_cam_to_last * vec4(view, 1.0)).xyz;
 				vec3 view_w = (fb.cur_cam_inv_normal * vec4(view_norm, 1.0)).xyz;
 				vec3 normal_w = (fb.cur_cam_inv_normal * vec4(normal, 1.0)).xyz;
@@ -149,16 +149,16 @@
 				env_sample_refl((fb.last_cam_inv_normal * vec4(rt_dir, 1.0)).xyz);
 
 			// first local it
-			if (!repr_refl_success || texture(fb.last_refl_albedo, last_view_pos).w == 0.0) {
+			if (!repr_refl_success || texture(fb.last_refl_pos, last_view_pos).w == 0.0) {
 				(out)refl_albedo = vec4(texture(fb.albedo, gl_FragCoord.xy).xyz * hit, 1.0);
 			} else {
 				(out)refl_albedo = vec4(texture(fb.last_refl_albedo, last_view_pos).xyz * hit, 1.0);
 			}
-			(out)refl_pos = rt_project_point((fb.last_cam_to_cur * vec4(last_pos_view(rt_trace_pos, size), 1.0)).xyz).xy;
+			(out)refl_pos.xy = rt_project_point((fb.last_cam_to_cur * vec4(last_pos_view(rt_trace_pos, size), 1.0)).xyz).xy;
 			vec3 normal = texture(fb.last_normal, rt_trace_pos).xyz;
 			vec3 rt_dir_w = (fb.last_cam_inv_normal * vec4(rt_dir, 1.0)).xyz;
 			vec3 normal_w = (fb.last_cam_inv_normal * vec4(normal, 1.0)).xyz;
-			(out)refl_dir = (fb.cur_cam_normal * vec4(rnd_diffuse_around_rough(rt_dir_w, normal_w, rand, roughness), 1.0)).xyz;
+			(out)refl_dir.xyz = (fb.cur_cam_normal * vec4(rnd_diffuse_around_rough(rt_dir_w, normal_w, rand, roughness), 1.0)).xyz;
 			(out)diffuse = texture(fb.last_diffuse, valid_repr).xyz * (texture(fb.last_refl, valid_repr).x == 0.0 ? 0.0 : 1.0);
 			if (!repr_refl_success)
 				(out)diffuse_it = 0.0;
@@ -170,12 +170,12 @@
 				float last_it = (out)diffuse_it;
 				(out)diffuse_it = last_it + 1.0;
 				(out)diffuse = (last_it * last + cur) / (out)diffuse_it;
-				(out)refl_albedo.w = 0.0;
+				(out)refl_pos.w = 0.0;
 			}
 
 		} else {
 			(out)refl_albedo = vec4(0.0);
-			(out)refl_pos = vec2(0.0);
+			(out)refl_pos = vec4(0.0);
 			(out)refl_dir = vec3(0.0);
 
 			if (path == 0) {
