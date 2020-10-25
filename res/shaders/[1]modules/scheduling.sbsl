@@ -164,6 +164,10 @@
 			}
 
 		} else {
+			(out)refl_albedo = vec4(0.0);
+			(out)refl_pos = vec2(0.0);
+			(out)refl_dir = vec3(0.0);
+
 			if (path == 0) {
 				float ill = max(dot(normal, rt_dir), 0.0) * (rt_success ? 0.0 : 1.0);
 				vec3 emissive = texture(fb.emissive, gl_FragCoord.xy).xyz;
