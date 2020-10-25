@@ -15,6 +15,9 @@ fragment {
 		sampler2D albedo;
 		sampler2D emissive;
 		sampler2DArray cube_depth;
+		sampler2D refl_albedo;
+		sampler2D refl_pos;
+		sampler2D refl_dir;
 		float cam_a, cam_b;
 	};
 
@@ -36,6 +39,8 @@ fragment {
 		} else
 			(out)wsi_screen = texture(light.diffuse, gl_FragCoord.xy).xyz * 0.8;*/
 		(out)wsi_screen = texture(light.diffuse, gl_FragCoord.xy).xyz * 1.4;
+		//(out)wsi_screen = vec3(texture(light.refl_pos, gl_FragCoord.xy).z) * 0.1;
+		//(out)wsi_screen = vec3(texture(light.refl_albedo, gl_FragCoord.xy).xyz);
 
 		/*vec3 diffuse = texture(light.diffuse, gl_FragCoord.xy).xyz;
 		vec3 albedo = texture(light.albedo, gl_FragCoord.xy).xyz;

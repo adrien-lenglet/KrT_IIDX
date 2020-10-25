@@ -32,6 +32,16 @@ vec2 rt_ndc_to_ss(vec2 p)
 	return ((p / 2.0) + 0.5) * size;
 }
 
+vec3 rt_pos_z_view(vec2 pos, float z)
+{
+	vec2 size = vec2(1.0) / textureSize(rt_fb.depth_buffer, 0);
+	vec2 uv = pos * size;
+	vec2 ndc2 = (uv - 0.5) * 2.0;
+	ndc2 *= rt_fb.cur_cam_ratio;
+	ndc2 *= z;
+	return vec3(ndc2, z);
+}
+
 vec3 rt_pos_view(vec2 pos)
 {
 	vec2 size = vec2(1.0) / textureSize(rt_fb.depth_buffer, 0);
