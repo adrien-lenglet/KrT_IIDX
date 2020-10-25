@@ -150,27 +150,34 @@
 
 			// first local it
 			if (!repr_refl_success || texture(fb.last_refl_pos, last_view_pos).w == 0.0) {
-				(out)refl_albedo = vec4(texture(fb.albedo, gl_FragCoord.xy).xyz * hit, 1.0);
+				(out)refl_albedo.xyz = texture(fb.albedo, gl_FragCoord.xy).xyz * hit;	// first local albedo
+				(out)refl_albedo.w = length(rt_orig);	// first local length
 			} else {
-				(out)refl_albedo = vec4(texture(fb.last_refl_albedo, last_view_pos).xyz * hit, 1.0);
+				(out)refl_albedo.xyz = texture(fb.last_refl_albedo, last_view_pos).xyz * hit;	// acc local albedo
 			}
-			(out)refl_pos.xy = rt_project_point((fb.last_cam_to_cur * vec4(last_pos_view(rt_trace_pos, size), 1.0)).xyz).xy;
+			(out)refl_albedo.w += rt_success ? length(rt_orig - last_pos_view(rt_trace_pos, size)) : rt_inf;	// acc local length
+			(out)refl_pos.xy = rt_project_point((fb.last_cam_to_cur * vec4(last_pos_view(rt_trace_pos, size), 1.0)).xyz).xy;	// next pos
+
+			if (!repr_refl_success) {
+				(out)diffuse_it = 0.0;
+				(out)refl_pos.w = rt_inf;	// reset length
+			} else
+				(out)diffuse_it = min(texture(fb.last_diffuse_it, valid_repr).x * (texture(fb.last_refl, valid_repr).x == 0.0 ? 0.0 : 1.0), roughness * 512.0);
+
 			vec3 normal = texture(fb.last_normal, rt_trace_pos).xyz;
 			vec3 rt_dir_w = (fb.last_cam_inv_normal * vec4(rt_dir, 1.0)).xyz;
 			vec3 normal_w = (fb.last_cam_inv_normal * vec4(normal, 1.0)).xyz;
 			(out)refl_dir.xyz = (fb.cur_cam_normal * vec4(rnd_diffuse_around_rough(rt_dir_w, normal_w, rand, roughness), 1.0)).xyz;
 			(out)diffuse = texture(fb.last_diffuse, valid_repr).xyz * (texture(fb.last_refl, valid_repr).x == 0.0 ? 0.0 : 1.0);
-			if (!repr_refl_success)
-				(out)diffuse_it = 0.0;
-			else
-				(out)diffuse_it = min(texture(fb.last_diffuse_it, valid_repr).x * (texture(fb.last_refl, valid_repr).x == 0.0 ? 0.0 : 1.0), roughness * 512.0);
 			if (!hit_refl) {
 				vec3 last = (out)diffuse;
 				vec3 cur = (out)refl_albedo.xyz;
 				float last_it = (out)diffuse_it;
 				(out)diffuse_it = last_it + 1.0;
 				(out)diffuse = (last_it * last + cur) / (out)diffuse_it;
-				(out)refl_pos.w = 0.0;
+				(out)refl_pos.z = (last_it * (out)refl_pos.z + (out)refl_albedo.w) / (out)diffuse_it;
+				(out)refl_pos.w = 0.0;		// reset flag
+				(out)refl_albedo.w = 0.0;	// reset local trace pos
 			}
 
 		} else {
