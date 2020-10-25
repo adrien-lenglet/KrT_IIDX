@@ -27,8 +27,12 @@
 		mat4 view_normal;
 		mat4 cur_cam_to_last;
 		mat4 cur_cam_to_last_normal;
+		mat4 cur_cam;
+		mat4 cur_cam_normal;
 		mat4 cur_cam_inv;
 		mat4 cur_cam_inv_normal;
+		mat4 last_cam;
+		mat4 last_cam_normal;
 		mat4 last_cam_inv;
 		mat4 last_cam_inv_normal;
 		mat4 last_cam_to_cur;

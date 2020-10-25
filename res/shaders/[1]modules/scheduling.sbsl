@@ -62,6 +62,12 @@
 		return nx * rvec.x + ny * rvec.y + nz * rvec.z;
 	}
 
+	// the w space indicator is just a friendly hint that you should use world space vectors to avoid visible actifacts
+	vec3 rnd_diffuse_around_rough(vec3 w_i, vec3 w_normal, uint rand, float roughness)
+	{
+		return normalize(mix(reflect(w_i, w_normal), rnd_diffuse_around(w_normal, rand), roughness));
+	}
+
 	void scheduling_main(void)
 	{
 		vec2 size = vec2(textureSize(rt_fb.depth_buffer, 0));
@@ -102,7 +108,9 @@
 		if (is_refl) {
 			if (!repr_refl_success || texture(fb.last_refl_albedo, last_view_pos).w == 0.0) {
 				rt_orig = (fb.cur_cam_to_last * vec4(view, 1.0)).xyz;
-				rt_dir = (fb.cur_cam_to_last_normal * vec4(normalize(mix(reflect(view_norm, normal), rnd_diffuse_around(normal, rand), roughness)), 1.0)).xyz;
+				vec3 view_w = (fb.cur_cam_inv_normal * vec4(view_norm, 1.0)).xyz;
+				vec3 normal_w = (fb.cur_cam_inv_normal * vec4(normal, 1.0)).xyz;
+				rt_dir = (fb.last_cam_normal * vec4(rnd_diffuse_around_rough(view_w + normal * 0.1, normal_w, rand, roughness), 1.0)).xyz;
 				rt_ndx = 1;
 			} else {
 				rt_orig = last_pos_view(texture(fb.last_refl_pos, last_view_pos).xy, size);
@@ -138,7 +146,7 @@
 			vec3 hit = rt_success ?
 					(hit_refl ? texture(fb.last_albedo, rt_trace_pos).xyz :
 						texture(fb.last_diffuse, rt_trace_pos).xyz) :
-				env_sample((fb.last_cam_inv_normal * vec4(rt_dir, 1.0)).xyz);
+				env_sample_refl((fb.last_cam_inv_normal * vec4(rt_dir, 1.0)).xyz);
 
 			// first local it
 			if (!repr_refl_success || texture(fb.last_refl_albedo, last_view_pos).w == 0.0) {
@@ -148,7 +156,9 @@
 			}
 			(out)refl_pos = rt_project_point((fb.last_cam_to_cur * vec4(last_pos_view(rt_trace_pos, size), 1.0)).xyz).xy;
 			vec3 normal = texture(fb.last_normal, rt_trace_pos).xyz;
-			(out)refl_dir = (fb.last_cam_to_cur_normal * vec4(normalize(mix(reflect(rt_dir, normal), rnd_diffuse_around(normal, rand), roughness)), 1.0)).xyz;
+			vec3 rt_dir_w = (fb.last_cam_inv_normal * vec4(rt_dir, 1.0)).xyz;
+			vec3 normal_w = (fb.last_cam_inv_normal * vec4(normal, 1.0)).xyz;
+			(out)refl_dir = (fb.cur_cam_normal * vec4(rnd_diffuse_around_rough(rt_dir_w, normal_w, rand, roughness), 1.0)).xyz;
 			(out)diffuse = texture(fb.last_diffuse, valid_repr).xyz * (texture(fb.last_refl, valid_repr).x == 0.0 ? 0.0 : 1.0);
 			if (!repr_refl_success)
 				(out)diffuse_it = 0.0;
