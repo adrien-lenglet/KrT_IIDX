@@ -1,7 +1,7 @@
 # KrT_IIDX
 DRIIIIIFT
 
-## Added context by Adrien LENGLET on the 31th of August, 2023
+## Added context by Adrien LENGLET on the 31st of August, 2023
 
 This repository is basically the "gone horribly wrong" game engine in mentionned as a plot in https://adrien-lenglet.fr/project/rosee  
 By the way, I just made the successor "Rosee" renderer public: https://github.com/FMC64/Rosee  
